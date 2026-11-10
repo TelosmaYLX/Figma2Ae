@@ -82,16 +82,34 @@ function buildImportMaps(root) {
 // text stays on its own editable channel. This preserves the exact Figma pixels for the
 // complex background while keeping text live.
 function _subtreeFlags(n, hiddenAncestor) {
-  var flags = { mask: false, text: false };
+  var flags = { mask: false, text: false, complex: false };
   if (!n) return flags;
   if (_ignoreHidden && _isHidden(n)) return flags;
   if (n.type === 'TEXT') flags.text = true;
-  try { if (n.isMask === true) flags.mask = true; } catch (e) {}
+  try { if (n.isMask === true) { flags.mask = true; flags.complex = true; } } catch (e) {}
+  try {
+    if (n.blendMode && n.blendMode !== 'PASS_THROUGH' && n.blendMode !== 'NORMAL') flags.complex = true;
+  } catch (eb) {}
+  try {
+    var filters = n.effects || [];
+    for (var ei = 0; ei < filters.length; ei++) {
+      if (filters[ei].visible === false) continue;
+      flags.complex = true;
+      break;
+    }
+  } catch (ee) {}
+  try {
+    var paints = n.fills || [];
+    for (var pi = 0; pi < paints.length; pi++) {
+      if (paints[pi].visible !== false && paints[pi].type === 'IMAGE') { flags.complex = true; break; }
+    }
+  } catch (ep) {}
   if (n.type !== 'BOOLEAN_OPERATION' && n.children) {
     for (var i = 0; i < n.children.length; i++) {
       var f = _subtreeFlags(n.children[i], hiddenAncestor);
       flags.mask = flags.mask || f.mask;
       flags.text = flags.text || f.text;
+      flags.complex = flags.complex || f.complex;
     }
   }
   return flags;
@@ -108,14 +126,21 @@ function _collectRasterCandidates(root) {
   function scan(n) {
     if (_ignoreHidden && _isHidden(n)) return;
     var f = _subtreeFlags(n, false);
-    if (!f.mask) return;
+    if (!f.complex) return;
     if (_isContainer(n) && !f.text) {
       out.push(n);
       _markRaster(n);
       return;
     }
+    var before = out.length;
     if (n.type !== 'BOOLEAN_OPERATION' && n.children)
       for (var i = 0; i < n.children.length; i++) scan(n.children[i]);
+    // A mask + text container may have no separable background. Rasterising it (including its
+    // text) is the only faithful option; otherwise the text would escape the Figma mask.
+    if (_isContainer(n) && f.text && f.mask && out.length === before) {
+      out.push(n);
+      _markRaster(n);
+    }
   }
   if (root.children) for (var i = 0; i < root.children.length; i++) scan(root.children[i]);
   return out;
