@@ -326,7 +326,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     name = node.name;
   } else {
     tempGroup = figma.group(sel, figma.currentPage);
-    tempGroup.name = 'SaaS Kit Export';
+    tempGroup.name = 'f2a Export';
     node = tempGroup;
     name = 'Selection (' + sel.length + ')';
   }

@@ -1,5 +1,5 @@
 // ============================================================
-//  SaaS Kit — Animation Panel (SELF-CONTAINED, all-in-one)
+//  f2a — Animation Panel (SELF-CONTAINED, all-in-one)
 //  Typewriter 1..4, Carousel, Cursor 1/2/3, Glass, Depth Reveal.
 // ============================================================
 /* CEP host: globals exposed (ScriptUI wrapper removed) */
@@ -62,7 +62,7 @@
         if(skHostMajor()>=SK_MIN_AE) return true;
         if(!SK_WARNED){
             SK_WARNED=true;
-            alert("SaaS Kit 需要 After Effects 2022 或更高版本。\n\n"
+            alert("f2a 需要 After Effects 2022 或更高版本。\n\n"
                 + "内置预设和绑定文件由较高版本的 After Effects 创建，\n"
                 + "当前版本无法正确读取，继续使用会产生错误效果。\n\n"
                 + "检测到：After Effects " + app.version);
@@ -427,7 +427,7 @@
         try{ cmp.duration = cmp.duration - fd; }catch(e){}
     }
     function cursorAsset(cfg){
-        var dir=new Folder(Folder.userData.fsName+"/SaaSKit/assets"); if(!dir.exists) dir.create();
+        var dir=new Folder(Folder.userData.fsName+"/f2a/assets"); if(!dir.exists) dir.create();
         var f=new File(dir.fsName+"/"+cfg.pngName); writeBin(f,cfg.png); return f;
     }
     function relinkCursor(cfg,pngFile){
@@ -543,7 +543,7 @@
         } finally{ app.endUndoGroup(); }
     }
 
-    function root(){ return new Folder(Folder.userData.fsName+"/SaaSKit/depth"); }
+    function root(){ return new Folder(Folder.userData.fsName+"/f2a/depth"); }
     function pyFolder(){ return new Folder(root().fsName+"/python"); }
     function pyExe(){ return new File(root().fsName+(($.os.indexOf("Windows")!=-1)?"/python/python.exe":"/python/bin/python3")); }
     function runnerFile(){ return new File(root().fsName+"/depth_runner.py"); }
@@ -620,7 +620,7 @@
                     'if [ ! -f "$M" ]; then curl -L "'+ONNX_URL+'" -o "$M.tmp" && mv -f "$M.tmp" "$M"; fi\n'+
                     'rm -f "$ROOT/depth_anything_v2_vitb.onnx"\n'+
                     'if [ -f "$PY" ] && [ -f "$M" ] && [ $(stat -f%z "$M" 2>/dev/null || echo 0) -ge 60000000 ]; then printf %s "'+ENGINE_VERSION+'" > "$ROOT/engine_version.txt"; fi\n'+
-                    'echo\necho "SaaS Kit 深度引擎：安装完成。你可以关闭此窗口，然后再次点击 After Effects 中的“深度显现”。"\n'+
+                    'echo\necho "f2a 深度引擎：安装完成。你可以关闭此窗口，然后再次点击 After Effects 中的“深度显现”。"\n'+
                     '} 2>&1 | tee "$ROOT/setup.log"\n');
                 // Visible install: open Terminal so the user sees progress instead of a frozen AE.
                 // setup.log still captures everything; on osascript failure fall back to the old
@@ -661,8 +661,8 @@
     }
     function depthOutRoot(){
         var base=null;
-        try{ if(app.project.file){ base=app.project.file.parent.fsName + "/SaaS Kit Depth"; } }catch(e){}
-        if(!base) base=Folder.userData.fsName + "/SaaSKit/depth_maps";
+        try{ if(app.project.file){ base=app.project.file.parent.fsName + "/f2a Depth"; } }catch(e){}
+        if(!base) base=Folder.userData.fsName + "/f2a/depth_maps";
         var f=new Folder(base); if(!f.exists) f.create(); return f;
     }
     function depthReveal(secondB64){ if(!skHostSupported()) return;
@@ -806,7 +806,7 @@
       return out.join("");
     }
     function bgAssetFile(){
-      var dir=new Folder(Folder.userData.fsName+"/SaaSKit/assets"); if(!dir.exists) dir.create();
+      var dir=new Folder(Folder.userData.fsName+"/f2a/assets"); if(!dir.exists) dir.create();
       return new File(dir.fsName+"/BG_Gradients.aep");
     }
     function bgFindComp(nm){ for(var i=1;i<=app.project.numItems;i++){ var it=app.project.item(i); if(it instanceof CompItem && it.name===nm) return it; } return null; }
@@ -1330,7 +1330,7 @@
     }
 
     function buildUI(thisObj){
-        var pal=(thisObj instanceof Panel)?thisObj:new Window("palette","SaaS Kit",undefined,{resizeable:true});
+        var pal=(thisObj instanceof Panel)?thisObj:new Window("palette","f2a",undefined,{resizeable:true});
         pal.orientation="column"; pal.alignChildren=["fill","fill"]; pal.spacing=6; pal.margins=8;
         var tp=pal.add("tabbedpanel"); tp.alignChildren=["fill","fill"]; tp.alignment=["fill","fill"];
         function mkTab(nm){ var t=tp.add("tab",undefined,nm); t.orientation="column"; t.alignChildren=["fill","top"]; t.spacing=4; t.margins=12; return t; }

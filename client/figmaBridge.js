@@ -1,4 +1,4 @@
-/* ===== SaaS Kit — SVG Import module (client side) =====
+/* ===== f2a — SVG Import module (client side) =====
  * Runs in the panel. Starts the localhost WebSocket bridge, loads the SVG->shapes
  * ExtendScript engine into the persistent AE engine, and forwards incoming SVG to
  * runSvgToShapes(). Exposes window.MKFigma for main.js buttons. Requires Node in-panel
@@ -52,7 +52,7 @@
       var dir = os.tmpdir(), now = Date.now(), cut = now - (maxAgeMs || 30 * 60 * 1000);
       var names = fs.readdirSync(dir), freed = 0, n = 0;
       for (var i = 0; i < names.length; i++) {
-        if (names[i].indexOf('saaskit_') !== 0) continue;
+        if (names[i].indexOf('f2a_') !== 0) continue;
         if (!/\.(ffx|json|svg)$/i.test(names[i])) continue;
         var fp = path.join(dir, names[i]);
         try {
@@ -69,7 +69,7 @@
   function saveTextsTemp(texts) { return saveJsonTemp(texts, "texts"); }
   function saveJsonTemp(obj, tag) {
     var fs = require('fs'), os = require('os'), path = require('path');
-    var p = path.join(os.tmpdir(), 'saaskit_' + (tag || 'data') + '_' + Date.now() + '.json');
+    var p = path.join(os.tmpdir(), 'f2a_' + (tag || 'data') + '_' + Date.now() + '.json');
     // ExtendScript has no JSON parser, so the host reads this with eval(). U+2028/U+2029 are
     // legal inside JSON strings but TERMINATE a JS string literal ("Unterminated string
     // constant" -> the whole text payload was lost). Escaping every non-ASCII char as \uXXXX
@@ -91,7 +91,7 @@
   var ext = extPath();
   var host = (ext + "/host/figma").replace(/\\/g, "/");
   var lastImageFolder = "";       // remembered across imports and panel restarts
-  try { lastImageFolder = localStorage.getItem("saaskit.imageFolder") || ""; } catch (eLs) {}
+  try { lastImageFolder = localStorage.getItem("f2a.imageFolder") || ""; } catch (eLs) {}
 
   // ---- gradient .ffx generation (Overlord-style: colours aren't scriptable, so we bake a preset) ----
   var SVGParserNode = null, ffxGen = null, GRAD_TEMPLATE = null, STROKE_TEMPLATE = null, OVERLAY_TEMPLATE = null;
@@ -122,7 +122,7 @@
         alphaStops.push({ loc: s.offset, a: (s.opacity == null ? 1 : s.opacity) });
       }
       var out = ffxGen.generate(tpl, { colorStops: colorStops, alphaStops: alphaStops });
-      var p = path.join(os.tmpdir(), 'saaskit_' + tag + '_' + i + '_' + Date.now() + '.ffx');
+      var p = path.join(os.tmpdir(), 'f2a_' + tag + '_' + i + '_' + Date.now() + '.ffx');
       fs.writeFileSync(p, out);
       genFfx.cache[cacheKey] = p.replace(/\\/g, '/');
       return genFfx.cache[cacheKey];
@@ -157,7 +157,7 @@
       if (entry) { map[i] = entry; count++; }
     }
     if (!count) return { jsonPath: "", count: 0 };
-    var jp = path.join(os.tmpdir(), 'saaskit_gradmap_' + Date.now() + '.json');
+    var jp = path.join(os.tmpdir(), 'f2a_gradmap_' + Date.now() + '.json');
     fs.writeFileSync(jp, JSON.stringify(map), 'utf8');
     return { jsonPath: jp.replace(/\\/g, '/'), count: count };
   }
@@ -179,7 +179,7 @@
         as.push({ loc: st.offset, a: (st.opacity == null ? 1 : st.opacity) });
       }
       var out = ffxGen.generate(tpl, { colorStops: cs, alphaStops: as });
-      var pth = path.join(os.tmpdir(), 'saaskit_' + tag + '_' + key + '_' + Date.now() + '.ffx');
+      var pth = path.join(os.tmpdir(), 'f2a_' + tag + '_' + key + '_' + Date.now() + '.ffx');
       fs.writeFileSync(pth, out);
       cache[cacheKey] = pth.replace(/\\/g, '/');
       return cache[cacheKey];
@@ -225,7 +225,7 @@
       if (entry) { map[i] = entry; count++; }
     }
     if (!count) return { jsonPath: "", count: 0 };
-    var jp = path.join(os.tmpdir(), 'saaskit_nodegrad_' + Date.now() + '.json');
+    var jp = path.join(os.tmpdir(), 'f2a_nodegrad_' + Date.now() + '.json');
     fs.writeFileSync(jp, JSON.stringify(map), 'utf8');
     return { jsonPath: jp.replace(/\\/g, '/'), count: count };
   }
@@ -314,7 +314,7 @@
                 as.push({ loc: st.offset, a: (st.opacity == null ? 1 : st.opacity) });
               }
               var ob = ffxGen.generate(GRAD_TEMPLATE, { colorStops: cs, alphaStops: as });
-              var op2 = pathx.join(osx.tmpdir(), 'saaskit_gradtext_' + ti + '_' + Date.now() + '.ffx');
+              var op2 = pathx.join(osx.tmpdir(), 'f2a_gradtext_' + ti + '_' + Date.now() + '.ffx');
               fsx.writeFileSync(op2, ob);
               meta.texts[ti].gradFfx = op2.replace(/\\/g, '/');
             }
@@ -373,7 +373,7 @@
             return;
           }
           lastImageFolder = folder.replace(/\\/g, '/');
-          try { localStorage.setItem("saaskit.imageFolder", lastImageFolder); } catch (eLs2) {}
+          try { localStorage.setItem("f2a.imageFolder", lastImageFolder); } catch (eLs2) {}
           try {
             var fs2 = require('fs'), path2 = require('path');
             var list = [], used = {};
@@ -426,7 +426,7 @@
                    });
           } catch (ei) {
             lastImageFolder = "";             // folder vanished/unwritable: ask again next time
-            try { localStorage.removeItem("saaskit.imageFolder"); } catch (eLs3) {}
+            try { localStorage.removeItem("f2a.imageFolder"); } catch (eLs3) {}
             var msg = (ei && ei.message ? ei.message : String(ei));
             if (/ENOSPC/i.test(msg)) msg = "磁盘空间已满。请释放空间后重新导入" +
                                            "（After Effects 的磁盘缓存通常是主要原因）";

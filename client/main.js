@@ -1,4 +1,4 @@
-/* ===== SaaS Kit — panel logic ===== */
+/* ===== f2a — panel logic ===== */
 (function () {
   "use strict";
 
@@ -13,8 +13,8 @@
     try{
       var path=require("path"), os=require("os");
       var dir = (process.platform==="win32")
-        ? path.join(process.env.APPDATA || os.homedir(), "SaaSKit")
-        : path.join(os.homedir(), "Library", "Application Support", "SaaSKit");
+        ? path.join(process.env.APPDATA || os.homedir(), "f2a")
+        : path.join(os.homedir(), "Library", "Application Support", "f2a");
       try{ require("fs").mkdirSync(dir,{recursive:true}); }catch(e){}
       return path.join(dir, "licence.json");
     }catch(e){ return null; }
@@ -58,7 +58,7 @@
   }
 
   function showActivation(){
-    popTitle.textContent="激活 SaaS Kit";
+    popTitle.textContent="激活 f2a";
     popBody.innerHTML=""; popBody.className="mk-popup-body one";
 
     popBody.appendChild(el("p","mk-fb-note",
@@ -88,7 +88,7 @@
                      email:(j.purchase && j.purchase.email) || "" });
           LICENSED=true;
           closePopup();
-          toast("激活成功。感谢购买 SaaS Kit。");
+          toast("激活成功。感谢购买 f2a。");
         } else {
           go.disabled=false; go.querySelector(".lbl").textContent="激活";
           msg.textContent = (j && j.error)
@@ -134,7 +134,7 @@
   function postFeedback(message, cb){
     var payload = JSON.stringify({
       message        : message,
-      _subject       : "SaaS Kit feedback (v"+KIT_VERSION+")",
+      _subject       : "f2a feedback (v"+KIT_VERSION+")",
       kit_version    : KIT_VERSION,
       after_effects  : AE_VERSION || "unknown",
       os             : OS_NAME
@@ -163,7 +163,7 @@
   }
 
   function diagBlock(){
-    return "\n\n---\nSaaS Kit " + KIT_VERSION
+    return "\n\n---\nf2a " + KIT_VERSION
          + "\nAfter Effects " + (AE_VERSION || "unknown")
          + "\n" + OS_NAME;
   }
@@ -371,7 +371,7 @@
     ta.placeholder="遇到了什么问题，或希望增加什么功能？";
     popBody.appendChild(ta);
 
-    var meta=el("p","mk-fb-meta","随附信息：SaaS Kit "+KIT_VERSION+" · AE "+(AE_VERSION||"未知版本"));
+    var meta=el("p","mk-fb-meta","随附信息：f2a "+KIT_VERSION+" · AE "+(AE_VERSION||"未知版本"));
     popBody.appendChild(meta);
 
     var send=el("button","mk-btn primary");

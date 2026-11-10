@@ -21,7 +21,7 @@
       <DispatchInfo>
         <Resources>
           <MainPath>./client/index.html</MainPath>
-          <ScriptPath>./host/SaaSKit.jsx</ScriptPath>
+          <ScriptPath>./host/f2a.jsx</ScriptPath>
           <CEFCommandLine>
             <Parameter>--allow-file-access-from-files</Parameter>
             <Parameter>--allow-file-access</Parameter>

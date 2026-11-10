@@ -98,7 +98,7 @@ function start(opts) {
       return;
     }
     res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
-    res.end('SaaS Kit bridge up on ' + port);
+    res.end('f2a bridge up on ' + port);
   });
 
   server.on('upgrade', function (req, socket) {
@@ -178,7 +178,7 @@ function start(opts) {
 function saveTemp(svg, name) {
   var fs = require('fs'), os = require('os'), path = require('path');
   var safe = (name || 'figma').replace(/[^A-Za-z0-9_-]+/g, '_');
-  var p = path.join(os.tmpdir(), 'saaskit_' + safe + '_' + Date.now() + '.svg');
+  var p = path.join(os.tmpdir(), 'f2a_' + safe + '_' + Date.now() + '.svg');
   fs.writeFileSync(p, svg, 'utf8');
   return p;
 }

@@ -1,5 +1,5 @@
 /*
- * figmaRunner.jsx — ExtendScript entry for the Figma module of SaaS Kit.
+ * figmaRunner.jsx — ExtendScript entry for the Figma module of f2a.
  * Loaded by the panel AFTER svgParser.js and aeShapeBuilder.jsx (which define the
  * SVGParser and AEShapeBuilder globals). No #include here — the panel evalFiles the
  * three files in order into the one persistent ExtendScript engine.
