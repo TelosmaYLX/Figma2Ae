@@ -90,7 +90,8 @@
 
   var ext = extPath();
   var host = (ext + "/host/figma").replace(/\\/g, "/");
-  var lastImageFolder = "";       // reuse for the whole panel session; reset when AE/panel reloads
+  var lastImageFolder = "";       // remembered across imports and panel restarts
+  try { lastImageFolder = localStorage.getItem("saaskit.imageFolder") || ""; } catch (eLs) {}
 
   // ---- gradient .ffx generation (Overlord-style: colours aren't scriptable, so we bake a preset) ----
   var SVGParserNode = null, ffxGen = null, GRAD_TEMPLATE = null, STROKE_TEMPLATE = null, OVERLAY_TEMPLATE = null;
@@ -334,7 +335,7 @@
         } catch (eg2) { if (window.console) console.log(eg2); }
         flash("正在构建…（" + gc + " 个渐变 .ffx）");
         // one entry point handles shapes + text + gradient presets + effects
-        var np = (meta.nodes && meta.nodes.length) ? saveJsonTemp(meta.nodes, 'nodes').replace(/\\/g, '/') : "";
+        var np = (meta.nodes ? saveJsonTemp(meta.nodes, 'nodes').replace(/\\/g, '/') : "");
         if (np) flash("可编辑模式：从 Figma 图层树导入 " + meta.nodes.length + " 个图层");
         var shx = (meta.shift && meta.shift.x) ? meta.shift.x : 0;
         var shy = (meta.shift && meta.shift.y) ? meta.shift.y : 0;
@@ -372,6 +373,7 @@
             return;
           }
           lastImageFolder = folder.replace(/\\/g, '/');
+          try { localStorage.setItem("saaskit.imageFolder", lastImageFolder); } catch (eLs2) {}
           try {
             var fs2 = require('fs'), path2 = require('path');
             var list = [], used = {};
@@ -424,6 +426,7 @@
                    });
           } catch (ei) {
             lastImageFolder = "";             // folder vanished/unwritable: ask again next time
+            try { localStorage.removeItem("saaskit.imageFolder"); } catch (eLs3) {}
             var msg = (ei && ei.message ? ei.message : String(ei));
             if (/ENOSPC/i.test(msg)) msg = "磁盘空间已满。请释放空间后重新导入" +
                                            "（After Effects 的磁盘缓存通常是主要原因）";

@@ -112,8 +112,10 @@ function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY,
   var status;
   var nodes = null;
   try { nodes = _mkReadJson(nodesPath); } catch (en) {}
-  if (nodes && nodes.length) {
+  if (nodes) {
     // NODE MODE: geometry comes from the Figma tree, so one Figma layer is one AE layer.
+    // An EMPTY array still means node mode: complex groups may have been routed to Figma PNGs,
+    // so falling back to the SVG here would import their shapes a second time.
     try {
       var compN = app.project ? app.project.activeItem : null;
       if (!compN || !(compN instanceof CompItem)) status = "ERROR: open a composition first.";
