@@ -27,7 +27,10 @@
   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="ignorehidden" checked> 忽略隐藏图层（默认）
   </label>
-  <div class="hint">组将转换为嵌套预合成，蒙版将转换为轨道遮罩。取消“预合成”可导入平面结构；仅在旧版 SVG 导入时取消“可编辑图层”。</div>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
+    <input type="checkbox" id="convertmask"> 转换 Figma 蒙版为 AE 轨道遮罩（实验）
+  </label>
+  <div class="hint">默认按原版方式导入蒙版图层。只有需要把 isMask 转换成 AE 轨道遮罩时才勾选实验选项。组将转换为嵌套预合成；取消“预合成”可导入平面结构。</div>
 </div>
 <script>
   var PORT = 7867;
@@ -76,7 +79,7 @@
     organize = $('organize').checked;
     var useNodes = $('nodemode').checked || organize;
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, ignoreHidden: $('ignorehidden').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked } }, '*');
   };
 
   // messages from code.js (main thread)

@@ -6,7 +6,7 @@
  * Main thread can't open sockets, so: export here -> postMessage -> ui.html ships it.
  */
 
-figma.showUI(__html__, { width: 320, height: 330, themeColors: true });
+figma.showUI(__html__, { width: 320, height: 360, themeColors: true });
 
 // ===== ORGANIZE MODE =====
 // Every Figma container becomes an AE precomp, nested exactly as in Figma. The container's own
@@ -34,6 +34,7 @@ function _pathOf(n, rootId) {
 // sibling before later) IS Figma's paint order, and AE can restore it exactly at the end.
 var _zMap = null;
 var _ignoreHidden = true;
+var _convertMasks = false;      // original-compatible default: masks stay ordinary Figma layers
 var _includeRootContainer = false;
 var _maskByNode = {};          // content node id -> mask ROOT id
 var _maskSourceByNode = {};    // mask node + all its descendants -> mask ROOT id
@@ -52,6 +53,7 @@ function _zOf(n) { return (_zMap && _zMap[n.id] != null) ? _zMap[n.id] : 0; }
 // PSD exporter's mask/base handling, without rasterising the design.
 function buildImportMaps(root) {
   _maskByNode = {}; _maskSourceByNode = {};
+  if (!_convertMasks) return;                // match the original importer exactly
   (function walk(n, inheritedMask, maskRoot) {
     if (_ignoreHidden && _isHidden(n)) return;
     var isMask = false;
@@ -154,8 +156,9 @@ function collectContainers(root) {
   return out;
 }
 
-async function exportSelectionSVG(useNodes, organize, ignoreHidden) {
+async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks) {
   _ignoreHidden = (ignoreHidden !== false);       // default: hidden Figma layers stay out of AE
+  _convertMasks = (convertMasks === true);        // opt-in only; original behaviour otherwise
   _includeRootContainer = !!organize && !!useNodes;
   var sel = figma.currentPage.selection;
   if (!sel || sel.length === 0) {
@@ -1075,7 +1078,7 @@ function collectTexts(root, rootBox, rootId, organize) {
 }
 
 figma.ui.onmessage = function (msg) {
-  if (msg.type === 'ship-selection') exportSelectionSVG(!!msg.useNodes, !!msg.organize, msg.ignoreHidden !== false);
+  if (msg.type === 'ship-selection') exportSelectionSVG(!!msg.useNodes, !!msg.organize, msg.ignoreHidden !== false, msg.convertMasks === true);
   if (msg.type === 'close') figma.closePlugin(msg.message || undefined);
   if (msg.type === 'notify') figma.notify(msg.message);
 };
