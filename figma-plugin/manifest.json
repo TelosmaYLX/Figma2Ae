@@ -1,0 +1,12 @@
+{
+  "name": "SaaS Kit — 导入到 After Effects",
+  "id": "saaskit-ship-to-ae",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "通过本地 WebSocket 将所选图层以 SVG 形式发送到 After Effects 中运行的 SaaS Kit 桥接服务（localhost:7867）。Figma 的 allowedDomains 无法匹配 ws:// 或 IP 地址条目，因此本地套接字桥接需要使用通配符。"
+  }
+}

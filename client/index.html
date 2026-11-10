@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SaaS Kit</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="mk-header">
+    <div class="mk-brand">
+      <span class="mk-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+          <path d="M4 17 10 7l4 7 6-10"/>
+        </svg>
+      </span>
+      <h1 class="mk-name">SaaS Kit</h1>
+      <span class="mk-ver">v1.0</span>
+    </div>
+  </header>
+
+  <main id="mk-main" class="mk-main"><!-- groups injected by main.js --></main>
+
+  <div class="mk-status" id="mk-status" aria-live="polite"></div>
+
+  <!-- Figma bridge status (updated by figmaBridge.js) -->
+  <div class="mk-figbar" id="mk-figbar">
+    <span class="mk-fig-dot off" id="mk-fig-dot" aria-hidden="true"></span>
+    <span class="mk-fig-label" id="mk-fig-label">正在启动 SVG 桥接…</span>
+  </div>
+
+  <div class="mk-foot">
+    <a href="#" id="mk-feedback" class="mk-foot-link">发送反馈</a>
+    <span class="mk-foot-ver" id="mk-foot-ver">v1.0</span>
+  </div>
+
+  <!-- Popup -->
+  <div class="mk-overlay" id="mk-overlay" hidden>
+    <div class="mk-popup" role="dialog" aria-modal="true" aria-labelledby="mk-popup-title">
+      <div class="mk-popup-head">
+        <h2 id="mk-popup-title">标题</h2>
+        <button class="mk-close" id="mk-popup-close" aria-label="关闭">&times;</button>
+      </div>
+      <div class="mk-popup-body" id="mk-popup-body"></div>
+    </div>
+  </div>
+
+  <script src="figmaBridge.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

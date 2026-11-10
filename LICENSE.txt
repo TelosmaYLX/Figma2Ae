@@ -1,0 +1,97 @@
+SAAS KIT - END USER LICENCE AGREEMENT
+Version 1.0
+
+By installing or using SaaS Kit ("the Software") you agree to this licence.
+If you do not agree, do not install it and request a refund.
+
+
+1. WHAT YOU GET
+
+On purchase you receive a personal, non-exclusive, perpetual licence to use the
+Software. You do not buy the Software itself - you buy the right to use it under
+the terms below.
+
+One licence covers one person and up to two computers belonging to that person
+(for example a desktop and a laptop). A team needs one licence per person.
+
+
+2. WHAT YOU MAY DO
+
+- Use the Software on commercial client work with no extra fee and no royalties.
+- Use it for unlimited projects, for yourself or for clients.
+- Deliver and sell the videos, animations and project files you create with it.
+- Hand a finished After Effects project to a client, even if it contains layers,
+  presets or rigs the Software generated.
+
+
+3. WHAT YOU MAY NOT DO
+
+- Resell, sublicense, rent, lend or give away the Software or your licence key.
+- Upload it anywhere others can download it, including asset packs, template
+  marketplaces, cloud drives, forums or torrent sites.
+- Share it with colleagues, students or team members who have not bought a licence.
+- Repackage its presets, rigs or expressions as your own product, template or
+  preset pack for sale or free distribution.
+- Decompile, reverse engineer or extract parts of the Software in order to build
+  a competing product.
+
+Sharing a copy or a licence key with someone who has not paid ends your licence
+immediately, with no refund.
+
+
+4. LICENCE KEYS
+
+Your key is personal. Keys are tied to your purchase and their activations are
+monitored. A key used far beyond normal personal use may be deactivated.
+
+
+5. UPDATES AND SUPPORT
+
+Updates within the same major version are free. Major new versions may be paid.
+Support is provided by email, in the panel under "Send feedback", or at the
+address on the product page, on a best-effort basis.
+
+
+6. THIRD-PARTY COMPONENTS
+
+The optional depth-map feature downloads and runs open-source components on your
+machine, including a Python runtime and the Depth Anything V2 Small model, which
+is released under the Apache 2.0 licence. Those components remain under their own
+licences. They are downloaded only after you confirm the prompt and can be deleted
+at any time.
+
+
+7. REFUNDS
+
+Refunds follow the policy of the store you bought from. Ask before buying if you
+are unsure whether the Software fits your setup; the technical requirements are
+listed on the product page and in the install guide.
+
+
+8. NO WARRANTY
+
+The Software is provided "as is", without warranty of any kind, express or
+implied. You use it at your own risk. Always keep backups of your After Effects
+projects.
+
+
+9. LIABILITY
+
+To the maximum extent permitted by law, the author is not liable for any damages
+arising from the use of the Software, including lost work, lost income, project
+corruption or downtime. Total liability is limited to the amount you paid.
+
+
+10. TERMINATION
+
+This licence ends automatically if you break its terms. On termination you must
+stop using the Software and delete every copy.
+
+
+11. CHANGES
+
+Future versions may ship with an updated licence. The version you accepted keeps
+applying to the build you have.
+
+
+Contact: solairmotion@gmail.com

@@ -1,0 +1,115 @@
+<!-- ui.html — Figma plugin iframe. Holds the WebSocket client to the AE bridge. -->
+<!-- Only the UI iframe can do network; the main thread (code.js) exports SVG and posts it here. -->
+<style>
+  :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#8a8a8a; --ok:#22c55e; --err:#ef4444; }
+  html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { padding:14px; }
+  .status { display:flex; align-items:center; gap:8px; margin-bottom:12px; color:var(--muted); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--muted); }
+  .dot.on { background:var(--ok); } .dot.off { background:var(--err); }
+  button { width:100%; padding:10px; border:0; border-radius:8px; background:var(--accent); color:#1a1a1a;
+           font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  .msg { margin-top:10px; min-height:16px; color:var(--muted); }
+  .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
+  .hint { margin-top:12px; font-size:11px; color:var(--muted); }
+</style>
+<div class="wrap">
+  <div class="status"><span id="dot" class="dot"></span><span id="conn">正在连接 After Effects…</span></div>
+  <button id="ship" disabled>导入到 After Effects</button>
+  <div id="msg" class="msg"></div>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:var(--muted);cursor:pointer">
+    <input type="checkbox" id="nodemode" checked> 可编辑图层（一个 Figma 图层对应一个 AE 图层）
+  </label>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
+    <input type="checkbox" id="organize" checked> 将 Figma 组转换为预合成（推荐）
+  </label>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
+    <input type="checkbox" id="ignorehidden" checked> 忽略隐藏图层（默认）
+  </label>
+  <div class="hint">组将转换为嵌套预合成，蒙版将转换为轨道遮罩。取消“预合成”可导入平面结构；仅在旧版 SVG 导入时取消“可编辑图层”。</div>
+</div>
+<script>
+  var PORT = 7867;
+  var ws = null, connected = false, selCount = 0, imgAsm = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function setConn(state) {
+    connected = state;
+    $('dot').className = 'dot ' + (state ? 'on' : 'off');
+    $('conn').textContent = state ? '已连接到 After Effects' : '未找到 AE 桥接服务——SaaS Kit 面板是否已打开？';
+    updateButton();
+  }
+  function updateButton() {
+    $('ship').disabled = !(connected && selCount > 0);
+  }
+  function say(text, cls) { var m = $('msg'); m.textContent = text; m.className = 'msg ' + (cls || ''); }
+
+  function connect() {
+    try { ws = new WebSocket('ws://127.0.0.1:' + PORT); } catch (e) { setConn(false); return retry(); }
+    ws.onopen = function () { setConn(true); };
+    ws.onclose = function () { setConn(false); retry(); };
+    ws.onerror = function () { setConn(false); };
+    ws.onmessage = function (ev) {
+      try {
+        var ack = JSON.parse(ev.data);
+        if (ack.ok) say('完成——' + (ack.shapes != null ? '已在 AE 中创建 ' + ack.shapes + ' 个形状图层。' : '已发送到 AE。'), 'ok');
+        else say('AE 错误：' + (ack.error || '未知错误'), 'err');
+      } catch (e) { say('已发送。', 'ok'); }
+    };
+  }
+  var retryTimer = null;
+  function retry() { if (retryTimer) return; retryTimer = setTimeout(function () { retryTimer = null; connect(); }, 1500); }
+
+  // HTTP fallback if WS is unavailable (some locked-down setups)
+  function shipHttp(payload) {
+    fetch('http://127.0.0.1:' + PORT, { method: 'POST', body: JSON.stringify(payload) })
+      .then(function (r) { return r.json(); })
+      .then(function (ack) { say(ack.ok ? '完成（HTTP）——' + (ack.shapes||'') + ' 个形状。' : 'AE 错误：' + ack.error, ack.ok ? 'ok' : 'err'); })
+      .catch(function () { say('无法连接端口 ' + PORT + ' 上的 AE 桥接服务。', 'err'); });
+  }
+
+  var organize = false;      // remembered until the payload is sent, so onmessage can pass it on
+  $('ship').onclick = function () {
+    // Precomps require the Figma tree. Editable node mode is now the default: it avoids the
+    // old SVG behaviour where every paint became another AE layer.
+    organize = $('organize').checked;
+    var useNodes = $('nodemode').checked || organize;
+    say(organize ? '正在导出可编辑分组…' : '正在导出…');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, ignoreHidden: $('ignorehidden').checked } }, '*');
+  };
+
+  // messages from code.js (main thread)
+  window.onmessage = function (event) {
+    var msg = event.data.pluginMessage;
+    if (!msg) return;
+    if (msg.type === 'selection') { selCount = msg.count; updateButton(); }
+    if (msg.type === 'error') { say(msg.message, 'err'); }
+    if (msg.type === 'progress') { say(msg.message); }
+    if (msg.type === 'image-abort') { say('已跳过图片。', 'err'); }
+    if (msg.type === 'image-chunk') {
+      // reassemble ~1MB base64 string chunks (strings cross the sandbox cheaply)
+      if (msg.seq === 0) { imgAsm = { meta: msg.meta, parts: [] }; }
+      if (!imgAsm) return;
+      imgAsm.parts.push(msg.dataPart);
+      say('正在接收图片 ' + (msg.index + 1) + '/' + msg.total + '（分片 ' + (msg.seq + 1) + '/' + msg.parts + '）…');
+      if (msg.seq === msg.parts - 1) {
+        var img = imgAsm.meta; img.data = imgAsm.parts.join(''); imgAsm = null;
+        var ip = { type: 'image', index: msg.index, total: msg.total, image: img };
+        if (connected && ws && ws.readyState === 1) { ws.send(JSON.stringify(ip)); say('正在将图片 ' + (msg.index + 1) + '/' + msg.total + ' 发送到 AE…'); }
+        else { shipHttp(ip); }
+      }
+      return;
+    }
+    if (msg.type === 'ship') {
+      if (!msg.svg || msg.svg.indexOf('<svg') === -1) { say('没有可发送的内容——Figma 导出的 SVG 为空。', 'err'); return; }
+      var payload = { type: 'svg', name: msg.name, svg: msg.svg, texts: msg.texts || [], effects: msg.effects || [], shift: msg.shift || { x: 0, y: 0 }, nodes: msg.nodes || null,
+                      containers: msg.containers || null, organize: !!msg.organize, imageCount: msg.imageCount || 0, vnStats: msg.vnStats || null };
+      var kb = Math.round((msg.bytes || msg.svg.length) / 1024);
+      if (connected && ws && ws.readyState === 1) { ws.send(JSON.stringify(payload)); say('正在向 AE 发送 ' + kb + ' KB 数据…'); }
+      else { shipHttp(payload); }
+    }
+  };
+
+  connect();
+</script>
