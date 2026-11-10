@@ -41,6 +41,7 @@ var _rasterByNode = {};         // rasterised group + descendants: collected by 
 var _includeRootContainer = false;
 var _maskByNode = {};          // content node id -> mask ROOT id
 var _maskSourceByNode = {};    // mask node + all its descendants -> mask ROOT id
+var _exporting = false;        // one export at a time: temporary image fills must never overlap
 function buildZMap(root) {
   var map = {}, i = 0;
   (function walk(n) {
@@ -121,6 +122,25 @@ function _markRaster(n) {
   _rasterByNode[n.id] = true;
   if (n.children) for (var i = 0; i < n.children.length; i++) _markRaster(n.children[i]);
 }
+function _singleImageNeedsRaster(n) {
+  if (!n || _isContainer(n) || n.type === 'TEXT' || _maskSourceByNode[n.id] || _maskByNode[n.id]) return false;
+  var image = false, crop = false;
+  try {
+    var paints = n.fills || [];
+    for (var i = 0; i < paints.length; i++) {
+      var p = paints[i];
+      if (p.visible === false || p.type !== 'IMAGE') continue;
+      image = true;
+      // AE's centred cover-fit is NOT Figma CROP: imageTransform carries the user's crop/zoom.
+      // Export just this leaf as rendered by Figma, retaining its own layer and full-resolution
+      // appearance instead of silently discarding that transform.
+      if (p.scaleMode === 'CROP' || p.imageTransform) crop = true;
+    }
+    var fx = n.effects || [];
+    for (var j = 0; j < fx.length; j++) if (fx[j].visible !== false) crop = true;
+  } catch (e) { return false; }
+  return image && crop;
+}
 function _collectRasterCandidates(root) {
   var out = [];
   _rasterByNode = {};
@@ -130,6 +150,13 @@ function _collectRasterCandidates(root) {
     var f = _subtreeFlags(n, false);
     if (!f.complex) return;
     if (_isContainer(n) && !f.text) {
+      out.push(n);
+      _markRaster(n);
+      return;
+    }
+    // A cropped/effected picture is already a bitmap in Figma. Rasterising ONLY THIS LEAF is
+    // lossless in appearance and keeps it independently animatable; no sibling/group is merged.
+    if (_singleImageNeedsRaster(n)) {
       out.push(n);
       _markRaster(n);
       return;
@@ -151,7 +178,9 @@ function _collectRasterCandidates(root) {
 // Metadata for one rasterised group. The actual PNG is exported in shipImages(), after text
 // has been hidden, so any text that happens to sit inside a future candidate is not baked in.
 function _rasterMeta(n, root, organize) {
-  var b = n.absoluteBoundingBox || { x: 0, y: 0, width: 1, height: 1 };
+  // PNG export includes the node's shadows/blurs. Use the same render bounds so fitting the
+  // footage does not shrink the artwork back into the smaller geometry box (or cut the glow).
+  var b = n.absoluteRenderBounds || n.absoluteBoundingBox || { x: 0, y: 0, width: 1, height: 1 };
   return {
     rasterNode: n,
     name: (n.name || 'figma-group').replace(/[^A-Za-z0-9_\-\u4e00-\u9fa5]+/g, '_'),
@@ -274,6 +303,10 @@ function collectContainers(root) {
 }
 
 async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks, rasterGroups) {
+  if (_exporting) {
+    figma.ui.postMessage({ type: 'error', message: '上一次导出仍在进行，请稍候。' });
+    return;
+  }
   _ignoreHidden = (ignoreHidden !== false);       // default: hidden Figma layers stay out of AE
   _convertMasks = (convertMasks === true);        // opt-in only; original behaviour otherwise
   _rasterGroups = (rasterGroups !== false);       // default: exact Figma PNG for complex mask groups
@@ -283,6 +316,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     figma.ui.postMessage({ type: 'error', message: '请至少选择一个图层或画框。' });
     return;
   }
+  _exporting = true;
 
   // If one node is selected, export it directly (keeps its name).
   // If several, wrap them in a temporary group so they export as one SVG, then ungroup.
@@ -359,12 +393,13 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     }
     await Promise.all(fontWaits);
 
-    // Hide text via opacity 0 (not visibility) so auto-layout doesn't reflow; the outlined
-    // text then exports invisible and the parser drops it — no duplicate shapes.
+    // Only legacy SVG mode needs outlined text hidden. Node mode never reads those outlines,
+    // so mutating text opacity was both unnecessary and dangerous: a second export could read
+    // that temporary zero and recreate every AE text layer at 0% opacity. Keep Figma untouched.
     var kept = [];
     for (var h = 0; h < texts.length; h++) {
       var tn = texts[h]._node, hidden = false;
-      if (tn) {
+      if (tn && !useNodes) {
         restore.push([tn, tn.opacity]);
         try { tn.opacity = 0; hidden = (tn.opacity === 0); } catch (eh) { hidden = false; }
       }
@@ -444,7 +479,10 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
           if (rb && typeof rb.x === 'number') { svgShift.x = bbox.x - rb.x; svgShift.y = bbox.y - rb.y; }
         } catch (erb) {}
       }
-    } else if (!isFrameLike) {
+    } else if (!isFrameLike && !nodeShapes) {
+      // Legacy SVG-only mode needs render-bounds coordinates. Node mode is always relative to
+      // the selected node's GEOMETRY box: with editable text left visible, absoluteRenderBounds
+      // can grow and would otherwise shift the entire board (this board moved +329,-88 px).
       try { var rb2 = node.absoluteRenderBounds; if (rb2 && typeof rb2.x === 'number') origin = { x: rb2.x, y: rb2.y }; } catch (erb2) {}
     }
     // Node mode collects absolute coordinates; re-base them on the frame exactly like the
@@ -487,6 +525,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     for (var rf = 0; rf < restoreFills.length; rf++) { try { restoreFills[rf][0].fills = restoreFills[rf][1]; } catch (erf) {} }
     if (clipWasOn) { try { node.clipsContent = true; } catch (erc) {} }   // put the frame back
     if (tempGroup) figma.ungroup(tempGroup);   // restore the user's layers
+    _exporting = false;
   }
 }
 
@@ -989,6 +1028,21 @@ function _rotOf(n) {
   } catch (e) {}
   return 0;
 }
+function _skewOf(n) {
+  try {
+    var m = n.absoluteTransform;
+    if (m && m[0] && m[1]) {
+      // Remove ordinary rotation first. For a pure Figma skewX this is atan2(c,d); doing it
+      // without the inverse rotation would mistake every rotated text node for an italic one.
+      var r = _rotOf(n) * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r);
+      var c = cs * m[0][1] + sn * m[1][1];
+      var d = -sn * m[0][1] + cs * m[1][1];
+      var deg = Math.atan2(c, d) * 180 / Math.PI;
+      return (Math.abs(deg) < 0.05) ? 0 : deg;
+    }
+  } catch (e) {}
+  return 0;
+}
 // Figma letterSpacing -> AE tracking (AE unit: 1/1000 em). PERCENT: %*10. PIXELS: px/fs*1000.
 function _tracking(ls, fontSize) {
   if (!ls || typeof ls.value !== 'number') return 0;
@@ -1182,7 +1236,7 @@ function collectTexts(root, rootBox, rootId, organize) {
                          _rendersMultiline(n, rSize);
             out.push({ _node: n, runs: true, name: n.name, maskId: _maskByNode[n.id] || null, x: x, y: y, w: b.width, h: b.height, align: align, segs: runs,
                        path: _pathOf(n, rootId), z: _zOf(n), box: !!(rFixed && rWraps), hidden: _hid, blur: _blurOf(n), blend: n.blendMode || 'NORMAL',
-                       rotation: _rotOf(n), fx: _textEffects(n), grad: _gradFill(n), ink: _inkBounds(n, rootBox) });
+                       rotation: _rotOf(n), skewX: _skewOf(n), fx: _textEffects(n), grad: _gradFill(n), ink: _inkBounds(n, rootBox) });
           } else {
             var cc = _solidOf(n.fills);
             var fn2 = n.fontName, fam2 = 'Arial', sty2 = 'Regular';
@@ -1208,7 +1262,7 @@ function collectTexts(root, rootBox, rootId, organize) {
               fontSize: fsz, family: fam2, style: sty2,
               color: cc.color, opacity: cc.opacity * nodeOp, align: align, box: !!isBox, hidden: _hid, blur: _blurOf(n),
               blend: n.blendMode || 'NORMAL',
-              tracking: _tracking(ls, fsz), rotation: _rotOf(n), fx: _textEffects(n), grad: _gradFill(n), ink: _inkBounds(n, rootBox)
+              tracking: _tracking(ls, fsz), rotation: _rotOf(n), skewX: _skewOf(n), fx: _textEffects(n), grad: _gradFill(n), ink: _inkBounds(n, rootBox)
             });
           }
         }

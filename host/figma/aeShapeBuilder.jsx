@@ -277,6 +277,42 @@ var AEShapeBuilder = (function () {
     return bad.length;
   }
 
+  // Recompute skew pivots from the FINAL tree, after every nested precomp has been padded.
+  // Incrementally adding dx/dy is fragile if organize runs again or a container is skipped:
+  // the pivot then accumulates a second shift while Position does not. This pass is idempotent.
+  function refreshTextSkewPivots(comp, seen) {
+    if (!comp) return;
+    seen = seen || {};
+    var compKey = (comp.id != null ? comp.id : comp.name);
+    if (seen[compKey]) return;
+    seen[compKey] = 1;
+    for (var i = 1; i <= comp.numLayers; i++) {
+      var lyr = comp.layer(i);
+      if (typeof TextLayer !== "undefined" && lyr instanceof TextLayer) {
+        try {
+          var fx = lyr.property("ADBE Effect Parade");
+          var hasSkew = false;
+          for (var j = 1; j <= fx.numProperties; j++)
+            if (fx.property(j).matchName === "ADBE Geometry2" && fx.property(j).name === "Figma 斜体") hasSkew = true;
+          if (hasSkew) {
+            var r = measureRect(comp, lyr);
+            if (r) {
+              var tg = lyr.property("ADBE Transform Group");
+              var pos = tg.property("ADBE Position").value, anc = tg.property("ADBE Anchor Point").value;
+              var pivot = [pos[0] + r.left + r.width / 2 - anc[0], pos[1] + r.top + r.height / 2 - anc[1]];
+              for (var k = 1; k <= fx.numProperties; k++) {
+                var e = fx.property(k);
+                if (e.matchName !== "ADBE Geometry2" || e.name !== "Figma 斜体") continue;
+                e.property(1).setValue(pivot); e.property(2).setValue(pivot);
+              }
+            }
+          }
+        } catch (et) {}
+      }
+      try { if (lyr.source && (lyr.source instanceof CompItem)) refreshTextSkewPivots(lyr.source, seen); } catch (es) {}
+    }
+  }
+
   function organize(comp, containers) {
     if (!comp || !containers || !containers.length) { _diag.push("organize: no containers"); return 0; }
     if (!_layerPaths.length) { _diag.push("organize: no layer carried a group path"); return 0; }
@@ -423,6 +459,7 @@ var AEShapeBuilder = (function () {
     if (sizes.length) _diag.push("swallowed: " + sizes.slice(0, 14).join(" "));
     restackByZ();          // groups back into Figma's order, text back under what covers it
     relinkMattes();        // cropped pictures survived two moves — put their mattes back
+    refreshTextSkewPivots(comp); // final comp-space pivots; safe across nesting and repeated runs
     verifyStack(comp);     // and prove the stack really came out the way it was asked for
     return made;
   }
@@ -1049,8 +1086,34 @@ var AEShapeBuilder = (function () {
     } catch (e) { return false; }
   }
 
+  // Figma skewX -> AE's editable Transform effect. A font family such as Source Han Sans has
+  // no true italic face: Figma stores the slant in the node matrix, not in fontName.style.
+  // Rotate around the measured ink centre so the alignment already calculated from Figma's
+  // (also sheared) render bounds remains exact. AE's skew sign is opposite Figma's matrix shear.
+  function applyTextSkew(comp, tl, t) {
+    if (!t || !t.skewX) return false;
+    try {
+      var r = measureRect(comp, tl);
+      if (!r) { _diag.push("skew: text not measurable"); return false; }
+      var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      var tg = tl.property("ADBE Transform Group");
+      var pos = tg.property("ADBE Position").value, anc = tg.property("ADBE Anchor Point").value;
+      // Text-layer effect points use COMP coordinates, unlike sourceRectAtTime's layer-local
+      // rect. Setting the pivot to r.left/r.top directly shears around the wrong place.
+      var pivot = [pos[0] + cx - anc[0], pos[1] + cy - anc[1]];
+      var fx = tl.property("ADBE Effect Parade").addProperty("ADBE Geometry2");
+      fx.name = "Figma 斜体";
+      fx.property(1).setValue(pivot);                  // effect Anchor Point, in comp space
+      fx.property(2).setValue(pivot);                  // same Position -> pivot does not travel
+      fx.property("ADBE Geometry2-0005").setValue(-t.skewX);
+      fx.property("ADBE Geometry2-0006").setValue(90); // horizontal glyph shear; 0 shears the LINE vertically
+      return true;
+    } catch (e) { _diag.push("skew:" + String(e).substr(0, 40)); return false; }
+  }
+
   // Apply text-node effects (drop shadow / blur / inner shadow) + gradient fill to a text layer.
   function applyTextDecor(comp, tl, t) {
+    applyTextSkew(comp, tl, t);
     try { if (t.fx && t.fx.length) addLayerEffects(tl, t.fx); } catch (e1) {}
     // Blur is skipped inside addLayerEffects (shapes get it from their own channel), so a
     // blurred text layer needs it applied here — including a blur set on its parent group.
@@ -1844,7 +1907,7 @@ var AEShapeBuilder = (function () {
 
   return { build: build, buildText: createTextLayers, buildImages: buildImages, organize: organize,
     // Flat imports need the same z correction as precomposed ones, but without building groups.
-    restack: function (comp) { restackByZ(); relinkMattes(); verifyStack(comp); },
+    restack: function (comp) { restackByZ(); relinkMattes(); refreshTextSkewPivots(comp); verifyStack(comp); },
     getDiag: function () {
     var d = _diag.slice(0);
     if (_txtOk + _txtNo > 0) d.push("TXT measured " + _txtOk + "/" + (_txtOk + _txtNo));
