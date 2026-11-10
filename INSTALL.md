@@ -1,4 +1,4 @@
-# SaaS Kit — CEP install (dev / unsigned)
+# F2A — CEP install (dev / unsigned)
 
 ## Requirements
 **After Effects 2022 (22.x) or newer.** The bundled presets and rigs are authored in a
@@ -20,15 +20,15 @@ defaults write com.adobe.CSXS.12 PlayerDebugMode 1
 ```
 
 ## 2. Copy the folder
-Put the whole **`SaaSKit`** folder into the CEP extensions directory:
+Put the whole **`F2A`** folder into the CEP extensions directory:
 
-- **Windows:** `C:\Users\<you>\AppData\Roaming\Adobe\CEP\extensions\SaaSKit`
-- **macOS:** `~/Library/Application Support/Adobe/CEP/extensions/SaaSKit`
+- **Windows:** `C:\Users\<you>\AppData\Roaming\Adobe\CEP\extensions\F2A`
+- **macOS:** `~/Library/Application Support/Adobe/CEP/extensions/F2A`
 
 (You can also use the system-wide `Program Files\Common Files\Adobe\CEP\extensions` on Windows.)
 
 ## 3. Launch
-Restart After Effects → **Window ▸ Extensions ▸ SaaS Kit**.
+Restart After Effects → **Window ▸ Extensions ▸ F2A**.
 
 ## 4. Enable scripting access (required)
 In After Effects open **Settings/Preferences ▸ Scripting & Expressions** and enable
@@ -59,7 +59,7 @@ as **native shape layers** in the active comp.
 
 ### After Effects side
 Nothing extra to install — it's inside this extension. The manifest already enables
-`--enable-nodejs` and `--mixed-context` (both required). Opening the SaaS Kit panel starts
+`--enable-nodejs` and `--mixed-context` (both required). Opening the F2A panel starts
 the bridge; the status bar under the toolbar shows **“Bridge running · :7867”** (green dot).
 The **Figma ▸ Import from Figma** button also imports a local `.svg` by hand (no plugin needed) —
 use it for a first smoke test.
@@ -68,7 +68,7 @@ First launch may show a Windows Firewall prompt for After Effects (local port). 
 
 ### Figma side (companion plugin)
 1. Figma desktop → Plugins → Development → **Import plugin from manifest…** →
-   `SaaSKit/figma-plugin/manifest.json`.
+   `F2A/figma-plugin/manifest.json`.
 2. Run the plugin. Green dot = it found the AE bridge (panel must be open).
 3. Select a frame → **Ship to After Effects**.
 

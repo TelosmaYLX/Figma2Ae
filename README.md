@@ -1,6 +1,6 @@
-# SaaS Kit CEP 扩展
+# F2A — After Effects CEP 扩展
 
-Adobe After Effects CEP 面板的本地源码仓库，来源于已安装的 `com.saaskit.panel` 扩展。
+Adobe After Effects CEP 面板的本地源码仓库，来源于原始 SaaS Kit 扩展。
 
 ## 目录
 
@@ -33,8 +33,8 @@ META-INF/        原始 ZXP 签名清单（修改后摘要已失效）
 1. 本机需启用 CEP 调试模式：`HKEY_CURRENT_USER\Software\Adobe\CSXS.11` 下
    `PlayerDebugMode` = `1`（新版本 AE 可能同时需要 `CSXS.12`）。
 2. 将本目录部署到：
-   `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\com.saaskit.panel`
-3. 重启 After Effects，必要时重新打开 SaaS Kit 面板。
+   `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A`
+3. 重启 After Effects，必要时重新打开 F2A 面板。
 4. Figma 插件开发版从 `figma-plugin/manifest.json` 导入。
 
 部署时请先备份目标目录；不要直接覆盖正在使用的扩展后继续运行 AE。

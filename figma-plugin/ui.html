@@ -43,7 +43,7 @@
   function setConn(state) {
     connected = state;
     $('dot').className = 'dot ' + (state ? 'on' : 'off');
-    $('conn').textContent = state ? '已连接到 After Effects' : '未找到 AE 桥接服务——SaaS Kit 面板是否已打开？';
+    $('conn').textContent = state ? '已连接到 After Effects' : '未找到 AE 桥接服务——F2A 面板是否已打开？';
     updateButton();
   }
   function updateButton() {

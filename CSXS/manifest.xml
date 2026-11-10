@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" ExtensionBundleId="com.saaskit.panel"
-    ExtensionBundleVersion="1.0.0" ExtensionBundleName="SaaS Kit"
+<ExtensionManifest Version="7.0" ExtensionBundleId="F2A"
+    ExtensionBundleVersion="1.0.0" ExtensionBundleName="F2A"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="com.saaskit.panel" Version="1.0.0"/>
+    <Extension Id="F2A" Version="1.0.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
@@ -17,7 +17,7 @@
     </RequiredRuntimeList>
   </ExecutionEnvironment>
   <DispatchInfoList>
-    <Extension Id="com.saaskit.panel">
+    <Extension Id="F2A">
       <DispatchInfo>
         <Resources>
           <MainPath>./client/index.html</MainPath>
@@ -34,7 +34,7 @@
         </Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>SaaS Kit</Menu>
+          <Menu>F2A</Menu>
           <Geometry>
             <Size><Height>580</Height><Width>320</Width></Size>
             <MinSize><Height>360</Height><Width>260</Width></MinSize>
