@@ -1223,6 +1223,7 @@ var AEShapeBuilder = (function () {
         var shapeInfos = [];   // { lyr, bb } — for GLOBAL best-match of effects after the loop
         var shapeErr = 0, firstShapeErr = "";
         for (i = 0; i < N; i++) {
+          var currentLayer = null;
           try {
           var sdata = shapes[i];
           if (sdata.maskSource) {
@@ -1250,6 +1251,7 @@ var AEShapeBuilder = (function () {
           var nm = sdata.name || (baseName + " " + (i + 1));
 
           var lyr = layers.addShape();
+          currentLayer = lyr;
           lyr.name = nm;
 
           // A picture's slot: keep an empty layer purely to hold its place in the stack.
@@ -1332,8 +1334,10 @@ var AEShapeBuilder = (function () {
             created.push(slyr);
           }
           } catch (eShape) {
-            // One bad shape must not abort the whole import (it used to stop after a handful).
+            // One bad shape must not abort the whole import. Remove its partial layer so it
+            // cannot survive as an untracked orphan outside the root precomp.
             shapeErr++;
+            if (currentLayer) { try { currentLayer.remove(); } catch (eRemove) {} }
             if (!firstShapeErr) firstShapeErr = String(eShape).substr(0, 60);
           }
         }
@@ -1777,10 +1781,11 @@ var AEShapeBuilder = (function () {
             catch (e1) { try { lyr.trackMatteType = TrackMatteType.ALPHA; } catch (e2) {} }
             mt.enabled = false;                       // matte layers render off, as usual
           }
-          // Two different masks cannot share one AE track-matte slot. When a picture has BOTH
-          // its own rounded/ellipse crop and a Figma mask, first nest the footage + crop matte,
-          // then apply the Figma mask to that precomp on the outside.
-          if (im.maskId && mt) {
+          // Two different masks cannot share one AE track-matte slot. More importantly, a crop
+          // matte must never be separated from its footage by a later group precompose. Pack the
+          // pair into its own small comp immediately; the Figma mask (if any) can then be applied
+          // to this precomp on the outside.
+          if (mt) {
             try {
               var cropIndices = [mt.index, lyr.index];
               var cropComp = comp.layers.precompose(cropIndices, (im.name || "Image") + " crop", true);
@@ -1792,7 +1797,7 @@ var AEShapeBuilder = (function () {
               lyr = cropLayer;
               lyr.name = im.name || "Image";
               mt = null;
-            } catch (eipc) { _diag.push("IMG mask+crop:" + String(eipc).substr(0, 35)); }
+            } catch (eipc) { _diag.push("IMG crop precomp:" + String(eipc).substr(0, 35)); }
           }
           // Put the footage back where it belongs in the stack: find the placeholder left by
           // the SVG pass (matched on centre) and move the layer(s) there.
