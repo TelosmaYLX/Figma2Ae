@@ -8,6 +8,7 @@
 
 figma.showUI(__html__, { width: 320, height: 390, themeColors: true });
 
+
 // ===== ORGANIZE MODE =====
 // Every Figma container becomes an AE precomp, nested exactly as in Figma. The container's own
 // blur / shadow / opacity / blend then belong to the PRECOMP, which is the only way to reproduce
@@ -86,6 +87,7 @@ function _subtreeFlags(n, hiddenAncestor) {
   if (!n) return flags;
   if (_ignoreHidden && _isHidden(n)) return flags;
   if (n.type === 'TEXT') flags.text = true;
+  if (n.type === 'BOOLEAN_OPERATION') flags.complex = true;   // compound geometry is fragile per-shape
   try { if (n.isMask === true) { flags.mask = true; flags.complex = true; } } catch (e) {}
   try {
     if (n.blendMode && n.blendMode !== 'PASS_THROUGH' && n.blendMode !== 'NORMAL') flags.complex = true;
@@ -247,6 +249,7 @@ function collectContainers(root) {
         // cheap on a big group.
         out.push({
           id: n.id, name: n.name || 'Group', type: n.type,
+          root: (n === root),
           path: _pathOf(n, root.id), z: _zOf(n),
           x: b.x, y: b.y, w: b.width, h: b.height,
           // What the precomp must be able to hold. A clipping frame hides its overflow anyway,

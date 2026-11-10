@@ -28,12 +28,12 @@
     <input type="checkbox" id="ignorehidden" checked> 忽略隐藏图层（默认）
   </label>
   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="rastergroups" checked> 复杂蒙版/图像组使用 Figma 位图（推荐）
+    <input type="checkbox" id="rastergroups" checked> 复杂组位图化（提升还原；关闭后全部保留为可编辑层）
   </label>
   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="convertmask"> 转换 Figma 蒙版为 AE 轨道遮罩（实验）
   </label>
-  <div class="hint">推荐使用位图渲染含蒙版/纹理的复杂组，确保与 Figma 完全一致；文字仍保持可编辑。组会转换为嵌套预合成。</div>
+  <div class="hint">开启时仅把无法可靠矢量化的局部复杂组转为 Figma 位图，其他分组和文字仍为独立可编辑层。关闭后全部按图层/预合成导入，适合逐层动画。</div>
 </div>
 <script>
   var PORT = 7867;

@@ -311,11 +311,18 @@ var AEShapeBuilder = (function () {
       try {
         // every layer whose path still contains this container id
         var members = [], seen = {};
+        var isRootContainer = (c.root === true);
         for (j = 0; j < _layerPaths.length; j++) {
           var rec = _layerPaths[j];
           if (!rec.lyr) continue;
           var hit = false;
-          for (var k = 0; k < rec.path.length; k++) if (rec.path[k] === c.id) { hit = true; break; }
+          if (isRootContainer) {
+            // The root is the final sweep: swallow every remaining imported layer, including
+            // layers whose intermediate container was skipped (orphan path refs).
+            hit = true;
+          } else {
+            for (var k = 0; k < rec.path.length; k++) if (rec.path[k] === c.id) { hit = true; break; }
+          }
           if (!hit) continue;
           var idx;
           try { idx = rec.lyr.index; } catch (edead) { rec.lyr = null; continue; }   // already swallowed
