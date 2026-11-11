@@ -1942,7 +1942,7 @@ var AEShapeBuilder = (function () {
           }
           // Put the footage back where it belongs in the stack: find the placeholder left by
           // the SVG pass (matched on centre) and move the layer(s) there.
-          if (!im.shadow) {
+          if (!im.shadow && !im.mergedBlend) {
           try {
             var icx = (im.cx != null ? im.cx : im.x + im.w / 2);
             var icy = (im.cy != null ? im.cy : im.y + im.h / 2);

@@ -47,6 +47,9 @@
   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="rastergroups" checked> 自动栅格化复杂组
   </label>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer" title="将叠加层与必要底图合并，保留范围外的可编辑图层。">
+    <input type="checkbox" id="mergeblends" checked> 合并叠加模式图层
+  </label>
   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="rasterallgroups"> Group 整组栅格化
   </label>
@@ -73,7 +76,7 @@
 </div>
 <script>
   var PORT = 7867;
-  var ws = null, connected = false, selCount = 0, imgAsm = null, exporting = false;
+  var ws = null, connected = false, selCount = 0, imgAsm = null, exporting = false, blendNotice = '';
   var $ = function (id) { return document.getElementById(id); };
   var toolButtons = { 'detach-instances': 'detach', 'convert-groups': 'group-to-frame', 'expand-groups': 'expand', 'delete-hidden': 'delete-hidden' };
 
@@ -98,7 +101,7 @@
     ws.onmessage = function (ev) {
       try {
         var ack = JSON.parse(ev.data);
-        if (ack.ok) say('完成——' + (ack.shapes != null ? '已在 AE 中创建 ' + ack.shapes + ' 个形状图层。' : '已发送到 AE。'), 'ok');
+        if (ack.ok) say('完成——' + (ack.shapes != null ? '已在 AE 中创建 ' + ack.shapes + ' 个形状图层。' : '已发送到 AE。') + blendNotice, 'ok');
         else say('AE 错误：' + (ack.error || '未知错误'), 'err');
       } catch (e) { say('已发送。', 'ok'); }
     };
@@ -110,7 +113,7 @@
   function shipHttp(payload) {
     fetch('http://127.0.0.1:' + PORT, { method: 'POST', body: JSON.stringify(payload) })
       .then(function (r) { return r.json(); })
-      .then(function (ack) { say(ack.ok ? '完成（HTTP）——' + (ack.shapes||'') + ' 个形状。' : 'AE 错误：' + ack.error, ack.ok ? 'ok' : 'err'); })
+      .then(function (ack) { say(ack.ok ? '完成（HTTP）——' + (ack.shapes||'') + ' 个形状。' + blendNotice : 'AE 错误：' + ack.error, ack.ok ? 'ok' : 'err'); })
       .catch(function () { say('无法连接端口 ' + PORT + ' 上的 AE 桥接服务。', 'err'); });
   }
 
@@ -127,8 +130,9 @@
     organize = $('organize').checked;
     var useNodes = $('nodemode').checked || organize;
     exporting = true; updateButton();
+    blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   };
 
   // messages from code.js (main thread)
@@ -163,6 +167,7 @@
       return;
     }
     if (msg.type === 'ship') {
+      blendNotice = msg.blendStats && msg.blendStats.external ? ' 部分叠加依赖选区外的底图，请选择更外层画框。' : '';
       if (!msg.svg || msg.svg.indexOf('<svg') === -1) { say('没有可发送的内容——Figma 导出的 SVG 为空。', 'err'); return; }
       var payload = { type: 'svg', name: msg.name, svg: msg.svg, texts: msg.texts || [], effects: msg.effects || [], shift: msg.shift || { x: 0, y: 0 }, nodes: msg.nodes || null,
                       containers: msg.containers || null, organize: !!msg.organize, imageCount: msg.imageCount || 0, imageBatch: !!msg.imageBatch, vnStats: msg.vnStats || null };

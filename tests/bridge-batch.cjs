@@ -96,5 +96,13 @@ function uiHarness(bridge, main) {
   policyUi.elements.ship.onclick(); await policyDone;
   assert.equal(policyBridge.batches[0].filter(im=>!im.reference).length, 2); assert.equal(policyBridge.imports[0].meta.texts.length, 0);
   assert.equal(policyBridge.imports[0].meta.containers.length, 1); assert.equal(policyBridge.imports[0].meta.containers[0].clip, false);
+  const blendBridge=bridgeHarness(),blendMain=harness(group('叠加',[node('RECTANGLE','底图',{cornerRadius:0,fills:[{type:'SOLID'}]}),node('RECTANGLE','柔光',{blendMode:'SOFT_LIGHT'}),node('TEXT','标题')]));
+  const blendUi=uiHarness(blendBridge,blendMain);
+  assert.equal(blendUi.elements.mergeblends.checked,true);
+  async function clickBlend(){const post=blendMain.figma.ui.postMessage;await new Promise(resolve=>{blendMain.figma.ui.postMessage=m=>{post(m);if(m.type==='export-state'&&!m.busy){blendMain.figma.ui.postMessage=post;resolve();}};blendUi.elements.ship.onclick();});}
+  await clickBlend();
+  assert.equal(blendBridge.batches[0].filter(im=>im.mergedBlend).length,1,'Blend checkbox reaches exporter through the real iframe');
+  blendUi.elements.mergeblends.checked=false;await clickBlend();
+  assert.equal(blendBridge.batches[1].filter(im=>im.mergedBlend).length,0);
   console.log('PASS: explicit completion, slow/failed images, single batch, old protocol, main → actual UI → bridge, both mark buttons');
 })().catch(e => { console.error(e); process.exitCode = 1; });
