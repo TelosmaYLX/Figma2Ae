@@ -192,6 +192,13 @@ var AEShapeBuilder = (function () {
   }
 
   var _trackSeq = 0;
+  var _referenceLayers = [];
+  function placeReferences(comp) {
+    for (var i = _referenceLayers.length - 1; i >= 0; i--) {
+      var layer = _referenceLayers[i];
+      try { if (layer.containingComp === comp) { layer.moveToBeginning(); layer.enabled = false; } } catch (e) {}
+    }
+  }
   function trackLayer(lyr, path, z, matte, isMatte) {
     if (!lyr) return;
     _layerPaths.push({ lyr: lyr, path: path || [], z: (z == null ? 0 : z),
@@ -478,6 +485,7 @@ var AEShapeBuilder = (function () {
     relinkMattes();        // cropped pictures survived two moves — put their mattes back
     refreshTextSkewPivots(comp); // final comp-space pivots; safe across nesting and repeated runs
     verifyStack(comp);     // and prove the stack really came out the way it was asked for
+    placeReferences(comp);
     return made;
   }
 
@@ -1282,7 +1290,7 @@ var AEShapeBuilder = (function () {
     if (!comp || !(comp instanceof CompItem)) throw new Error("No active comp. Open/select a comp first.");
     var baseName = opts.name || "UI Shapes";
     var shapes = model.shapes, N = shapes.length, i;
-    _diag = []; _fontMiss = {}; _fontMissList = []; _imgSlots = []; _layerPaths = []; _mattePairs = [];
+    _diag = []; _fontMiss = {}; _fontMissList = []; _imgSlots = []; _layerPaths = []; _mattePairs = []; _referenceLayers = [];
     _maskDefs = {};
     _presetComp = null; _presetLayer = null;   // one full deselect per import, not per gradient
 
@@ -1877,6 +1885,12 @@ var AEShapeBuilder = (function () {
           if (im.rotation) { try { tg.property("ADBE Rotate Z").setValue(im.rotation); } catch (er) {} }
           if (im.opacity != null && im.opacity < 1) tg.property("ADBE Opacity").setValue(im.opacity * 100);
 
+          // References stay outside the artwork hierarchy and never consume image slots.
+          if (im.reference) {
+            lyr.enabled = false; lyr.moveToBeginning(); _referenceLayers.push(lyr);
+            made++; continue;
+          }
+
           var mt = null, slotZ = null;
           if (im.matte) {
             mt = comp.layers.addShape();
@@ -1971,7 +1985,7 @@ var AEShapeBuilder = (function () {
 
   return { withUndo: withUndo, build: build, buildText: createTextLayers, buildImages: buildImages, organize: organize,
     // Flat imports need the same z correction as precomposed ones, but without building groups.
-    restack: function (comp) { restackByZ(); relinkMattes(); refreshTextSkewPivots(comp); verifyStack(comp); },
+    restack: function (comp) { restackByZ(); relinkMattes(); refreshTextSkewPivots(comp); verifyStack(comp); placeReferences(comp); },
     getDiag: function () {
     var d = _diag.slice(0);
     if (_txtOk + _txtNo > 0) d.push("TXT measured " + _txtOk + "/" + (_txtOk + _txtNo));

@@ -37,7 +37,7 @@ function harness({rememberFolder = true, failImages = false} = {}) {
   });
   return {native, pending, pickers, messages,
     start(id, imageCount) { return callbacks.onSvg('<svg width="10" height="10"></svg>', {name: id, nodes: [{id, fills: [], strokes: []}], texts: [], effects: [], imageCount}); },
-    images(id) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3}] : []); },
+    images(id, reference = false) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3, reference, hidden: reference}] : []); },
     finish() { assert.equal(active, 1); active--; pending.shift()('OK'); }
   };
 }
@@ -66,4 +66,7 @@ assert.deepEqual(failed.native.map(n => n.id), ['after failure']);
 assert.ok(failed.messages.some(m => /图片保存失败/.test(m))); failed.finish();
 const empty = harness(); empty.start('all PNGs failed', 2); empty.images();
 assert.equal(empty.native.length, 1); assert.equal(empty.native[0].job.imagesPath, ''); empty.finish();
+const reference = harness();reference.start('reference job',1);reference.images('original PNG',true);
+const savedReference=JSON.parse(fs.readFileSync(reference.native[0].job.imagesPath,'utf8'))[0];
+assert.equal(savedReference.reference,true);assert.equal(savedReference.hidden,true);reference.finish();
 console.log('PASS: complete payload, single evalScript, FIFO jobs, no phase overlap, unique files, picker cancellation, disk failure, empty batch');

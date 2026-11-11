@@ -28,7 +28,7 @@ const png = fs.readFileSync(path.join(root, 'SampleProject/pinball_game_containe
     const result = await h.run(true, false, true, !!c.rasterTexts, c.options);
     const dir = path.join(output, c.name); fs.mkdirSync(dir, {recursive: true});
     const chunks = h.messages.filter(m => m.type === 'image-chunk');
-    const images = result.images.map((meta, i) => {
+    const images = result.images.concat(result.references).map((meta, i) => {
       const file = 'image-' + i + '.png';
       fs.writeFileSync(path.join(dir, file), Buffer.from(chunks.filter(m => m.index === i).map(m => m.dataPart).join(''), 'base64'));
       return {...meta, file};

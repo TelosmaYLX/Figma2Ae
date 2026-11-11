@@ -69,9 +69,10 @@ function uiHarness(bridge, main) {
   ui.elements['unmark-raster'].onclick(); assert.equal(scene.name, '画框');
   scene.children[0].name = '*卡片';
   await main.context.exportSelectionSVG(true, true, true, false, false);
-  assert.equal(connected.imports.length, 1); assert.equal(connected.imports[0].meta.imageCount, 1);
+  assert.equal(connected.imports.length, 1); assert.equal(connected.imports[0].meta.imageCount, 2);
   assert.equal(connected.imports[0].meta.nodes.length, 0);
-  assert.equal(connected.batches.length, 1); assert.equal(connected.batches[0].length, 1);
+  assert.equal(connected.batches.length, 1); assert.equal(connected.batches[0].length, 2);
+  assert.equal(connected.batches[0].filter(im=>im.reference&&im.hidden).length,1);
   assert.equal(ui.elements.ship.disabled, false); assert.equal(ui.elements['mark-raster'].disabled, false);
   const textBridge = bridgeHarness(), textMain = harness(group('文字画框', [node('TEXT', '文字 A'), node('TEXT', '文字 B')]));
   const textUi = uiHarness(textBridge, textMain);
@@ -83,7 +84,7 @@ function uiHarness(bridge, main) {
   });
   textUi.elements.ship.onclick(); await finished;
   assert.equal(textBridge.imports[0].meta.texts.length, 0);
-  assert.equal(textBridge.batches.length, 1); assert.equal(textBridge.batches[0].length, 2, 'The checkbox reaches the exporter through the actual UI message handler');
+  assert.equal(textBridge.batches.length, 1); assert.equal(textBridge.batches[0].filter(im=>!im.reference).length, 2, 'The checkbox reaches the exporter through the actual UI message handler');
   const policyBridge = bridgeHarness(), policyMain = harness(node('FRAME', '选项画框', {clipsContent: true, fills: [{type: 'SOLID'}], children: [group('Group', [node('TEXT', '组文字')]), node('INSTANCE', 'Instance', {children: [node('TEXT', '实例文字')]})]}));
   const policyUi = uiHarness(policyBridge, policyMain);
   assert.equal(policyUi.elements.rasterallgroups.checked, false); assert.equal(policyUi.elements.rasterinstances.checked, false); assert.equal(policyUi.elements.enableclip.checked, true);
@@ -93,7 +94,7 @@ function uiHarness(bridge, main) {
     policyMain.figma.ui.postMessage = m => { policyPost(m); if (m.type === 'export-state' && !m.busy) resolve(); };
   });
   policyUi.elements.ship.onclick(); await policyDone;
-  assert.equal(policyBridge.batches[0].length, 2); assert.equal(policyBridge.imports[0].meta.texts.length, 0);
+  assert.equal(policyBridge.batches[0].filter(im=>!im.reference).length, 2); assert.equal(policyBridge.imports[0].meta.texts.length, 0);
   assert.equal(policyBridge.imports[0].meta.containers.length, 1); assert.equal(policyBridge.imports[0].meta.containers[0].clip, false);
   console.log('PASS: explicit completion, slow/failed images, single batch, old protocol, main → actual UI → bridge, both mark buttons');
 })().catch(e => { console.error(e); process.exitCode = 1; });

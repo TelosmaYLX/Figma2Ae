@@ -627,26 +627,46 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _contentBoundsByNode = {};
   figma.ui.postMessage({ type: 'export-state', busy: true });
 
-  // If one node is selected, export it directly (keeps its name).
-  // If several, wrap them in a temporary group so they export as one SVG, then ungroup.
-  var node, tempGroup = null, name;
-  if (sel.length === 1) {
-    node = sel[0];
-    name = node.name;
-  } else {
-    tempGroup = figma.group(sel, figma.currentPage);
-    _temporaryExportRoot = tempGroup;
-    tempGroup.name = 'f2a Export';
-    node = tempGroup;
-    name = 'Selection (' + sel.length + ')';
-  }
-
+  var originals = sel.slice(), node, name, workspace = null, references = [];
   var restore = [];   // [textNode, originalOpacity] to undo the hide after export
   var clipWasOn = false;
   var restoreFills = [];   // [imageNode, originalFills] — undone after the export
   var rasterHidden = [];
   var disabledClips = [];
   try {
+    // Capture the untouched selection before creating or changing any temporary node.
+    // Multi-selection keeps one complete reference for each selected frame/group.
+    var transforms = [], sizes = [];
+    for (var ri = 0; ri < originals.length; ri++) {
+      var original = originals[ri];
+      transforms.push(original.absoluteTransform.map(function (row) { return row.slice(); }));
+      sizes.push({ width: original.width, height: original.height });
+      var reference = _rasterMeta(original, original, false);
+      reference.rasterBytes = await original.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
+      delete reference.rasterNode; delete reference.rasterBounds;
+      reference.name += '_原图对照'; reference.reference = true; reference.hidden = true;
+      reference.opacity = 1; reference.blend = 'NORMAL'; reference.path = [];
+      references.push(reference);
+    }
+    // A page-level frame keeps clipping changes away from the original ancestors.
+    // Clone/reparent synchronously, then restore the original absolute transform.
+    workspace = figma.createFrame();
+    workspace.name = 'F2A 临时导出'; workspace.fills = []; workspace.clipsContent = false;
+    workspace.x = 0; workspace.y = 0;
+    var copies = [];
+    for (var ci0 = 0; ci0 < originals.length; ci0++) {
+      var copy = originals[ci0].clone();
+      try {
+        workspace.appendChild(copy);
+        if ((copy.width !== sizes[ci0].width || copy.height !== sizes[ci0].height) && typeof copy.resizeWithoutConstraints === 'function')
+          copy.resizeWithoutConstraints(sizes[ci0].width, sizes[ci0].height);
+        copy.relativeTransform = _matrixProduct(_inverseMatrix(workspace.absoluteTransform), transforms[ci0]);
+      } catch (cloneError) { copy.remove(); throw cloneError; }
+      copies.push(copy);
+    }
+    name = originals.length === 1 ? originals[0].name : 'Selection (' + originals.length + ')';
+    node = copies.length === 1 ? copies[0] : figma.group(copies, workspace);
+    if (copies.length > 1) { node.name = 'f2a Export'; _temporaryExportRoot = node; }
     if (options.enableClip === false) _disableExportClipping(node, disabledClips);
     if (typeof node.exportAsync !== 'function') {
       figma.ui.postMessage({ type: 'error', message: '此图层类型无法导出为 SVG。' });
@@ -839,6 +859,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       }
     }
     shiftToOrigin(texts, effects, origin);
+    images = images.concat(references);
     for (var im = 0; im < images.length; im++) {
       images[im].x -= origin.x; images[im].y -= origin.y;
       images[im].cx -= origin.x; images[im].cy -= origin.y;
@@ -865,7 +886,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     for (var rf = 0; rf < restoreFills.length; rf++) { try { restoreFills[rf][0].fills = restoreFills[rf][1]; } catch (erf) {} }
     if (clipWasOn) { try { node.clipsContent = true; } catch (erc) {} }   // put the frame back
     for (var dc = disabledClips.length - 1; dc >= 0; dc--) { try { disabledClips[dc].clipsContent = true; } catch (edc) {} }
-    if (tempGroup) figma.ungroup(tempGroup);   // restore the user's layers
+    if (workspace) workspace.remove();
+    figma.currentPage.selection = originals;
     _temporaryExportRoot = null;
     _subtreeFlagsByNode = null;
     _contentBoundsByNode = null;
@@ -1271,7 +1293,13 @@ async function shipImages(images) {
     var im = images[q], b64 = '', ext = 'png', natW = 0, natH = 0;
     try {
       var bytes;
-      if (im.rasterNode) {
+      if (im.rasterBytes) {
+        bytes = im.rasterBytes; im.rasterBytes = null;
+        var referenceSize = _pngSize(bytes);
+        natW = referenceSize ? referenceSize.width : im.natW;
+        natH = referenceSize ? referenceSize.height : im.natH;
+        b64 = figma.base64Encode(bytes); bytes = null;
+      } else if (im.rasterNode) {
         bytes = await _exportRasterPass(im);
         ext = 'png';
         var ps = _pngSize(bytes);
@@ -1293,7 +1321,7 @@ async function shipImages(images) {
                  natW: natW, natH: natH, scaleMode: im.scaleMode,
                  opacity: im.opacity, rotation: im.rotation, matte: im.matte,
                  blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0),
-                 hidden: !!im.hidden };   // eye off in Figma -> layer switched off in AE
+                 hidden: !!im.hidden, reference: !!im.reference };   // eye off in Figma -> layer switched off in AE
     var parts = Math.max(1, Math.ceil(b64.length / CHUNK));
     for (var pi = 0; pi < parts; pi++) {
       figma.ui.postMessage({

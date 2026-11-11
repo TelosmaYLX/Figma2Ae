@@ -6,7 +6,7 @@
   function read(name) { var f = new File(dir + name); f.encoding = 'UTF-8'; f.open('r'); var s = f.read(); f.close(); return eval('(' + s + ')'); }
   function requireCheck(ok, message) { if (!ok) throw new Error(message); }
   function count(comp) {
-    var result = {shapes: 0, texts: 0, images: 0, masks: 0};
+    var result = {shapes: 0, texts: 0, images: 0, references: 0, masks: 0};
     for (var j = 1; j <= comp.numLayers; j++) {
       var layer = comp.layer(j);
       var masks = layer.property('ADBE Mask Parade');
@@ -15,8 +15,8 @@
       else if (layer instanceof ShapeLayer) result.shapes++;
       else if (layer.source instanceof CompItem) {
         var child = count(layer.source);
-        result.shapes += child.shapes; result.texts += child.texts; result.images += child.images; result.masks += child.masks;
-      } else if (layer.source instanceof FootageItem) result.images++;
+        result.shapes += child.shapes; result.texts += child.texts; result.images += child.images; result.masks += child.masks; result.references += child.references;
+      } else if (layer.source instanceof FootageItem) { if (/_原图对照$/.test(layer.name)) result.references++; else result.images++; }
     }
     return result;
   }
@@ -36,6 +36,7 @@
       var images = runImportImages(prefix + 'images.json', prefix);
       requireCheck(!/error/i.test(images), images);
       var organize = runOrganize(), counts = count(comp);
+      requireCheck(counts.references === 1 && /_原图对照$/.test(comp.layer(1).name) && !comp.layer(1).enabled, 'Reference must stay at the top of the root comp, hidden');
       for (var key in test.expected) requireCheck(counts[key] === test.expected[key], test.name + ' ' + key + ': ' + counts[key]);
       results.push({name: test.name, counts: counts, status: status, images: images, organize: organize});
     }

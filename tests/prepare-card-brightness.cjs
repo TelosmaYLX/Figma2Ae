@@ -1,7 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
 const root = path.resolve(__dirname, '..'), dir = path.join(root, 'artifacts/card-brightness');
 const project = JSON.parse(fs.readFileSync(path.join(dir, 'project-before.json'), 'utf8'));
 const card = project.comps.find(c => c.name === 'pinball_game-card');
@@ -25,19 +24,19 @@ const backing = node('RECTANGLE', 'gradient backing', {width:156.121,height:233.
 const background = group('bg_s_img', [mask, backing, node('VECTOR','pattern',{blendMode:'SOFT_LIGHT',opacity:.6}), node('RECTANGLE','photo',{blendMode:'LINEAR_BURN'}), node('RECTANGLE','photo detail',{blendMode:'COLOR_BURN'})]);
 const text = node('TEXT', '×1', {characters:'×1',fontName:{family:'Arial',style:'Regular'},fontSize:16,textAlignHorizontal:'LEFT',textAutoResize:'WIDTH_AND_HEIGHT',getStyledTextSegments(){return [{characters:'×1',fontName:this.fontName,fontSize:16,fills:[]}];}});
 const scene = group('pinball_game-card',[background,text]);
-const messages = [];
-const figma = {mixed:Symbol(),showUI(){},on(){},notify(){},currentPage:{selection:[scene]},
-  ui:{postMessage(m){messages.push(JSON.parse(JSON.stringify(m)));}},base64Encode:b=>Buffer.from(b).toString('base64')};
-const context = vm.createContext({figma,__html__:''});
-vm.runInContext(fs.readFileSync(path.join(root,'figma-plugin/code.js'),'utf8'),context);
+const h = require('./export-options.cjs').harness(scene);
+(function render(n){n.exportAsync=async()=>{pngCalls++;return fs.readFileSync(bg);};if(n.children)n.children.forEach(render);})(scene);
+const messages=h.messages,context=h.context;
 (async () => {
   await context.exportSelectionSVG(true,false,true,false,true,false,{});
   assert.equal(messages.find(m=>m.type==='error'),undefined);
   const ship = messages.find(m=>m.type==='ship');
   assert.equal(ship.texts.length,1,'The counter must remain editable');
-  const chunks = messages.filter(m=>m.type==='image-chunk');
-  assert.equal(chunks.filter(m=>m.seq===0).length,1,'Closed card backgrounds must export once');
-  assert.equal(pngCalls,1);
+  const allChunks=messages.filter(m=>m.type==='image-chunk');
+  const artwork=allChunks.filter(m=>m.seq===0&&!m.meta.reference);
+  assert.equal(artwork.length,1,'Closed card backgrounds must export once');
+  const chunks=allChunks.filter(m=>m.index===artwork[0].index);
+  assert.equal(pngCalls,2,'One untouched reference and one copy background');
   const im = {...chunks[0].meta,file:'background.png'};
   fs.writeFileSync(path.join(dir,im.file),Buffer.from(chunks.map(m=>m.dataPart).join(''),'base64'));
   assert.deepEqual(fs.readFileSync(path.join(dir,im.file)),fs.readFileSync(bg));
@@ -52,7 +51,7 @@ vm.runInContext(fs.readFileSync(path.join(root,'figma-plugin/code.js'),'utf8'),c
       blend:index===3?'LINEAR_DODGE':'NORMAL',rotation:0});
   }
   fs.writeFileSync(path.join(dir,'import-images.json'),JSON.stringify(images,null,2));
-  fs.writeFileSync(path.join(dir,'export-report.json'),JSON.stringify({passed:true,backgroundExports:pngCalls,
+  fs.writeFileSync(path.join(dir,'export-report.json'),JSON.stringify({passed:true,backgroundExports:artwork.length,
     editableTexts:ship.texts.length,background:im,scope:'Actual exporter with simulated Figma nodes; PNG bytes are existing real Figma exports from the supplied example'},null,2));
   console.log('PASS: one background PNG, editable counter, original Figma bytes preserved');
 })().catch(e=>{console.error(e);process.exitCode=1;});

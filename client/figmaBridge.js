@@ -336,7 +336,7 @@
                       natW: im.natW, natH: im.natH, scaleMode: im.scaleMode,
                       opacity: im.opacity, rotation: im.rotation, matte: im.matte, blend: im.blend,
                       path: im.path, z: im.z,
-                      cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch, hidden: !!im.hidden });
+                      cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch, hidden: !!im.hidden, reference: !!im.reference });
         }
         submitImport(job, saveJsonTemp(list, 'images').replace(/\\/g, '/'), lastImageFolder);
       } catch (e) {

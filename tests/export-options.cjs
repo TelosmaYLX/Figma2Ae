@@ -22,6 +22,20 @@ function node(type, name, extra = {}) {
   return n;
 }
 const group = (name, children, extra = {}) => node('GROUP', name, {children, blendMode: 'PASS_THROUGH', ...extra});
+function mockClone(n) {
+  const copy = {};
+  for (const key of Reflect.ownKeys(n)) {
+    if (['id','parent','children','removed'].includes(key)) continue;
+    const descriptor = Object.getOwnPropertyDescriptor(n,key);
+    if ('value' in descriptor && descriptor.value && typeof descriptor.value === 'object') descriptor.value=JSON.parse(JSON.stringify(descriptor.value));
+    Object.defineProperty(copy,key,descriptor);
+  }
+  copy.id=String(++nextId);
+  if(n.children) {copy.children=n.children.map(mockClone);copy.children.forEach(c=>c.parent=copy);}
+  copy.clone=function(){return mockClone(this);};
+  copy.remove=function(){this.removed=true;if(this.parent?.children)this.parent.children=this.parent.children.filter(n=>n!==this);if(this.children)this.children.forEach(c=>c.remove());};
+  return copy;
+}
 function harness(root, code = source) {
   const messages = [], calls = {svg: 0, png: 0, fonts: 0, undo: 0};
   function attach(n) {
@@ -32,12 +46,20 @@ function harness(root, code = source) {
       return png;
     };
     if (n.children) n.children.forEach(attach);
+    n.clone=function(){return mockClone(this);};
   }
   attach(root);
   const figma = {
     mixed: Symbol(), showUI() {}, on() {}, notify() {}, commitUndo() { calls.undo++; },
     currentPage: {selection: [root]}, ui: {postMessage(m) { messages.push(JSON.parse(JSON.stringify(m))); }},
-    loadFontAsync() { calls.fonts++; return Promise.resolve(); }, base64Encode: b => Buffer.from(b).toString('base64')
+    loadFontAsync() { calls.fonts++; return Promise.resolve(); }, base64Encode: b => Buffer.from(b).toString('base64'),
+    createFrame() {
+      const frame=node('FRAME','temporary',{children:[],parent:{type:'PAGE'}});
+      frame.appendChild=function(n){n.parent=this;this.children.push(n);};
+      frame.remove=function(){this.children.slice().forEach(c=>c.remove());this.removed=true;};
+      return frame;
+    },
+    group(nodes,parent) {const g=group('temporary selection',nodes);g.exportAsync=root.exportAsync;g.clone=function(){return mockClone(this);};g.remove=function(){this.removed=true;this.children.slice().forEach(c=>c.remove());};parent.appendChild(g);return g;}
   };
   const context = vm.createContext({__html__: '', figma});
   vm.runInContext(code, context);
@@ -46,7 +68,8 @@ function harness(root, code = source) {
     await context.exportSelectionSVG(useNodes, organize, true, false, rasterGroups, rasterTexts, options);
     const error = messages.find(m => m.type === 'error');
     assert.equal(error, undefined, error?.message);
-    return {ship: messages.find(m => m.type === 'ship'), images: messages.filter(m => m.type === 'image-chunk' && m.seq === 0).map(m => m.meta)};
+    const all=messages.filter(m => m.type === 'image-chunk' && m.seq === 0).map(m => m.meta);
+    return {ship: messages.find(m => m.type === 'ship'), images: all.filter(m=>!m.reference), references: all.filter(m=>m.reference)};
   }};
 }
 
@@ -74,14 +97,15 @@ async function check() {
   assert.equal(h.messages.filter(m => m.type === 'images-done').length, 1);
   assert.equal(h.messages.at(-1).busy, false);
   const again = await h.run(true, false);
-  assert.deepEqual(again, result, 'Repeated exports must not retain modified coordinates or stale caches');
+  const stable = value => JSON.parse(JSON.stringify(value,(key,v)=>['id','path'].includes(key)?undefined:v));
+  assert.deepEqual(stable(again), stable(result), 'Repeated exports must not retain modified coordinates or stale caches');
   assert.equal(title.opacity, 1); assert.equal(marked.visible, true);
   const rasterTextResult = await h.run(true, false, true, true);
   assert.equal(rasterTextResult.ship.texts.length, 0);
   assert.equal(rasterTextResult.images.length, 2, 'One text PNG plus one marked group; no duplicate group text');
   assert.equal(title.name, originalName, 'Automatic text rasterization does not rename Figma layers');
   const editableAgain = await h.run(true, false);
-  assert.deepEqual(editableAgain, result, 'Turning off the option restores editable text on the next export');
+  assert.deepEqual(stable(editableAgain), stable(result), 'Turning off the option restores editable text on the next export');
 
   const plainText = node('TEXT', '单独选中的文字'), textHarness = harness(plainText);
   const onlyText = await textHarness.run(false, false, false, true);
@@ -95,7 +119,7 @@ async function check() {
   const clippedText = node('TEXT', '部分超出画框的文字');
   const clipRoot = node('FRAME', '裁剪画框', {clipsContent: true, children: [clippedText]});
   Object.defineProperty(clippedText, 'absoluteRenderBounds', {get() {
-    return {x: 110, y: 40, width: clipRoot.clipsContent ? 10 : 50, height: 20};
+    return {x: 110, y: 40, width: this.parent.clipsContent ? 10 : 50, height: 20};
   }});
   const clipHarness = harness(clipRoot), clippedResult = await clipHarness.run(true, false, true, true);
   assert.deepEqual([clippedResult.images[0].x, clippedResult.images[0].y, clippedResult.images[0].w, clippedResult.images[0].h], [90, 10, 50, 20], 'Text PNG placement uses its actual export bounds, before AE reapplies the frame clip');
@@ -182,7 +206,8 @@ async function check() {
 
   const legacy = harness(group('旧 SVG 模式', [node('TEXT', '文字'), group('*位图组', [node('RECTANGLE', '形状')])]));
   const legacyRoot = legacy.figma.currentPage.selection[0];
-  legacyRoot.exportAsync = async () => { legacy.calls.svg++; assert.equal(legacyRoot.children[1].visible, false); return Buffer.from('<svg width="100" height="60"></svg>'); };
+  const legacyExport = legacyRoot.exportAsync;
+  legacyRoot.exportAsync = async function(options) { if(options.format==='PNG')return legacyExport(options);legacy.calls.svg++;assert.equal(this.children[1].visible,false);return Buffer.from('<svg width="100" height="60"></svg>'); };
   const lr = await legacy.run(false, false, false);
   assert.equal(legacy.calls.svg, 1); assert.equal(legacy.calls.fonts, 1); assert.equal(lr.images.length, 1);
   assert.equal(legacyRoot.children[1].visible, true); assert.equal(legacyRoot.children[0].opacity, 1);
