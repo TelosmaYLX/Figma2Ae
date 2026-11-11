@@ -6,6 +6,8 @@ Thumbs.db
 
 # Node / tooling
 node_modules/
+.venv-aep/
+__pycache__/
 npm-debug.log*
 pnpm-debug.log*
 

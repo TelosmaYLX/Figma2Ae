@@ -1,5 +1,7 @@
 # AE 渐变回归
 
+直接导出 AEP 的用法、范围和验证命令见 [scripts/aep/README.md](../scripts/aep/README.md)。
+
 需要 AE 26，以及已打开的 F2A 面板（调试端口 8621）。测试使用内置 Node 和项目现有的渐变预设，不需要安装依赖。
 
 ```powershell
