@@ -444,13 +444,22 @@ async function _bakeBlendStacks(root, organize) {
         if (atom.paint) includePaint = true;
         else keep.push(atom.node);
       }
-      var savedFills = ctx.fills, savedStrokes = ctx.strokes;
+      var hasFills = 'fills' in ctx, hasStrokes = 'strokes' in ctx;
+      var savedFills = hasFills ? ctx.fills : null, savedStrokes = hasStrokes ? ctx.strokes : null;
       var image = _rasterMeta(ctx, root, organize);
       try {
-        if (!includePaint) { ctx.fills = []; ctx.strokes = []; }
+        if (!includePaint) {
+          if (hasFills) ctx.fills = [];
+          if (hasStrokes) ctx.strokes = [];
+        }
         image.rasterPass = { atoms: atoms.filter(function (a) { return !a.paint; }).map(function (a) { return a.node; }), keep: keep, blend: 'NORMAL' };
         image.rasterBytes = await _exportRasterPass(image);
-      } finally { ctx.fills = savedFills; ctx.strokes = savedStrokes; }
+      } finally {
+        if (!includePaint) {
+          if (hasFills) ctx.fills = savedFills;
+          if (hasStrokes) ctx.strokes = savedStrokes;
+        }
+      }
       image.name = (ctx.name || 'Figma') + '_叠加合并'; image.blend = 'NORMAL'; image.mergedBlend = true;
       image.path = _pathOf(ctx, root.id);
       if (ctx !== root || _includeRootContainer) image.path.push(ctx.id);
@@ -485,7 +494,10 @@ async function _bakeBlendStacks(root, organize) {
   await visit(root);
   if (mixed(root) || (paintBlend(root) && mode(root) === 'PASS_THROUGH')) stats.external++;
   // Clear baked frame paints only after every PNG has rendered against the original copy.
-  paintOwners.forEach(function (n) { n.fills = []; n.strokes = []; });
+  paintOwners.forEach(function (n) {
+    if ('fills' in n) n.fills = [];
+    if ('strokes' in n) n.strokes = [];
+  });
   return { images: images, stats: stats };
 }
 

@@ -34,6 +34,12 @@ function mockClone(n) {
   if(n.children) {copy.children=n.children.map(mockClone);copy.children.forEach(c=>c.parent=copy);}
   copy.clone=function(){return mockClone(this);};
   copy.remove=function(){this.removed=true;if(this.parent?.children)this.parent.children=this.parent.children.filter(n=>n!==this);if(this.children)this.children.forEach(c=>c.remove());};
+  // Preserve native-like sealed Group fixtures when the exporter clones them.
+  if(!Object.isExtensible(n)) {
+    if(!Object.hasOwn(copy,'parent'))copy.parent=null;
+    copy.removed=undefined;
+    Object.preventExtensions(copy);
+  }
   return copy;
 }
 function harness(root, code = source) {
