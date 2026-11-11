@@ -30,7 +30,7 @@ function group(name, children, extra = {}) {
   assert.equal(passes.flatMap(p => Array.from(p.keep)).some(n => n === mask), false);
   const snapshots = [];
   root.exportAsync = async () => {
-    snapshots.push({visible: [texture, soft, front, isolated].filter(n => n.visible).map(n => n.name), mask: mask.visible, softBlend: soft.blendMode});
+    snapshots.push({visible: [texture, soft, front, isolated].filter(n => n.visible && n.opacity > 0).map(n => n.name), mask: mask.visible, softBlend: soft.blendMode});
     return new Uint8Array([1, 2, 3]);
   };
   for (const pass of passes) {

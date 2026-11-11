@@ -129,3 +129,11 @@ python scripts/compare-card-brightness.py
 样例引用的临时 PNG 可能被后续导出覆盖。`recover-card-test-assets.py` 按原素材尺寸筛选，并要求按样例变换后的 RGBA 像素与留存图层完全一致，再复制到 `verified-assets/` 供测试使用。
 
 2026-11-11 本轮已通过离线导出检查；按用户要求暂停原生 AE 对照。目录中原有 AE 渲染与指标属于此前记录，不能作为本轮通过的证据。当前检查状态见 `artifacts/card-brightness/current-validation.json`。
+
+## 导出位置
+
+```powershell
+node tests/export-position.cjs artifacts/position-check/report.json
+```
+
+检查含小数坐标的形状、文字、图片共享同一画框原点；节点导入分支不应用 SVG 的画布位移。栅格边界重复测量不得累加平移，分层导出用透明度抑制其他绘制，避免隐藏图层导致自动布局重新排版；导出失败后恢复原透明度和混合模式。测试执行实际导出、SVG 解析和宿主入口，Figma 自动布局与裁剪行为使用模拟对象；未执行真实 Figma 或 AE 画面对照。

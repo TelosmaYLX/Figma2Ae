@@ -449,6 +449,9 @@ function _updateRasterBounds(im) {
   im.x += b.x - im.rasterBounds.x; im.y += b.y - im.rasterBounds.y;
   im.w = im.cw = b.width; im.h = im.ch = b.height;
   im.cx = im.x + b.width / 2; im.cy = im.y + b.height / 2;
+  // The next measurement is relative to this crop, not the original one. Preserve the
+  // scene-relative offset in im.x/y without accumulating the same crop delta twice.
+  im.rasterBounds = { x: b.x, y: b.y, width: b.width, height: b.height };
 }
 
 async function _exportRasterPass(im) {
@@ -465,16 +468,18 @@ async function _exportRasterPass(im) {
     for (var i = 0; i < pass.atoms.length; i++) {
       var atom = pass.atoms[i];
       if (pass.keep.indexOf(atom) !== -1) continue;
-      restored.push({ node: atom, visible: atom.visible }); atom.visible = false;
+      // Visibility removes an item from auto layout and moves the retained artwork.
+      // Suppress its paint while keeping its original place and size in the layout.
+      restored.push({ node: atom, opacity: atom.opacity }); atom.opacity = 0;
     }
     if (target) target.blendMode = 'NORMAL';
-    // Hiding other artwork can shrink the render bounds. Carry the resulting crop back
+    // Suppressing other artwork can shrink the render bounds. Carry the resulting crop back
     // into the already frame-relative metadata, so separate glow layers do not move.
     _updateRasterBounds(im);
     return await im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
   } finally {
     if (target) target.blendMode = oldBlend;
-    for (var j = restored.length - 1; j >= 0; j--) restored[j].node.visible = restored[j].visible;
+    for (var j = restored.length - 1; j >= 0; j--) restored[j].node.opacity = restored[j].opacity;
   }
 }
 
