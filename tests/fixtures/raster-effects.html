@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><pre id="result">running</pre>
+<script>var module={exports:{}};</script><script src="../../client/figmaRasterEffects.js"></script>
+<script>
+(async()=>{
+  const fg=[200,120,60,128],bg=[10,30,70,100],a=fg[3]/255,b=bg[3]/255,alpha=a+b*(1-a);
+  const full=[0,1,2].map(i=>Math.round((fg[i]*a+bg[i]*b*(1-a))/alpha)).concat(Math.round(alpha*255));
+  function png(pixel){const c=document.createElement('canvas');c.width=c.height=1;const x=c.getContext('2d');const p=x.createImageData(1,1);p.data.set(pixel);x.putImageData(p,0,0);return c.toDataURL().split(',')[1];}
+  const pngResult=await module.exports.renderShadow(png(full),{data:png(fg),dx:0,dy:0,w:1,h:1},document,Image);
+  const image=new Image();const done=new Promise((r,j)=>{image.onload=r;image.onerror=j;});image.src='data:image/png;base64,'+pngResult;await done;
+  const c=document.createElement('canvas');c.width=c.height=1;const x=c.getContext('2d');x.drawImage(image,0,0);const recovered=Array.from(x.getImageData(0,0,1,1).data);
+  const bs=recovered[3]/255,ar=a+bs*(1-a);
+  const reconstructed=[0,1,2].map(i=>Math.round((fg[i]*a+recovered[i]*bs*(1-a))/ar)).concat(Math.round(ar*255));
+  const error=Math.max(...full.map((v,i)=>Math.abs(v-reconstructed[i])));
+  document.querySelector('#result').textContent=JSON.stringify({passed:error<=2,full,recovered,reconstructed,maxChannelError:error});
+})().catch(error=>document.querySelector('#result').textContent=JSON.stringify({passed:false,error:String(error)}));
+</script>

@@ -43,6 +43,7 @@ var _rasterAllGroups = false;
 var _rasterInstances = false;
 var _temporaryExportRoot = null;
 var _rasterByNode = {};         // rasterised group + descendants: collected by the image route
+var _effectGroupByNode = {};
 var _includeRootContainer = false;
 var _maskByNode = {};          // content node id -> mask ROOT id
 var _maskSourceByNode = {};    // mask node + all its descendants -> mask ROOT id
@@ -231,7 +232,7 @@ function _subtreeFlags(n, hiddenAncestor) {
   if (n.type === 'BOOLEAN_OPERATION') flags.complex = true;   // compound geometry is fragile per-shape
   try { if (n.isMask === true) { flags.mask = true; flags.complex = true; } } catch (e) {}
   try {
-    if (n.blendMode && n.blendMode !== 'PASS_THROUGH' && n.blendMode !== 'NORMAL') flags.complex = true;
+    if (_effectGroupByNode[n.id] || (n.blendMode && n.blendMode !== 'PASS_THROUGH' && n.blendMode !== 'NORMAL')) flags.complex = true;
   } catch (eb) {}
   try {
     var filters = n.effects || [];
@@ -286,7 +287,7 @@ function _collectRasterCandidates(root) {
   var out = [], textNodes = [];
   _rasterByNode = {};
   _subtreeFlagsByNode = {};
-  function scan(n) {
+  function scan(n, mergeEffects) {
     if (_ignoreHidden && _isHidden(n)) return;
     if (_rasterWhole(n)) {
       out.push(n); _markRaster(n); return;
@@ -297,10 +298,11 @@ function _collectRasterCandidates(root) {
         for (var ci = 0; ci < n.children.length; ci++) scan(n.children[ci]);
       return;
     }
+    mergeEffects = mergeEffects || _effectGroupByNode[n.id];
     var f = _subtreeFlags(n, false);
-    if (!f.complex && !f.marked && !(_rasterTexts && f.text)) return;
+    if (!f.complex && !f.marked && !mergeEffects && !(_rasterTexts && f.text)) return;
     // An explicit mark defines the raster boundary; do not absorb it into an automatic parent.
-    if (!f.marked && _isContainer(n) && !f.text) {
+    if (!f.marked && !f.text && (_isContainer(n) || mergeEffects || (n.type !== 'TEXT' && (n.effects || []).some(function (e) { return e.visible !== false; })))) {
       out.push(n);
       _markRaster(n);
       return;
@@ -314,7 +316,7 @@ function _collectRasterCandidates(root) {
     }
     var before = out.length;
     if (n.type !== 'BOOLEAN_OPERATION' && n.children)
-      for (var i = 0; i < n.children.length; i++) scan(n.children[i]);
+      for (var i = 0; i < n.children.length; i++) scan(n.children[i], mergeEffects);
     // A mask + text container may have no separable background. Rasterising it (including its
     // text) is the only faithful option; otherwise the text would escape the Figma mask.
     if (!f.marked && _isContainer(n) && f.text && f.mask && out.length === before) {
@@ -322,7 +324,7 @@ function _collectRasterCandidates(root) {
       _markRaster(n);
     }
   }
-  if (_rasterWhole(root) || (_rasterTexts && root.type === 'TEXT')) scan(root);
+  if (_rasterWhole(root) || (_rasterTexts && root.type === 'TEXT') || (_rasterGroups && (_effectGroupByNode[root.id] || (root.effects || []).some(function (e) { return e.visible !== false; })))) scan(root);
   else if (root.children) for (var i = 0; i < root.children.length; i++) scan(root.children[i]);
   // Preserve whole-group raster decisions (including mask + text groups) before adding
   // individual text PNGs. A text already baked into a parent must not be exported twice.
@@ -331,6 +333,37 @@ function _collectRasterCandidates(root) {
     out.push(textNodes[ti]); _markRaster(textNodes[ti]);
   }
   return out;
+}
+
+// Bake drop shadows separately where editable text prevents a whole-group PNG.
+// The clean pass is used only to remove the foreground pixels from the full Figma render.
+async function _bakeEditableShadows(root, organize) {
+  var images = [];
+  async function walk(n) {
+    if (_rasterByNode[n.id] || _isHidden(n)) return;
+    var effects = n.effects || [], drops = effects.filter(function (e) { return e.type === 'DROP_SHADOW' && e.visible !== false; });
+    if (drops.length) {
+      if (n.type === 'TEXT') {
+        var segments = n.getStyledTextSegments(['fontName']);
+        for (var f = 0; f < segments.length; f++) await figma.loadFontAsync(segments[f].fontName);
+      }
+      var image = _rasterMeta(n, root, organize), fullBounds = image.rasterBounds;
+      image.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
+      n.effects = effects.filter(function (e) { return e.type !== 'DROP_SHADOW' || e.visible === false; });
+      var cleanBounds = n.absoluteRenderBounds || n.absoluteBoundingBox;
+      var clean = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
+      image.shadowBase = { data: figma.base64Encode(clean), dx: (cleanBounds.x - fullBounds.x) * 2,
+        dy: (cleanBounds.y - fullBounds.y) * 2, w: cleanBounds.width * 2, h: cleanBounds.height * 2 };
+      image.name += '_投影'; image.blend = 'NORMAL'; image.z -= 0.01; image.shadow = true;
+      image.external = n === root; delete image.rasterNode; delete image.rasterBounds;
+      images.push(image);
+      if (_isContainer(n)) _effectGroupByNode[n.id] = true;
+    }
+    if (n.type !== 'BOOLEAN_OPERATION' && n.children)
+      for (var c = 0; c < n.children.length; c++) await walk(n.children[c]);
+  }
+  await walk(root);
+  return images;
 }
 
 // Metadata for one rasterised node. Explicitly marked groups include their text in the PNG.
@@ -683,12 +716,16 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     if (_rasterWhole(node) || (_rasterTexts && node.type === 'TEXT')) useNodes = true;
     _zMap = buildZMap(node);
     buildImportMaps(node);
+    _effectGroupByNode = {};
     var rasterCandidates = _collectRasterCandidates(node);
+    var shadowImages = _rasterGroups ? await _bakeEditableShadows(node, !!organize) : [];
+    if (shadowImages.length) rasterCandidates = _collectRasterCandidates(node);
     var nodeShapes = useNodes ? collectShapes(node, !!organize) : null;
     var containers = organize ? collectContainers(node) : null;
     var texts = collectTexts(node, { x: 0, y: 0 }, node.id, !!organize);
     var effects = collectEffects(node, { x: 0, y: 0 });
     var images = await collectImages(node, node.id, !!organize);
+    images = images.concat(shadowImages);
     for (var rci = 0; rci < rasterCandidates.length; rci++) {
       var rn = rasterCandidates[rci], passes = _rasterWhole(rn) ? [{}] : _rasterBlendPasses(rn);
       for (var rpi = 0; rpi < passes.length; rpi++) {
@@ -891,6 +928,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     _temporaryExportRoot = null;
     _subtreeFlagsByNode = null;
     _contentBoundsByNode = null;
+    _effectGroupByNode = {};
     _exporting = false;
     figma.ui.postMessage({ type: 'export-state', busy: false });
   }
@@ -1321,7 +1359,7 @@ async function shipImages(images) {
                  natW: natW, natH: natH, scaleMode: im.scaleMode,
                  opacity: im.opacity, rotation: im.rotation, matte: im.matte,
                  blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0),
-                 hidden: !!im.hidden, reference: !!im.reference };   // eye off in Figma -> layer switched off in AE
+                 hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, shadowBase: im.shadowBase || null, external: !!im.external };
     var parts = Math.max(1, Math.ceil(b64.length / CHUNK));
     for (var pi = 0; pi < parts; pi++) {
       figma.ui.postMessage({

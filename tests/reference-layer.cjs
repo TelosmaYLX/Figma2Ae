@@ -19,8 +19,8 @@ const comp=new CompItem(),footage=[],app={project:{activeItem:comp,get numItems(
 const context=vm.createContext({app,CompItem,FootageItem,File,ImportOptions});
 vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../host/figma/aeShapeBuilder.jsx'),'utf8'),context);
 const builder=context.AEShapeBuilder;builder.build({shapes:[]},{comp});
-const image=(name,z,reference=false)=>({file:name+'.png',name,natW:200,natH:120,cx:50,cy:30,cw:100,ch:60,w:100,h:60,scaleMode:'FIT',z,reference});
-assert.equal(builder.buildImages(comp,[image('reference',0,true),image('lower',1),image('upper',2)],'assets'),3);
+const image=(name,z,reference=false,external=false)=>({file:name+'.png',name,natW:200,natH:120,cx:50,cy:30,cw:100,ch:60,w:100,h:60,scaleMode:'FIT',z,reference,external});
+assert.equal(builder.buildImages(comp,[image('reference',0,true),image('lower',1),image('upper',2),image('root shadow',-.01,false,true)],'assets'),4);
 builder.restack(comp);
 assert.equal(comp.layer(1).name,'reference');assert.equal(comp.layer(1).enabled,false);
 assert.deepEqual(Array.from(comp.layer(1).values['ADBE Position']),[50,30,0]);
@@ -28,6 +28,6 @@ assert.ok(!/reference/.test(builder.getDiag().split('top>bottom:')[1]||''),'Refe
 let members;
 comp.layers.precompose=indices=>{members=Array.from(indices);throw new Error('Stop after checking precompose membership');};
 assert.equal(builder.organize(comp,[{id:'root',root:true,name:'root',path:[],x:0,y:0,w:100,h:60}]),0);
-assert.equal(members.length,2);assert.ok(members.every(i=>comp.layer(i).name!=='reference'));
+assert.equal(members.length,2);assert.ok(members.every(i=>!['reference','root shadow'].includes(comp.layer(i).name)));
 builder.restack(comp);assert.equal(comp.layer(1).name,'reference');assert.equal(comp.layer(1).enabled,false);
 console.log('PASS: production AE image builder imports reference at the correct position, excludes it from artwork ordering, restores it to top and keeps it hidden');

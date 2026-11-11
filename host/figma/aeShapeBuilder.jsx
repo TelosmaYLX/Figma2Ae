@@ -199,11 +199,11 @@ var AEShapeBuilder = (function () {
       try { if (layer.containingComp === comp) { layer.moveToBeginning(); layer.enabled = false; } } catch (e) {}
     }
   }
-  function trackLayer(lyr, path, z, matte, isMatte) {
+  function trackLayer(lyr, path, z, matte, isMatte, external) {
     if (!lyr) return;
     _layerPaths.push({ lyr: lyr, path: path || [], z: (z == null ? 0 : z),
                        seq: _trackSeq++,          // tie-break: ExtendScript's sort is NOT stable
-                       matte: matte || null, isMatte: !!isMatte });
+                       matte: matte || null, isMatte: !!isMatte, external: !!external });
   }
 
   // Put the comp back into Figma's paint order WITHOUT blindly moving every layer. The old
@@ -379,7 +379,7 @@ var AEShapeBuilder = (function () {
           if (isRootContainer) {
             // The root is the final sweep: swallow every remaining imported layer, including
             // layers whose intermediate container was skipped (orphan path refs).
-            hit = true;
+            hit = !rec.external;
           } else {
             for (var k = 0; k < rec.path.length; k++) if (rec.path[k] === c.id) { hit = true; break; }
           }
@@ -1942,6 +1942,7 @@ var AEShapeBuilder = (function () {
           }
           // Put the footage back where it belongs in the stack: find the placeholder left by
           // the SVG pass (matched on centre) and move the layer(s) there.
+          if (!im.shadow) {
           try {
             var icx = (im.cx != null ? im.cx : im.x + im.w / 2);
             var icy = (im.cy != null ? im.cy : im.y + im.h / 2);
@@ -1964,6 +1965,7 @@ var AEShapeBuilder = (function () {
               try { slot.lyr.remove(); } catch (erm) {}
             }
           } catch (ez) { _diag.push("IMGz:" + String(ez).substr(0, 30)); }
+          }
           applyBlend(lyr, im.blend);
           // A Figma mask mattes footage directly; the crop+mask case was nested just above.
           var nodeMatte = null;
@@ -1972,7 +1974,7 @@ var AEShapeBuilder = (function () {
           // Fall back to the slot's paint index: the placeholder sat in the right place already.
           var imz = (im.z != null) ? im.z : (slotZ != null ? slotZ : 0);
           if (mt) _mattePairs.push({ lyr: lyr, mt: mt });
-          trackLayer(lyr, im.path, imz, nodeMatte || mt);
+          trackLayer(lyr, im.path, imz, nodeMatte || mt, false, im.external);
           if (mt) trackLayer(mt, im.path, im.z, null, true);   // rides with its footage
           if (nodeMatte) trackLayer(nodeMatte, im.path, imz, null, true);
           if (im.hidden) { try { lyr.enabled = false; } catch (ehi) {} }

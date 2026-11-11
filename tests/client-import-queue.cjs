@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '..'), output = path.join(root, 'artifacts/undo/client');
 let testId = 0;
-function harness({rememberFolder = true, failImages = false} = {}) {
+function harness({rememberFolder = true, failImages = false, shadowRenderer} = {}) {
   const dir = path.join(output, String(++testId)), assets = path.join(dir, 'assets');
   fs.mkdirSync(assets, {recursive: true});
   const native = [], pending = [], pickers = [], messages = [];
@@ -33,11 +33,11 @@ function harness({rememberFolder = true, failImages = false} = {}) {
     window, Buffer, Date: Clock, process: {platform: 'linux'},
     document: {getElementById() { return {}; }}, setTimeout() {}, clearTimeout() {},
     localStorage: {getItem(k) { return storage.get(k) || ''; }, setItem(k, v) { storage.set(k, v); }, removeItem(k) { storage.delete(k); }},
-    require(name) { if (name === 'fs') return disk; if (name === 'os') return {tmpdir: () => dir}; if (name.endsWith('/client/mkBridgeServer.js')) return bridge; return require(name); }
+    require(name) { if (name === 'fs') return disk; if (name === 'os') return {tmpdir: () => dir}; if (name.endsWith('/client/figmaRasterEffects.js') && shadowRenderer) return shadowRenderer; if (name.endsWith('/client/mkBridgeServer.js')) return bridge; return require(name); }
   });
   return {native, pending, pickers, messages,
     start(id, imageCount) { return callbacks.onSvg('<svg width="10" height="10"></svg>', {name: id, nodes: [{id, fills: [], strokes: []}], texts: [], effects: [], imageCount}); },
-    images(id, reference = false) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3, reference, hidden: reference}] : []); },
+    images(id, reference = false, shadow = false) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3, reference, hidden: reference, external: shadow, shadowBase: shadow ? {data:'clean'} : null}] : []); },
     finish() { assert.equal(active, 1); active--; pending.shift()('OK'); }
   };
 }
@@ -70,3 +70,19 @@ const reference = harness();reference.start('reference job',1);reference.images(
 const savedReference=JSON.parse(fs.readFileSync(reference.native[0].job.imagesPath,'utf8'))[0];
 assert.equal(savedReference.reference,true);assert.equal(savedReference.hidden,true);reference.finish();
 console.log('PASS: complete payload, single evalScript, FIFO jobs, no phase overlap, unique files, picker cancellation, disk failure, empty batch');
+(async()=>{
+  let resolveShadow;
+  const h=harness({shadowRenderer:{renderShadow(){return new Promise(resolve=>{resolveShadow=resolve;});}}});
+  h.start('shadow',1);h.images('full render',false,true);h.start('next',0);
+  await Promise.resolve();assert.equal(h.native.length,0,'Wait for the shadow PNG before importing any part of this job');
+  resolveShadow(Buffer.from('shadow only').toString('base64'));
+  await new Promise(setImmediate);assert.equal(h.native.length,1);
+  const im=JSON.parse(fs.readFileSync(h.native[0].job.imagesPath,'utf8'))[0];
+  assert.equal(im.external,true);assert.equal(fs.readFileSync(path.join(h.native[0].job.imageFolder,im.file),'utf8'),'shadow only');
+  h.finish();assert.equal(h.native.length,2);h.finish();
+  const bad=harness({shadowRenderer:{renderShadow(){return Promise.reject(new Error('forced decode failure'));}}});
+  bad.start('bad shadow',1);bad.images('bad render',false,true);bad.start('after shadow failure',0);
+  await new Promise(setImmediate);assert.deepEqual(bad.native.map(n=>n.id),['after shadow failure']);
+  assert.ok(bad.messages.some(m=>/投影图片处理失败/.test(m)));bad.finish();
+  console.log('PASS: asynchronous shadow extraction finishes before the single AE import and preserves FIFO ordering');
+})().catch(e=>{console.error(e);process.exitCode=1;});

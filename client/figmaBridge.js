@@ -304,6 +304,19 @@
     importing = true;
     var job = importQueue[0], images = job.images || [];
     if (!job.data.compId) { finishImport('请先打开一个合成', true); return; }
+    if (!job.shadowsReady && images.some(function (image) { return !!image.shadowBase; })) {
+      job.shadowsReady = true;
+      var renderer = require(ext + '/client/figmaRasterEffects.js'), pending = Promise.resolve();
+      images.forEach(function (image) {
+        if (image.shadowBase) pending = pending.then(function () {
+          return renderer.renderShadow(image.data, image.shadowBase, document, window.Image).then(function (data) {
+            image.data = data; image.shadowBase = null;
+          });
+        });
+      });
+      pending.then(function () { importing = false; pumpImport(); }, function (error) { finishImport('投影图片处理失败：' + error.message, true); });
+      return;
+    }
     if (!images.length) {
       try { submitImport(job); } catch (e) { finishImport('导入失败：' + e.message, true); }
       return;
@@ -336,7 +349,7 @@
                       natW: im.natW, natH: im.natH, scaleMode: im.scaleMode,
                       opacity: im.opacity, rotation: im.rotation, matte: im.matte, blend: im.blend,
                       path: im.path, z: im.z,
-                      cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch, hidden: !!im.hidden, reference: !!im.reference });
+                      cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch, hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, external: !!im.external });
         }
         submitImport(job, saveJsonTemp(list, 'images').replace(/\\/g, '/'), lastImageFolder);
       } catch (e) {
