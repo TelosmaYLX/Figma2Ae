@@ -85,6 +85,7 @@ function runOrganize() {
   try {
     var comp = app.project ? app.project.activeItem : null;
     if (!comp || !(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
+    return AEShapeBuilder.withUndo("Figma -> Organize", function () {
     // No containers (or the user disabled precomps): still reconcile the late text/image passes.
     // The optimized restack is a no-op when the comp is already ordered.
     if (!_mkContainers || !_mkContainers.length) {
@@ -93,13 +94,48 @@ function runOrganize() {
       return "no groups" + (fd ? " | " + fd : "");
     }
     var n = 0;
-    app.beginUndoGroup("Figma -> Organize");
-    try { n = AEShapeBuilder.organize(comp, _mkContainers); }
-    finally { app.endUndoGroup(); }
+    n = AEShapeBuilder.organize(comp, _mkContainers);
     _mkContainers = null;
     var d = ""; try { d = AEShapeBuilder.getDiag(); } catch (ed) {}
     return n + " 个预合成" + (d ? " | " + d : "");
+    });
   } catch (e) { _mkContainers = null; return "organize error: " + e.toString(); }
+}
+
+// The panel waits for the complete payload, then calls this ONCE. An undo group must never
+// span asynchronous CEP callbacks: AE closes script groups at the end of each evaluation.
+function mkFigmaTargetCompId() {
+  var comp = app.project ? app.project.activeItem : null;
+  return comp && comp instanceof CompItem ? String(comp.id) : "0";
+}
+function runImportBatch(jobPath) {
+  try {
+    var job = _mkReadJson(jobPath);
+    if (!job) return "ERROR: 导入数据不存在。";
+    var comp = app.project ? app.project.activeItem : null;
+    if (job.compId != null) {
+      comp = null;
+      for (var ci = 1; ci <= app.project.numItems; ci++) {
+        var candidate = app.project.item(ci);
+        if (candidate.id === job.compId && candidate instanceof CompItem) { comp = candidate; break; }
+      }
+      if (!comp) return "ERROR: 导入目标合成不存在。";
+      if (app.project.activeItem !== comp) comp.openInViewer();
+    }
+    if (!comp || !(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
+    return AEShapeBuilder.withUndo("Figma -> AE", function () {
+      try {
+        var status = runImport(job.svgPath, job.textsPath, job.gradMapPath, job.effectsPath,
+                               job.shiftX || 0, job.shiftY || 0, job.nodesPath, job.containersPath);
+        if (/^(ERROR|node error)/i.test(status)) return status;
+        if (job.imagesPath && job.imageFolder) {
+          var images = runImportImages(job.imagesPath, job.imageFolder);
+          if (/^(ERROR|image error)/i.test(images)) return status + " | " + images;
+        }
+        return status + (images ? " | " + images.split(" | ")[0] : "") + " | " + runOrganize();
+      } finally { _mkContainers = null; }
+    });
+  } catch (e) { return "batch error: " + e.toString(); }
 }
 
 function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY, nodesPath, containersPath) {

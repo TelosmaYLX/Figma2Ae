@@ -76,10 +76,10 @@ function start(opts) {
   var port = opts.port || 7867;
   var onSvg = opts.onSvg || function () { return { ok: true }; };
   var onImages = opts.onImages || function () { return { ok: true }; };
-  var imgBuf = [], imgTimer = null;
-  function flushImages() {
+  var imgBuf = [], imgTimer = null, explicitImageEnd = false;
+  function flushImages(allowEmpty) {
     if (imgTimer) { clearTimeout(imgTimer); imgTimer = null; }
-    if (!imgBuf.length) return;
+    if (!imgBuf.length && !allowEmpty) return;
     var batch = imgBuf; imgBuf = [];
     try { onImages(batch); } catch (e) { onStatus('image handler: ' + e.message); }
   }
@@ -145,9 +145,16 @@ function start(opts) {
       var containers = null, organize = false, imageCount = 0, vnStats = null;
       if (text.charAt(0) === '{') {
         msg = JSON.parse(text);
+        if (msg.type === 'images-complete') {
+          if (explicitImageEnd) { explicitImageEnd = false; flushImages(true); }
+          return { ok: true };
+        }
         // images arrive one per message (see ui.html) and are buffered until the last one
         if (msg.type === 'image' && msg.image) {
           imgBuf.push(msg.image);
+          // Modern exports explicitly finish the batch. Rendering the next PNG can take more
+          // than two seconds; silence must not trigger an early import/precompose of a partial set.
+          if (explicitImageEnd) return { ok: true, buffered: imgBuf.length };
           // Wait for the whole set, but ALSO flush shortly after the last arrival: if any
           // picture failed to encode the expected total is never reached and the batch
           // would hang forever (which is why nothing was imported).
@@ -158,6 +165,7 @@ function start(opts) {
         }
         svg = msg.svg; name = msg.name; texts = msg.texts || null; effects = msg.effects || null; shift = msg.shift || null; nodes = msg.nodes || null;
         containers = msg.containers || null; organize = !!msg.organize; imageCount = msg.imageCount || 0; vnStats = msg.vnStats || null;
+        explicitImageEnd = !!msg.imageBatch && imageCount > 0;
       }
       else { svg = text; }
       if (!svg || svg.indexOf('<svg') === -1) return { ok: false, error: 'no svg in message' };
@@ -175,10 +183,11 @@ function start(opts) {
 }
 
 // ---- save incoming SVG to a temp file for ExtendScript to read -------------
+var savedSerial = 0;
 function saveTemp(svg, name) {
   var fs = require('fs'), os = require('os'), path = require('path');
   var safe = (name || 'figma').replace(/[^A-Za-z0-9_-]+/g, '_');
-  var p = path.join(os.tmpdir(), 'f2a_' + safe + '_' + Date.now() + '.svg');
+  var p = path.join(os.tmpdir(), 'f2a_' + safe + '_' + Date.now() + '_' + (++savedSerial) + '.svg');
   fs.writeFileSync(p, svg, 'utf8');
   return p;
 }

@@ -14,6 +14,23 @@
 
 var AEShapeBuilder = (function () {
 
+  // One native undo group per synchronous import. Internal builders may nest through this
+  // helper, but must not open separate native groups inside the owning transaction.
+  var _undoDepth = 0;
+  function beginUndo(name) {
+    if (_undoDepth === 0) app.beginUndoGroup(name);
+    _undoDepth++;
+  }
+  function endUndo() {
+    _undoDepth--;
+    if (_undoDepth === 0) app.endUndoGroup();
+  }
+  function withUndo(name, action) {
+    beginUndo(name);
+    try { return action(); }
+    finally { endUndo(); }
+  }
+
   var _diag = [];   // gradient diagnostics for the status bar
   var _fontMiss = {}, _fontMissList = [];   // families we had to substitute (not installed)
   var _txtOk = 0, _txtNo = 0;               // text layers measured vs not (sourceRect health)
@@ -476,7 +493,9 @@ var AEShapeBuilder = (function () {
       var pairs = [
         ['DARKEN', 'DARKEN'], ['MULTIPLY', 'MULTIPLY'], ['LINEAR_BURN', 'LINEAR_BURN'],
         ['COLOR_BURN', 'COLOR_BURN'], ['LIGHTEN', 'LIGHTEN'], ['SCREEN', 'SCREEN'],
-        ['LINEAR_DODGE', 'LINEAR_DODGE'], ['COLOR_DODGE', 'COLOR_DODGE'],
+        // Figma exports LINEAR_DODGE as plus-lighter: add premultiplied colours, including
+        // translucent glows. AE Linear Dodge clips before alpha; Add preserves this glow.
+        ['LINEAR_DODGE', 'ADD'], ['COLOR_DODGE', 'COLOR_DODGE'],
         ['OVERLAY', 'OVERLAY'], ['SOFT_LIGHT', 'SOFT_LIGHT'], ['HARD_LIGHT', 'HARD_LIGHT'],
         ['DIFFERENCE', 'DIFFERENCE'], ['EXCLUSION', 'EXCLUSION'],
         ['HUE', 'HUE'], ['SATURATION', 'SATURATION'], ['COLOR', 'COLOR'], ['LUMINOSITY', 'LUMINOSITY']
@@ -613,7 +632,9 @@ var AEShapeBuilder = (function () {
       _presetComp = comp;
       _presetLayer = null;
     }
-    if (_presetLayer && _presetLayer !== lyr) {
+    // A failed shape may have removed the previous layer. Native AE references can throw
+    // even during comparison, so only touch the old selection inside the guarded access.
+    if (_presetLayer) {
       try { _presetLayer.selected = false; } catch (eold) {}
     }
     lyr.selected = true;
@@ -690,7 +711,7 @@ var AEShapeBuilder = (function () {
         } catch (es) {}
       }
       return true;
-    } catch (ETOP) { _diag.push("fillTOP:" + ETOP.toString()); return false; }
+    } catch (ETOP) { _diag.push("fillTOP:" + ETOP.toString() + " @" + ETOP.line); return false; }
   }
 
   // GRADIENT STROKE: preset carries a G-Stroke; we set axis + width + cap/join/dashes,
@@ -736,7 +757,7 @@ var AEShapeBuilder = (function () {
         } catch (ef) {}
       }
       return true;
-    } catch (ETOP) { _diag.push("strokeTOP:" + ETOP.toString()); return false; }
+    } catch (ETOP) { _diag.push("strokeTOP:" + ETOP.toString() + " @" + ETOP.line); return false; }
   }
 
   // Blur straight from the SVG (see svgParser): the file says exactly which elements sit
@@ -760,7 +781,13 @@ var AEShapeBuilder = (function () {
     // every `under` paint is slotted at the same index right below the main paint: each new one
     // pushes the previous down and the stack ends up in Figma's order. Leaving them appended at
     // the end reversed the stack — the bottom-most fill (a flat D9D9D9) covered the gradients.
-    try { g.moveTo(ep.under ? (underAt || 2) : 1); } catch (emv) {}
+    // Moving an indexed property invalidates its old reference in AE. Reacquire the group
+    // before adding geometry; otherwise multi-fill shapes are removed as failed layers.
+    try {
+      var at = ep.under ? (underAt || 2) : 1;
+      g.moveTo(at);
+      g = contents.property(at);
+    } catch (emv) {}
     var gc = g.property("ADBE Vectors Group");
     addGeom(gc, sdata, false);
     if (ep.kind === 'stroke') {
@@ -1176,7 +1203,7 @@ var AEShapeBuilder = (function () {
           } else { _diag.push("TXTGRAD: no G-Fill in preset"); gl.remove(); }
         }
       }
-    } catch (e2) { _diag.push("TXTGRAD:" + String(e2).substr(0, 40)); }
+    } catch (e2) { _diag.push("TXTGRAD:" + String(e2).substr(0, 40) + " @" + e2.line); }
   }
 
   // Match an effect to this shape by CENTRE proximity + proportional size (robust to strokes,
@@ -1259,7 +1286,7 @@ var AEShapeBuilder = (function () {
     _maskDefs = {};
     _presetComp = null; _presetLayer = null;   // one full deselect per import, not per gradient
 
-    app.beginUndoGroup("SVG -> Shapes");
+    beginUndo("SVG -> Shapes");
     try {
       var created = [];
       var layers = comp.layers;
@@ -1401,7 +1428,7 @@ var AEShapeBuilder = (function () {
             // cannot survive as an untracked orphan outside the root precomp.
             shapeErr++;
             if (currentLayer) { try { currentLayer.remove(); } catch (eRemove) {} }
-            if (!firstShapeErr) firstShapeErr = String(eShape).substr(0, 60);
+            if (!firstShapeErr) firstShapeErr = String(eShape).substr(0, 60) + " @" + eShape.line;
           }
         }
         if (shapeErr) _diag.push("shapes failed " + shapeErr + "/" + N + " (" + firstShapeErr + ")");
@@ -1445,7 +1472,7 @@ var AEShapeBuilder = (function () {
       }
       return created;
     } finally {
-      app.endUndoGroup();
+      endUndo();
     }
   }
 
@@ -1491,6 +1518,36 @@ var AEShapeBuilder = (function () {
   }
 
   // ---- editable text layers (from the Figma plugin's text-node data) ----
+  // AE's metric kerning compresses full-width CJK punctuation by half an em. Figma keeps
+  // its advance, so disable automatic kerning only at those characters, retaining Latin pairs.
+  function applyFigmaPunctuation(doc, chars) {
+    var punctuation = /[\u3001\u3002\u3008-\u3011\u3014-\u301f\uff01\uff08\uff09\uff0c\uff0e\uff1a\uff1b\uff1f\uff3b\uff3d\uff5b\uff5d]/;
+    if (!punctuation.test(chars || "")) return;
+    if (typeof doc.characterRange !== "function") {
+      doc.autoKernType = AutoKernType.NO_AUTO_KERN; doc.kerning = 0;
+      return;
+    }
+    for (var i = 0; i < chars.length; i++) if (punctuation.test(chars.charAt(i))) {
+      var range = doc.characterRange(i, i + 1);
+      range.autoKernType = AutoKernType.NO_AUTO_KERN; range.kerning = 0;
+    }
+  }
+
+  function applyTextStroke(doc, t) {
+    doc.applyStroke = !!t.stroke;
+    if (!t.stroke) return;
+    doc.strokeColor = t.stroke.color;
+    // Drawing the centered stroke behind the fill leaves only its outer half visible.
+    doc.strokeOverFill = t.stroke.align !== 'OUTSIDE';
+    doc.strokeWidth = t.stroke.width * (t.stroke.align === 'OUTSIDE' ? 2 : 1);
+  }
+
+  function applyParagraphStyle(doc, style) {
+    if (style.leading != null) { doc.autoLeading = false; doc.leading = style.leading; }
+    if (style.paragraphSpacing != null) doc.spaceAfter = style.paragraphSpacing;
+    if (style.paragraphIndent != null) doc.firstLineIndent = style.paragraphIndent;
+  }
+
   function _applyDoc(tl, style, align) {
     var tp = tl.property("ADBE Text Properties").property("ADBE Text Document");
     var doc = tp.value;
@@ -1498,6 +1555,9 @@ var AEShapeBuilder = (function () {
     if (style.color) { doc.applyFill = true; doc.fillColor = [style.color[0], style.color[1], style.color[2]]; }
     try { if (style.tracking != null) doc.tracking = style.tracking; } catch (etr) {}
     try { if (style.family) doc.font = resolveFont(style.family, style.style); } catch (e0) {}
+    applyParagraphStyle(doc, style);
+    applyFigmaPunctuation(doc, doc.text);
+    applyTextStroke(doc, style);
     try {
       if (align === 'CENTER') doc.justification = ParagraphJustification.CENTER_JUSTIFY;
       else if (align === 'RIGHT') doc.justification = ParagraphJustification.RIGHT_JUSTIFY;
@@ -1594,6 +1654,7 @@ var AEShapeBuilder = (function () {
 
     // PATTERN 1 (verified): edit ONE copy of the doc, then commit with a single setValue.
     var doc = tp.value, applied = false, idx = 0;
+    applyParagraphStyle(doc, t);
     for (k = 0; k < t.segs.length; k++) {
       var sg = t.segs[k], len = sg.characters.length;
       if (len > 0) {
@@ -1602,9 +1663,12 @@ var AEShapeBuilder = (function () {
         try { if (sg.fontSize) cr.fontSize = sg.fontSize; } catch (efs) {}
         try { if (sg.tracking != null) cr.tracking = sg.tracking; } catch (etr) {}
         try { cr.font = resolveFont(sg.family, sg.style); } catch (ef) {}
+        if (sg.leading != null) { cr.autoLeading = false; cr.leading = sg.leading; }
       }
       idx += len;
     }
+    applyFigmaPunctuation(doc, full);
+    applyTextStroke(doc, t);
     try { tp.setValue(doc); } catch (esv) { tl.remove(); return null; }
     if (!applied) { tl.remove(); return null; }
     return tl;
@@ -1683,7 +1747,7 @@ var AEShapeBuilder = (function () {
   // which was dumping all text into the crude fallback and misplacing the whole scene.)
   function createTextLayers(comp, texts) {
     if (!comp || !(comp instanceof CompItem) || !texts || !texts.length) return 0;
-    app.beginUndoGroup("SVG -> Text");
+    beginUndo("SVG -> Text");
     var made = 0, pending = [];
     _txtOk = 0; _txtNo = 0;
     try {
@@ -1764,7 +1828,7 @@ var AEShapeBuilder = (function () {
         if (tt.hidden) { try { p.tl.enabled = false; } catch (ehd) {} }
         } catch (ePos) { _diag.push("TXTpos:" + String(ePos).substr(0, 40)); }
       }
-    } finally { app.endUndoGroup(); }
+    } finally { endUndo(); }
     return made;
   }
 
@@ -1775,7 +1839,7 @@ var AEShapeBuilder = (function () {
   function buildImages(comp, images, folder) {
     if (!comp || !(comp instanceof CompItem) || !images || !images.length) return 0;
     var made = 0;
-    app.beginUndoGroup("Figma -> Images");
+    beginUndo("Figma -> Images");
     try {
       for (var i = 0; i < images.length; i++) {
         try {
@@ -1901,11 +1965,11 @@ var AEShapeBuilder = (function () {
           made++;
         } catch (eImg) { _diag.push("IMG:" + String(eImg).substr(0, 40)); }
       }
-    } finally { app.endUndoGroup(); }
+    } finally { endUndo(); }
     return made;
   }
 
-  return { build: build, buildText: createTextLayers, buildImages: buildImages, organize: organize,
+  return { withUndo: withUndo, build: build, buildText: createTextLayers, buildImages: buildImages, organize: organize,
     // Flat imports need the same z correction as precomposed ones, but without building groups.
     restack: function (comp) { restackByZ(); relinkMattes(); refreshTextSkewPivots(comp); verifyStack(comp); },
     getDiag: function () {

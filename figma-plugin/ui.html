@@ -1,5 +1,7 @@
 <!-- ui.html — Figma plugin iframe. Holds the WebSocket client to the AE bridge. -->
 <!-- Only the UI iframe can do network; the main thread (code.js) exports SVG and posts it here. -->
+<!-- Primary: import. Secondary: marking and document tools. Existing tokens, 8px gaps/radii,
+     10px button padding and 12px group spacing; retain the current dark theme. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#8a8a8a; --ok:#22c55e; --err:#ef4444; }
   html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); }
@@ -10,6 +12,13 @@
   button { width:100%; padding:10px; border:0; border-radius:8px; background:var(--accent); color:#1a1a1a;
            font-weight:600; cursor:pointer; }
   button:disabled { opacity:.4; cursor:not-allowed; }
+  .mark-actions { display:flex; gap:8px; margin-top:12px; }
+  .mark-actions button { flex:1; min-width:0; background:var(--panel); color:var(--text); }
+  .layer-tools { margin-top:12px; }
+  .layer-tools summary { cursor:pointer; font-weight:600; }
+  .tool-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .tool-actions button { background:var(--panel); color:var(--text); }
+  .mark-hint { margin-top:8px; color:var(--muted); }
   .msg { margin-top:10px; min-height:16px; color:var(--muted); }
   .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
   .hint { margin-top:12px; font-size:11px; color:var(--muted); }
@@ -17,9 +26,17 @@
 <div class="wrap">
   <div class="status"><span id="dot" class="dot"></span><span id="conn">正在连接 After Effects…</span></div>
   <button id="ship" disabled>导入到 After Effects</button>
+  <div class="mark-actions">
+    <button id="mark-raster" disabled>标记栅格化</button>
+    <button id="unmark-raster" disabled>取消标记</button>
+  </div>
+  <div class="mark-hint">名称以 * 开头的图层将导出为图片。</div>
   <div id="msg" class="msg"></div>
   <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="nodemode" checked> 可编辑图层（一个 Figma 图层对应一个 AE 图层）
+    <input type="checkbox" id="nodemode" checked> 可编辑图层
+  </label>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
+    <input type="checkbox" id="rastertexts"> 文字自动栅格化
   </label>
   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="organize" checked> 将 Figma 组转换为预合成（推荐）
@@ -28,17 +45,37 @@
     <input type="checkbox" id="ignorehidden" checked> 忽略隐藏图层（默认）
   </label>
   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="rastergroups" checked> 复杂组位图化（提升还原；关闭后全部保留为可编辑层）
+    <input type="checkbox" id="rastergroups" checked> 自动栅格化复杂组
+  </label>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
+    <input type="checkbox" id="rasterallgroups"> Group 整组栅格化
+  </label>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
+    <input type="checkbox" id="rasterinstances"> 实例整体栅格化
+  </label>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
+    <input type="checkbox" id="enableclip" checked> 保留画框裁剪
   </label>
   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="convertmask"> 转换 Figma 蒙版为 AE 轨道遮罩（实验）
   </label>
-  <div class="hint">开启时仅把无法可靠矢量化的局部复杂组转为 Figma 位图，其他分组和文字仍为独立可编辑层。关闭后全部按图层/预合成导入，适合逐层动画。</div>
+  <div class="hint">整体栅格化会合并组内图层。</div>
+  <details id="layer-tools" class="layer-tools">
+    <summary>图层工具</summary>
+    <div class="tool-actions">
+      <button id="detach-instances" disabled>分离实例</button>
+      <button id="convert-groups" disabled>Group 转 Frame</button>
+      <button id="expand-groups" disabled>展开空分组</button>
+      <button id="delete-hidden" disabled>清理隐藏图层</button>
+    </div>
+    <div class="hint">作用于所选内容，可在 Figma 中撤销。</div>
+  </details>
 </div>
 <script>
   var PORT = 7867;
-  var ws = null, connected = false, selCount = 0, imgAsm = null;
+  var ws = null, connected = false, selCount = 0, imgAsm = null, exporting = false;
   var $ = function (id) { return document.getElementById(id); };
+  var toolButtons = { 'detach-instances': 'detach', 'convert-groups': 'group-to-frame', 'expand-groups': 'expand', 'delete-hidden': 'delete-hidden' };
 
   function setConn(state) {
     connected = state;
@@ -47,7 +84,9 @@
     updateButton();
   }
   function updateButton() {
-    $('ship').disabled = !(connected && selCount > 0);
+    $('ship').disabled = exporting || !(connected && selCount > 0);
+    $('mark-raster').disabled = $('unmark-raster').disabled = exporting || selCount === 0;
+    for (var id in toolButtons) $(id).disabled = exporting || selCount === 0;
   }
   function say(text, cls) { var m = $('msg'); m.textContent = text; m.className = 'msg ' + (cls || ''); }
 
@@ -76,13 +115,20 @@
   }
 
   var organize = false;      // remembered until the payload is sent, so onmessage can pass it on
+  $('mark-raster').onclick = function () { parent.postMessage({ pluginMessage: { type: 'mark-raster' } }, '*'); };
+  $('unmark-raster').onclick = function () { parent.postMessage({ pluginMessage: { type: 'unmark-raster' } }, '*'); };
+  for (var toolId in toolButtons) (function (id) {
+    $(id).onclick = function () { parent.postMessage({ pluginMessage: { type: 'layer-tool', action: toolButtons[id] } }, '*'); };
+  })(toolId);
+  $('layer-tools').ontoggle = function () { parent.postMessage({ pluginMessage: { type: 'tools-open', open: this.open } }, '*'); };
   $('ship').onclick = function () {
     // Precomps require the Figma tree. Editable node mode is now the default: it avoids the
     // old SVG behaviour where every paint became another AE layer.
     organize = $('organize').checked;
     var useNodes = $('nodemode').checked || organize;
+    exporting = true; updateButton();
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   };
 
   // messages from code.js (main thread)
@@ -90,9 +136,18 @@
     var msg = event.data.pluginMessage;
     if (!msg) return;
     if (msg.type === 'selection') { selCount = msg.count; updateButton(); }
-    if (msg.type === 'error') { say(msg.message, 'err'); }
+    if (msg.type === 'export-state') { exporting = msg.busy; updateButton(); }
+    if (msg.type === 'mark-result') { say(msg.message, 'ok'); }
+    if (msg.type === 'tool-result') { say(msg.message, 'ok'); }
+    if (msg.type === 'error') { exporting = false; updateButton(); say(msg.message, 'err'); }
     if (msg.type === 'progress') { say(msg.message); }
     if (msg.type === 'image-abort') { say('已跳过图片。', 'err'); }
+    if (msg.type === 'images-done') {
+      var done = { type: 'images-complete' };
+      if (connected && ws && ws.readyState === 1) ws.send(JSON.stringify(done));
+      else shipHttp(done);
+      return;
+    }
     if (msg.type === 'image-chunk') {
       // reassemble ~1MB base64 string chunks (strings cross the sandbox cheaply)
       if (msg.seq === 0) { imgAsm = { meta: msg.meta, parts: [] }; }
@@ -110,7 +165,7 @@
     if (msg.type === 'ship') {
       if (!msg.svg || msg.svg.indexOf('<svg') === -1) { say('没有可发送的内容——Figma 导出的 SVG 为空。', 'err'); return; }
       var payload = { type: 'svg', name: msg.name, svg: msg.svg, texts: msg.texts || [], effects: msg.effects || [], shift: msg.shift || { x: 0, y: 0 }, nodes: msg.nodes || null,
-                      containers: msg.containers || null, organize: !!msg.organize, imageCount: msg.imageCount || 0, vnStats: msg.vnStats || null };
+                      containers: msg.containers || null, organize: !!msg.organize, imageCount: msg.imageCount || 0, imageBatch: !!msg.imageBatch, vnStats: msg.vnStats || null };
       var kb = Math.round((msg.bytes || msg.svg.length) / 1024);
       if (connected && ws && ws.readyState === 1) { ws.send(JSON.stringify(payload)); say('正在向 AE 发送 ' + kb + ' KB 数据…'); }
       else { shipHttp(payload); }

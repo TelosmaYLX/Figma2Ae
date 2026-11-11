@@ -12,3 +12,6 @@ pnpm-debug.log*
 # Local captures / scratch
 *.aseprite
 *.aep~*
+
+# AE fidelity renders and local replay data
+artifacts/

@@ -1,7 +1,7 @@
 /* ===== f2a — SVG Import module (client side) =====
  * Runs in the panel. Starts the localhost WebSocket bridge, loads the SVG->shapes
- * ExtendScript engine into the persistent AE engine, and forwards incoming SVG to
- * runSvgToShapes(). Exposes window.MKFigma for main.js buttons. Requires Node in-panel
+ * ExtendScript engine into the persistent AE engine, and commits complete payloads through
+ * runImportBatch(). Exposes window.MKFigma for main.js buttons. Requires Node in-panel
  * (--enable-nodejs + --mixed-context). Degrades to a preview no-op in a plain browser.
  */
 (function () {
@@ -12,6 +12,7 @@
 
   var baseStatus = "正在启动 SVG 桥接…";   // persistent line the bar returns to
   var revertTimer = null;
+  var tempSerial = 0;
 
   function noop() {}
   function paint(text) {
@@ -69,7 +70,7 @@
   function saveTextsTemp(texts) { return saveJsonTemp(texts, "texts"); }
   function saveJsonTemp(obj, tag) {
     var fs = require('fs'), os = require('os'), path = require('path');
-    var p = path.join(os.tmpdir(), 'f2a_' + (tag || 'data') + '_' + Date.now() + '.json');
+    var p = path.join(os.tmpdir(), 'f2a_' + (tag || 'data') + '_' + Date.now() + '_' + (++tempSerial) + '.json');
     // ExtendScript has no JSON parser, so the host reads this with eval(). U+2028/U+2029 are
     // legal inside JSON strings but TERMINATE a JS string literal ("Unterminated string
     // constant" -> the whole text payload was lost). Escaping every non-ASCII char as \uXXXX
@@ -122,7 +123,7 @@
         alphaStops.push({ loc: s.offset, a: (s.opacity == null ? 1 : s.opacity) });
       }
       var out = ffxGen.generate(tpl, { colorStops: colorStops, alphaStops: alphaStops });
-      var p = path.join(os.tmpdir(), 'f2a_' + tag + '_' + i + '_' + Date.now() + '.ffx');
+      var p = path.join(os.tmpdir(), 'f2a_' + tag + '_' + i + '_' + Date.now() + '_' + (++tempSerial) + '.ffx');
       fs.writeFileSync(p, out);
       genFfx.cache[cacheKey] = p.replace(/\\/g, '/');
       return genFfx.cache[cacheKey];
@@ -157,7 +158,7 @@
       if (entry) { map[i] = entry; count++; }
     }
     if (!count) return { jsonPath: "", count: 0 };
-    var jp = path.join(os.tmpdir(), 'f2a_gradmap_' + Date.now() + '.json');
+    var jp = path.join(os.tmpdir(), 'f2a_gradmap_' + Date.now() + '_' + (++tempSerial) + '.json');
     fs.writeFileSync(jp, JSON.stringify(map), 'utf8');
     return { jsonPath: jp.replace(/\\/g, '/'), count: count };
   }
@@ -179,7 +180,7 @@
         as.push({ loc: st.offset, a: (st.opacity == null ? 1 : st.opacity) });
       }
       var out = ffxGen.generate(tpl, { colorStops: cs, alphaStops: as });
-      var pth = path.join(os.tmpdir(), 'f2a_' + tag + '_' + key + '_' + Date.now() + '.ffx');
+      var pth = path.join(os.tmpdir(), 'f2a_' + tag + '_' + key + '_' + Date.now() + '_' + (++tempSerial) + '.ffx');
       fs.writeFileSync(pth, out);
       cache[cacheKey] = pth.replace(/\\/g, '/');
       return cache[cacheKey];
@@ -225,7 +226,7 @@
       if (entry) { map[i] = entry; count++; }
     }
     if (!count) return { jsonPath: "", count: 0 };
-    var jp = path.join(os.tmpdir(), 'f2a_nodegrad_' + Date.now() + '.json');
+    var jp = path.join(os.tmpdir(), 'f2a_nodegrad_' + Date.now() + '_' + (++tempSerial) + '.json');
     fs.writeFileSync(jp, JSON.stringify(map), 'utf8');
     return { jsonPath: jp.replace(/\\/g, '/'), count: count };
   }
@@ -281,6 +282,71 @@
     fallback();
   }
 
+  // Receive complete jobs, then commit each in ONE evalScript call. No undo group is held
+  // open while waiting for PNGs or a folder dialog; later imports cannot interleave phases.
+  var importQueue = [], importing = false;
+  function finishImport(message, failed) {
+    flash(message, failed);
+    importQueue.shift(); importing = false; pumpImport();
+  }
+  function submitImport(job, imagesPath, folder) {
+    var data = job.data;
+    data.imagesPath = imagesPath || ''; data.imageFolder = folder || '';
+    job.images = null;
+    var file = saveJsonTemp(data, 'batch').replace(/\\/g, '/');
+    flash('正在导入 AE…');
+    evalES('runImportBatch("' + file + '")', function (res) {
+      finishImport('AE: ' + res, /error/i.test(res));
+    });
+  }
+  function pumpImport() {
+    if (importing || !importQueue.length || !importQueue[0].ready || !importQueue[0].targetReady) return;
+    importing = true;
+    var job = importQueue[0], images = job.images || [];
+    if (!job.data.compId) { finishImport('请先打开一个合成', true); return; }
+    if (!images.length) {
+      try { submitImport(job); } catch (e) { finishImport('导入失败：' + e.message, true); }
+      return;
+    }
+    flash(lastImageFolder ? '正在保存图片…' : '请选择图片保存文件夹…');
+    chooseImageFolder(images, function (folder) {
+      try {
+        folder = (folder || '').replace(/^\s+|\s+$/g, '');
+        if (!folder) { flash('已跳过图片'); submitImport(job); return; }
+        lastImageFolder = folder.replace(/\\/g, '/');
+        try { localStorage.setItem('f2a.imageFolder', lastImageFolder); } catch (eStore) {}
+        var fs2 = require('fs'), path2 = require('path'), list = [], used = {};
+        for (var k = 0; k < images.length; k++) {
+          var im = images[k], base = im.name || 'image', ext = im.ext || 'png';
+          var fname = base + '.' + ext;
+          if (used[fname]) fname = base + '_' + k + '.' + ext;
+          used[fname] = 1;
+          var buf = Buffer.from(im.data, 'base64'), target = path2.join(folder, fname), needWrite = true;
+          try {
+            if (fs2.existsSync(target)) { var cur = fs2.readFileSync(target); if (cur.length === buf.length && cur.equals(buf)) needWrite = false; }
+          } catch (eCompare) {}
+          if (needWrite) {
+            try { fs2.writeFileSync(target, buf); }
+            catch (eLocked) {
+              fname = base + '_' + Date.now() + '_' + (++tempSerial) + '.' + ext;
+              fs2.writeFileSync(path2.join(folder, fname), buf);
+            }
+          }
+          list.push({ file: fname, name: im.name, x: im.x, y: im.y, w: im.w, h: im.h,
+                      natW: im.natW, natH: im.natH, scaleMode: im.scaleMode,
+                      opacity: im.opacity, rotation: im.rotation, matte: im.matte, blend: im.blend,
+                      path: im.path, z: im.z,
+                      cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch, hidden: !!im.hidden });
+        }
+        submitImport(job, saveJsonTemp(list, 'images').replace(/\\/g, '/'), lastImageFolder);
+      } catch (e) {
+        lastImageFolder = '';
+        try { localStorage.removeItem('f2a.imageFolder'); } catch (eClear) {}
+        finishImport('图片保存失败：' + (/ENOSPC/i.test(e.message) ? '磁盘空间已满' : e.message), true);
+      }
+    });
+  }
+
   // 3) Start the localhost bridge (Figma plugin connects here)
   try {
     var bridge = require(ext + "/client/mkBridgeServer.js");
@@ -314,7 +380,7 @@
                 as.push({ loc: st.offset, a: (st.opacity == null ? 1 : st.opacity) });
               }
               var ob = ffxGen.generate(GRAD_TEMPLATE, { colorStops: cs, alphaStops: as });
-              var op2 = pathx.join(osx.tmpdir(), 'f2a_gradtext_' + ti + '_' + Date.now() + '.ffx');
+              var op2 = pathx.join(osx.tmpdir(), 'f2a_gradtext_' + ti + '_' + Date.now() + '_' + (++tempSerial) + '.ffx');
               fsx.writeFileSync(op2, ob);
               meta.texts[ti].gradFfx = op2.replace(/\\/g, '/');
             }
@@ -343,97 +409,28 @@
                    ? saveJsonTemp(meta.containers, 'containers').replace(/\\/g, '/') : "";
         if (cp) flash("分组预合成：" + meta.containers.length + " 个组");
         else if (meta.organize) flash("没有嵌套组，将使用当前合成");
-        // runOrganize also finalizes flat imports: it restacks late text/images when there are
-        // no containers, so the z-order does not depend on whether precomps were requested.
-        evalES('runImport("' + arg + '","' + tp + '","' + gp + '","' + ep + '",' + shx + ',' + shy + ',"' + np + '","' + cp + '")',
-               function (res) {
-                 flash("AE: " + res, /error/i.test(res));
-                 // Collapse into precomps only once EVERYTHING is in the comp. With pictures on
-                 // the way that is the images pass, which fires later; without them, right now.
-                 if (!meta.imageCount) {
-                   evalES('runOrganize()', function (ro) { flash("分组预合成：" + ro, /error/i.test(ro)); });
-                 }
-               });
+        var job = { data: {svgPath: arg, textsPath: tp, gradMapPath: gp, effectsPath: ep,
+                           shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp},
+                    ready: !meta.imageCount, targetReady: false, images: null };
+        importQueue.push(job);
+        // Bind the target before the PNG wait or folder dialog can change the active viewer.
+        evalES('mkFigmaTargetCompId()', function (id) {
+          job.data.compId = parseInt(id, 10) || 0; job.targetReady = true; pumpImport();
+        });
+        if (meta.imageCount) flash('等待图片导出完成…');
+        pumpImport();
         return { ok: true, queued: true, name: meta.name };
       },
       // Pictures arrive after the SVG, one message each. Ask where to keep them (AE links to
       // footage on disk, it never embeds), write the files, then import them with their mattes.
       onImages: function (images) {
-        flash(lastImageFolder
-          ? "收到 " + images.length + " 张图片，复用保存文件夹：" + lastImageFolder
-          : "收到 " + images.length + " 张图片。请选择保存文件夹…");
-        // A remembered folder returns immediately; otherwise Windows shows the Explorer picker
-        // once and every later import in this panel session reuses the same directory.
-        chooseImageFolder(images, function (folder) {
-          folder = (folder || "").replace(/^\s+|\s+$/g, "");
-          if (!folder) {
-            flash("未选择文件夹，已跳过图片");
-            // organize still has to run, or a cancelled picker would leave the scene uncollapsed
-            evalES('runOrganize()', function (ro) { if (ro && ro !== "no groups") flash("分组预合成：" + ro, /error/i.test(ro)); });
-            return;
-          }
-          lastImageFolder = folder.replace(/\\/g, '/');
-          try { localStorage.setItem("f2a.imageFolder", lastImageFolder); } catch (eLs2) {}
-          try {
-            var fs2 = require('fs'), path2 = require('path');
-            var list = [], used = {};
-            for (var k = 0; k < images.length; k++) {
-              var im = images[k];
-              var base = (im.name || 'image'), ext = (im.ext || 'png');
-              var fname = base + '.' + ext;
-              if (used[fname]) fname = base + '_' + k + '.' + ext;                 // keep names unique
-              used[fname] = 1;
-
-              // Re-importing into the SAME folder used to fail silently: After Effects keeps a
-              // handle on footage it already imported, so overwriting that file is refused by
-              // Windows. Skip the write when the file is already byte-identical, and fall back
-              // to a fresh name if the write is blocked.
-              var buf = Buffer.from(im.data, 'base64');
-              var target = path2.join(folder, fname), needWrite = true;
-              try {
-                if (fs2.existsSync(target)) {
-                  var cur = fs2.readFileSync(target);
-                  if (cur.length === buf.length && cur.equals(buf)) needWrite = false;
-                }
-              } catch (eCmp) {}
-              if (needWrite) {
-                try {
-                  fs2.writeFileSync(target, buf);
-                } catch (eLocked) {
-                  fname = base + '_' + Date.now() + '.' + ext;
-                  target = path2.join(folder, fname);
-                  fs2.writeFileSync(target, buf);
-                }
-              }
-              list.push({ file: fname, name: im.name, x: im.x, y: im.y, w: im.w, h: im.h,
-                          natW: im.natW, natH: im.natH, scaleMode: im.scaleMode,
-                          // z MUST travel with the picture: the final restack sorts by it, and a
-                          // missing value read as 0 sank every photo to the bottom of the comp,
-                          // behind the frame background — the image looked like it never imported.
-                          opacity: im.opacity, rotation: im.rotation, matte: im.matte, blend: im.blend,
-                          path: im.path, z: im.z,
-                          cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch, hidden: !!im.hidden });
-            }
-            flash("已将 " + list.length + " 个文件保存到 " + folder);
-            var ip = saveJsonTemp(list, 'images').replace(/\\/g, '/');
-            evalES('runImportImages("' + ip + '","' + folder.replace(/\\/g, '/') + '")',
-                   function (r2) {
-                     flash("AE: " + r2, /error/i.test(r2));
-                     // everything is in the comp now -> safe to collapse the groups
-                     evalES('runOrganize()', function (ro) {
-                       if (ro && ro !== "no groups") flash("分组预合成：" + ro, /error/i.test(ro));
-                     });
-                   });
-          } catch (ei) {
-            lastImageFolder = "";             // folder vanished/unwritable: ask again next time
-            try { localStorage.removeItem("f2a.imageFolder"); } catch (eLs3) {}
-            var msg = (ei && ei.message ? ei.message : String(ei));
-            if (/ENOSPC/i.test(msg)) msg = "磁盘空间已满。请释放空间后重新导入" +
-                                           "（After Effects 的磁盘缓存通常是主要原因）";
-            flash("图片保存失败：" + msg, true);
-          }
-        });
-        return { ok: true, images: images.length };
+        for (var i = 0; i < importQueue.length; i++) {
+          if (importQueue[i].ready) continue;
+          importQueue[i].images = images; importQueue[i].ready = true;
+          pumpImport();
+          return { ok: true, images: images.length };
+        }
+        return { ok: false, error: '没有等待图片的导入任务' };
       }
     });
   } catch (e) {
