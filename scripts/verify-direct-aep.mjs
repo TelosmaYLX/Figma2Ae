@@ -1,15 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {spawn, execFile} from 'node:child_process';
-import {promisify} from 'node:util';
+import {spawn} from 'node:child_process';
 
 const root = path.resolve('.'), dir = path.join(root, 'artifacts/direct-aep');
 const smoke = JSON.parse(await fs.readFile(path.join(dir, 'test-report.json'), 'utf8'));
 const target = await fs.mkdtemp(path.join(dir, 'portable-'));
 const sourceAssets = path.join(smoke.directory, 'Assets'), hiddenAssets = sourceAssets + '-verification';
 if (!sourceAssets.startsWith(dir + path.sep) || !hiddenAssets.startsWith(dir + path.sep)) throw new Error('Unexpected asset path');
-const python = process.env.F2A_PYTHON || path.join(root, '.venv-aep/Scripts/python.exe');
-await promisify(execFile)(python, ['-m', 'zipfile', '-e', smoke.archive, target], {windowsHide: true});
+await fs.cp(smoke.directory, target, {recursive: true});
 const cases = [{name: 'portable', project: path.join(target, 'project.aep'), main: 'Direct AEP smoke',
   width: 640, height: 360, texts: 1, images: 2, portable: target.replaceAll('\\', '/') + '/'}];
 try {
@@ -26,6 +24,7 @@ try {
   const child = spawn(ae, ['-r', path.join(root, 'tests/ae-direct-aep.jsx')], {windowsHide: true, stdio: 'ignore'});
   let launchError;
   child.on('error', error => { launchError = error; });
+  child.unref(); // Leave AE open, but let this verifier exit after the report is written.
   const until = Date.now() + 180000;
   let report;
   while (Date.now() < until) {

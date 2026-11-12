@@ -8,7 +8,6 @@ import math
 import re
 import sys
 import time
-import zipfile
 from functools import lru_cache
 from pathlib import Path
 
@@ -377,9 +376,6 @@ def main():
               'duration': packet['duration'], 'counts': writer.counts, 'warnings': writer.warnings,
               'writeMs': round((time.perf_counter() - started) * 1000)}
     (output / 'report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
-    with zipfile.ZipFile(output / 'project.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-        for file in [output / 'project.aep', output / 'report.json', *sorted((output / 'Assets').glob('*'))]:
-            archive.write(file, file.relative_to(output))
 
 
 if __name__ == '__main__':

@@ -8,6 +8,17 @@ const {normalize} = require('./aep/packet.cjs');
 const root = path.resolve(__dirname, '..');
 const run = promisify(execFile);
 
+function pythonPath(options = {}) {
+  return options.python || process.env.F2A_PYTHON || path.join(root, '.venv-aep',
+    process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+}
+
+async function chooseDirectory(options = {}) {
+  const {stdout} = await run(pythonPath(options), [path.join(__dirname, 'aep/choose-directory.py')],
+    {windowsHide: true, env: {...process.env, PYTHONUTF8: '1'}});
+  return JSON.parse(stdout).directory;
+}
+
 async function exportAep(packet, directory, options = {}) {
   const started = performance.now();
   const model = normalize(packet);
@@ -18,10 +29,8 @@ async function exportAep(packet, directory, options = {}) {
   await fs.mkdir(directory, {recursive: true});
   const input = path.join(directory, 'packet.json');
   await fs.writeFile(input, JSON.stringify(model));
-  const python = options.python || process.env.F2A_PYTHON || path.join(root, '.venv-aep',
-    process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
   try {
-    await run(python, [path.join(__dirname, 'aep/writer.py'), input, directory],
+    await run(pythonPath(options), [path.join(__dirname, 'aep/writer.py'), input, directory],
       {windowsHide: true, maxBuffer: 8 * 1024 * 1024, env: {...process.env, PYTHONUTF8: '1'}});
   } catch (error) {
     if (error.code === 'ENOENT') throw new Error('请先运行 scripts/start-aep-export.ps1');
@@ -33,7 +42,7 @@ async function exportAep(packet, directory, options = {}) {
   result.totalMs = Math.round(performance.now() - started);
   // Packet may contain large base64 images. Keep only the deliverable and diagnostics.
   await fs.unlink(input);
-  return {...result, directory, project: path.join(directory, 'project.aep'), archive: path.join(directory, 'project.zip')};
+  return {...result, directory, project: path.join(directory, 'project.aep')};
 }
 
 if (require.main === module) {
@@ -48,4 +57,4 @@ if (require.main === module) {
       .catch(error => { console.error(error.message); process.exitCode = 1; });
   }
 }
-module.exports = {exportAep};
+module.exports = {exportAep, chooseDirectory};

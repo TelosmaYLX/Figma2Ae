@@ -59,20 +59,44 @@ async function check() {
   assert.equal(result.counts.texts,1);assert.equal(result.counts.images,2);
   assert.ok(result.counts.shapes>=3);assert.ok(result.counts.precomps>=1);
   assert.equal(result.warnings.length,0,JSON.stringify(result.warnings));
-  const server=start({port:0,output:path.join(output,'http'),quiet:true});
+  assert.deepEqual((await fs.readdir(directory)).sort(),['Assets','project.aep','report.json']);
+  const parent=await fs.mkdtemp(path.join(output,'选择 位置-'));
+  const choices=[null,parent,parent];
+  const server=start({port:0,quiet:true,chooseDirectory:async()=>{
+    if(!choices.length)throw new Error('Picker failed');
+    return choices.shift();
+  }});
   await once(server,'listening');
   try {
     const base='http://127.0.0.1:'+server.address().port;
-    const health=await(await fetch(base+'/health')).json();assert.equal(health.service,'f2a-aep');
-    const response=await fetch(base+'/export',{method:'POST',body:JSON.stringify(packet)});
+    const health=await(await fetch(base+'/health')).json();assert.equal(health.service,'f2a-aep');assert.equal(health.version,2);
+    const select=()=>fetch(base+'/select-directory',{method:'POST'});
+    const cancel=await(await select()).json();assert.equal(cancel.destination,null);
+    assert.equal((await fs.readdir(parent)).length,0,'Cancel must not create output');
+    const post=body=>fetch(base+'/export',{method:'POST',body:JSON.stringify(body)});
+    const notSelected=await post({directory:parent,packet});assert.equal(notSelected.status,400);
+    const named={...packet,name:'导出:../AEP'};
+    const selected=await(await select()).json();assert.ok(selected.destination);
+    const response=await post({...selected,packet:named});
     assert.equal(response.status,200,await response.clone().text());
-    const zip=Buffer.from(await response.arrayBuffer());assert.equal(zip.toString('ascii',0,2),'PK');
-    await fs.writeFile(path.join(output,'download.zip'),zip);
+    assert.match(response.headers.get('Content-Type'),/application\/json/);
+    const exported=await response.json();
+    assert.equal(exported.directory,path.join(parent,'导出_.._AEP'));
+    assert.equal(exported.archive,undefined);
+    assert.deepEqual((await fs.readdir(exported.directory)).sort(),['Assets','project.aep','report.json']);
+    const original=await fs.readFile(exported.project);
+    assert.equal(original.toString('ascii',0,4),'RIFX');
+    assert.equal((await post({...selected,packet:named})).status,400,'Selection is consumed once');
+    const second=await post({...await(await select()).json(),packet:named});
+    assert.equal(second.status,200,await second.clone().text());
+    assert.equal((await second.json()).directory,path.join(parent,'导出_.._AEP (2)'));
+    assert.deepEqual(await fs.readFile(exported.project),original,'An existing project is never overwritten');
+    const pickerError=await select();assert.equal(pickerError.status,400);assert.match((await pickerError.json()).error,/Picker failed/);
     const bad=await fetch(base+'/export',{method:'POST',body:'{'});
     assert.equal(bad.status,400);assert.ok((await bad.json()).error);
   } finally { server.closeAllConnections();await new Promise(resolve=>server.close(resolve)); }
   await fs.writeFile(path.join(output,'test-report.json'),JSON.stringify({passed:true,syntheticFigma:true,...result},null,2));
-  console.log('PASS: production exporter packet → direct binary AEP, native layers, nested clipping, gradients, HTTP ZIP and errors');
+  console.log('PASS: production exporter → binary AEP folder; selected Unicode location, cancel, unique names, no ZIP, HTTP errors');
 }
 if(require.main===module)check().catch(e=>{console.error(e);process.exitCode=1;});
 module.exports={fixture,png};

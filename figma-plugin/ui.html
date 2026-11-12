@@ -20,7 +20,7 @@
   .tool-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
   .tool-actions button { background:var(--panel); color:var(--text); }
   .mark-hint { margin-top:8px; color:var(--muted); }
-  .msg { margin-top:10px; min-height:16px; color:var(--muted); }
+  .msg { margin-top:10px; min-height:16px; color:var(--muted); overflow-wrap:anywhere; }
   .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
   .hint { margin-top:12px; font-size:11px; color:var(--muted); }
 </style>
@@ -79,7 +79,7 @@
 <script>
   var PORT = 7867;
   var ws = null, connected = false, selCount = 0, imgAsm = null, exporting = false, blendNotice = '';
-  var aepMode = false, aepBusy = false, aepPacket = null;
+  var aepMode = false, aepBusy = false, aepPacket = null, aepDestination = null;
   var $ = function (id) { return document.getElementById(id); };
   var toolButtons = { 'detach-instances': 'detach', 'convert-groups': 'group-to-frame', 'expand-groups': 'expand', 'delete-hidden': 'delete-hidden' };
 
@@ -141,14 +141,23 @@
   }
   $('ship').onclick = function () { beginExport(false); };
   $('export-aep').onclick = function () {
-    aepBusy = true; updateButton();
+    aepBusy = true; aepDestination = null; updateButton();
     say('正在连接 AEP 导出服务…');
-    fetch('http://127.0.0.1:7868/health').then(function (r) { return r.json(); }).then(function (info) {
-      if (info.service !== 'f2a-aep') throw new Error('未找到 AEP 导出服务');
+    fetch('http://127.0.0.1:7868/health').catch(function () {
+      throw new Error('请先运行 scripts/start-aep-export.ps1');
+    }).then(function (r) { return r.json(); }).then(function (info) {
+      if (info.service !== 'f2a-aep' || info.version !== 2) throw new Error('请重启 scripts/start-aep-export.ps1');
+      say('请选择导出位置…');
+      return fetch('http://127.0.0.1:7868/select-directory', {method: 'POST'});
+    }).then(function (r) {
+      return r.json().then(function (result) { if (!r.ok) throw new Error(result.error); return result; });
+    }).then(function (result) {
+      if (!result.destination) { aepBusy = false; updateButton(); say('已取消导出。'); return; }
+      aepDestination = result.destination;
       beginExport(true);
-    }).catch(function () {
+    }).catch(function (err) {
       aepBusy = false; updateButton();
-      say('请先运行 scripts/start-aep-export.ps1', 'err');
+      say(err.message, 'err');
     });
   };
 
@@ -160,19 +169,13 @@
       say('部分图片导出失败，请重试。', 'err'); return;
     }
     say('正在生成 AEP…');
-    fetch('http://127.0.0.1:7868/export', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(packet) })
+    fetch('http://127.0.0.1:7868/export', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({destination: aepDestination, packet: packet}) })
       .then(function (r) {
-        if (!r.ok) return r.json().then(function (err) { throw new Error(err.error); });
-        var count = Number(r.headers.get('X-F2A-Warnings')) || 0;
-        return r.blob().then(function (blob) {
-          var url = URL.createObjectURL(blob), link = document.createElement('a');
-          link.href = url; link.download = (packet.name || 'Figma').replace(/[\\/:*?"<>|]/g, '_') + '.zip';
-          document.body.appendChild(link); link.click(); link.remove();
-          setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
-          say(count ? '已导出 AEP，部分属性请查看 report.json。' : '已导出 AEP 和素材。', 'ok');
-        });
+        return r.json().then(function (result) { if (!r.ok) throw new Error(result.error); return result; });
+      }).then(function (result) {
+        say('已导出到 ' + result.directory + (result.warnings.length ? '；部分属性请查看 report.json。' : ''), 'ok');
       }).catch(function (err) { say('AEP 导出失败：' + err.message, 'err'); })
-      .then(function () { aepMode = aepBusy = false; updateButton(); });
+      .then(function () { aepMode = aepBusy = false; aepDestination = null; updateButton(); });
   }
 
   // messages from code.js (main thread)
