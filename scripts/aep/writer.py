@@ -17,7 +17,7 @@ from fontTools.misc.bezierTools import calcCubicBounds
 from py_aep import ImportOptions
 from py_aep.models.properties.gradient import Gradient, GradientAlphaStop, GradientColorStop
 from py_aep.models.properties.shape import Shape
-from py_aep.enums import BlendingMode, ParagraphJustification, TrackMatteType
+from py_aep.enums import BlendingMode, MaskMode, ParagraphJustification, TrackMatteType
 from py_aep.svg.fonts import resolve_font, resolve_font_exact, resolve_postscript
 
 
@@ -376,7 +376,7 @@ class Writer:
         entries = []
         containers = sorted(self.data['containers'], key=lambda c: len(c.get('path') or []))
         for container in containers:
-            bounds = container if container.get('clip') else container.get('cb') or container
+            bounds = container
             self.contexts[container['id']] = {'comp': self.comp(container['name'], bounds['w'], bounds['h'], self.precomps),
                                               'x': bounds['x'], 'y': bounds['y']}
             entries.append((container.get('z', 0), 'container', container, 0))
@@ -394,9 +394,15 @@ class Writer:
                 child = self.contexts[item['id']]
                 layer = context['comp'].add(child['comp'])
                 self.common(layer, item)
-                # Clipping depends on the precomp's bounds, so do not collapse a clipping frame.
-                if item.get('clip'):
-                    layer.collapse_transformation = False
+                # Keep the original box; collapse non-clipping groups so overflow stays visible.
+                layer.collapse_transformation = not item.get('clip', False)
+                if not item.get('clip') and (item.get('blend') != 'PASS_THROUGH' or item.get('opacity', 1) < 1):
+                    # Force group compositing before opacity/blend without cropping its overflow.
+                    mask = layer.masks.add_property('ADBE Mask Atom')
+                    mask.name = 'Group composite'
+                    mask.mask_mode = MaskMode.SUBTRACT
+                    mask['ADBE Mask Shape'].value = Shape([[0, 0]] * 4, [[0, 0]] * 4,
+                                                          [[0, 0]] * 4, closed=True)
                 self.transform(layer, child['x'] - context['x'], child['y'] - context['y'])
                 self.center_anchor(layer, layer.source_rect_at_time(0, False))
                 if item.get('clip') and item.get('r'):

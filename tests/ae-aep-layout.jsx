@@ -11,7 +11,7 @@
   function close(a,b,label){if(Math.abs(a-b)>.05)throw new Error(label+': '+a+' != '+b);}
   try{
     var data=read(root+'/artifacts/aep-layout-native.json'),model=read(data.expected),layers={},contexts={},main=null,count=0,checked=[];
-    for(var c=0;c<model.containers.length;c++){var container=model.containers[c];contexts[container.id]=container.clip?container:(container.cb||container);}
+    for(var c=0;c<model.containers.length;c++){var container=model.containers[c];contexts[container.id]=container;}
     function origin(item){var path=item.path||[];for(var p=path.length-1;p>=0;p--)if(contexts[path[p]])return contexts[path[p]];return {x:0,y:0};}
     imported=app.project.importFile(new ImportOptions(new File(data.project)));
     function walk(folder){for(var i=1;i<=folder.numItems;i++){
@@ -26,6 +26,12 @@
     }}
     walk(imported);
     if(!main)throw new Error('Missing main composition');
+    for(var c=0;c<model.containers.length;c++){
+      var container=model.containers[c],precomp=layers[container.name];
+      close(precomp.source.width,Math.max(4,Math.ceil(container.w)),container.name+' width');
+      close(precomp.source.height,Math.max(4,Math.ceil(container.h)),container.name+' height');
+      if(precomp.collapseTransformation===!!container.clip)throw new Error(container.name+' overflow handling differs');
+    }
     main.saveFrameToPng(0,new File(root+'/artifacts/aep-layout-ae.png'));
     for(var n=0;n<checked.length;n++){
       var layer=checked[n],rect=layer.sourceRectAtTime(0,false),anchor=layer.transform.anchorPoint.value;

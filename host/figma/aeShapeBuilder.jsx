@@ -301,7 +301,7 @@ var AEShapeBuilder = (function () {
     return bad.length;
   }
 
-  // Recompute skew pivots from the FINAL tree, after every nested precomp has been padded.
+  // Recompute skew pivots from the FINAL tree, after every nested precomp has been positioned.
   // Incrementally adding dx/dy is fragile if organize runs again or a container is skipped:
   // the pivot then accumulates a second shift while Position does not. This pass is idempotent.
   function refreshTextSkewPivots(comp, seen) {
@@ -401,29 +401,11 @@ var AEShapeBuilder = (function () {
         }
         if (!pcLayer) { _diag.push("precomp " + (c.name || "?") + ": layer not found"); continue; }
 
-        // Bounds. A CLIPPING frame is exactly its own box — that edge is what does the cutting,
-        // and its own shadow still draws outside because AE effects are not bound by the layer.
-        // A plain group takes Figma's render bounds instead, so a glow inside it is not sliced;
-        // when Figma gives none, fall back to the box padded by the group's own effects.
         var tg = pcLayer.property("ADBE Transform Group");
-
-        // SIZE BY CONTENT, WITH ROOM TO MOVE.
-        // A frame-sized comp is a wall: anything the group hangs outside the frame is chopped, and
-        // a nested group is chopped twice, which makes the scene impossible to animate. So the comp
-        // is built around everything the group actually holds, padded generously, and the content
-        // is centred in it. The padding scales with the group but is clamped, so a small icon does
-        // not get a huge comp and a big card still gets real room.
-        var cb = c.cb || { x: c.x, y: c.y, w: c.w, h: c.h };
-        var pad = Math.round(Math.min(400, Math.max(100, Math.max(cb.w, cb.h) * 0.35)));
-        // PIXEL-GRID ALIGNMENT — this is what keeps the parent comp sharp. A nested comp is a
-        // raster: its pixels are resampled once inside (content -> pc grid) and once outside
-        // (pc raster -> parent grid). Both shifts must therefore be INTEGERS, or every precomp
-        // goes soft; and the ceil'd width used to slide the anchor by up to half a pixel on top.
-        // W,H are forced even so W/2 stays integer, dx,dy are rounded, and the layer's position
-        // is derived from dx (not from the group centre), which cancels the transform exactly.
-        var W = Math.max(4, Math.ceil(cb.w + pad * 2)); if (W % 2) W++;
-        var H = Math.max(4, Math.ceil(cb.h + pad * 2)); if (H % 2) H++;
-        var dx = Math.round(pad - cb.x), dy = Math.round(pad - cb.y);
+        // Use the original frame/group box. AE requires integer dimensions; do not add padding
+        // or force even sizes. Exact inverse offsets preserve fractional Figma positions.
+        var W = Math.max(4, Math.ceil(c.w)), H = Math.max(4, Math.ceil(c.h));
+        var dx = -c.x, dy = -c.y;
 
         // Resizing a comp does not move its layers, so the contents are shifted first and the
         // precomp layer is then placed so every pixel lands back exactly where Figma had it.
@@ -436,14 +418,11 @@ var AEShapeBuilder = (function () {
         }
         try { pc.width = W; pc.height = H; } catch (ers) {}
 
-        // Anchor at the comp centre so rotation and scale pivot on the group; position derived
-        // from the integer shift so the net transform is exactly zero (p - W/2 + (W/2 - dx) = p - dx).
+        // Center the anchor and cancel the content offset in the parent.
         try { tg.property("ADBE Anchor Point").setValue([W / 2, H / 2, 0]); } catch (ea2) {}
         try { tg.property("ADBE Position").setValue([W / 2 - dx, H / 2 - dy, 0]); } catch (ep3) {}
 
-        // Figma's Clip content, rebuilt as a rounded-rect MASK rather than by shrinking the comp.
-        // A mask cuts before effects run, so the frame's own drop shadow still draws outside it.
-        // Mask coordinates live in layer space, which is the shifted space computed above.
+        // Rebuild Clip content in the original frame's local space, including rounded corners.
         if (c.clip) {
           try {
             var mk = pcLayer.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
@@ -459,8 +438,16 @@ var AEShapeBuilder = (function () {
         if (c.fx && c.fx.length) { try { addLayerEffects(pcLayer, c.fx); } catch (efx) {} }
         applyBlend(pcLayer, c.blend);
         if (c.hidden) { try { pcLayer.enabled = false; } catch (eh) {} }
-        // Figma's Clip content == the precomp's own edges, so just switch collapse off
-        try { pcLayer.collapseTransformation = false; } catch (ect) {}
+        // Non-clipping groups keep their overflow in the parent without enlarging the comp.
+        try { pcLayer.collapseTransformation = !c.clip; } catch (ect) {}
+        if (!c.clip && (c.blend !== 'PASS_THROUGH' || (c.opacity != null && c.opacity < 1))) {
+          // A closed, zero-area subtract mask composites this group before applying its
+          // opacity/blend, without cutting off overflow or changing the comp dimensions.
+          var compositeMask = pcLayer.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
+          compositeMask.name = "Group composite";
+          compositeMask.maskMode = MaskMode.SUBTRACT;
+          compositeMask.property("ADBE Mask Shape").setValue(roundedRectShape(0, 0, 0, 0, 0));
+        }
 
         // the swallowed layers are gone; this precomp now stands in for them one level up
         for (j = 0; j < _layerPaths.length; j++) {

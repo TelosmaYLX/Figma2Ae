@@ -18,7 +18,7 @@ def point(layer,x,y):
     dx,dy=(x-anchor[0])*scale[0]/100,(y-anchor[1])*scale[1]/100
     angle=math.radians(layer.transform.rotation.value)
     return [position[0]+dx*math.cos(angle)-dy*math.sin(angle),position[1]+dx*math.sin(angle)+dy*math.cos(angle)]
-contexts={item['id']:item if item.get('clip') else item.get('cb') or item for item in model['containers']}
+contexts={item['id']:item for item in model['containers']}
 def origin(item):
     return next(([contexts[key]['x'],contexts[key]['y']] for key in reversed(item.get('path') or []) if key in contexts),[0,0])
 for layer in layers.values():
@@ -31,6 +31,9 @@ for layer in layers.values():
     close(layer.transform.anchor_point.value[1],rect['top']+rect['height']/2)
 for item in model['containers']:
     layer=layers[item['name']];bounds=contexts[item['id']];ox,oy=origin(item)
+    assert layer.source.width==max(4,math.ceil(item['w']))
+    assert layer.source.height==max(4,math.ceil(item['h']))
+    assert layer.collapse_transformation == (not bool(item.get('clip')))
     top_left=point(layer,0,0)
     close(top_left[0],bounds['x']-ox);close(top_left[1],bounds['y']-oy)
 curve=layers['Bezier shape']
