@@ -1,9 +1,10 @@
 <!-- ui.html — Figma plugin iframe. Holds the WebSocket client to the AE bridge. -->
 <!-- Only the UI iframe can do network; the main thread (code.js) exports SVG and posts it here. -->
+<!-- Plain HTML; no Tailwind or component library. Use the existing :root tokens and dark theme. -->
 <!-- Primary: import. Secondary: direct AEP export, marking and document tools. Existing tokens, 8px gaps/radii,
      10px button padding and 12px group spacing; retain the current dark theme. The shared image
      folder is secondary: full selectable address, 8px gap, 36px folder button.
-     Error text stays primary in its group; the optional locate action uses panel/text tokens and an 8px gap. -->
+     Status text leads; optional locate/open-folder actions are secondary, using panel/text tokens and an 8px gap. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#8a8a8a; --ok:#22c55e; --err:#ef4444; }
   html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); }
@@ -31,8 +32,8 @@
   .mark-hint { margin-top:8px; color:var(--muted); }
   .msg { margin-top:10px; min-height:16px; color:var(--muted); overflow-wrap:anywhere; }
   .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
-  .locate-layer { width:auto; margin-top:8px; padding:8px 10px; background:var(--panel); color:var(--text); }
-  .locate-layer:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .locate-layer,.open-folder { width:auto; margin-top:8px; padding:8px 10px; background:var(--panel); color:var(--text); }
+  .locate-layer:focus-visible,.open-folder:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .hint { margin-top:12px; font-size:11px; color:var(--muted); }
 </style>
 <div class="wrap">
@@ -55,6 +56,7 @@
   <div class="mark-hint">名称以 * 开头的图层将导出为图片。</div>
   <div id="msg" class="msg"></div>
   <button id="locate-layer" class="locate-layer" title="选中并显示出错图层" hidden>定位图层</button>
+  <button type="button" id="open-aep-folder" class="open-folder" hidden>打开文件夹</button>
   <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="nodemode" checked> 可编辑图层
   </label>
@@ -100,7 +102,7 @@
 <script>
   var PORT = 7867;
   var ws = null, connected = false, selCount = 0, imgAsm = null, exporting = false, blendNotice = '';
-  var aepMode = false, aepBusy = false, aepPacket = null, aepDestination = null;
+  var aepMode = false, aepBusy = false, aepPacket = null, aepResultId = null, openingFolder = false;
   var imageFolder = '', folderBusy = false;
   var errorNodeId = null, locatingLayer = false;
   var $ = function (id) { return document.getElementById(id); };
@@ -118,6 +120,7 @@
     $('ship').disabled = busy || !(connected && selCount > 0);
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
+    $('open-aep-folder').disabled = busy || openingFolder;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
     for (var id in toolButtons) $(id).disabled = busy || selCount === 0;
@@ -195,6 +198,7 @@
     organize = $('organize').checked;
     var useNodes = direct || $('nodemode').checked || organize;
     aepMode = direct; aepPacket = null; imgAsm = null;
+    aepResultId = null; $('open-aep-folder').hidden = true;
     exporting = true; updateButton();
     blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
@@ -237,25 +241,29 @@
         probe();
       }); });
     }).then(function (info) {
-      if (info.service !== 'f2a-aep' || info.version !== 2) throw new Error('AEP 导出服务版本不匹配，请重启服务。');
+      if (info.service !== 'f2a-aep' || info.version !== 3) throw new Error('AEP 导出服务版本不匹配，请重启服务。');
     });
   }
   $('export-aep').onclick = function () {
-    aepBusy = true; aepDestination = null; updateButton();
+    if (exporting || aepBusy || folderBusy) return;
+    aepBusy = true; aepResultId = null; $('open-aep-folder').hidden = true; updateButton();
     say('正在连接 AEP 导出服务…');
-    ensureAepService().then(function () {
-      say('请选择导出位置…');
-      return fetch('http://127.0.0.1:7868/select-directory', {method: 'POST'});
-    }).then(function (r) {
-      return r.json().then(function (result) { if (!r.ok) throw new Error(result.error); return result; });
-    }).then(function (result) {
-      if (!result.destination) { aepBusy = false; updateButton(); say('已取消导出。'); return; }
-      aepDestination = result.destination;
-      beginExport(true);
-    }).catch(function (err) {
+    ensureAepService().then(function () { beginExport(true); }).catch(function (err) {
       aepBusy = false; updateButton();
       say(err.message, 'err');
     });
+  };
+  function aepRequest(route, body) {
+    return fetch('http://127.0.0.1:7868' + route, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(function (response) {
+      return response.json().then(function (result) { if (!response.ok) throw new Error(result.error); return result; });
+    });
+  }
+  $('open-aep-folder').onclick = function () {
+    if (!aepResultId || openingFolder || exporting || aepBusy) return;
+    openingFolder = true; updateButton();
+    aepRequest('/open-directory', {exportId:aepResultId}).catch(function (error) {
+      say('无法打开文件夹：' + error.message, 'err');
+    }).then(function () { openingFolder = false; updateButton(); });
   };
 
   // Figma embeds this HTML; keep the same source-over solve as client/figmaRasterEffects.js inline.
@@ -294,7 +302,7 @@
       aepMode = aepBusy = false; updateButton();
       say('部分图片导出失败，请重试。', 'err'); return;
     }
-    say('正在生成 AEP…');
+    say('正在检查并生成 AEP…');
     var prepared = Promise.resolve();
     packet.images.forEach(function (image) {
       if (image.shadowBase) prepared = prepared.then(function () {
@@ -304,18 +312,18 @@
       });
     });
     prepared.then(function () {
-      return fetch('http://127.0.0.1:7868/export', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({destination: aepDestination, packet: packet}) });
+      return aepRequest('/export', {packet:packet});
     })
-      .then(function (r) {
-        return r.json().then(function (result) { if (!r.ok) throw new Error(result.error); return result; });
-      }).then(function (result) {
+      .then(function (result) {
+        if (result.cancelled) { say('已取消导出。'); return; }
         if (result.warnings.length) {
           var issue = result.warnings[0];
           throw new Error('图层「' + (issue.layer || '未知') + '」：' + (issue.detail || issue.code || '存在未导出的属性'));
         }
         say('已导出到 ' + result.directory, 'ok');
+        aepResultId = result.exportId; $('open-aep-folder').hidden = false;
       }).catch(function (err) { say('AEP 导出失败：' + err.message, 'err', err.nodeId); })
-      .then(function () { aepMode = aepBusy = false; aepDestination = null; updateButton(); });
+      .then(function () { aepMode = aepBusy = false; updateButton(); });
   }
 
   // messages from code.js (main thread)

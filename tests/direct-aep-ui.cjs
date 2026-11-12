@@ -5,7 +5,7 @@ const {fixture} = require('./direct-aep.cjs');
 
 function ui(packet, behavior='success') {
   const html=fs.readFileSync(require('node:path').join(__dirname,'../figma-plugin/ui.html'),'utf8'),elements={},posts=[],requests=[];
-  for(const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g))elements[m[1]]={checked:/\bchecked\b/.test(m[0]),disabled:/\bdisabled\b/.test(m[0])};
+  for(const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g))elements[m[1]]={checked:/\bchecked\b/.test(m[0]),disabled:/\bdisabled\b/.test(m[0]),hidden:/\bhidden\b/.test(m[0])};
   let finish, clock=0, healthCalls=0;
   const done=new Promise(r=>{finish=r;});
   const launches=[];
@@ -20,7 +20,7 @@ function ui(packet, behavior='success') {
       if(url.endsWith('/health')){
         healthCalls++;
         if(['offline','launch-error','bridge-offline','bridge-old','missing-component'].includes(behavior)||(behavior==='cold-start'&&healthCalls<4))throw new Error('Offline');
-        return {ok:true,json:async()=>({service:'f2a-aep',version:behavior==='old-service'?1:2})};
+        return {ok:true,json:async()=>({service:'f2a-aep',version:behavior==='old-service'?2:3})};
       }
       if(url.endsWith('/aep/start')){
         assert.equal(url,'http://127.0.0.1:7867/aep/start');assert.equal(options.method,'POST');
@@ -32,16 +32,18 @@ function ui(packet, behavior='success') {
         if(behavior==='missing-component')return{ok:false,json:async()=>({ok:false,error:'未找到 AEP 导出组件，请先安装 Windows x64 组件。'})};
         return{ok:true,json:async()=>({ok:true})};
       }
-      if(url.endsWith('/select-directory')){
-        assert.equal(posts.filter(m=>m.type==='ship-selection').length,0,'Choose a location before collecting Figma content');
-        assert.equal(elements['export-aep'].disabled,true);
-        if(behavior==='picker-error')return {ok:false,json:async()=>({error:'Picker failure'})};
-        return {ok:true,json:async()=>({destination:behavior==='cancel'?null:'selected-folder'})};
+      if(url.endsWith('/open-directory')){
+        assert.deepEqual(JSON.parse(options.body),{exportId:'completed-export'});
+        await new Promise(resolve=>setImmediate(resolve));
+        return behavior==='open-error'?{ok:false,json:async()=>({error:'Explorer failure'})}:{ok:true,json:async()=>({ok:true})};
       }
       assert.equal(url,'http://127.0.0.1:7868/export');
       assert.equal(elements['export-aep'].disabled,true,'Button stays locked while the server writes');
-      if(behavior==='server-error')return {ok:false,json:async()=>({error:'Test failure'})};
-      return {ok:true,json:async()=>({directory:'D:\\导出 位置\\Direct AEP smoke',warnings:behavior==='warnings'?[{},{}]:[]})};
+      assert.equal(posts.filter(m=>m.type==='ship-selection').length,1,'Collect and check Figma content before the server can choose a folder');
+      assert.equal(elements['open-aep-folder'].hidden,true);
+      if(['server-error','picker-error'].includes(behavior))return {ok:false,json:async()=>({error:behavior==='picker-error'?'Picker failure':'Test failure'})};
+      if(behavior==='cancel')return {ok:true,json:async()=>({cancelled:true})};
+      return {ok:true,json:async()=>({directory:'D:\\导出 位置\\Direct AEP smoke',exportId:'completed-export',warnings:behavior==='warnings'?[{},{}]:[]})};
     },
     parent:{postMessage({pluginMessage:message}){
       posts.push(message);
@@ -73,14 +75,15 @@ function ui(packet, behavior='success') {
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   const packet=await fixture();
-  for(const behavior of ['success','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','export-error','missing-image']){
+  for(const behavior of ['success','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
     assert.equal(h.elements['export-aep'].disabled,false);
-    if(['success','cold-start','shadow','warnings'].includes(behavior)){
+    assert.equal(h.requests.some(r=>r.url.endsWith('/select-directory')),false,'The UI must not choose a folder ahead of validation');
+    if(['success','cold-start','shadow','warnings','open-error'].includes(behavior)){
       const request=JSON.parse(h.requests.find(r=>r.url.endsWith('/export')).options.body);
-      assert.equal(request.destination,'selected-folder');
+      assert.deepEqual(Object.keys(request),['packet']);
       const body=request.packet;
       assert.equal(body.images.length,packet.images.length);
       assert.equal(body.images[0].data,behavior==='shadow'?'extracted shadow PNG':packet.images[0].data);
@@ -90,7 +93,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
       else assert.match(h.elements.msg.textContent,/已导出到 D:\\导出 位置/);
       assert.equal(h.elements.msg.textContent.includes('report.json'),false);
     }
-    if(['cancel','picker-error','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service'].includes(behavior)){
+    if(['offline','launch-error','bridge-offline','bridge-old','missing-component','old-service'].includes(behavior)){
       assert.equal(h.posts.filter(m=>m.type==='ship-selection').length,0);
       assert.equal(h.requests.some(r=>r.url.endsWith('/export')),false);
     }
@@ -106,10 +109,23 @@ const flush=()=>new Promise(r=>setImmediate(r));
     if(behavior==='bridge-offline')assert.match(h.elements.msg.textContent,/请先打开 AE 的 F2A 面板/);
     if(behavior==='bridge-old')assert.match(h.elements.msg.textContent,/请更新并重新打开 AE/);
     if(behavior==='missing-component')assert.match(h.elements.msg.textContent,/未找到 AEP 导出组件/);
-    if(behavior==='missing-image')assert.equal(h.requests.length,2,'Do not export an incomplete image batch');
+    if(behavior==='missing-image')assert.equal(h.requests.length,1,'Do not export an incomplete image batch');
     if(behavior==='shadow-error'){
       assert.equal(h.requests.some(r=>r.url.endsWith('/export')),false);assert.match(h.elements.msg.textContent,/投影.*PNG decode failed/);
     }
+    if(['success','cold-start','shadow','open-error'].includes(behavior)){
+      assert.equal(h.elements['open-aep-folder'].hidden,false);
+      h.elements['open-aep-folder'].onclick();h.elements['open-aep-folder'].onclick();
+      assert.equal(h.requests.filter(r=>r.url.endsWith('/open-directory')).length,1,'Opening has its own click lock');
+      assert.equal(h.elements['open-aep-folder'].disabled,true);
+      for(let i=0;i<20&&h.context.openingFolder;i++)await flush();
+      assert.equal(h.elements['open-aep-folder'].disabled,false);
+      if(behavior==='open-error')assert.match(h.elements.msg.textContent,/无法打开文件夹.*Explorer failure/);
+      h.requests.length=0;h.posts.length=0;
+      h.elements['export-aep'].onclick();
+      assert.equal(h.elements['open-aep-folder'].hidden,true,'A new export clears the previous result');
+      for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
+    }else assert.equal(h.elements['open-aep-folder'].hidden,true,'Cancelled and failed exports expose no folder action');
   }
   const h=ui(packet);
   function composite(fg,bg){const a=fg[3]/255,b=bg[3]/255,alpha=a+b*(1-a);return [0,1,2].map(i=>alpha?Math.round((fg[i]*a+bg[i]*b*(1-a))/alpha):0).concat(Math.round(alpha*255));}
@@ -117,5 +133,5 @@ const flush=()=>new Promise(r=>setImmediate(r));
     const full=composite(clean,shadow),recovered=Array.from(h.context.extractAepShadow(full,clean));
     assert.ok(composite(clean,recovered).every((v,i)=>Math.abs(v-full[i])<=1));
   }
-  console.log('PASS: click → one HTTP launch through AE → wait until ready → folder export; reuse, offline/old panel, missing component, startup errors and timeout');
+  console.log('PASS: launch → Figma checks/images → checked export; open-folder success/error, click lock, cancel/failure, hidden stale results, cold start and offline errors');
 })().catch(e=>{console.error(e);process.exitCode=1;});
