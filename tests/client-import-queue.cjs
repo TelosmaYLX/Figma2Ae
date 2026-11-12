@@ -2,12 +2,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const root = path.join(__dirname, '..'), output = path.join(root, 'artifacts/undo/client');
+const root = path.join(__dirname, '..'), output = path.join(root, 'artifacts/undo/client', String(process.pid));
 let testId = 0;
-function harness({rememberFolder = true, failImages = false, shadowRenderer} = {}) {
+function harness({rememberFolder = true, failImages = false, shadowRenderer, nativeFolder} = {}) {
   const dir = path.join(output, String(++testId)), assets = path.join(dir, 'assets');
   fs.mkdirSync(assets, {recursive: true});
-  const native = [], pending = [], pickers = [], messages = [];
+  const native = [], pending = [], pickers = [], messages = [], folderCalls = [], elements = {};
   let callbacks, active = 0, svgId = 0;
   const storage = new Map(rememberFolder ? [['f2a.imageFolder', assets]] : []);
   const disk = Object.create(fs);
@@ -28,20 +28,23 @@ function harness({rememberFolder = true, failImages = false, shadowRenderer} = {
       else { assert.ok(!/^runImport\(|^runImportImages\(|^runOrganize\(/.test(script), 'Old split import entry must not be called'); if (callback) callback('loaded'); }
     }
   }};
+  if (nativeFolder) window.cep={fs:{showOpenDialogEx(...args){folderCalls.push(args);return nativeFolder();}}};
   class Clock extends Date { static now() { return 123456789; } }
   vm.runInNewContext(fs.readFileSync(path.join(root, 'client/figmaBridge.js'), 'utf8'), {
     window, Buffer, Date: Clock, process: {platform: 'linux'},
-    document: {getElementById() { return {}; }}, setTimeout() {}, clearTimeout() {},
+    document: {getElementById(id) { return elements[id] ||= {}; }}, setTimeout() {}, clearTimeout() {},
     localStorage: {getItem(k) { return storage.get(k) || ''; }, setItem(k, v) { storage.set(k, v); }, removeItem(k) { storage.delete(k); }},
     require(name) { if (name === 'fs') return disk; if (name === 'os') return {tmpdir: () => dir}; if (name.endsWith('/client/figmaRasterEffects.js') && shadowRenderer) return shadowRenderer; if (name.endsWith('/client/mkBridgeServer.js')) return bridge; return require(name); }
   });
-  return {native, pending, pickers, messages,
+  return {native, pending, pickers, messages, elements, storage, window, folderCalls, assets, get callbacks(){return callbacks;},
     start(id, imageCount) { return callbacks.onSvg('<svg width="10" height="10"></svg>', {name: id, nodes: [{id, fills: [], strokes: []}], texts: [], effects: [], imageCount}); },
     images(id, reference = false, shadow = false) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3, reference, hidden: reference, external: shadow, shadowBase: shadow ? {data:'clean'} : null}] : []); },
     abort(message){callbacks.onAbort(message);},
     finish() { assert.equal(active, 1); active--; pending.shift()('OK'); }
   };
 }
+module.exports={harness};
+if(require.main===module){
 const h = harness();
 h.start('A', 1); h.start('B', 0);
 assert.equal(h.native.length, 0, 'Wait for images before touching AE');
@@ -90,3 +93,4 @@ console.log('PASS: complete payload, single evalScript, FIFO jobs, no phase over
   assert.ok(bad.messages.some(m=>/投影图片处理失败/.test(m)));bad.finish();
   console.log('PASS: asynchronous shadow extraction finishes before the single AE import and preserves FIFO ordering');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+}

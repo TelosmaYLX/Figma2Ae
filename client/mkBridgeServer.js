@@ -73,7 +73,7 @@ function encodePong(payload) {
 
 function start(opts) {
   opts = opts || {};
-  var port = opts.port || 7867;
+  var port = opts.port == null ? 7867 : opts.port;
   var onSvg = opts.onSvg || function () { return { ok: true }; };
   var onImages = opts.onImages || function () { return { ok: true }; };
   var imgBuf = [], imgTimer = null, explicitImageEnd = false, expectedImages = 0;
@@ -93,6 +93,18 @@ function start(opts) {
   var onStatus = opts.onStatus || function () {};
 
   var server = http.createServer(function (req, res) {
+    if (req.url === '/image-folder') {
+      function reply(error, directory) {
+        res.writeHead(error ? 400 : 200, {'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});
+        res.end(JSON.stringify(error ? {error:error.message} : {directory:directory || null}));
+      }
+      try {
+        if (req.method === 'GET' && opts.onGetImageFolder) reply(null, opts.onGetImageFolder());
+        else if (req.method === 'POST' && opts.onChooseImageFolder) opts.onChooseImageFolder(reply);
+        else reply(new Error('请重新打开 AE 的 F2A 面板'));
+      } catch (error) { reply(error); }
+      return;
+    }
     // simple health check + HTTP file fallback (plugin can POST here if WS is blocked)
     if (req.method === 'POST') {
       var body = '';

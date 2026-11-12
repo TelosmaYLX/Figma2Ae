@@ -2,6 +2,21 @@
 
 直接导出 AEP 的用法、范围和验证命令见 [scripts/aep/README.md](../scripts/aep/README.md)。
 
+## 图片保存位置
+
+Figma 插件和 AE 面板均显示“图片保存位置”，右侧文件夹按钮可重新选择。完整地址支持换行和复制，两端共用 AE 面板记住的目录。首次点击“导入到 After Effects”时，如未设置目录或原目录已失效，会先打开目录窗口；取消或选择失败时不开始导出。图片先写入所选目录，再通过该目录交给 AE 导入。
+
+```powershell
+node tests/image-folder.cjs
+node tests/client-import-queue.cjs
+node tests/bridge-batch.cjs
+node tests/direct-aep-ui.cjs
+```
+
+检查覆盖目录显示、原生 CEP 窗口调用、重选与取消、无效路径、导入期间禁止修改、真实 HTTP 接口、PNG 写入及导入数据中的路径。Figma 和 CEP 窗口 API 由测试模拟；代码更新后需重新运行 Figma 插件并重新打开 AE 的 F2A 面板。
+
+## AE 渐变
+
 需要 AE 26，以及已打开的 F2A 面板（调试端口 8621）。测试使用内置 Node 和项目现有的渐变预设，不需要安装依赖。
 
 ```powershell

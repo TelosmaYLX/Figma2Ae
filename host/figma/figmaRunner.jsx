@@ -196,7 +196,7 @@ function mkChooseImageFolder(hint) {
   try {
     var f = Folder.selectDialog(hint || "请选择导入图片的保存文件夹");
     return f ? f.fsName.replace(/\\/g, "/") : "";
-  } catch (e) { return ""; }
+  } catch (e) { return "ERROR: 无法打开目录窗口：" + String(e); }
 }
 
 // Import the saved pictures as footage (+ track mattes for cropped ones).

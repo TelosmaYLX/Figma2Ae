@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Import stays primary. The image folder is a secondary shared setting: full, selectable,
+       wrapping path plus a 36px folder button. Reuse existing surfaces, text, radius and 8px gaps. -->
   <header class="mk-header">
     <div class="mk-brand">
       <span class="mk-logo" aria-hidden="true">
@@ -27,6 +29,16 @@
   <div class="mk-figbar" id="mk-figbar">
     <span class="mk-fig-dot off" id="mk-fig-dot" aria-hidden="true"></span>
     <span class="mk-fig-label" id="mk-fig-label">正在启动 SVG 桥接…</span>
+  </div>
+
+  <div class="mk-image-folder">
+    <div class="mk-image-folder-label" id="mk-image-folder-label">图片保存位置</div>
+    <div class="mk-image-folder-row">
+      <div class="mk-image-folder-path" id="mk-image-folder-path" role="status" aria-labelledby="mk-image-folder-label">未选择</div>
+      <button type="button" class="mk-image-folder-choose" id="mk-image-folder-choose" title="选择图片保存位置" aria-label="选择图片保存位置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+      </button>
+    </div>
   </div>
 
   <div class="mk-foot">

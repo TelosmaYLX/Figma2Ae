@@ -1,7 +1,8 @@
 <!-- ui.html — Figma plugin iframe. Holds the WebSocket client to the AE bridge. -->
 <!-- Only the UI iframe can do network; the main thread (code.js) exports SVG and posts it here. -->
 <!-- Primary: import. Secondary: direct AEP export, marking and document tools. Existing tokens, 8px gaps/radii,
-     10px button padding and 12px group spacing; retain the current dark theme. -->
+     10px button padding and 12px group spacing; retain the current dark theme. The shared image
+     folder is secondary: full selectable address, 8px gap, 36px folder button. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#8a8a8a; --ok:#22c55e; --err:#ef4444; }
   html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); }
@@ -13,6 +14,13 @@
            font-weight:600; cursor:pointer; }
   button:disabled { opacity:.4; cursor:not-allowed; }
   .aep-export { margin-top:8px; background:var(--panel); color:var(--text); }
+  .image-folder { margin-bottom:12px; }
+  .image-folder-label { margin-bottom:4px; color:var(--text); }
+  .image-folder-row { display:flex; align-items:flex-start; gap:8px; }
+  .image-folder-path { flex:1; min-width:0; min-height:36px; padding:10px; box-sizing:border-box; border-radius:8px; background:var(--panel); overflow-wrap:anywhere; white-space:normal; user-select:text; }
+  .image-folder-choose { flex:0 0 36px; width:36px; height:36px; padding:8px; background:var(--panel); color:var(--text); }
+  .image-folder-choose svg { display:block; width:20px; height:20px; }
+  .image-folder-choose:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .mark-actions { display:flex; gap:8px; margin-top:12px; }
   .mark-actions button { flex:1; min-width:0; background:var(--panel); color:var(--text); }
   .layer-tools { margin-top:12px; }
@@ -26,6 +34,15 @@
 </style>
 <div class="wrap">
   <div class="status"><span id="dot" class="dot"></span><span id="conn">正在连接 After Effects…</span></div>
+  <div class="image-folder">
+    <div class="image-folder-label" id="image-folder-label">图片保存位置</div>
+    <div class="image-folder-row">
+      <div id="image-folder-path" class="image-folder-path" role="status" aria-labelledby="image-folder-label">未选择</div>
+      <button type="button" id="image-folder-choose" class="image-folder-choose" title="选择图片保存位置" aria-label="选择图片保存位置" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+      </button>
+    </div>
+  </div>
   <button id="ship" disabled>导入到 After Effects</button>
   <button id="export-aep" class="aep-export" disabled>导出 AEP（实验）</button>
   <div class="mark-actions">
@@ -80,6 +97,7 @@
   var PORT = 7867;
   var ws = null, connected = false, selCount = 0, imgAsm = null, exporting = false, blendNotice = '';
   var aepMode = false, aepBusy = false, aepPacket = null, aepDestination = null, aepLaunchReject = null;
+  var imageFolder = '', folderBusy = false;
   var $ = function (id) { return document.getElementById(id); };
   var toolButtons = { 'detach-instances': 'detach', 'convert-groups': 'group-to-frame', 'expand-groups': 'expand', 'delete-hidden': 'delete-hidden' };
 
@@ -88,14 +106,41 @@
     $('dot').className = 'dot ' + (state ? 'on' : 'off');
     $('conn').textContent = state ? '已连接到 After Effects' : '未找到 AE 桥接服务——F2A 面板是否已打开？';
     updateButton();
+    if (state) readImageFolder().catch(function (error) { say(error.message, 'err'); });
   }
   function updateButton() {
-    $('ship').disabled = exporting || aepBusy || !(connected && selCount > 0);
-    $('export-aep').disabled = exporting || aepBusy || selCount === 0;
-    $('mark-raster').disabled = $('unmark-raster').disabled = exporting || aepBusy || selCount === 0;
-    for (var id in toolButtons) $(id).disabled = exporting || aepBusy || selCount === 0;
+    $('ship').disabled = folderBusy || exporting || aepBusy || !(connected && selCount > 0);
+    $('image-folder-choose').disabled = folderBusy || exporting || aepBusy || !connected;
+    $('export-aep').disabled = folderBusy || exporting || aepBusy || selCount === 0;
+    $('mark-raster').disabled = $('unmark-raster').disabled = folderBusy || exporting || aepBusy || selCount === 0;
+    for (var id in toolButtons) $(id).disabled = folderBusy || exporting || aepBusy || selCount === 0;
   }
   function say(text, cls) { var m = $('msg'); m.textContent = text; m.className = 'msg ' + (cls || ''); }
+  function showImageFolder(directory) {
+    imageFolder = directory || '';
+    $('image-folder-path').textContent = imageFolder || '未选择';
+    $('image-folder-path').title = imageFolder;
+  }
+  function imageFolderRequest(method) {
+    return fetch('http://127.0.0.1:' + PORT + '/image-folder', {method:method}).then(function (response) {
+      return response.json().then(function (result) { if (!response.ok) throw new Error(result.error); return result; });
+    }).catch(function (error) { throw new Error(error instanceof SyntaxError || error instanceof TypeError ? '请重新打开 AE 的 F2A 面板，再选择图片保存位置。' : '图片保存位置不可用：' + error.message); });
+  }
+  function readImageFolder() {
+    return imageFolderRequest('GET').then(function (result) { showImageFolder(result.directory); return imageFolder; });
+  }
+  function selectImageFolder() {
+    return imageFolderRequest('POST').then(function (result) {
+      if (result.directory) showImageFolder(result.directory);
+      return result.directory;
+    });
+  }
+  $('image-folder-choose').onclick = function () {
+    if (folderBusy || exporting || aepBusy) return;
+    folderBusy = true; updateButton();
+    selectImageFolder().catch(function (error) { say(error.message, 'err'); }).then(function () { folderBusy = false; updateButton(); });
+  };
+  window.onfocus = function () { if (connected && !folderBusy && !exporting && !aepBusy) readImageFolder().catch(function (error) { say(error.message, 'err'); }); };
 
   function connect() {
     try { ws = new WebSocket('ws://127.0.0.1:' + PORT); } catch (e) { setConn(false); return retry(); }
@@ -139,7 +184,15 @@
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
     parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   }
-  $('ship').onclick = function () { beginExport(false); };
+  $('ship').onclick = function () {
+    if (folderBusy || exporting || aepBusy) return;
+    folderBusy = true; updateButton();
+    readImageFolder().then(function (directory) { return directory || selectImageFolder(); }).then(function (directory) {
+      folderBusy = false; updateButton();
+      if (!directory) { say('已取消导入。'); return; }
+      beginExport(false);
+    }).catch(function (error) { folderBusy = false; updateButton(); say(error.message, 'err'); });
+  };
   function aepHealth() {
     return fetch('http://127.0.0.1:7868/health').then(function (r) {
       if (!r.ok) throw new Error('AEP service unavailable');

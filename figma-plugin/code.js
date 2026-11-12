@@ -6,7 +6,7 @@
  * Main thread can't open sockets, so: export here -> postMessage -> ui.html ships it.
  */
 
-figma.showUI(__html__, { width: 320, height: 550, themeColors: true });
+figma.showUI(__html__, { width: 320, height: 630, themeColors: true });
 
 
 // ===== ORGANIZE MODE =====
@@ -1948,7 +1948,7 @@ figma.ui.onmessage = function (msg) {
   if (msg.type === 'mark-raster') markRasterSelection(true);
   if (msg.type === 'unmark-raster') markRasterSelection(false);
   if (msg.type === 'layer-tool') runLayerTool(msg.action);
-  if (msg.type === 'tools-open') figma.ui.resize(320, msg.open ? 680 : 550);
+  if (msg.type === 'tools-open') figma.ui.resize(320, msg.open ? 760 : 630);
   if (msg.type === 'close') figma.closePlugin(msg.message || undefined);
   if (msg.type === 'notify') figma.notify(msg.message);
 };

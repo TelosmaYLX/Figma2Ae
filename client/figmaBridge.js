@@ -8,7 +8,9 @@
   "use strict";
   var PORT = 7867;
   var CEP = (typeof window.__adobe_cep__ !== "undefined");
-  var MKFigma = window.MKFigma = { connected: false, manualImport: noop };
+  var MKFigma = window.MKFigma = { connected: false, manualImport: noop, selectImageFolder: noop };
+  var folderButton = document.getElementById('mk-image-folder-choose');
+  if (folderButton) folderButton.onclick = function () { MKFigma.selectImageFolder(); };
 
   var baseStatus = "正在启动 SVG 桥接…";   // persistent line the bar returns to
   var revertTimer = null;
@@ -39,6 +41,7 @@
 
   if (!CEP) {
     MKFigma.manualImport = function () { flash("[预览] SVG 导入需要在 AE 中运行"); };
+    MKFigma.selectImageFolder = function () { flash('请在 AE 中选择图片保存位置'); };
     document.addEventListener("DOMContentLoaded", function () { setBase("预览模式（请在 AE 中打开）"); });
     return;
   }
@@ -93,6 +96,28 @@
   var host = (ext + "/host/figma").replace(/\\/g, "/");
   var lastImageFolder = "";       // remembered across imports and panel restarts
   try { lastImageFolder = localStorage.getItem("f2a.imageFolder") || ""; } catch (eLs) {}
+  var folderSelecting = false;
+  function paintImageFolder() {
+    var label = document.getElementById('mk-image-folder-path');
+    if (label) { label.textContent = lastImageFolder || '未选择'; label.title = lastImageFolder; }
+    if (folderButton) folderButton.disabled = folderSelecting || importing || !!(importQueue && importQueue.length);
+  }
+  function rememberImageFolder(folder) {
+    lastImageFolder = folder;
+    if (folder) localStorage.setItem('f2a.imageFolder', folder);
+    else localStorage.removeItem('f2a.imageFolder');
+    paintImageFolder();
+  }
+  function getImageFolder() {
+    if (lastImageFolder) {
+      try { if (!require('fs').statSync(lastImageFolder).isDirectory()) rememberImageFolder(''); }
+      catch (error) { rememberImageFolder(''); }
+    }
+    paintImageFolder();
+    return lastImageFolder;
+  }
+  MKFigma.getImageFolder = getImageFolder;
+  getImageFolder();
 
   // ---- gradient .ffx generation (Overlord-style: colours aren't scriptable, so we bake a preset) ----
   var SVGParserNode = null, ffxGen = null, GRAD_TEMPLATE = null, STROKE_TEMPLATE = null, OVERLAY_TEMPLATE = null;
@@ -247,40 +272,41 @@
     });
   };
 
-  // Choose once per panel session. Windows uses the modern Explorer-style folder picker;
-  // other platforms (or a PowerShell failure) keep AE's native folder dialog as fallback.
-  function chooseImageFolder(images, cb) {
-    if (lastImageFolder) { cb(lastImageFolder); return; }
-    var hint = "将 " + images.length + " 张 Figma 图片保存到…";
-    function fallback() { evalES('mkChooseImageFolder("' + hint + '")', cb); }
-    if (process.platform === 'win32') {
-      var ps = [
-        "$ErrorActionPreference = 'Stop'",
-        "Add-Type -AssemblyName System.Windows.Forms",
-        "$d = New-Object System.Windows.Forms.FolderBrowserDialog",
-        "$d.Description = '选择 Figma 图片保存文件夹'",
-        "$d.ShowNewFolderButton = $true",
-        "try { $d.AutoUpgradeEnabled = $true } catch {}",
-        "try { $d.UseDescriptionForTitle = $true } catch {}",
-        "if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {",
-        "  [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding -ArgumentList $false",
-        "  [Console]::Write($d.SelectedPath)",
-        "}"
-      ].join("\r\n");
-      try {
-        var encoded = Buffer.from(ps, 'utf16le').toString('base64');
-        require('child_process').execFile('powershell.exe',
-          ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
-          { encoding: 'utf8', windowsHide: false },
-          function (err, stdout) {
-            if (err) { fallback(); return; }
-            cb(String(stdout || '').replace(/^\s+|\s+$/g, ''));
-          });
-      } catch (e) { fallback(); }
-      return;
+  function chooseImageFolder(cb, force) {
+    if (folderSelecting) { cb(new Error('目录窗口已打开')); return; }
+    var current = getImageFolder();
+    if (current && !force) { cb(null, current); return; }
+    folderSelecting = true; paintImageFolder();
+    function selected(error, folder) {
+      folderSelecting = false;
+      if (!error && folder) {
+        try {
+          if (!require('fs').statSync(folder).isDirectory()) throw new Error('所选位置不是文件夹');
+          rememberImageFolder(folder.replace(/\\/g, '/'));
+        } catch (failure) { error = failure; }
+      }
+      paintImageFolder(); cb(error, error || !folder ? null : lastImageFolder);
     }
-    fallback();
+    try {
+      if (window.cep && window.cep.fs && window.cep.fs.showOpenDialogEx) {
+        var result = window.cep.fs.showOpenDialogEx(false, true, '选择图片保存位置', current, []);
+        if (result.err) throw new Error('目录窗口打开失败（' + result.err + '）');
+        selected(null, result.data && result.data[0]);
+      } else {
+        evalES('mkChooseImageFolder("选择图片保存位置")', function (folder) {
+          if (/^(ERROR:|EvalScript error)/i.test(folder || '')) selected(new Error(folder));
+          else selected(null, String(folder || '').replace(/^\s+|\s+$/g, ''));
+        });
+      }
+    } catch (error) { selected(error); }
   }
+  MKFigma.selectImageFolder = function (cb) {
+    if (importing || importQueue.length) { if (cb) cb(new Error('正在导入，请稍后选择')); return; }
+    chooseImageFolder(function (error, folder) {
+      if (error) flash('选择图片保存位置失败：' + error.message, true);
+      if (cb) cb(error, folder);
+    }, true);
+  };
 
   // Receive complete jobs, then commit each in ONE evalScript call. No undo group is held
   // open while waiting for PNGs or a folder dialog; later imports cannot interleave phases.
@@ -288,6 +314,7 @@
   function finishImport(message, failed) {
     flash(message, failed);
     importQueue.shift(); importing = false; pumpImport();
+    paintImageFolder();
   }
   function submitImport(job, imagesPath, folder) {
     var data = job.data;
@@ -301,7 +328,7 @@
   }
   function pumpImport() {
     if (importing || !importQueue.length || !importQueue[0].ready || !importQueue[0].targetReady) return;
-    importing = true;
+    importing = true; paintImageFolder();
     var job = importQueue[0], images = job.images || [];
     if (!job.data.compId) { finishImport('请先打开一个合成', true); return; }
     if (!job.shadowsReady && images.some(function (image) { return !!image.shadowBase; })) {
@@ -322,12 +349,12 @@
       return;
     }
     flash(lastImageFolder ? '正在保存图片…' : '请选择图片保存文件夹…');
-    chooseImageFolder(images, function (folder) {
+    chooseImageFolder(function (error, folder) {
+      if (error) { finishImport('选择图片保存位置失败：' + error.message, true); return; }
       try {
         folder = (folder || '').replace(/^\s+|\s+$/g, '');
         if (!folder) { finishImport('已取消导入', true); return; }
-        lastImageFolder = folder.replace(/\\/g, '/');
-        try { localStorage.setItem('f2a.imageFolder', lastImageFolder); } catch (eStore) {}
+        rememberImageFolder(folder);
         var fs2 = require('fs'), path2 = require('path'), list = [], used = {};
         for (var k = 0; k < images.length; k++) {
           var im = images[k], base = im.name || 'image', ext = im.ext || 'png';
@@ -353,8 +380,7 @@
         }
         submitImport(job, saveJsonTemp(list, 'images').replace(/\\/g, '/'), lastImageFolder);
       } catch (e) {
-        lastImageFolder = '';
-        try { localStorage.removeItem('f2a.imageFolder'); } catch (eClear) {}
+        rememberImageFolder('');
         finishImport('图片保存失败：' + (/ENOSPC/i.test(e.message) ? '磁盘空间已满' : e.message), true);
       }
     });
@@ -365,6 +391,8 @@
     var bridge = require(ext + "/client/mkBridgeServer.js");
     bridge.start({
       port: PORT,
+      onGetImageFolder: getImageFolder,
+      onChooseImageFolder: MKFigma.selectImageFolder,
       onStatus: function (s) { if (/listening/.test(s)) setConn(true); },
       onSvg: function (svg, meta) {
         var swept = sweepTemp();                  // reclaim earlier runs before writing new files
@@ -426,6 +454,7 @@
                            shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp},
                     ready: !meta.imageCount, expectedImages: meta.imageCount || 0, targetReady: false, images: null };
         importQueue.push(job);
+        paintImageFolder();
         // Bind the target before the PNG wait or folder dialog can change the active viewer.
         evalES('mkFigmaTargetCompId()', function (id) {
           job.data.compId = parseInt(id, 10) || 0; job.targetReady = true; pumpImport();
@@ -439,14 +468,14 @@
       onAbort: function (message) {
         for (var i = 0; i < importQueue.length; i++) {
           if (importQueue[i].ready) continue;
-          importQueue.splice(i, 1); flash(message, true); pumpImport(); return;
+          importQueue.splice(i, 1); flash(message, true); pumpImport(); paintImageFolder(); return;
         }
       },
       onImages: function (images) {
         for (var i = 0; i < importQueue.length; i++) {
           if (importQueue[i].ready) continue;
           if (images.length !== importQueue[i].expectedImages) {
-            importQueue.splice(i, 1); flash('图片数据不完整，已取消导入', true); pumpImport();
+            importQueue.splice(i, 1); flash('图片数据不完整，已取消导入', true); pumpImport(); paintImageFolder();
             return {ok: false, error: '图片数据不完整'};
           }
           importQueue[i].images = images; importQueue[i].ready = true;
