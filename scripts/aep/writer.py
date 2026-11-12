@@ -187,6 +187,24 @@ class Writer:
             doc.auto_leading = False
             doc.leading = style['leading']
 
+    def text_fill_opacity(self, layer, segments):
+        start = 0
+        for segment in segments:
+            selector_text = re.sub(r'[\r\n\u0003\u2028\u2029\u000b\u000c\u0085]', '', segment['characters'])
+            end = start + len(selector_text.encode('utf-16-le')) // 2
+            opacity = segment.get('opacity', 1)
+            if end > start and opacity < 1:
+                animator = layer['ADBE Text Properties']['ADBE Text Animators'].add_property('ADBE Text Animator')
+                animator.name = 'Figma fill opacity'
+                animator['ADBE Text Animator Properties'].add_property('ADBE Text Fill Opacity').value = opacity * 100
+                selector = animator['ADBE Text Selectors'].add_property('ADBE Text Selector')
+                advanced = selector['ADBE Text Range Advanced']
+                advanced['ADBE Text Range Units'].value = 2
+                advanced['ADBE Text Selector Smoothness'].value = 0
+                selector['ADBE Text Index Start'].value = start
+                selector['ADBE Text Index End'].value = end
+            start = end
+
     def text(self, context, item):
         segments = item.get('segs') or []
         chars = ''.join(s['characters'] for s in segments) if segments else item.get('characters', '')
@@ -233,6 +251,9 @@ class Writer:
             self.fail('text-metrics', item, '无法计算文字排版：' + str(error))
         layer.transform.position.value = [x - context['x'], y - context['y'], 0]
         layer.transform.rotation.value = item.get('rotation', 0)
+        # Alpha does not change glyph geometry. Measure before adding text animators,
+        # which the library's text-metrics implementation does not model.
+        self.text_fill_opacity(layer, segments or [{'characters': chars, 'opacity': item.get('fillOpacity', 1)}])
         if item.get('skewX'):
             animator = layer['ADBE Text Properties']['ADBE Text Animators'].add_property('ADBE Text Animator')
             animator.name = 'Figma skew'
@@ -246,7 +267,7 @@ class Writer:
             gradient = {**g, 'start': p0, 'end': p1}
             fill = self.shape(context, {'name': layer.name + ' gradient', 'subpaths': [],
                 'prim': {'k': 'rect', 'cx': item['x'] + item['w'] / 2, 'cy': item['y'] + item['h'] / 2,
-                         'w': item['w'] + 16, 'h': item['h'] + 16}, 'gradient': gradient,
+                         'w': item['w'] + 16, 'h': item['h'] + 16}, 'gradient': gradient, 'fillOpacity': g.get('opacity', 1),
                 'opacity': item.get('opacity', 1), 'blend': item.get('blend', 'NORMAL'), 'hidden': item.get('hidden', False)})
             layer.transform.opacity.value = 100
             fill.set_track_matte(layer, TrackMatteType.ALPHA)

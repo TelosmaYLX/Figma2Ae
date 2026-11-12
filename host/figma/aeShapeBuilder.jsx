@@ -1181,9 +1181,8 @@ var AEShapeBuilder = (function () {
           var gfill = findProp(root, "ADBE Vector Graphic - G-Fill");
           if (gfill) {
             setGradAxis(gfill, { type: t.grad.type, start: p0, end: p1 });
-            // The preset keeps the fill opacity it was saved with; only the gradient's own
-            // alpha stops should decide transparency here.
-            try { gfill.property("ADBE Vector Fill Opacity").setValue(100); } catch (efo) {}
+            // Restore the Figma paint opacity instead of inheriting the preset's value.
+            try { gfill.property("ADBE Vector Fill Opacity").setValue((t.grad.opacity == null ? 1 : t.grad.opacity) * 100); } catch (efo) {}
             try { gl.property("ADBE Transform Group").property("ADBE Opacity").setValue(100); } catch (elo) {}
             // A rectangle over the text so the fill has something to paint; the matte trims it.
             var cont = gfill.parentProperty;
@@ -1559,6 +1558,26 @@ var AEShapeBuilder = (function () {
     if (style.paragraphIndent != null) doc.firstLineIndent = style.paragraphIndent;
   }
 
+  function applyTextFillOpacity(tl, segments) {
+    var index = 0;
+    for (var i = 0; i < segments.length; i++) {
+      // Range Selector indices omit paragraph/soft breaks, unlike TextDocument ranges.
+      var segment = segments[i], length = (aeLines(segment.characters) || '').replace(/[\r\u0003]/g, '').length;
+      if (length && segment.opacity != null && segment.opacity < 1) {
+        var animator = tl.property('ADBE Text Properties').property('ADBE Text Animators').addProperty('ADBE Text Animator');
+        animator.name = 'Figma fill opacity';
+        animator.property('ADBE Text Animator Properties').addProperty('ADBE Text Fill Opacity').setValue(segment.opacity * 100);
+        var selector = animator.property('ADBE Text Selectors').addProperty('ADBE Text Selector');
+        var advanced = selector.property('ADBE Text Range Advanced');
+        advanced.property('ADBE Text Range Units').setValue(2);
+        advanced.property('ADBE Text Selector Smoothness').setValue(0);
+        selector.property('ADBE Text Index Start').setValue(index);
+        selector.property('ADBE Text Index End').setValue(index + length);
+      }
+      index += length;
+    }
+  }
+
   function _applyDoc(tl, style, align) {
     var tp = tl.property("ADBE Text Properties").property("ADBE Text Document");
     var doc = tp.value;
@@ -1575,6 +1594,7 @@ var AEShapeBuilder = (function () {
       else doc.justification = ParagraphJustification.LEFT_JUSTIFY;
     } catch (e1) {}
     tp.setValue(doc);
+    applyTextFillOpacity(tl, [{characters:doc.text,opacity:style.fillOpacity}]);
   }
   // one text layer; px = left x (or center/right per align), py = baseline
   function makeOneText(comp, chars, style, px, py, align, boxW) {
@@ -1682,6 +1702,7 @@ var AEShapeBuilder = (function () {
     applyTextStroke(doc, t);
     try { tp.setValue(doc); } catch (esv) { tl.remove(); return null; }
     if (!applied) { tl.remove(); return null; }
+    applyTextFillOpacity(tl, t.segs);
     return tl;
   }
 
@@ -1721,7 +1742,9 @@ var AEShapeBuilder = (function () {
     for (k = 0; k < segs.length; k++) {
       var sg = segs[k];
       if (sg.characters == null || sg.characters === "") continue;
-      var tl = makeOneText(comp, sg.characters, sg, cx, provBaseline, 'LEFT', 0);
+      var runStyle = {}; for (var key in sg) if (sg.hasOwnProperty(key)) runStyle[key] = sg[key];
+      runStyle.fillOpacity = sg.opacity; runStyle.opacity = t.opacity;
+      var tl = makeOneText(comp, sg.characters, runStyle, cx, provBaseline, 'LEFT', 0);
       if (!tl) continue;
       var r = null; try { r = tl.sourceRectAtTime(comp.time, false); } catch (e) {}
       info.push({ tl: tl, x: cx, r: r });
@@ -1803,7 +1826,7 @@ var AEShapeBuilder = (function () {
         if (tt.rotation) {
           // rotated text (box or point/rich): centre-anchor + rotate
           var tgr = placeRotated(comp, p.tl, tt);
-          var opr = p.rich ? tt.segs[0].opacity : tt.opacity;
+          var opr = tt.opacity;
           if (opr != null && opr < 1) tgr.property("ADBE Opacity").setValue(opr * 100);
         } else if (p.box && tt.ink) {
           // Wrapped paragraph: match AE's rendered ink to Figma's rendered ink on BOTH axes.
@@ -1824,7 +1847,7 @@ var AEShapeBuilder = (function () {
           if (tt.opacity != null && tt.opacity < 1) tgb2.property("ADBE Opacity").setValue(tt.opacity * 100);
         } else {
           var tg = positionToBBox(comp, p.tl, tt, tt.align);
-          var op = p.rich ? tt.segs[0].opacity : tt.opacity;
+          var op = tt.opacity;
           if (op != null && op < 1) tg.property("ADBE Opacity").setValue(op * 100);
         }
         if (tt.name) { try { p.tl.name = tt.name; } catch (enm) {} }   // keep Figma's layer name

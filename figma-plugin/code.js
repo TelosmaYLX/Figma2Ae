@@ -1734,9 +1734,14 @@ function _leading(lineHeight, fontSize) {
 
 function _solidOf(fills) {
   var col = [0, 0, 0], op = 1;
-  if (fills && fills !== figma.mixed && fills.length && fills[0].type === 'SOLID') {
-    col = [fills[0].color.r, fills[0].color.g, fills[0].color.b];
-    if (fills[0].opacity != null) op = fills[0].opacity;
+  if (fills && fills !== figma.mixed) {
+    op = 0;
+    for (var i = 0; i < fills.length; i++) {
+      var paint = fills[i]; if (paint.visible === false) continue;
+      op = 1;
+      if (paint.type === 'SOLID') { col = [paint.color.r, paint.color.g, paint.color.b]; op = paint.opacity == null ? 1 : paint.opacity; }
+      break;
+    }
   }
   return { color: col, opacity: op };
 }
@@ -1827,7 +1832,7 @@ function _gradFill(n) {
         }
       }
       return {
-        type: (f.type === 'GRADIENT_RADIAL') ? 'radial' : 'linear', stops: stops,
+        type: (f.type === 'GRADIENT_RADIAL') ? 'radial' : 'linear', stops: stops, opacity: f.opacity == null ? 1 : f.opacity,
         p0: abs(h0), p1: abs(h1),                       // absolute; re-based with everything else
         h0: { x: h0.x, y: h0.y }, h1: { x: h1.x, y: h1.y },
         nFills: fills.length, raw: [h0.x, h0.y, h1.x, h1.y]
@@ -1915,7 +1920,7 @@ function collectTexts(root, rootBox, rootId, organize) {
               runs.push({
                 characters: _applyCase(sg.characters, sg.textCase),
                 fontSize: sfs,
-                family: fam, style: sty, color: c.color, opacity: c.opacity * nodeOp, stroke: _textStroke(n),
+                family: fam, style: sty, color: c.color, opacity: c.opacity, stroke: _textStroke(n),
                 tracking: _tracking(sg.letterSpacing, sfs), leading: _leading(sg.lineHeight || n.lineHeight, sfs)
               });
             }
@@ -1926,7 +1931,7 @@ function collectTexts(root, rootBox, rootId, organize) {
             var rSize = (typeof n.fontSize === 'number') ? n.fontSize : (runs.length ? runs[0].fontSize : 16);
             var rWraps = /[\n\u2028\u2029]/.test(rChars) || (rChars.length * rSize * 0.52) > (b.width * 1.05) ||
                          _rendersMultiline(n, rSize);
-            out.push({ _node: n, runs: true, name: n.name, maskId: _maskByNode[n.id] || null, x: x, y: y, w: b.width, h: b.height, align: align, segs: runs,
+            out.push({ _node: n, runs: true, name: n.name, opacity: nodeOp, maskId: _maskByNode[n.id] || null, x: x, y: y, w: b.width, h: b.height, align: align, segs: runs,
                        path: _pathOf(n, rootId), z: _zOf(n), box: !!(rFixed && rWraps), hidden: _hid, blur: _blurOf(n), blend: n.blendMode || 'NORMAL',
                        rotation: _rotOf(n), skewX: _skewOf(n), stroke: _textStroke(n), fx: _textEffects(n), grad: _gradFill(n), ink: _inkBounds(n, rootBox),
                        leading: _leading(n.lineHeight, rSize), paragraphSpacing: typeof n.paragraphSpacing === 'number' ? n.paragraphSpacing : null,
@@ -1954,7 +1959,7 @@ function collectTexts(root, rootBox, rootId, organize) {
               path: _pathOf(n, rootId), z: _zOf(n),
               x: x, y: y, w: b.width, h: b.height,
               fontSize: fsz, family: fam2, style: sty2,
-              color: cc.color, opacity: cc.opacity * nodeOp, align: align, box: !!isBox, hidden: _hid, blur: _blurOf(n),
+              color: cc.color, opacity: nodeOp, fillOpacity: cc.opacity, align: align, box: !!isBox, hidden: _hid, blur: _blurOf(n),
               blend: n.blendMode || 'NORMAL',
               tracking: _tracking(ls, fsz), rotation: _rotOf(n), skewX: _skewOf(n), stroke: _textStroke(n), fx: _textEffects(n), grad: _gradFill(n), ink: _inkBounds(n, rootBox),
               leading: _leading(n.lineHeight, fsz), paragraphSpacing: typeof n.paragraphSpacing === 'number' ? n.paragraphSpacing : null,
