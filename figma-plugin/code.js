@@ -595,7 +595,7 @@ function _rasterMeta(n, root, organize) {
     x: b.x, y: b.y, w: b.width, h: b.height,
     cx: b.x + b.width / 2, cy: b.y + b.height / 2, cw: b.width, ch: b.height,
     natW: Math.max(1, Math.round(b.width * 2)), natH: Math.max(1, Math.round(b.height * 2)),
-    scaleMode: 'FIT', opacity: opacity,
+    scaleMode: 'FIT', rasterScale: 2, opacity: opacity,
     hidden: false, blend: n.blendMode || 'NORMAL',
     // exportAsync already bakes the absolute transform into the PNG's axis-aligned bounds.
     path: _pathOf(n, root.id), z: _zOf(n), rotation: 0, matte: null, maskId: _maskByNode[n.id] || null
@@ -1620,7 +1620,7 @@ async function shipImages(images) {
     } catch (e) { throw _layerError(im, '图片「' + im.name + '」导出失败：' + (e.message || e)); }
     var meta = { name: im.name, sourceId: im.sourceId || null, ext: ext, x: im.x, y: im.y, w: im.w, h: im.h,
                  cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch,
-                 natW: natW, natH: natH, scaleMode: im.scaleMode,
+                 natW: natW, natH: natH, scaleMode: im.scaleMode, rasterScale: im.rasterScale || null,
                  opacity: im.opacity, rotation: im.rotation, matte: im.matte,
                  blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0), maskId: im.maskId || null,
                  hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, shadowBase: im.shadowBase || null, mergedBlend: !!im.mergedBlend, external: !!im.external };

@@ -13,6 +13,7 @@ from pathlib import Path
 
 import py_aep
 from fontTools.ttLib import TTFont
+from fontTools.misc.bezierTools import calcCubicBounds
 from py_aep import ImportOptions
 from py_aep.models.properties.gradient import Gradient, GradientAlphaStop, GradientColorStop
 from py_aep.models.properties.shape import Shape
@@ -69,6 +70,37 @@ class Writer:
     def transform(layer, x=0, y=0):
         layer.transform.anchor_point.value = [0, 0, 0]
         layer.transform.position.value = [x, y, 0]
+
+    @staticmethod
+    def center_anchor(layer, rect):
+        anchor = [rect['left'] + rect['width'] / 2, rect['top'] + rect['height'] / 2, 0]
+        old, position, scale = layer.transform.anchor_point.value, layer.transform.position.value, layer.transform.scale.value
+        dx, dy = (anchor[0] - old[0]) * scale[0] / 100, (anchor[1] - old[1]) * scale[1] / 100
+        angle = math.radians(layer.transform.rotation.value)
+        layer.transform.anchor_point.value = anchor
+        layer.transform.position.value = [position[0] + dx * math.cos(angle) - dy * math.sin(angle),
+                                          position[1] + dx * math.sin(angle) + dy * math.cos(angle), position[2]]
+
+    @staticmethod
+    def shape_rect(item):
+        primitive = item.get('prim')
+        if primitive:
+            width = primitive['w'] if primitive['k'] == 'rect' else primitive['rx'] * 2
+            height = primitive['h'] if primitive['k'] == 'rect' else primitive['ry'] * 2
+            return {'left': primitive['cx'] - width / 2, 'top': primitive['cy'] - height / 2, 'width': width, 'height': height}
+        boxes = []
+        for sub in item.get('subpaths') or []:
+            vertices = sub['verts']
+            boxes.extend((x, y, x, y) for x, y in vertices)
+            for i in range(len(vertices) if sub['closed'] else max(0, len(vertices) - 1)):
+                j = (i + 1) % len(vertices)
+                p0, p3 = vertices[i], vertices[j]
+                p1 = tuple(p0[k] + sub['outT'][i][k] for k in (0, 1))
+                p2 = tuple(p3[k] + sub['inT'][j][k] for k in (0, 1))
+                boxes.append(calcCubicBounds(tuple(p0), p1, p2, tuple(p3)))
+        left, top = min((b[0] for b in boxes), default=0), min((b[1] for b in boxes), default=0)
+        return {'left': left, 'top': top, 'width': max((b[2] for b in boxes), default=0) - left,
+                'height': max((b[3] for b in boxes), default=0) - top}
 
     def geom(self, contents, item):
         primitive = item.get('prim')
@@ -142,6 +174,7 @@ class Writer:
         root = layer['ADBE Root Vectors Group']
         if white:
             self.paint(root, item, 'fill', [1, 1, 1], None)
+            self.center_anchor(layer, self.shape_rect(item))
             return layer
         for paint in item.get('extraPaints') or []:
             if paint.get('under'):
@@ -154,6 +187,7 @@ class Writer:
             if not paint.get('under'):
                 self.paint(root, item, paint['kind'], paint.get('color'), paint.get('gradient'),
                            paint.get('opacity', 1), paint.get('width'))
+        self.center_anchor(layer, self.shape_rect(item))
         self.counts['shapes'] += 1
         return layer
 
@@ -211,6 +245,9 @@ class Writer:
         if not chars:
             return None
         layer = context['comp'].add_box_text([item['w'], item['h']], chars) if item.get('box') else context['comp'].add_text(chars)
+        # AE text always rasterizes continuously. py-aep 0.19's text factory omits this
+        # read-only flag, making AE report the entire comp as the text's source rectangle.
+        layer._ldta.collapse_transformation = True
         self.common(layer, item)
         prop = layer['ADBE Text Properties']['ADBE Text Document']
         doc = prop.value
@@ -251,6 +288,7 @@ class Writer:
             self.fail('text-metrics', item, '无法计算文字排版：' + str(error))
         layer.transform.position.value = [x - context['x'], y - context['y'], 0]
         layer.transform.rotation.value = item.get('rotation', 0)
+        self.center_anchor(layer, rect)
         # Alpha does not change glyph geometry. Measure before adding text animators,
         # which the library's text-metrics implementation does not model.
         self.text_fill_opacity(layer, segments or [{'characters': chars, 'opacity': item.get('fillOpacity', 1)}])
@@ -289,7 +327,7 @@ class Writer:
         nw, nh = footage.width, footage.height
         width, height = item.get('cw', item['w']), item.get('ch', item['h'])
         scales = [width / nw, height / nh]
-        scale = min(scales) if item.get('scaleMode') == 'FIT' else max(scales)
+        scale = 1 / item['rasterScale'] if item.get('rasterScale') else min(scales) if item.get('scaleMode') == 'FIT' else max(scales)
         cx, cy = item.get('cx', item['x'] + item['w'] / 2), item.get('cy', item['y'] + item['h'] / 2)
         layer.transform.anchor_point.value = [nw / 2, nh / 2, 0]
         layer.transform.position.value = [cx - context['x'], cy - context['y'], 0]
@@ -328,6 +366,7 @@ class Writer:
             self.paint(root, definition, 'fill', definition.get('fill') if luma else [1, 1, 1],
                        definition.get('gradient') if luma else None, definition.get('fillOpacity', 1))
         matte.transform.opacity.value = definitions[0].get('opacity', 1) * 100
+        self.center_anchor(matte, self.shape_rect({'subpaths': [sub for definition in definitions for sub in definition['subpaths']]}))
         if layer.track_matte_layer is not None:
             self.fail('combined-matte', item, '暂不支持该组合遮罩，请标记相关图层栅格化')
         layer.set_track_matte(matte, TrackMatteType.LUMA if luma else TrackMatteType.ALPHA)
@@ -359,6 +398,7 @@ class Writer:
                 if item.get('clip'):
                     layer.collapse_transformation = False
                 self.transform(layer, child['x'] - context['x'], child['y'] - context['y'])
+                self.center_anchor(layer, layer.source_rect_at_time(0, False))
                 if item.get('clip') and item.get('r'):
                     matte = self.shape(context, {'name': item['name'] + ' clip', 'subpaths': [],
                         'prim': {'k': 'rect', 'cx': item['x'] + item['w'] / 2, 'cy': item['y'] + item['h'] / 2,

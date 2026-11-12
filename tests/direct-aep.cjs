@@ -9,12 +9,12 @@ const {start} = require('../scripts/aep-server.cjs');
 const {normalize} = require('../scripts/aep/packet.cjs');
 
 // A real, small RGBA PNG, generated independently of AE and untracked sample assets.
-function png() {
+function png(width=64, height=64) {
   const crc = b => { let c = 0xffffffff; for (const v of b) { c ^= v; for (let j=0;j<8;j++) c = (c>>>1)^((c&1)?0xedb88320:0); } return (c^0xffffffff)>>>0; };
   const chunk = (name, bytes) => { const body=Buffer.concat([Buffer.from(name),bytes]), h=Buffer.alloc(4), t=Buffer.alloc(4);h.writeUInt32BE(bytes.length);t.writeUInt32BE(crc(body));return Buffer.concat([h,body,t]); };
-  const h=Buffer.alloc(13);h.writeUInt32BE(64,0);h.writeUInt32BE(64,4);h[8]=8;h[9]=6;
-  const pixels=Buffer.alloc(64*(64*4+1));
-  for(let y=0;y<64;y++)for(let x=0;x<64;x++){const i=y*257+1+x*4;pixels[i]=30;pixels[i+1]=160;pixels[i+2]=240;pixels[i+3]=x<32?255:128;}
+  const h=Buffer.alloc(13);h.writeUInt32BE(width,0);h.writeUInt32BE(height,4);h[8]=8;h[9]=6;
+  const stride=width*4+1,pixels=Buffer.alloc(height*stride);
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){const i=y*stride+1+x*4;pixels[i]=30;pixels[i+1]=160;pixels[i+2]=240;pixels[i+3]=x<width/2?255:128;}
   return Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',h),chunk('IDAT',zlib.deflateSync(pixels)),chunk('IEND',Buffer.alloc(0))]);
 }
 

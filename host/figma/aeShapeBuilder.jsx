@@ -1903,7 +1903,8 @@ var AEShapeBuilder = (function () {
           var fx0 = (im.cx != null ? im.cx : im.x + im.w / 2), fy0 = (im.cy != null ? im.cy : im.y + im.h / 2);
           var nw = im.natW || item.width || 1, nh = im.natH || item.height || 1;
           var sx = fw / nw, sy = fh / nh;
-          var sc = (im.scaleMode === 'FIT') ? Math.min(sx, sy) : Math.max(sx, sy);
+          // Baked PNGs already carry the Figma scale. Integer pixel padding must not resize them.
+          var sc = im.rasterScale ? 1 / im.rasterScale : (im.scaleMode === 'FIT') ? Math.min(sx, sy) : Math.max(sx, sy);
           var tg = lyr.property("ADBE Transform Group");
           tg.property("ADBE Anchor Point").setValue([nw / 2, nh / 2, 0]);
           tg.property("ADBE Position").setValue([fx0, fy0, 0]);
