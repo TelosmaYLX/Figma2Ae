@@ -1940,10 +1940,6 @@ function collectTexts(root, rootBox, rootId, organize) {
 }
 
 figma.ui.onmessage = function (msg) {
-  if (msg.type === 'start-aep-service') {
-    try { figma.openExternal('f2a-aep://start'); }
-    catch (error) { figma.ui.postMessage({type: 'aep-launch-error', message: '无法启动 AEP 导出组件，请重新安装。'}); }
-  }
   if (msg.type === 'ship-selection') exportSelectionSVG(!!msg.useNodes, !!msg.organize, msg.ignoreHidden !== false, msg.convertMasks === true, msg.rasterGroups !== false, msg.rasterTexts === true, msg);
   if (msg.type === 'mark-raster') markRasterSelection(true);
   if (msg.type === 'unmark-raster') markRasterSelection(false);

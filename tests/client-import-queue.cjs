@@ -7,7 +7,7 @@ let testId = 0;
 function harness({rememberFolder = true, failImages = false, shadowRenderer, nativeFolder} = {}) {
   const dir = path.join(output, String(++testId)), assets = path.join(dir, 'assets');
   fs.mkdirSync(assets, {recursive: true});
-  const native = [], pending = [], pickers = [], messages = [], folderCalls = [], elements = {};
+  const native = [], pending = [], pickers = [], messages = [], folderCalls = [], elements = {}, launchCalls=[];
   let callbacks, active = 0, svgId = 0;
   const storage = new Map(rememberFolder ? [['f2a.imageFolder', assets]] : []);
   const disk = Object.create(fs);
@@ -30,18 +30,24 @@ function harness({rememberFolder = true, failImages = false, shadowRenderer, nat
   }};
   if (nativeFolder) window.cep={fs:{showOpenDialogEx(...args){folderCalls.push(args);return nativeFolder();}}};
   class Clock extends Date { static now() { return 123456789; } }
+  const result={launchCalls,launchError:null};
+  const launcherModule={exports:{}};
+  vm.runInNewContext(fs.readFileSync(path.join(root,'client/aepLauncher.js'),'utf8'),{module:launcherModule,process:{platform:'win32',env:{SystemRoot:'C:/Windows'}},require(name){
+    if(name==='child_process')return{execFile(file,args,options,callback){launchCalls.push({file,args,options});callback(result.launchError,'',result.launchError?result.launchError.message:'');}};
+    return require(name);
+  }});
   vm.runInNewContext(fs.readFileSync(path.join(root, 'client/figmaBridge.js'), 'utf8'), {
     window, Buffer, Date: Clock, process: {platform: 'linux'},
     document: {getElementById(id) { return elements[id] ||= {}; }}, setTimeout() {}, clearTimeout() {},
     localStorage: {getItem(k) { return storage.get(k) || ''; }, setItem(k, v) { storage.set(k, v); }, removeItem(k) { storage.delete(k); }},
-    require(name) { if (name === 'fs') return disk; if (name === 'os') return {tmpdir: () => dir}; if (name.endsWith('/client/figmaRasterEffects.js') && shadowRenderer) return shadowRenderer; if (name.endsWith('/client/mkBridgeServer.js')) return bridge; return require(name); }
+    require(name) { if (name === 'fs') return disk; if (name === 'os') return {tmpdir: () => dir}; if(name.endsWith('/client/aepLauncher.js'))return launcherModule.exports; if (name.endsWith('/client/figmaRasterEffects.js') && shadowRenderer) return shadowRenderer; if (name.endsWith('/client/mkBridgeServer.js')) return bridge; return require(name); }
   });
-  return {native, pending, pickers, messages, elements, storage, window, folderCalls, assets, get callbacks(){return callbacks;},
+  return Object.assign(result,{native, pending, pickers, messages, elements, storage, window, folderCalls, assets, get callbacks(){return callbacks;},
     start(id, imageCount) { return callbacks.onSvg('<svg width="10" height="10"></svg>', {name: id, nodes: [{id, fills: [], strokes: []}], texts: [], effects: [], imageCount}); },
     images(id, reference = false, shadow = false) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3, reference, hidden: reference, external: shadow, shadowBase: shadow ? {data:'clean'} : null}] : []); },
     abort(message){callbacks.onAbort(message);},
     finish() { assert.equal(active, 1); active--; pending.shift()('OK'); }
-  };
+  });
 }
 module.exports={harness};
 if(require.main===module){

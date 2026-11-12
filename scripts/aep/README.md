@@ -1,12 +1,12 @@
 # 直接导出 AEP（实验）
 
-这一版将 F2A 数据包直接写成二进制 `.aep`，生成时无需打开 After Effects。导出时选择保存位置，直接生成文件夹，内含 `project.aep`、`Assets/` 和 `report.json`；在 AE 中打开 `project.aep` 即可，不再打包 ZIP。
+这一版将 F2A 数据包直接写成二进制 `.aep`。点击导出时，由已打开的 AE/F2A 面板启动本地组件；工程写入仍不调用 AE 建层。导出时选择保存位置，直接生成文件夹，内含 `project.aep`、`Assets/` 和 `report.json`；在 AE 中打开 `project.aep` 即可，不再打包 ZIP。
 
 ## 使用
 
 分发目标为 Windows x64，工程面向 AE 2026。分发包已包含 Node、Python/Tk 与导出依赖，使用者无需另装运行环境，也无需联网安装依赖。
 
-分发用户双击包内 `install.cmd`，组件安装到 `%LOCALAPPDATA%\F2A\AEP` 并注册当前用户的点击唤起入口。在 Figma 中导入安装目录下的 `figma-plugin/manifest.json` 即可使用；安装后不再依赖原解压位置。后续更新仍运行同一安装程序，它只停止并更新该安装目录内的组件进程。
+分发用户双击包内 `install.cmd`，组件安装到 `%LOCALAPPDATA%\F2A\AEP` 并注册当前用户的点击唤起入口。用包内 `cep-extension` 的文件更新 AE 中已有的 F2A 扩展，重新打开面板；在 Figma 中导入安装目录下的 `figma-plugin/manifest.json`。组件安装后不再依赖原解压位置。后续更新仍运行同一安装程序，它只停止并更新该安装目录内的组件进程。
 
 构建分发包需要 Windows x64、Node.js、完整 Python（含 Tcl/Tk）与已准备好的 `.venv-aep`：
 
@@ -24,7 +24,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-aep-launcher.ps1
 
 入口使用 `f2a-aep://`，不添加开机启动项或登录任务。分发版记录当前设备安装目录内的运行环境路径；开发版记录本机 Node/Python 路径，开发目录或运行环境位置改变后需重新注册。
 
-重新运行 Figma 开发插件，选中内容，点击“导出 AEP（实验）”。服务未运行时，插件唤起本地组件并等待就绪，然后弹出保存位置窗口；已运行时直接选择位置。首次唤起时，浏览器或 Figma 客户端可能显示打开本地组件的确认。之后每次导出无需手动运行脚本，也无需打开 AE。
+重新运行 Figma 开发插件，打开 AE 的 F2A 面板，选中内容并点击“导出 AEP（实验）”。服务未运行时，插件向 AE 面板的 `POST /aep/start` 请求启动；CEP 通过 Windows 唤起注册组件，插件等待服务就绪后弹出保存位置窗口。已运行时直接复用。每次导出无需手动运行脚本；AE 面板未打开、版本过旧、组件未安装或启动失败会分别提示。
 
 启动器在后台运行本地服务 `127.0.0.1:7868`；分发版直接使用包内环境，开发版按需创建 `.venv-aep` 并安装固定依赖。重复唤起复用运行中的服务。服务使用 Tkinter 弹出原生目录窗口。日志位于安装或开发目录的 `artifacts/aep-service/`。
 
@@ -52,9 +52,9 @@ node scripts/export-aep.cjs packet.json output-directory
 
 依据：[Adobe 工程格式说明](https://helpx.adobe.com/after-effects/desktop/work-with-projects/after-effects-projects/projects.html)、[py-aep 源码与功能范围](https://github.com/forticheprod/py-aep)、[格式资料](https://forticheprod.github.io/py-aep/file_format/)、[库的已知限制](https://forticheprod.github.io/py-aep/limitations/)。依赖采用 MIT 许可证；本仓库仅固定并安装依赖，没有复制其源码。
 
-流程为：点击导出 → 检查服务，未运行则通过 `figma.openExternal('f2a-aep://start')` 唤起并等待就绪 → 本地服务弹出目录选择窗口 → Figma 采集节点和 PNG → 插件 UI 汇集完整数据包 → 本地 Node 服务复用 `svgParser` → Python 直接写 AEP 和素材到目标文件夹。Node 和 Python 均不调用 AE；AE 只用于单独的验证脚本。Figma 沙箱不能直接创建本机进程，因此首次需要注册唤起入口。该入口只执行固定启动命令，不传递 URI 中的参数。
+流程为：点击导出 → 检查服务，未运行则通过 AE 的本地 HTTP 桥接请求启动 → CEP 调用当前用户注册的 `f2a-aep://start` 并等待服务就绪 → 本地服务弹出目录选择窗口 → Figma 采集节点和 PNG → 插件 UI 汇集完整数据包 → 本地 Node 服务复用 `svgParser` → Python 直接写 AEP 和素材到目标文件夹。AE 面板负责进程启动，Node 和 Python 不调用 AE 建层。启动入口只执行固定命令，不接收请求中的 URI、脚本或路径。
 
-唤起方式依据：[Figma openExternal 接口](https://developers.figma.com/docs/plugins/api/properties/figma-openexternal/)、[Windows URI 协议注册说明](https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa767914(v=vs.85))。
+当前 Figma 桌面客户端的外部链接白名单不包含 `f2a-aep:`；直接使用 `figma.openExternal` 会在组件启动前被拒绝。原先测试替换了该宿主方法，因此没有覆盖这项限制。现在由具备 Node 进程接口的 CEP 执行 Windows 协议唤起，仍沿用 [Windows URI 协议注册方式](https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa767914(v=vs.85))；安装路径由当前设备注册表解析。
 
 服务协议版本为 2：`POST /select-directory` 返回目录选择标识（取消时为 `null`），`POST /export` 接收 `{destination, packet}`，返回 JSON 保存路径与报告。服务只接受本次目录窗口选出的目标，标识使用一次后失效。目录窗口使用 [Python 标准库的原生目录对话框](https://docs.python.org/3/library/dialog.html#tkinter.filedialog.askdirectory)。
 
@@ -93,13 +93,14 @@ node scripts/export-aep.cjs packet.json output-directory
 ```powershell
 node tests/direct-aep.cjs
 node tests/direct-aep-ui.cjs
+node tests/aep-launcher.cjs
 node tests/raster-scope.cjs
 node tests/aep-fidelity.cjs
 node tests/aep-distribution.cjs
 node scripts/verify-direct-aep.mjs
 ```
 
-第一条使用实际 F2A 采集代码，Figma 场景 API 和 PNG 渲染由测试模拟，生成真 AEP 文件夹，检查目录取消、中文及空格路径、名称清理、同名不覆盖、不产生 ZIP 与 HTTP 错误。HTTP 检查模拟目录窗口返回值，不弹出交互窗口。第二条执行实际 UI 和主线程唤起代码，检查离线时只唤起一次、等待就绪后才采集、启动超时/宿主拒绝后释放按钮；同时检查已运行时复用、目录取消、图片分片、保存路径与错误提示。
+第一条使用实际 F2A 采集代码，Figma 场景 API 和 PNG 渲染由测试模拟，生成真 AEP 文件夹，检查目录取消、中文及空格路径、名称清理、同名不覆盖、不产生 ZIP 与 HTTP 错误。HTTP 检查模拟目录窗口返回值，不弹出交互窗口。UI 检查执行实际 iframe 代码，覆盖通过 AE 面板只启动一次、就绪后才采集、启动超时、离线/旧版面板、缺少组件及系统拒绝后释放按钮；同时检查已运行时复用、目录取消、图片分片、保存路径与错误提示。`aep-launcher.cjs` 使用实际 CEP 客户端回调和 HTTP 服务，模拟进程 API，检查固定协议、隐藏启动、当前用户注册项及启动错误。
 
 范围检查覆盖多张独立位图、选中边界、原生/回退布尔、原生/局部蒙版、裁剪边界、父容器样式隔离和异常恢复。AEP 检查通过实际采集生成二进制工程，验证原生组遮罩与独立图片，并确认路径/素材缺失及不支持属性报错后不生成工程。Figma 渲染为模拟，未进行本轮真实 Figma 与 AE 画面对照。
 

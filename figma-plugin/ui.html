@@ -96,7 +96,7 @@
 <script>
   var PORT = 7867;
   var ws = null, connected = false, selCount = 0, imgAsm = null, exporting = false, blendNotice = '';
-  var aepMode = false, aepBusy = false, aepPacket = null, aepDestination = null, aepLaunchReject = null;
+  var aepMode = false, aepBusy = false, aepPacket = null, aepDestination = null;
   var imageFolder = '', folderBusy = false;
   var $ = function (id) { return document.getElementById(id); };
   var toolButtons = { 'detach-instances': 'detach', 'convert-groups': 'group-to-frame', 'expand-groups': 'expand', 'delete-hidden': 'delete-hidden' };
@@ -202,23 +202,27 @@
   function ensureAepService() {
     return aepHealth().catch(function () {
       say('正在启动 AEP 导出服务…');
-      return new Promise(function (resolve, reject) {
+      return fetch('http://127.0.0.1:' + PORT + '/aep/start', {method:'POST'}).then(function (response) {
+        return response.json().then(function (result) {
+          if (!response.ok) throw new Error(result.error);
+          if (!result.ok) throw new Error('请更新并重新打开 AE 的 F2A 面板。');
+        });
+      }).catch(function (error) {
+        if (error.name === 'TypeError' || error.name === 'SyntaxError') throw new Error('请先打开 AE 的 F2A 面板，再导出 AEP。');
+        throw error;
+      }).then(function () { return new Promise(function (resolve, reject) {
         var deadline = Date.now() + 60000;
-        aepLaunchReject = reject;
-        parent.postMessage({pluginMessage: {type: 'start-aep-service'}}, '*');
         function probe() {
-          if (aepLaunchReject !== reject) return;
           aepHealth().then(resolve).catch(function () {
-            if (Date.now() >= deadline) reject(new Error('服务未能启动，请确认已安装 AEP 导出组件。'));
+            if (Date.now() >= deadline) reject(new Error('AEP 服务启动超时，请查看组件的 artifacts/aep-service 日志。'));
             else setTimeout(probe, 500);
           });
         }
-        setTimeout(probe, 500);
-      });
+        probe();
+      }); });
     }).then(function (info) {
-      aepLaunchReject = null;
       if (info.service !== 'f2a-aep' || info.version !== 2) throw new Error('AEP 导出服务版本不匹配，请重启服务。');
-    }, function (error) { aepLaunchReject = null; throw error; });
+    });
   }
   $('export-aep').onclick = function () {
     aepBusy = true; aepDestination = null; updateButton();
@@ -303,7 +307,6 @@
     var msg = event.data.pluginMessage;
     if (!msg) return;
     if (msg.type === 'image-abort') msg = {type:'error',message:'图片导出失败，已取消导出'};
-    if (msg.type === 'aep-launch-error' && aepLaunchReject) aepLaunchReject(new Error(msg.message));
     if (msg.type === 'selection') { selCount = msg.count; updateButton(); }
     if (msg.type === 'export-state') { exporting = msg.busy; updateButton(); }
     if (msg.type === 'mark-result') { say(msg.message, 'ok'); }

@@ -93,6 +93,21 @@ function start(opts) {
   var onStatus = opts.onStatus || function () {};
 
   var server = http.createServer(function (req, res) {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Private-Network':'true'});
+      res.end(); return;
+    }
+    if (req.url === '/aep/start' && req.method === 'POST') {
+      function started(error) {
+        res.writeHead(error ? 400 : 200, {'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});
+        res.end(JSON.stringify(error ? {ok:false,error:error.message} : {ok:true}));
+      }
+      try {
+        if (!opts.onStartAep) throw new Error('请更新并重新打开 AE 的 F2A 面板。');
+        opts.onStartAep(started);
+      } catch (error) { started(error); }
+      return;
+    }
     if (req.url === '/image-folder') {
       function reply(error, directory) {
         res.writeHead(error ? 400 : 200, {'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});

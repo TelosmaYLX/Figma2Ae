@@ -393,6 +393,7 @@
       port: PORT,
       onGetImageFolder: getImageFolder,
       onChooseImageFolder: MKFigma.selectImageFolder,
+      onStartAep: function (callback) { require(ext + '/client/aepLauncher.js').start(callback); },
       onStatus: function (s) { if (/listening/.test(s)) setConn(true); },
       onSvg: function (svg, meta) {
         var swept = sweepTemp();                  // reclaim earlier runs before writing new files
