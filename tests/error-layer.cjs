@@ -9,6 +9,7 @@ const rect=(name,extra={})=>node('RECTANGLE',name,{fillGeometry:geometry,fills:[
 function panel(main){
   const html=fs.readFileSync(path.join(__dirname,'../figma-plugin/ui.html'),'utf8'),elements={},posts=[],pending=[];
   for(const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g))elements[m[1]]={hidden:/\bhidden\b/.test(m[0]),checked:/\bchecked\b/.test(m[0]),disabled:/\bdisabled\b/.test(m[0])};
+  elements['raster-scale'].value='1';
   let socket;
   const window={},context=vm.createContext({window,document:{getElementById:id=>elements[id]},setTimeout(){},
     WebSocket:function(){socket=this;this.readyState=1;this.send=message=>posts.push(JSON.parse(message));},

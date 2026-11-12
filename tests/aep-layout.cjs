@@ -13,6 +13,7 @@ function at(n,x,y,w=100,h=60){
   Object.assign(n,{width:w,height:h,absoluteBoundingBox:{x,y,width:w,height:h},absoluteRenderBounds:{x,y,width:w,height:h},absoluteTransform:[[1,0,x],[0,1,y]]});return n;
 }
 async function check(){
+  const scale=Number(process.argv[2]||1);
   const curve=at(node('VECTOR','Bezier shape',{fills:fill,fillGeometry:[{data:'M0 0 C0 80 100 80 100 0 Z',windingRule:'NONZERO'}]}),540.375,250.625);
   const outlined=at(node('RECTANGLE','Outside stroke',{fills:fill,cornerRadius:8,strokes:fill,strokeWeight:3,strokeAlign:'OUTSIDE',fillGeometry:[{data:'M0 0H80V40H0Z',windingRule:'NONZERO'}]}),660.5,250.75,80,40);
   const texts=['LEFT','CENTER','RIGHT'].map((align,i)=>at(node('TEXT','Text '+align,{characters:'Anchor test',fills:fill,textAlignHorizontal:align}),550+i*150,335.25,140,24));
@@ -32,13 +33,13 @@ async function check(){
   const nested=at(node('FRAME','Nested clip',{clipsContent:true,cornerRadius:8,children:[curve,outlined,raster,rotated]}),525.5,230.25,460.5,90.25);
   const root=at(node('FRAME','AEP layout',{children:[nested,...texts,gradient,paragraph,rich,photo('FIT'),photo('FILL'),group('Mask group',[mask,masked])]}),500.125,200.375,640,360);
   const h=harness(root);
-  (function render(n){n.exportAsync=async()=>png(Math.ceil(n.absoluteRenderBounds.width*2),Math.ceil(n.absoluteRenderBounds.height*2));if(n.children)n.children.forEach(render);})(root);
+  (function render(n){n.exportAsync=async options=>png(Math.ceil(n.absoluteRenderBounds.width*options.constraint.value),Math.ceil(n.absoluteRenderBounds.height*options.constraint.value));if(n.children)n.children.forEach(render);})(root);
   h.context.figma.getImageByHash=()=>({getBytesAsync:async()=>png(300,200),getSizeAsync:async()=>({width:300,height:200})});
-  const result=await h.run(),messages=h.messages;
+  const result=await h.run(true,true,true,false,{rasterScale:scale}),messages=h.messages;
   const images=messages.filter(m=>m.type==='image-chunk'&&m.seq===0).map(m=>({...m.meta,data:messages.filter(c=>c.type==='image-chunk'&&c.index===m.index).map(c=>c.dataPart).join('')}));
   const baked=images.find(im=>/Fractional_raster$/.test(im.name));
-  assert.equal(baked.rasterScale,2);assert.deepEqual([baked.natW,baked.natH],[201,75]);
-  assert.ok(Math.abs(Math.min(baked.cw/baked.natW,baked.ch/baked.natH)-.5)>.001,'Reproduce the old fractional FIT shrink');
+  assert.equal(baked.rasterScale,scale);assert.deepEqual([baked.natW,baked.natH],[Math.ceil(100.37*scale),Math.ceil(37.21*scale)]);
+  assert.ok(Math.abs(Math.min(baked.cw/baked.natW,baked.ch/baked.natH)-1/scale)>.0001,'Reproduce the old fractional FIT shrink');
   assert.equal(images.find(im=>im.name==='Photo_FIT').rasterScale,null);
   const packet={...result.ship,images},directory=await fs.mkdtemp(path.resolve(__dirname,'../artifacts/aep-layout-'));
   const exported=await exportAep(packet,directory),expected=path.join(directory,'expected.json');

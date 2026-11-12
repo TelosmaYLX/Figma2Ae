@@ -4,7 +4,8 @@
 <!-- Primary: import. Secondary: direct AEP export, marking and document tools. Existing tokens, 8px gaps/radii,
      10px button padding and 12px group spacing; retain the current dark theme. The shared image
      folder is secondary: full selectable address, 8px gap, 36px folder button.
-     Status text leads; optional locate/open-folder actions are secondary, using panel/text tokens and an 8px gap. -->
+     Status text leads; optional locate/open-folder actions are secondary, using panel/text tokens and an 8px gap.
+     Raster scale is a labelled secondary setting: 12px group spacing, 8px gap/radius and a 36px native select. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#8a8a8a; --ok:#22c55e; --err:#ef4444; }
   html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); }
@@ -14,7 +15,7 @@
   .dot.on { background:var(--ok); } .dot.off { background:var(--err); }
   button { width:100%; padding:10px; border:0; border-radius:8px; background:var(--accent); color:#1a1a1a;
            font-weight:600; cursor:pointer; }
-  button:disabled { opacity:.4; cursor:not-allowed; }
+  button:disabled,select:disabled { opacity:.4; cursor:not-allowed; }
   .aep-export { margin-top:8px; background:var(--panel); color:var(--text); }
   .image-folder { margin-bottom:12px; }
   .image-folder-label { margin-bottom:4px; color:var(--text); }
@@ -34,6 +35,9 @@
   .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
   .locate-layer,.open-folder { width:auto; margin-top:8px; padding:8px 10px; background:var(--panel); color:var(--text); }
   .locate-layer:focus-visible,.open-folder:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .raster-scale { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; }
+  .raster-scale select { min-width:80px; min-height:36px; padding:8px 10px; border:0; border-radius:8px; background:var(--panel); color:var(--text); font:inherit; color-scheme:dark; }
+  .raster-scale select:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .hint { margin-top:12px; font-size:11px; color:var(--muted); }
 </style>
 <div class="wrap">
@@ -57,6 +61,15 @@
   <div id="msg" class="msg"></div>
   <button id="locate-layer" class="locate-layer" title="选中并显示出错图层" hidden>定位图层</button>
   <button type="button" id="open-aep-folder" class="open-folder" hidden>打开文件夹</button>
+  <div class="raster-scale">
+    <label for="raster-scale">切图倍率</label>
+    <select id="raster-scale">
+      <option value="1" selected>1×</option>
+      <option value="2">2×</option>
+      <option value="3">3×</option>
+      <option value="4">4×</option>
+    </select>
+  </div>
   <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="nodemode" checked> 可编辑图层
   </label>
@@ -121,6 +134,7 @@
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
     $('open-aep-folder').disabled = busy || openingFolder;
+    $('raster-scale').disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
     for (var id in toolButtons) $(id).disabled = busy || selCount === 0;
@@ -202,7 +216,7 @@
     exporting = true; updateButton();
     blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, rasterScale: Number($('raster-scale').value), ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   }
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;

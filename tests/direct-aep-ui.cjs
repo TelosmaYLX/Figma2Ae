@@ -6,6 +6,8 @@ const {fixture} = require('./direct-aep.cjs');
 function ui(packet, behavior='success') {
   const html=fs.readFileSync(require('node:path').join(__dirname,'../figma-plugin/ui.html'),'utf8'),elements={},posts=[],requests=[];
   for(const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g))elements[m[1]]={checked:/\bchecked\b/.test(m[0]),disabled:/\bdisabled\b/.test(m[0]),hidden:/\bhidden\b/.test(m[0])};
+  assert.match(html,/<option value="1" selected>1×<\/option>/);
+  elements['raster-scale'].value='1';
   let finish, clock=0, healthCalls=0;
   const done=new Promise(r=>{finish=r;});
   const launches=[];
@@ -39,6 +41,7 @@ function ui(packet, behavior='success') {
       }
       assert.equal(url,'http://127.0.0.1:7868/export');
       assert.equal(elements['export-aep'].disabled,true,'Button stays locked while the server writes');
+      assert.equal(elements['raster-scale'].disabled,true,'Keep the selected scale fixed until export completes');
       assert.equal(posts.filter(m=>m.type==='ship-selection').length,1,'Collect and check Figma content before the server can choose a folder');
       assert.equal(elements['open-aep-folder'].hidden,true);
       if(['server-error','picker-error'].includes(behavior))return {ok:false,json:async()=>({error:behavior==='picker-error'?'Picker failure':'Test failure'})};
@@ -49,6 +52,7 @@ function ui(packet, behavior='success') {
       posts.push(message);
       if(message.type!=='ship-selection')return;
       assert.equal(message.useNodes,true);
+      assert.equal(message.rasterScale,Number(elements['raster-scale'].value));
       emit({...packet,type:'ship',imageCount:packet.images.length});
       if(behavior==='export-error'){emit({type:'error',message:'Figma error'});finish();return;}
       for(let i=0;i<packet.images.length;i++){
@@ -80,6 +84,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
     assert.equal(h.elements['export-aep'].disabled,false);
+    assert.equal(h.elements['raster-scale'].disabled,false);
     assert.equal(h.requests.some(r=>r.url.endsWith('/select-directory')),false,'The UI must not choose a folder ahead of validation');
     if(['success','cold-start','shadow','warnings','open-error'].includes(behavior)){
       const request=JSON.parse(h.requests.find(r=>r.url.endsWith('/export')).options.body);
@@ -128,6 +133,9 @@ const flush=()=>new Promise(r=>setImmediate(r));
     }else assert.equal(h.elements['open-aep-folder'].hidden,true,'Cancelled and failed exports expose no folder action');
   }
   const h=ui(packet);
+  h.elements['raster-scale'].value='4';h.elements['export-aep'].onclick();
+  for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
+  assert.equal(h.posts.find(message=>message.type==='ship-selection').rasterScale,4);
   function composite(fg,bg){const a=fg[3]/255,b=bg[3]/255,alpha=a+b*(1-a);return [0,1,2].map(i=>alpha?Math.round((fg[i]*a+bg[i]*b*(1-a))/alpha):0).concat(Math.round(alpha*255));}
   for(const clean of [[0,0,0,0],[90,180,225,128],[255,255,255,255]])for(const shadow of [[0,0,0,128],[30,70,120,80]]){
     const full=composite(clean,shadow),recovered=Array.from(h.context.extractAepShadow(full,clean));

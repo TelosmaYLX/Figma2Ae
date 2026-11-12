@@ -16,15 +16,16 @@ node tests/aep-distribution.cjs
 
 ## 锚点与栅格比例
 
-AEP 的形状按路径边界、文字按字形边界、图片及预合成按素材尺寸居中锚点，并补偿位置保持画面不动。文字补齐原生连续栅格化标志，避免 AE 把字形内容边界读成整张合成。Figma 栅格 PNG 携带 `rasterScale`，2 倍导出使用固定 50% 缩放；普通图片保留 FIT/FILL，不按栅格规则处理。
+AEP 的形状按路径边界、文字按字形边界、图片及预合成按素材尺寸居中锚点，并补偿位置保持画面不动。文字补齐原生连续栅格化标志，避免 AE 把字形内容边界读成整张合成。切图倍率默认 1×，可选 1×/2×/3×/4×；栅格 PNG 携带 `rasterScale`，AE/AEP 按倍率倒数缩放；普通图片保留原始像素与 FIT/FILL，不按栅格规则处理。
 
 ```powershell
-node tests/aep-layout.cjs
+node tests/raster-scale.cjs
+node tests/aep-layout.cjs 1
 node tests/reference-layer.cjs
 node scripts/ae-eval.mjs tests/ae-aep-layout.jsx artifacts/aep-layout-ae-report.json
 ```
 
-检查覆盖分数尺寸 PNG、贝塞尔极值、参数形状、文字对齐/旋转、段落/富文本、渐变文字、蒙版及嵌套预合成。前两条使用生产代码、模拟 Figma 和真实 AEP 回读；最后一条需已打开 AE/F2A 面板，实际导入工程，核对全部图层内容中心与锚点、图片比例及位置，并渲染 `artifacts/aep-layout-ae.png`。报告须 `passed: true`；检查结束清理临时导入项，恢复之前的活动合成。
+检查覆盖四档倍率、默认值及再次导出重置、投影的像素偏移、分数尺寸 PNG、贝塞尔极值、参数形状、文字对齐/旋转、段落/富文本、渐变文字、蒙版及嵌套预合成。前三条使用生产代码、模拟 Figma 和真实 AEP 回读；`aep-layout.cjs` 可传入其他倍率。最后一条需已打开 AE/F2A 面板，实际导入工程，核对全部图层内容中心与锚点、图片比例及位置，并渲染 `artifacts/aep-layout-ae.png`。报告须 `passed: true`；检查结束清理临时导入项，恢复之前的活动合成。倍率下拉框使用模拟 UI 验证默认值、选值传递和导出锁定，未进行本轮真实 Figma 窗口截图验收。
 
 ## 文字透明度
 

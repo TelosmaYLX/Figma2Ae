@@ -39,6 +39,7 @@ var _ignoreHidden = true;
 var _convertMasks = false;      // original-compatible default: masks stay ordinary Figma layers
 var _rasterGroups = true;       // local fallback for content the native channels cannot express
 var _rasterTexts = false;       // opt-in: export each remaining text node as a PNG
+var _rasterScale = 1;
 var _rasterAllGroups = false;
 var _rasterInstances = false;
 var _temporaryExportRoot = null;
@@ -438,7 +439,7 @@ async function _bakeBlendStacks(root, organize) {
   async function whole(n) {
     if (n.type === 'TEXT') await fonts([n]);
     var im = _rasterMeta(n, root, organize);
-    im.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
+    im.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } });
     delete im.rasterNode; delete im.rasterBounds;
     im.name += '_叠加合并'; im.mergedBlend = true; images.push(im); mark(n); stats.merged++; stats.layers++;
   }
@@ -555,12 +556,12 @@ async function _bakeNodeShadow(n, root, organize) {
     for (var f = 0; f < segments.length; f++) await figma.loadFontAsync(segments[f].fontName);
   }
   var image = _rasterMeta(n, root, organize), fullBounds = image.rasterBounds;
-  image.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
+  image.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } });
   n.effects = effects.filter(function (e) { return e.type !== 'DROP_SHADOW' || e.visible === false; });
   var cleanBounds = n.absoluteRenderBounds || n.absoluteBoundingBox;
-  var clean = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
-  image.shadowBase = { data: figma.base64Encode(clean), dx: (cleanBounds.x - fullBounds.x) * 2,
-    dy: (cleanBounds.y - fullBounds.y) * 2, w: cleanBounds.width * 2, h: cleanBounds.height * 2 };
+  var clean = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } });
+  image.shadowBase = { data: figma.base64Encode(clean), dx: (cleanBounds.x - fullBounds.x) * _rasterScale,
+    dy: (cleanBounds.y - fullBounds.y) * _rasterScale, w: cleanBounds.width * _rasterScale, h: cleanBounds.height * _rasterScale };
   image.name += '_投影'; image.blend = 'NORMAL'; image.z -= 0.01; image.shadow = true;
   image.external = n === root; delete image.rasterNode; delete image.rasterBounds;
   return image;
@@ -594,8 +595,8 @@ function _rasterMeta(n, root, organize) {
     name: (n.name || 'figma-group').replace(/[^A-Za-z0-9_\-\u4e00-\u9fa5]+/g, '_'),
     x: b.x, y: b.y, w: b.width, h: b.height,
     cx: b.x + b.width / 2, cy: b.y + b.height / 2, cw: b.width, ch: b.height,
-    natW: Math.max(1, Math.round(b.width * 2)), natH: Math.max(1, Math.round(b.height * 2)),
-    scaleMode: 'FIT', rasterScale: 2, opacity: opacity,
+    natW: Math.max(1, Math.round(b.width * _rasterScale)), natH: Math.max(1, Math.round(b.height * _rasterScale)),
+    scaleMode: 'FIT', rasterScale: _rasterScale, opacity: opacity,
     hidden: false, blend: n.blendMode || 'NORMAL',
     // exportAsync already bakes the absolute transform into the PNG's axis-aligned bounds.
     path: _pathOf(n, root.id), z: _zOf(n), rotation: 0, matte: null, maskId: _maskByNode[n.id] || null
@@ -708,7 +709,7 @@ async function _exportRasterPass(im) {
     // Root clipping may have been disabled after metadata collection. Measure the same bounds
     // the PNG now uses, so partially clipped text is not squeezed into its earlier visible box.
     _updateRasterBounds(im);
-    return im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
+    return im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } });
   }
   var restored = [], parentState = [], target = (pass.blend !== 'NORMAL') ? pass.keep[0] : null;
   var oldBlend = target ? target.blendMode : null;
@@ -734,7 +735,7 @@ async function _exportRasterPass(im) {
     // Suppressing other artwork can shrink the render bounds. Carry the resulting crop back
     // into the already frame-relative metadata, so separate glow layers do not move.
     _updateRasterBounds(im);
-    return await im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
+    return await im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } });
   } finally {
     if (target) target.blendMode = oldBlend;
     for (var j = restored.length - 1; j >= 0; j--) {
@@ -879,6 +880,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _convertMasks = convertMasks === true || _rasterGroups;
   _rasterTexts = (rasterTexts === true);
   options = options || {};
+  _rasterScale = options.rasterScale == null ? 1 : Number(options.rasterScale);
   _mergeBlends = options.mergeBlends === true;
   _blendMerged = {};
   _blendPaintMerged = {};
@@ -902,6 +904,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   var rasterHidden = [];
   var disabledClips = [];
   try {
+    if ([1, 2, 3, 4].indexOf(_rasterScale) === -1) throw new Error('请选择有效的切图倍率');
     // Capture the untouched selection before creating or changing any temporary node.
     // Multi-selection keeps one complete reference for each selected frame/group.
     var transforms = [], sizes = [];
@@ -910,7 +913,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       transforms.push(original.absoluteTransform.map(function (row) { return row.slice(); }));
       sizes.push({ width: original.width, height: original.height });
       var reference = _rasterMeta(original, original, false);
-      try { reference.rasterBytes = await original.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } }); }
+      try { reference.rasterBytes = await original.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } }); }
       catch (referenceError) { throw _layerError(original, '图层「' + original.name + '」原图导出失败：' + referenceError.message); }
       delete reference.rasterNode; delete reference.rasterBounds;
       reference.name += '_原图对照'; reference.reference = true; reference.hidden = true;

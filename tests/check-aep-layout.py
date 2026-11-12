@@ -56,4 +56,4 @@ for item in model['texts']:
         left=box['x']+({'CENTER':.5,'RIGHT':1}.get(item.get('align'),0))*(box['w']-rect['width'])
         mapped=point(layer,rect['left'],rect['top']+rect['height']/2)
         close(mapped[0],left-ox);close(mapped[1],box['y']+box['h']/2-oy)
-print('PASS: parsed AEP anchors centered for Bezier/primitive/text/gradient/mattes/precomps/images; original placement retained; baked PNG=50%, photo FIT/FILL unchanged')
+print('PASS: parsed AEP anchors centered for Bezier/primitive/text/gradient/mattes/precomps/images; original placement retained; baked PNG follows export scale, photo FIT/FILL unchanged')
