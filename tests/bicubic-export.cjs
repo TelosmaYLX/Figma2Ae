@@ -1,0 +1,32 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const {node, group, harness} = require('./export-options.cjs');
+const {png} = require('./direct-aep.cjs');
+const html = fs.readFileSync(path.join(__dirname, '../figma-plugin/ui.html'), 'utf8');
+const context = vm.createContext({});
+vm.runInContext(html.match(/  function bicubicRgba[\s\S]*?(?=  function renderBicubic)/)[0], context);
+const resize = context.bicubicRgba;
+const opaque = new Uint8ClampedArray(8*8*4);
+for(let i=0;i<opaque.length;i+=4)opaque.set([25,125,225,255],i);
+const solid = resize(opaque,8,8,3,3);
+for(let i=0;i<solid.length;i+=4)assert.deepEqual(Array.from(solid.slice(i,i+4)),[25,125,225,255]);
+const transparent = new Uint8ClampedArray([255,0,0,255, 0,0,0,0]);
+const mixed = resize(transparent,2,1,1,1);
+assert.equal(mixed[0],255);assert.equal(mixed[1],0);assert.equal(mixed[2],0);assert.ok(Math.abs(mixed[3]-128)<=1,'Filter premultiplied colour without black fringes');
+const fixture = group('Bicubic scene', [node('RECTANGLE','*Baked'),node('RECTANGLE','Photo',{
+  width:40,height:20,fills:[{type:'IMAGE',imageHash:'photo',scaleMode:'FIT'}]})]);
+const h = harness(fixture), calls = [];
+(function render(n){n.exportAsync=async options=>{calls.push(options.constraint.value);return png(100*options.constraint.value,60*options.constraint.value);};if(n.children)n.children.forEach(render);})(fixture);
+h.figma.getImageByHash=()=>({getBytesAsync:async()=>png(400,200),getSizeAsync:async()=>({width:400,height:200})});
+(async()=>{
+  const result=await h.run(true,true,true,false,{bicubicExport:true});
+  assert.ok(calls.length>=2);assert.ok(calls.every(scale=>scale===2));
+  const baked=result.images.find(i=>i.rasterScale),photo=result.images.find(i=>!i.rasterScale);
+  assert.deepEqual(baked.bicubic,{width:100,height:60});assert.equal(baked.rasterScale,1);
+  assert.deepEqual(photo.bicubic,{width:40,height:20});assert.equal(photo.rasterScale,null);
+  calls.length=0;const off=await h.run();assert.ok(calls.every(scale=>scale===1));
+  assert.ok([...off.images,...off.references].every(i=>!i.bicubic),'The experiment resets to off for the next export');
+  console.log('PASS: bicubic pixels/alpha, 2× source renders, selected final dimensions, ordinary photos and default-off reset');
+})().catch(error=>{console.error(error);process.exitCode=1;});

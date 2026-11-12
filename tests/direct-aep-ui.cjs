@@ -59,6 +59,7 @@ function ui(packet, behavior='success') {
         if(behavior==='missing-image'&&i===0)continue;
         const {data,...meta}=packet.images[i],split=Math.ceil(data.length/2);
         if(i===0&&behavior.startsWith('shadow'))meta.shadowBase={data:'clean PNG',dx:0,dy:0,w:64,h:64};
+        if(behavior==='bicubic')meta.bicubic={width:32,height:32};
         emit({type:'image-chunk',meta,index:i,total:packet.images.length,seq:0,parts:2,dataPart:data.slice(0,split)});
         emit({type:'image-chunk',index:i,total:packet.images.length,seq:1,parts:2,dataPart:data.slice(split)});
       }
@@ -67,6 +68,14 @@ function ui(packet, behavior='success') {
   });
   function emit(message){window.onmessage({data:{pluginMessage:message}});}
   vm.runInContext(html.match(/<script>([\s\S]*)<\/script>/)[1],context);
+  assert.equal(elements['bicubic-export'].checked,false,'Bicubic export is opt-in');
+  if(behavior==='bicubic'){
+    elements['bicubic-export'].checked=true;
+    context.renderBicubic=async image=>{
+      assert.equal(requests.some(r=>r.url.endsWith('/export')),false);
+      image.data='bicubic PNG';image.ext='png';image.natW=image.bicubic.width;image.natH=image.bicubic.height;image.bicubic=null;
+    };
+  }
   if(behavior.startsWith('shadow'))context.renderAepShadow=async()=>{
     assert.equal(requests.some(r=>r.url.endsWith('/export')),false,'Extract shadows before writing the project');
     if(behavior==='shadow-error')throw new Error('PNG decode failed');
@@ -79,19 +88,23 @@ function ui(packet, behavior='success') {
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   const packet=await fixture();
-  for(const behavior of ['success','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','export-error','missing-image','open-error']){
+  for(const behavior of ['success','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
     assert.equal(h.elements['export-aep'].disabled,false);
     assert.equal(h.elements['raster-scale'].disabled,false);
     assert.equal(h.requests.some(r=>r.url.endsWith('/select-directory')),false,'The UI must not choose a folder ahead of validation');
-    if(['success','cold-start','shadow','warnings','open-error'].includes(behavior)){
+    if(['success','bicubic','cold-start','shadow','warnings','open-error'].includes(behavior)){
       const request=JSON.parse(h.requests.find(r=>r.url.endsWith('/export')).options.body);
       assert.deepEqual(Object.keys(request),['packet']);
       const body=request.packet;
       assert.equal(body.images.length,packet.images.length);
-      assert.equal(body.images[0].data,behavior==='shadow'?'extracted shadow PNG':packet.images[0].data);
+      assert.equal(body.images[0].data,behavior==='bicubic'?'bicubic PNG':behavior==='shadow'?'extracted shadow PNG':packet.images[0].data);
+      if(behavior==='bicubic'){
+        assert.equal(h.posts.find(m=>m.type==='ship-selection').bicubicExport,true);
+        assert.ok(body.images.every(i=>i.bicubic===null&&i.natW===32&&i.natH===32));
+      }
       if(behavior==='shadow')assert.equal(body.images[0].shadowBase,null);
       assert.deepEqual(body.frame,packet.frame);assert.equal(body.texts.length,1);
       if(behavior==='warnings')assert.match(h.elements.msg.textContent,/AEP 导出失败.*未导出的属性/);
@@ -130,7 +143,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
       h.elements['export-aep'].onclick();
       assert.equal(h.elements['open-aep-folder'].hidden,true,'A new export clears the previous result');
       for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
-    }else assert.equal(h.elements['open-aep-folder'].hidden,true,'Cancelled and failed exports expose no folder action');
+    }else if(behavior!=='bicubic')assert.equal(h.elements['open-aep-folder'].hidden,true,'Cancelled and failed exports expose no folder action');
   }
   const h=ui(packet);
   h.elements['raster-scale'].value='4';h.elements['export-aep'].onclick();

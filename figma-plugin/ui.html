@@ -5,7 +5,8 @@
      10px button padding and 12px group spacing; retain the current dark theme. The shared image
      folder is secondary: full selectable address, 8px gap, 36px folder button.
      Status text leads; optional locate/open-folder actions are secondary, using panel/text tokens and an 8px gap.
-     Raster scale is a labelled secondary setting: 12px group spacing, 8px gap/radius and a 36px native select. -->
+     Raster scale is a labelled secondary setting: 12px group spacing, 8px gap/radius and a 36px native select.
+     The opt-in bicubic experiment is a secondary native checkbox, using the existing 8px gap and muted text. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#8a8a8a; --ok:#22c55e; --err:#ef4444; }
   html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); }
@@ -70,6 +71,9 @@
       <option value="4">4×</option>
     </select>
   </div>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer" title="高倍率切图后双三次缩回所选倍率，耗时更长。">
+    <input type="checkbox" id="bicubic-export"> 双三次导出（实验）
+  </label>
   <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="nodemode" checked> 可编辑图层
   </label>
@@ -118,6 +122,7 @@
   var aepMode = false, aepBusy = false, aepPacket = null, aepResultId = null, openingFolder = false;
   var imageFolder = '', folderBusy = false;
   var errorNodeId = null, locatingLayer = false;
+  var imageTasks = Promise.resolve(), processingImages = false, imageProcessingFailed = false;
   var $ = function (id) { return document.getElementById(id); };
   var toolButtons = { 'detach-instances': 'detach', 'convert-groups': 'group-to-frame', 'expand-groups': 'expand', 'delete-hidden': 'delete-hidden' };
 
@@ -129,12 +134,13 @@
     if (state) readImageFolder().catch(function (error) { say(error.message, 'err'); });
   }
   function updateButton() {
-    var busy = locatingLayer || folderBusy || exporting || aepBusy;
+    var busy = locatingLayer || folderBusy || exporting || aepBusy || processingImages;
     $('ship').disabled = busy || !(connected && selCount > 0);
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
     $('open-aep-folder').disabled = busy || openingFolder;
     $('raster-scale').disabled = busy;
+    $('bicubic-export').disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
     for (var id in toolButtons) $(id).disabled = busy || selCount === 0;
@@ -212,11 +218,12 @@
     organize = $('organize').checked;
     var useNodes = direct || $('nodemode').checked || organize;
     aepMode = direct; aepPacket = null; imgAsm = null;
+    imageTasks = Promise.resolve(); processingImages = imageProcessingFailed = false;
     aepResultId = null; $('open-aep-folder').hidden = true;
     exporting = true; updateButton();
     blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, rasterScale: Number($('raster-scale').value), ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   }
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;
@@ -309,6 +316,78 @@
       return canvas.toDataURL('image/png').split(',')[1];
     });
   }
+  // Scale-aware Catmull-Rom bicubic filtering in premultiplied RGBA avoids dark alpha fringes.
+  function bicubicRgba(source, sw, sh, width, height) {
+    function kernel(x) {
+      x = Math.abs(x);
+      return x < 1 ? 1.5*x*x*x - 2.5*x*x + 1 : x < 2 ? -.5*x*x*x + 2.5*x*x - 4*x + 2 : 0;
+    }
+    function weights(input, output) {
+      var table = [], ratio = input/output, filter = Math.max(1, ratio);
+      for (var n = 0; n < output; n++) {
+        var center = (n+.5)*ratio-.5, list = [], sum = 0;
+        for (var p = Math.ceil(center-2*filter); p <= Math.floor(center+2*filter); p++) {
+          var weight = kernel((p-center)/filter);
+          if (weight) { list.push([Math.max(0, Math.min(input-1, p)), weight]); sum += weight; }
+        }
+        for (var j = 0; j < list.length; j++) list[j][1] /= sum;
+        table.push(list);
+      }
+      return table;
+    }
+    var wx = weights(sw, width), wy = weights(sh, height);
+    var horizontal = new Float32Array(width*sh*4), result = new Uint8ClampedArray(width*height*4);
+    for (var y = 0; y < sh; y++) for (var x = 0; x < width; x++) {
+      var out = (y*width+x)*4, taps = wx[x];
+      for (var k = 0; k < taps.length; k++) {
+        var at = (y*sw+taps[k][0])*4, w = taps[k][1], a = source[at+3]/255;
+        for (var c = 0; c < 3; c++) horizontal[out+c] += source[at+c]*a*w;
+        horizontal[out+3] += source[at+3]*w;
+      }
+    }
+    for (var y = 0; y < height; y++) for (var x = 0; x < width; x++) {
+      var out = (y*width+x)*4, taps = wy[y], rgba = [0,0,0,0];
+      for (var k = 0; k < taps.length; k++) {
+        var at = (taps[k][0]*width+x)*4, w = taps[k][1];
+        for (var c = 0; c < 4; c++) rgba[c] += horizontal[at+c]*w;
+      }
+      result[out+3] = rgba[3];
+      if (rgba[3] > 0) for (var c = 0; c < 3; c++) result[out+c] = rgba[c]*255/rgba[3];
+    }
+    return result;
+  }
+  function renderBicubic(image) {
+    return new Promise(function (resolve, reject) {
+      var bitmap = new Image();
+      bitmap.onerror = function () { reject(new Error('双三次图片读取失败')); };
+      bitmap.onload = function () {
+        try {
+          var canvas = document.createElement('canvas'), output = document.createElement('canvas');
+          canvas.width = bitmap.naturalWidth; canvas.height = bitmap.naturalHeight;
+          var context = canvas.getContext('2d'); context.drawImage(bitmap, 0, 0);
+          var target = image.bicubic; output.width = target.width; output.height = target.height;
+          var out = output.getContext('2d'), pixels = out.createImageData(target.width, target.height);
+          pixels.data.set(bicubicRgba(context.getImageData(0,0,canvas.width,canvas.height).data,
+            canvas.width, canvas.height, target.width, target.height));
+          out.putImageData(pixels, 0, 0);
+          image.data = output.toDataURL('image/png').split(',')[1]; image.ext = 'png';
+          image.natW = target.width; image.natH = target.height; image.bicubic = null;
+          resolve();
+        } catch (error) { reject(error); }
+      };
+      bitmap.src = 'data:image/' + (image.ext === 'jpg' ? 'jpeg' : image.ext) + ';base64,' + image.data;
+    });
+  }
+  function prepareImage(image) {
+    var prepared = Promise.resolve();
+    if (image.shadowBase) prepared = prepared.then(function () {
+      return renderAepShadow(image.data, image.shadowBase).then(function (data) { image.data = data; image.shadowBase = null; });
+    });
+    if (image.bicubic) prepared = prepared.then(function () { return renderBicubic(image); });
+    return prepared.catch(function (error) {
+      var failure = new Error((image.shadowBase ? '投影' : '图片') + '「' + image.name + '」处理失败：' + error.message); failure.nodeId = image.sourceId; throw failure;
+    });
+  }
   function finishAep() {
     if (!aepPacket) return;
     var packet = aepPacket; aepPacket = null;
@@ -319,11 +398,7 @@
     say('正在检查并生成 AEP…');
     var prepared = Promise.resolve();
     packet.images.forEach(function (image) {
-      if (image.shadowBase) prepared = prepared.then(function () {
-        return renderAepShadow(image.data, image.shadowBase).then(function (data) {
-          image.data = data; image.shadowBase = null;
-        }, function (error) { var failure = new Error('投影「' + image.name + '」处理失败：' + error.message); failure.nodeId = image.sourceId; throw failure; });
-      });
+      if (image.shadowBase || image.bicubic) prepared = prepared.then(function () { return prepareImage(image); });
     });
     prepared.then(function () {
       return aepRequest('/export', {packet:packet});
@@ -354,6 +429,7 @@
     if (msg.type === 'mark-result') { say(msg.message, 'ok'); }
     if (msg.type === 'tool-result') { say(msg.message, 'ok'); }
     if (msg.type === 'error') {
+      processingImages = false; imageProcessingFailed = true;
       if (bridgePending) {
         var abort = {type: 'export-abort', message: msg.message};
         if (connected && ws && ws.readyState === 1) ws.send(JSON.stringify(abort));
@@ -364,10 +440,16 @@
     if (msg.type === 'progress') { say(msg.message); }
     if (msg.type === 'images-done') {
       if (aepMode) { finishAep(); return; }
-      bridgePending = false;
-      var done = { type: 'images-complete' };
-      if (connected && ws && ws.readyState === 1) ws.send(JSON.stringify(done));
-      else shipHttp(done);
+      imageTasks.then(function () {
+        if (imageProcessingFailed) return;
+        bridgePending = processingImages = false; updateButton();
+        var done = { type: 'images-complete' };
+        if (connected && ws && ws.readyState === 1) ws.send(JSON.stringify(done));
+        else shipHttp(done);
+      }).catch(function (error) {
+        processingImages = false;
+        window.onmessage({data:{pluginMessage:{type:'error',message:error.message,nodeId:error.nodeId}}});
+      });
       return;
     }
     if (msg.type === 'image-chunk') {
@@ -379,9 +461,20 @@
       if (msg.seq === msg.parts - 1) {
         var img = imgAsm.meta; img.data = imgAsm.parts.join(''); imgAsm = null;
         if (aepMode) { if (aepPacket) aepPacket.images.push(img); return; }
-        var ip = { type: 'image', index: msg.index, total: msg.total, image: img };
-        if (connected && ws && ws.readyState === 1) { ws.send(JSON.stringify(ip)); say('正在将图片 ' + (msg.index + 1) + '/' + msg.total + ' 发送到 AE…'); }
-        else { shipHttp(ip); }
+        function sendImage() {
+          if (imageProcessingFailed) return;
+          var ip = { type: 'image', index: msg.index, total: msg.total, image: img };
+          if (connected && ws && ws.readyState === 1) ws.send(JSON.stringify(ip));
+          else shipHttp(ip);
+        }
+        if (img.bicubic) {
+          processingImages = true; updateButton();
+          imageTasks = imageTasks.then(function () {
+            if (!imageProcessingFailed) return prepareImage(img).then(sendImage);
+          }).catch(function (error) {
+            window.onmessage({data:{pluginMessage:{type:'error',message:error.message,nodeId:error.nodeId}}});
+          });
+        } else sendImage();
       }
       return;
     }

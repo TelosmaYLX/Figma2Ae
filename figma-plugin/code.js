@@ -40,6 +40,8 @@ var _convertMasks = false;      // original-compatible default: masks stay ordin
 var _rasterGroups = true;       // local fallback for content the native channels cannot express
 var _rasterTexts = false;       // opt-in: export each remaining text node as a PNG
 var _rasterScale = 1;
+var _rasterRenderScale = 1;
+var _bicubicExport = false;
 var _rasterAllGroups = false;
 var _rasterInstances = false;
 var _temporaryExportRoot = null;
@@ -439,7 +441,7 @@ async function _bakeBlendStacks(root, organize) {
   async function whole(n) {
     if (n.type === 'TEXT') await fonts([n]);
     var im = _rasterMeta(n, root, organize);
-    im.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } });
+    im.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
     delete im.rasterNode; delete im.rasterBounds;
     im.name += '_叠加合并'; im.mergedBlend = true; images.push(im); mark(n); stats.merged++; stats.layers++;
   }
@@ -556,12 +558,12 @@ async function _bakeNodeShadow(n, root, organize) {
     for (var f = 0; f < segments.length; f++) await figma.loadFontAsync(segments[f].fontName);
   }
   var image = _rasterMeta(n, root, organize), fullBounds = image.rasterBounds;
-  image.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } });
+  image.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
   n.effects = effects.filter(function (e) { return e.type !== 'DROP_SHADOW' || e.visible === false; });
   var cleanBounds = n.absoluteRenderBounds || n.absoluteBoundingBox;
-  var clean = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } });
-  image.shadowBase = { data: figma.base64Encode(clean), dx: (cleanBounds.x - fullBounds.x) * _rasterScale,
-    dy: (cleanBounds.y - fullBounds.y) * _rasterScale, w: cleanBounds.width * _rasterScale, h: cleanBounds.height * _rasterScale };
+  var clean = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
+  image.shadowBase = { data: figma.base64Encode(clean), dx: (cleanBounds.x - fullBounds.x) * _rasterRenderScale,
+    dy: (cleanBounds.y - fullBounds.y) * _rasterRenderScale, w: cleanBounds.width * _rasterRenderScale, h: cleanBounds.height * _rasterRenderScale };
   image.name += '_投影'; image.blend = 'NORMAL'; image.z -= 0.01; image.shadow = true;
   image.external = n === root; delete image.rasterNode; delete image.rasterBounds;
   return image;
@@ -709,7 +711,7 @@ async function _exportRasterPass(im) {
     // Root clipping may have been disabled after metadata collection. Measure the same bounds
     // the PNG now uses, so partially clipped text is not squeezed into its earlier visible box.
     _updateRasterBounds(im);
-    return im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } });
+    return im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
   }
   var restored = [], parentState = [], target = (pass.blend !== 'NORMAL') ? pass.keep[0] : null;
   var oldBlend = target ? target.blendMode : null;
@@ -735,7 +737,7 @@ async function _exportRasterPass(im) {
     // Suppressing other artwork can shrink the render bounds. Carry the resulting crop back
     // into the already frame-relative metadata, so separate glow layers do not move.
     _updateRasterBounds(im);
-    return await im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } });
+    return await im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
   } finally {
     if (target) target.blendMode = oldBlend;
     for (var j = restored.length - 1; j >= 0; j--) {
@@ -881,6 +883,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _rasterTexts = (rasterTexts === true);
   options = options || {};
   _rasterScale = options.rasterScale == null ? 1 : Number(options.rasterScale);
+  _bicubicExport = options.bicubicExport === true;
+  _rasterRenderScale = _rasterScale * (_bicubicExport ? 2 : 1);
   _mergeBlends = options.mergeBlends === true;
   _blendMerged = {};
   _blendPaintMerged = {};
@@ -913,7 +917,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       transforms.push(original.absoluteTransform.map(function (row) { return row.slice(); }));
       sizes.push({ width: original.width, height: original.height });
       var reference = _rasterMeta(original, original, false);
-      try { reference.rasterBytes = await original.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterScale } }); }
+      try { reference.rasterBytes = await original.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } }); }
       catch (referenceError) { throw _layerError(original, '图层「' + original.name + '」原图导出失败：' + referenceError.message); }
       delete reference.rasterNode; delete reference.rasterBounds;
       reference.name += '_原图对照'; reference.reference = true; reference.hidden = true;
@@ -1627,6 +1631,11 @@ async function shipImages(images) {
                  opacity: im.opacity, rotation: im.rotation, matte: im.matte,
                  blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0), maskId: im.maskId || null,
                  hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, shadowBase: im.shadowBase || null, mergedBlend: !!im.mergedBlend, external: !!im.external };
+    if (_bicubicExport) {
+      var factor = im.rasterScale ? 0.5 : _rasterScale * (im.scaleMode === 'FIT'
+        ? Math.min(im.cw / natW, im.ch / natH) : Math.max(im.cw / natW, im.ch / natH));
+      meta.bicubic = { width: Math.max(1, Math.ceil(natW * factor)), height: Math.max(1, Math.ceil(natH * factor)) };
+    }
     var parts = Math.max(1, Math.ceil(b64.length / CHUNK));
     for (var pi = 0; pi < parts; pi++) {
       figma.ui.postMessage({
