@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('node:fs/promises');
+const {existsSync} = require('node:fs');
 const path = require('node:path');
 const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
@@ -9,8 +10,9 @@ const root = path.resolve(__dirname, '..');
 const run = promisify(execFile);
 
 function pythonPath(options = {}) {
-  return options.python || process.env.F2A_PYTHON || path.join(root, '.venv-aep',
-    process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+  const bundled = path.join(root, 'runtime/python/python.exe');
+  return options.python || process.env.F2A_PYTHON || (existsSync(bundled) ? bundled : path.join(root, '.venv-aep',
+    process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'));
 }
 
 async function chooseDirectory(options = {}) {

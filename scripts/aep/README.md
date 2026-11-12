@@ -4,15 +4,31 @@
 
 ## 使用
 
-Windows，Node.js 18+、Python 3.11+，目标 AE 2026。
+分发目标为 Windows x64，工程面向 AE 2026。分发包已包含 Node、Python/Tk 与导出依赖，使用者无需另装运行环境，也无需联网安装依赖。
 
-在仓库根目录运行：
+分发用户双击包内 `install.cmd`，组件安装到 `%LOCALAPPDATA%\F2A\AEP` 并注册当前用户的点击唤起入口。在 Figma 中导入安装目录下的 `figma-plugin/manifest.json` 即可使用；安装后不再依赖原解压位置。后续更新仍运行同一安装程序，它只停止并更新该安装目录内的组件进程。
+
+构建分发包需要 Windows x64、Node.js、完整 Python（含 Tcl/Tk）与已准备好的 `.venv-aep`：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start-aep-export.ps1
+node scripts/package-aep-service.cjs
 ```
 
-脚本创建仓库内的 `.venv-aep` 并安装固定版本依赖，然后启动本地服务 `127.0.0.1:7868`。重新运行 Figma 开发插件，选中内容，点击“导出 AEP（实验）”，在系统目录选择窗口中选定保存位置。服务使用 Python 标准库的 Tkinter 弹出原生窗口，需要 Python 安装包含 Tcl/Tk。AE 桥接服务不是此导出的前置条件。服务窗口保持打开，Ctrl+C 停止。更新此版本后需重启已有的本地服务。
+结果在 `artifacts/F2A-AEP-Windows-x64/`，应完整分发该目录。构建过程会获取所用 Node 版本的许可证；安装与导出本身无需网络。Python 使用包内独立模块搜索路径，不引用构建机器的安装目录。`runtime-manifest.json` 记录版本与运行程序摘要，许可证随运行环境和依赖保留。
+
+开发者直接在仓库中使用时，也可只注册开发目录的入口（机器需有 Node.js 18+、Python 3.11+）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-aep-launcher.ps1
+```
+
+入口使用 `f2a-aep://`，不添加开机启动项或登录任务。分发版记录当前设备安装目录内的运行环境路径；开发版记录本机 Node/Python 路径，开发目录或运行环境位置改变后需重新注册。
+
+重新运行 Figma 开发插件，选中内容，点击“导出 AEP（实验）”。服务未运行时，插件唤起本地组件并等待就绪，然后弹出保存位置窗口；已运行时直接选择位置。首次唤起时，浏览器或 Figma 客户端可能显示打开本地组件的确认。之后每次导出无需手动运行脚本，也无需打开 AE。
+
+启动器在后台运行本地服务 `127.0.0.1:7868`；分发版直接使用包内环境，开发版按需创建 `.venv-aep` 并安装固定依赖。重复唤起复用运行中的服务。服务使用 Tkinter 弹出原生目录窗口。日志位于安装或开发目录的 `artifacts/aep-service/`。
+
+调试时仍可手动运行 `powershell -ExecutionPolicy Bypass -File .\scripts\start-aep-export.ps1`；加 `-Background` 在后台启动。关闭服务进程后，下一次点击导出会再次启动。卸载唤起入口可删除当前用户注册表中的 `HKCU\Software\Classes\f2a-aep`。
 
 所选位置下会创建以选区命名的文件夹；同名时加 ` (2)`、` (3)`，不覆盖旧工程。取消选择不会采集 Figma 内容或写文件。生成结束后，插件显示完整保存路径。工程和素材直接写在所选磁盘位置，不再下载或在仓库保存额外副本。
 
@@ -36,7 +52,9 @@ node scripts/export-aep.cjs packet.json output-directory
 
 依据：[Adobe 工程格式说明](https://helpx.adobe.com/after-effects/desktop/work-with-projects/after-effects-projects/projects.html)、[py-aep 源码与功能范围](https://github.com/forticheprod/py-aep)、[格式资料](https://forticheprod.github.io/py-aep/file_format/)、[库的已知限制](https://forticheprod.github.io/py-aep/limitations/)。依赖采用 MIT 许可证；本仓库仅固定并安装依赖，没有复制其源码。
 
-流程为：本地服务弹出目录选择窗口 → Figma 采集节点和 PNG → 插件 UI 汇集完整数据包 → 本地 Node 服务复用 `svgParser` → Python 直接写 AEP 和素材到目标文件夹。Node 和 Python 均不调用 AE；AE 只用于单独的验证脚本。Figma 沙箱不能直接访问本机文件和 Python，因此这一版仍需独立本地服务。
+流程为：点击导出 → 检查服务，未运行则通过 `figma.openExternal('f2a-aep://start')` 唤起并等待就绪 → 本地服务弹出目录选择窗口 → Figma 采集节点和 PNG → 插件 UI 汇集完整数据包 → 本地 Node 服务复用 `svgParser` → Python 直接写 AEP 和素材到目标文件夹。Node 和 Python 均不调用 AE；AE 只用于单独的验证脚本。Figma 沙箱不能直接创建本机进程，因此首次需要注册唤起入口。该入口只执行固定启动命令，不传递 URI 中的参数。
+
+唤起方式依据：[Figma openExternal 接口](https://developers.figma.com/docs/plugins/api/properties/figma-openexternal/)、[Windows URI 协议注册说明](https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa767914(v=vs.85))。
 
 服务协议版本为 2：`POST /select-directory` 返回目录选择标识（取消时为 `null`），`POST /export` 接收 `{destination, packet}`，返回 JSON 保存路径与报告。服务只接受本次目录窗口选出的目标，标识使用一次后失效。目录窗口使用 [Python 标准库的原生目录对话框](https://docs.python.org/3/library/dialog.html#tkinter.filedialog.askdirectory)。
 
@@ -63,16 +81,19 @@ node scripts/export-aep.cjs packet.json output-directory
 ```powershell
 node tests/direct-aep.cjs
 node tests/direct-aep-ui.cjs
+node tests/aep-distribution.cjs
 node scripts/verify-direct-aep.mjs
 ```
 
-第一条使用实际 F2A 采集代码，Figma 场景 API 和 PNG 渲染由测试模拟，生成真 AEP 文件夹，检查目录取消、中文及空格路径、名称清理、同名不覆盖、不产生 ZIP 与 HTTP 错误。HTTP 检查模拟目录窗口返回值，不弹出交互窗口。第二条执行实际 UI 代码，确认 AE 未连接时先选位置、重组完整图片分片、显示保存路径与报告提示，并在取消、旧版服务及失败后释放按钮，不触发浏览器下载。
+第一条使用实际 F2A 采集代码，Figma 场景 API 和 PNG 渲染由测试模拟，生成真 AEP 文件夹，检查目录取消、中文及空格路径、名称清理、同名不覆盖、不产生 ZIP 与 HTTP 错误。HTTP 检查模拟目录窗口返回值，不弹出交互窗口。第二条执行实际 UI 和主线程唤起代码，检查离线时只唤起一次、等待就绪后才采集、启动超时/宿主拒绝后释放按钮；同时检查已运行时复用、目录取消、图片分片、保存路径与错误提示。
+
+分发检查将组件复制到中文新路径，在 PATH 中移除 Node/Python，并将 PYTHONHOME/PYTHONPATH 指向无效目录；核对 Python 的模块与 Tcl 库来源均为分发包，实际启动包内服务并生成真 AEP 文件夹。本机系统协议检查也确认冷启动和重复唤起成功，复用同一服务进程。尚未在第二台实机或干净 Windows 虚拟机上运行，也未完成真实 Figma 客户端点击唤起的端到端检查；不能把环境隔离测试表述为第二台设备的实测。
 
 Windows 本机额外操作了真实目录窗口，确认中文目录选择和取消均返回正确；新文件夹输出在 AE 26 中的首轮导入及移动后素材解析检查通过，素材缺失数为零。随后复跑时 AE 进程提前退出，未生成新报告，验证脚本超时后恢复了原素材目录。Figma 端仍使用采集模拟，没有进行新的在线 Figma 文件完整导出验收。
 
-第三条用真实 AE 导入生成的工程，检查原生图层、形状位置、渐变端点、嵌套坐标、素材缺失和渲染。它将工程文件夹复制到新目录，临时移开原素材目录，验证工程确实使用新位置的素材；结束恢复原素材并移除测试项目项。可通过 `F2A_AFTERFX` 指定 AE 程序。脚本只导入测试项，不替换或保存当前工程。
+最后一条用真实 AE 导入生成的工程，检查原生图层、形状位置、渐变端点、嵌套坐标、素材缺失和渲染。它将工程文件夹复制到新目录，临时移开原素材目录，验证工程确实使用新位置的素材；结束恢复原素材并移除测试项目项。可通过 `F2A_AFTERFX` 指定 AE 程序。脚本只导入测试项，不替换或保存当前工程。
 
-可选的完整旧样例回放目录可作为第三条命令的参数，目录内应有 `project.aep`。本次使用历史本地数据生成的 832×1068 工程在真实 AE 中保留了 43 个文字层、62 个图片层、63 个预合成；识别到 10 个原生渐变，素材缺失数为零。当前导出报告仍有 7 个未写入的图层效果提示。
+可选的完整旧样例回放目录可作为 AE 验证命令的参数，目录内应有 `project.aep`。本次使用历史本地数据生成的 832×1068 工程在真实 AE 中保留了 43 个文字层、62 个图片层、63 个预合成；识别到 10 个原生渐变，素材缺失数为零。当前导出报告仍有 7 个未写入的图层效果提示。
 
 初版 ZIP 流程的完整样例本机测得 Python 写文件约 2.3 秒，包含 Node 准备、Python 启动和 ZIP 的调用约 3.4 秒。这是改为文件夹输出前的历史数据，不代表当前版本或完整链路加速倍数。
 
