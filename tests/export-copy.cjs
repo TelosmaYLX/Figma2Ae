@@ -48,7 +48,7 @@ async function run({failReference=false,failClone=false,failPng=false,multi=fals
   h.figma.createFrame=()=>{const f=createFrame();workspaces.push(f);return f;};
   await h.context.exportSelectionSVG(true,true,true,false,true,true,{enableClip:false});
   const error=h.messages.find(m=>m.type==='error');
-  if(failReference||failClone)assert.ok(error);else assert.equal(error,undefined,error?.message);
+  if(failReference||failClone||failPng)assert.ok(error);else assert.equal(error,undefined,error?.message);
   assert.deepEqual(h.figma.currentPage.selection,originalSelection);
   assert.equal(scene.parent,ancestor);assert.equal(other.parent,ancestor);
   assert.equal(ancestor.clipsContent,true);assert.equal(scene.clipsContent,true);
@@ -58,10 +58,10 @@ async function run({failReference=false,failClone=false,failPng=false,multi=fals
   if(!failReference&&!failClone) {
     const chunks=h.messages.filter(m=>m.type==='image-chunk'&&m.seq===0);
     const refs=chunks.filter(m=>m.meta.reference);
-    assert.equal(refs.length,originalSelection.length);assert.ok(refs.every(r=>r.meta.hidden&&r.meta.path.length===0));
+    assert.equal(refs.length,failPng?0:originalSelection.length);assert.ok(refs.every(r=>r.meta.hidden&&r.meta.path.length===0));
     assert.equal(events.filter(e=>e==='reference').length,originalSelection.length);
     assert.ok(events.lastIndexOf('reference')<events.indexOf('clone'));
-    assert.ok(h.messages.some(m=>m.type==='images-done'));
+    assert.equal(h.messages.some(m=>m.type==='images-done'),!failPng);
   }
 }
 (async()=>{

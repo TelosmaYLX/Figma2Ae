@@ -43,6 +43,11 @@ async function check() {
     assert.equal(result.counts.texts,1);assert.equal(result.counts.images,2);
     assert.equal((await fs.readFile(result.project)).toString('ascii',0,4),'RIFX');
     assert.deepEqual((await fs.readdir(result.directory)).sort(),['Assets','project.aep','report.json']);
+    const invalid=await fixture();invalid.containers[0].blur=3;
+    const next=await(await fetch(base+'/select-directory',{method:'POST'})).json();
+    const rejected=await fetch(base+'/export',{method:'POST',body:JSON.stringify({...next,packet:invalid})});
+    assert.equal(rejected.status,400);assert.match((await rejected.json()).error,/Direct AEP smoke.*效果/);
+    await assert.rejects(()=>fs.access(path.join(parent,'Direct AEP smoke (2)','project.aep')));
     await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result},null,2));
     console.log('PASS: relocated Windows package, no Node/Python on PATH, isolated Python/Tcl, bundled HTTP service and real AEP folder');
     console.log(testRoot);

@@ -471,6 +471,8 @@ var AEShapeBuilder = (function () {
           if (inside) r2.lyr = null;
         }
         trackLayer(pcLayer, c.path || [], c.z);
+        var containerMatte = applyNodeMask(pcLayer, c);
+        if (containerMatte) trackLayer(containerMatte, c.path || [], c.z, null, true);
         sizes.push((c.name || "?") + "(" + members.length + ")");
         made++;
       } catch (e) { _diag.push("precomp " + (c.name || "?") + ":" + String(e).substr(0, 40)); }
@@ -1271,8 +1273,9 @@ var AEShapeBuilder = (function () {
       fl.property("ADBE Vector Fill Color").setValue([1, 1, 1, 1]);
       try { if (def.fillRule) fl.property("ADBE Vector Fill Rule").setValue(def.fillRule); } catch (efr) {}
       try {
-        if (def.opacity != null && def.opacity < 1)
-          grp.property("ADBE Vector Transform Group").property("ADBE Vector Group Opacity").setValue(def.opacity * 100);
+        var maskOpacity = (def.opacity == null ? 1 : def.opacity) * (def.fillOpacity == null ? 1 : def.fillOpacity);
+        if (maskOpacity < 1)
+          grp.property("ADBE Vector Transform Group").property("ADBE Vector Group Opacity").setValue(maskOpacity * 100);
       } catch (eop) {}
     }
     zeroTransform(mt);

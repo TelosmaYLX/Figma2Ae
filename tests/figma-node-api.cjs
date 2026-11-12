@@ -30,7 +30,7 @@ async function check(){
   const shadowRoot=group('shadowed',[solid(),blend(),node('TEXT','title')],{effects:[drop]});
   const shadow=harness(shadowRoot,source);strictGroups(shadowRoot);
   const s=await shadow.run(true,true,true,false,{mergeBlends:true});
-  assert.equal(s.images.length,2);assert.equal(s.ship.texts.length,1);assert.deepEqual(shadowRoot.effects,[drop]);
+  assert.equal(s.images.length,1);assert.equal(s.ship.texts.length,1);assert.deepEqual(shadowRoot.effects,[drop]);
   console.log('PASS: strict non-extensible Figma Groups export blend ranges, nested groups and shadows without adding unsupported paint properties');
 }
 check().catch(e=>{console.error(e);process.exitCode=1;});

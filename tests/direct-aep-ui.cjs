@@ -53,6 +53,7 @@ function ui(packet, behavior='success') {
       for(let i=0;i<packet.images.length;i++){
         if(behavior==='missing-image'&&i===0)continue;
         const {data,...meta}=packet.images[i],split=Math.ceil(data.length/2);
+        if(i===0&&behavior.startsWith('shadow'))meta.shadowBase={data:'clean PNG',dx:0,dy:0,w:64,h:64};
         emit({type:'image-chunk',meta,index:i,total:packet.images.length,seq:0,parts:2,dataPart:data.slice(0,split)});
         emit({type:'image-chunk',index:i,total:packet.images.length,seq:1,parts:2,dataPart:data.slice(split)});
       }
@@ -61,6 +62,11 @@ function ui(packet, behavior='success') {
   });
   function emit(message){window.onmessage({data:{pluginMessage:message}});}
   vm.runInContext(html.match(/<script>([\s\S]*)<\/script>/)[1],context);
+  if(behavior.startsWith('shadow'))context.renderAepShadow=async()=>{
+    assert.equal(requests.some(r=>r.url.endsWith('/export')),false,'Extract shadows before writing the project');
+    if(behavior==='shadow-error')throw new Error('PNG decode failed');
+    return 'extracted shadow PNG';
+  };
   emit({type:'selection',count:1});
   assert.equal(elements.ship.disabled,true,'AE is disconnected');assert.equal(elements['export-aep'].disabled,false);
   return {elements,posts,requests,context,done,launches};
@@ -68,19 +74,22 @@ function ui(packet, behavior='success') {
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   const packet=await fixture();
-  for(const behavior of ['success','cold-start','warnings','offline','launch-blocked','old-service','cancel','picker-error','server-error','export-error','missing-image']){
+  for(const behavior of ['success','cold-start','shadow','shadow-error','warnings','offline','launch-blocked','old-service','cancel','picker-error','server-error','export-error','missing-image']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
     assert.equal(h.elements['export-aep'].disabled,false);
-    if(['success','cold-start','warnings'].includes(behavior)){
+    if(['success','cold-start','shadow','warnings'].includes(behavior)){
       const request=JSON.parse(h.requests.find(r=>r.url.endsWith('/export')).options.body);
       assert.equal(request.destination,'selected-folder');
       const body=request.packet;
-      assert.equal(body.images.length,packet.images.length);assert.equal(body.images[0].data,packet.images[0].data);
+      assert.equal(body.images.length,packet.images.length);
+      assert.equal(body.images[0].data,behavior==='shadow'?'extracted shadow PNG':packet.images[0].data);
+      if(behavior==='shadow')assert.equal(body.images[0].shadowBase,null);
       assert.deepEqual(body.frame,packet.frame);assert.equal(body.texts.length,1);
-      assert.match(h.elements.msg.textContent,/已导出到 D:\\导出 位置/);
-      assert.equal(h.elements.msg.textContent.includes('report.json'),behavior==='warnings');
+      if(behavior==='warnings')assert.match(h.elements.msg.textContent,/AEP 导出失败.*未导出的属性/);
+      else assert.match(h.elements.msg.textContent,/已导出到 D:\\导出 位置/);
+      assert.equal(h.elements.msg.textContent.includes('report.json'),false);
     }
     if(['cancel','picker-error','offline','launch-blocked','old-service'].includes(behavior)){
       assert.equal(h.posts.filter(m=>m.type==='ship-selection').length,0);
@@ -93,6 +102,15 @@ const flush=()=>new Promise(r=>setImmediate(r));
     if(behavior==='offline')assert.match(h.elements.msg.textContent,/服务未能启动/);
     if(behavior==='launch-blocked')assert.match(h.elements.msg.textContent,/无法启动/);
     if(behavior==='missing-image')assert.equal(h.requests.length,2,'Do not export an incomplete image batch');
+    if(behavior==='shadow-error'){
+      assert.equal(h.requests.some(r=>r.url.endsWith('/export')),false);assert.match(h.elements.msg.textContent,/投影.*PNG decode failed/);
+    }
+  }
+  const h=ui(packet);
+  function composite(fg,bg){const a=fg[3]/255,b=bg[3]/255,alpha=a+b*(1-a);return [0,1,2].map(i=>alpha?Math.round((fg[i]*a+bg[i]*b*(1-a))/alpha):0).concat(Math.round(alpha*255));}
+  for(const clean of [[0,0,0,0],[90,180,225,128],[255,255,255,255]])for(const shadow of [[0,0,0,128],[30,70,120,80]]){
+    const full=composite(clean,shadow),recovered=Array.from(h.context.extractAepShadow(full,clean));
+    assert.ok(composite(clean,recovered).every((v,i)=>Math.abs(v-full[i])<=1));
   }
   console.log('PASS: click → one native launch when offline → wait until ready → folder export; running service, timeout, blocked host, cancel and errors');
 })().catch(e=>{console.error(e);process.exitCode=1;});

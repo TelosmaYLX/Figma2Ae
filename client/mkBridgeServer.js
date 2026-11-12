@@ -76,11 +76,18 @@ function start(opts) {
   var port = opts.port || 7867;
   var onSvg = opts.onSvg || function () { return { ok: true }; };
   var onImages = opts.onImages || function () { return { ok: true }; };
-  var imgBuf = [], imgTimer = null, explicitImageEnd = false;
+  var imgBuf = [], imgTimer = null, explicitImageEnd = false, expectedImages = 0;
+  function abortImages(message) {
+    if (imgTimer) { clearTimeout(imgTimer); imgTimer = null; }
+    imgBuf = []; explicitImageEnd = false; expectedImages = 0;
+    if (opts.onAbort) opts.onAbort(message);
+  }
   function flushImages(allowEmpty) {
     if (imgTimer) { clearTimeout(imgTimer); imgTimer = null; }
     if (!imgBuf.length && !allowEmpty) return;
     var batch = imgBuf; imgBuf = [];
+    if (batch.length !== expectedImages) { abortImages('图片数据不完整，已取消导入'); return; }
+    expectedImages = 0;
     try { onImages(batch); } catch (e) { onStatus('image handler: ' + e.message); }
   }
   var onStatus = opts.onStatus || function () {};
@@ -145,6 +152,10 @@ function start(opts) {
       var containers = null, organize = false, imageCount = 0, vnStats = null;
       if (text.charAt(0) === '{') {
         msg = JSON.parse(text);
+        if (msg.type === 'export-abort') {
+          if (expectedImages) abortImages(msg.message || '导出失败，已取消导入');
+          return {ok: false, error: msg.message || '导出失败，已取消导入'};
+        }
         if (msg.type === 'images-complete') {
           if (explicitImageEnd) { explicitImageEnd = false; flushImages(true); }
           return { ok: true };
@@ -166,6 +177,7 @@ function start(opts) {
         svg = msg.svg; name = msg.name; texts = msg.texts || null; effects = msg.effects || null; shift = msg.shift || null; nodes = msg.nodes || null;
         containers = msg.containers || null; organize = !!msg.organize; imageCount = msg.imageCount || 0; vnStats = msg.vnStats || null;
         explicitImageEnd = !!msg.imageBatch && imageCount > 0;
+        expectedImages = imageCount;
       }
       else { svg = text; }
       if (!svg || svg.indexOf('<svg') === -1) return { ok: false, error: 'no svg in message' };

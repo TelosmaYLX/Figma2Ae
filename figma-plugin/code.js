@@ -37,13 +37,12 @@ function _pathOf(n, rootId) {
 var _zMap = null;
 var _ignoreHidden = true;
 var _convertMasks = false;      // original-compatible default: masks stay ordinary Figma layers
-var _rasterGroups = true;       // exact Figma render for complex mask/image groups
+var _rasterGroups = true;       // local fallback for content the native channels cannot express
 var _rasterTexts = false;       // opt-in: export each remaining text node as a PNG
 var _rasterAllGroups = false;
 var _rasterInstances = false;
 var _temporaryExportRoot = null;
 var _rasterByNode = {};         // rasterised group + descendants: collected by the image route
-var _effectGroupByNode = {};
 var _mergeBlends = false;
 var _blendMerged = {};
 var _blendPaintMerged = {};
@@ -193,12 +192,50 @@ function buildZMap(root) {
 }
 function _zOf(n) { return (_zMap && _zMap[n.id] != null) ? _zMap[n.id] : 0; }
 
+// A mask ends at the next mask object or clipping container, never at an ancestor's bounds.
+function _maskBoundary(n) {
+  return n.isMask === true || (_isContainer(n) && (n.clipsContent === true ||
+    (n.children || []).some(function (c) { return c.visible !== false && c.isMask === true; })));
+}
+function _maskRuns(n) {
+  var runs = [], active = null;
+  if (n.type === 'BOOLEAN_OPERATION' || !n.children) return runs;
+  for (var i = 0; i < n.children.length; i++) {
+    var c = n.children[i];
+    if (_ignoreHidden && _isHidden(c)) continue;
+    if (_maskBoundary(c)) active = null;
+    if (c.isMask === true) { active = { mask: c, members: [c] }; runs.push(active); }
+    else if (active) active.members.push(c);
+  }
+  return runs;
+}
+function _nativeMaskSupported(run, organize) {
+  var mask = run.mask, fills = mask.fills;
+  if (_rasterWhole(mask) || (mask.children && mask.type !== 'BOOLEAN_OPERATION') ||
+      !mask.fillGeometry || !mask.fillGeometry.length || !fills || fills === figma.mixed ||
+      (mask.strokes || []).some(function (p) { return p.visible !== false; }) ||
+      (mask.effects || []).some(function (e) { return e.visible !== false; })) return false;
+  var visible = fills.filter(function (p) { return p.visible !== false; });
+  if (visible.length !== 1 || visible[0].type !== 'SOLID') return false;
+  // Vector masks ignore paint alpha. Both writers express ordinary solid alpha/luma masks.
+  if (mask.maskType === 'VECTOR' && (visible[0].opacity != null && visible[0].opacity !== 1)) return false;
+  function supported(n) {
+    if (_ignoreHidden && _isHidden(n)) return true;
+    if (_isContainer(n) && (!organize || (n.effects || []).some(function (e) { return e.visible !== false; }))) return false;
+    if (n.type === 'TEXT' && n.fills && n.fills !== figma.mixed && n.fills.some(function (p) { return p.visible !== false && /^GRADIENT_/.test(p.type); })) return false;
+    // Image crops and a Figma mask require a combined matte; render only that mask scope.
+    if (!_isContainer(n) && n.fills && n.fills !== figma.mixed && n.fills.some(function (p) { return p.visible !== false && p.type === 'IMAGE'; })) return false;
+    return n.type === 'BOOLEAN_OPERATION' || !n.children || n.children.every(supported);
+  }
+  return run.members.slice(1).every(supported);
+}
+
 // Build mask relationships BEFORE collecting any channel. A mask applies to the siblings AFTER
 // it (Figma's paint order); it is not artwork of its own. This is the vector equivalent of the
 // PSD exporter's mask/base handling, without rasterising the design.
 function buildImportMaps(root) {
   _maskByNode = {}; _maskSourceByNode = {};
-  if (!_convertMasks) return;                // match the original importer exactly
+  if (!_convertMasks) return;
   (function walk(n, inheritedMask, maskRoot) {
     if (_ignoreHidden && _isHidden(n)) return;
     var isMask = false;
@@ -212,7 +249,9 @@ function buildImportMaps(root) {
     for (var i = 0; i < n.children.length; i++) {
       var child = n.children[i];
       if (_ignoreHidden && _isHidden(child)) continue;
-      walk(child, siblingMask || inheritedMask, activeMaskRoot);
+      if (_maskBoundary(child)) siblingMask = null;
+      var inherited = _includeRootContainer && _isContainer(n) && _maskByNode[n.id] ? null : inheritedMask;
+      walk(child, siblingMask || inherited, activeMaskRoot);
       var childIsMask = false;
       try { childIsMask = (child.isMask === true); } catch (ec) {}
       if (!activeMaskRoot && childIsMask) siblingMask = child;
@@ -220,43 +259,17 @@ function buildImportMaps(root) {
   })(root, null, null);
 }
 
-// A group that uses Figma masks/images/blends cannot be reproduced reliably as separate AE
-// shapes. Rasterise the smallest container that owns those features and has no text inside;
-// text stays on its own editable channel. This preserves the exact Figma pixels for the
-// complex background while keeping text live.
-function _subtreeFlags(n, hiddenAncestor) {
-  var flags = { mask: false, text: false, complex: false, marked: false };
+// Only explicit raster boundaries propagate. A child's paint/effect never flattens its parent.
+function _subtreeFlags(n) {
+  var flags = { marked: false };
   if (!n) return flags;
   if (_subtreeFlagsByNode && _subtreeFlagsByNode[n.id]) return _subtreeFlagsByNode[n.id];
   if (_subtreeFlagsByNode) _subtreeFlagsByNode[n.id] = flags;
   if (_ignoreHidden && _isHidden(n)) return flags;
   flags.marked = _rasterWhole(n) || !!_blendMerged[n.id] || !!_blendPaintMerged[n.id];
-  if (n.type === 'TEXT') flags.text = true;
-  if (n.type === 'BOOLEAN_OPERATION') flags.complex = true;   // compound geometry is fragile per-shape
-  try { if (n.isMask === true) { flags.mask = true; flags.complex = true; } } catch (e) {}
-  try {
-    if (_effectGroupByNode[n.id] || (n.blendMode && n.blendMode !== 'PASS_THROUGH' && n.blendMode !== 'NORMAL')) flags.complex = true;
-  } catch (eb) {}
-  try {
-    var filters = n.effects || [];
-    for (var ei = 0; ei < filters.length; ei++) {
-      if (filters[ei].visible === false) continue;
-      flags.complex = true;
-      break;
-    }
-  } catch (ee) {}
-  try {
-    var paints = n.fills || [];
-    for (var pi = 0; pi < paints.length; pi++) {
-      if (paints[pi].visible !== false && paints[pi].type === 'IMAGE') { flags.complex = true; break; }
-    }
-  } catch (ep) {}
   if (n.type !== 'BOOLEAN_OPERATION' && n.children) {
     for (var i = 0; i < n.children.length; i++) {
-      var f = _subtreeFlags(n.children[i], hiddenAncestor);
-      flags.mask = flags.mask || f.mask;
-      flags.text = flags.text || f.text;
-      flags.complex = flags.complex || f.complex;
+      var f = _subtreeFlags(n.children[i]);
       flags.marked = flags.marked || f.marked;
     }
   }
@@ -286,57 +299,60 @@ function _singleImageNeedsRaster(n) {
   } catch (e) { return false; }
   return image && crop;
 }
-function _collectRasterCandidates(root) {
-  var out = [], textNodes = [];
+function _collectRasterCandidates(root, organize) {
+  var out = [];
   _rasterByNode = {};
   for (var mergedId in _blendMerged) _rasterByNode[mergedId] = true;
   _subtreeFlagsByNode = {};
-  function scan(n, mergeEffects) {
+  function add(n) { out.push({ node: n }); _markRaster(n); }
+  function scan(n) {
     if (_ignoreHidden && _isHidden(n)) return;
-    if (_blendMerged[n.id]) return;
+    if (_rasterByNode[n.id]) return;
     if (_rasterWhole(n)) {
-      out.push(n); _markRaster(n); return;
+      add(n); return;
     }
-    if (_rasterTexts && n.type === 'TEXT') { textNodes.push(n); return; }
-    if (!_rasterGroups) {
-      if (n.type !== 'BOOLEAN_OPERATION' && n.children)
-        for (var ci = 0; ci < n.children.length; ci++) scan(n.children[ci]);
-      return;
+    if (_rasterTexts && n.type === 'TEXT') { add(n); return; }
+    if (n.type === 'TEXT' && n.hasMissingFont) throw new Error('文字「' + n.name + '」缺少字体');
+    var paintLists = [n.fills || [], n.strokes || []], unsupportedPaint = false;
+    for (var pl = 0; pl < paintLists.length; pl++) if (paintLists[pl] !== figma.mixed) {
+      for (var pi = 0; pi < paintLists[pl].length; pi++) {
+        var paint = paintLists[pl][pi];
+        if (paint.visible !== false && paint.type === 'IMAGE' && !paint.imageHash) throw new Error('图层「' + n.name + '」的图片素材缺失');
+        if (paint.visible !== false && ['SOLID', 'IMAGE', 'GRADIENT_LINEAR', 'GRADIENT_RADIAL'].indexOf(paint.type) === -1) unsupportedPaint = true;
+      }
     }
-    mergeEffects = mergeEffects || _effectGroupByNode[n.id];
-    var f = _subtreeFlags(n, false);
-    if (!f.complex && !f.marked && !mergeEffects && !(_rasterTexts && f.text)) return;
-    // An explicit mark defines the raster boundary; do not absorb it into an automatic parent.
-    if (!f.marked && !f.text && (_isContainer(n) || mergeEffects || (n.type !== 'TEXT' && (n.effects || []).some(function (e) { return e.visible !== false; })))) {
-      out.push(n);
-      _markRaster(n);
-      return;
+    if (unsupportedPaint) {
+      if (_rasterGroups && !_isContainer(n)) { add(n); return; }
+      throw new Error('图层「' + n.name + '」包含不支持的填充，请标记该层栅格化');
     }
-    // A cropped/effected picture is already a bitmap in Figma. Rasterising ONLY THIS LEAF is
-    // lossless in appearance and keeps it independently animatable; no sibling/group is merged.
-    if (_singleImageNeedsRaster(n)) {
-      out.push(n);
-      _markRaster(n);
-      return;
+    var visibleEffects = (n.effects || []).filter(function (e) { return e.visible !== false; });
+    if (visibleEffects.some(function (e) { return e.type === 'BACKGROUND_BLUR'; })) throw new Error('图层「' + n.name + '」的背景模糊依赖外部内容，暂不支持');
+    var unknownEffect = visibleEffects.some(function (e) { return ['DROP_SHADOW', 'INNER_SHADOW', 'LAYER_BLUR'].indexOf(e.type) === -1; });
+    if (unknownEffect) {
+      if (_rasterGroups && !_isContainer(n)) { add(n); return; }
+      throw new Error('图层「' + n.name + '」包含不支持的效果，请标记该层栅格化');
     }
-    var before = out.length;
+    if (_rasterGroups) {
+      if (n.type === 'BOOLEAN_OPERATION' && !(n.fillGeometry || []).length) { add(n); return; }
+      var localEffects = visibleEffects.filter(function (e) { return e.type !== 'DROP_SHADOW'; });
+      if (_isContainer(n) && localEffects.length && !organize) throw new Error('图层「' + n.name + '」的组效果需要启用预合成');
+      if (!_isContainer(n) && n.type !== 'TEXT' && (localEffects.length || _singleImageNeedsRaster(n))) { add(n); return; }
+    }
+    if (_convertMasks) {
+      var runs = _maskRuns(n);
+      for (var mi = 0; mi < runs.length; mi++) {
+        var run = runs[mi];
+        if (run.members.length < 2) throw new Error('蒙版「' + run.mask.name + '」没有被遮罩的图层');
+        if (_nativeMaskSupported(run, organize)) continue;
+        if (!_rasterGroups) throw new Error('蒙版「' + run.mask.name + '」无法转换，请开启自动栅格化');
+        out.push({ node: n, mask: run.mask, members: run.members });
+        for (var mm = 0; mm < run.members.length; mm++) _markRaster(run.members[mm]);
+      }
+    }
     if (n.type !== 'BOOLEAN_OPERATION' && n.children)
-      for (var i = 0; i < n.children.length; i++) scan(n.children[i], mergeEffects);
-    // A mask + text container may have no separable background. Rasterising it (including its
-    // text) is the only faithful option; otherwise the text would escape the Figma mask.
-    if (!f.marked && _isContainer(n) && f.text && f.mask && out.length === before) {
-      out.push(n);
-      _markRaster(n);
-    }
+      for (var i = 0; i < n.children.length; i++) scan(n.children[i]);
   }
-  if (_rasterWhole(root) || (_rasterTexts && root.type === 'TEXT') || (_rasterGroups && (_effectGroupByNode[root.id] || (root.effects || []).some(function (e) { return e.visible !== false; })))) scan(root);
-  else if (root.children) for (var i = 0; i < root.children.length; i++) scan(root.children[i]);
-  // Preserve whole-group raster decisions (including mask + text groups) before adding
-  // individual text PNGs. A text already baked into a parent must not be exported twice.
-  for (var ti = 0; ti < textNodes.length; ti++) {
-    if (_rasterByNode[textNodes[ti].id]) continue;
-    out.push(textNodes[ti]); _markRaster(textNodes[ti]);
-  }
+  scan(root);
   return out;
 }
 
@@ -351,7 +367,6 @@ async function _bakeBlendStacks(root, organize) {
   function effects(n) { return (n.effects || []).some(function (e) { return e.visible !== false; }); }
   function hasMask(n) { return n.children && n.children.some(function (c) { return c.visible !== false && c.isMask; }); }
   function masksClose(n, bounds) { return !n.children || n.children.every(function (c) { return _isHidden(c) || !c.isMask || _rasterOpaqueBackdrop(c, bounds, true); }); }
-  function hasText(n) { return n.type === 'TEXT' || !!(n.children && n.children.some(hasText)); }
   function opaque(n, bounds) {
     if (_isHidden(n) || n.opacity !== 1 || mixed(n) || effects(n)) return false;
     if (_rasterOpaqueBackdrop(n, bounds)) return true;
@@ -407,11 +422,16 @@ async function _bakeBlendStacks(root, organize) {
       if (paintBlend(ctx) && mode(ctx) !== 'PASS_THROUGH') await whole(ctx);
       return;
     }
+    // Masks own their scope; parent effects and opacity remain on the precomp.
+    if (hasMask(ctx) || effects(ctx) || ctx.opacity !== 1) {
+      for (var vi = 0; vi < ctx.children.length; vi++) await visit(ctx.children[vi]);
+      return;
+    }
     var atoms = [], ownPaint = paints(ctx).length > 0;
     if (ownPaint) atoms.push({ node: ctx, paint: true, blend: paintBlend(ctx), bounds: box(ctx) });
     function flatten(n) {
       if (_isHidden(n)) return;
-      if (_isContainer(n) && mode(n) === 'PASS_THROUGH' && n.opacity === 1 && !paints(n).length && !effects(n) && !hasMask(n) && !hasText(n) && !n.clipsContent && !_rasterWhole(n)) n.children.forEach(flatten);
+      if (_isContainer(n) && mode(n) === 'PASS_THROUGH' && n.opacity === 1 && !paints(n).length && !effects(n) && !hasMask(n) && !n.clipsContent && !_rasterWhole(n)) n.children.forEach(flatten);
       else atoms.push({ node: n, paint: false, blend: outsideBlend(n), bounds: box(n) });
     }
     ctx.children.forEach(flatten);
@@ -420,27 +440,23 @@ async function _bakeBlendStacks(root, organize) {
       if (!atoms[end].blend) continue;
       var needed = atoms[end].bounds, start = -1;
       for (var back = end - 1; back >= 0; back--) {
+        if (_maskBoundary(atoms[back].node) || _subtreeFlags(atoms[back].node).marked) break;
         if (atoms[back].blend) needed = union(needed, atoms[back].bounds);
         if (masksClose(ctx, needed) && !atoms[back].blend && opaque(atoms[back].node, needed)) { start = back; break; }
       }
       if (start < 0 && isolated) start = 0;
       if (start < 0) continue;
+      if (atoms.slice(start, end + 1).some(function (a) { return _maskBoundary(a.node) || _subtreeFlags(a.node).marked || !!_maskByNode[a.node.id]; })) continue;
       while (ranges.length && start <= ranges[ranges.length - 1].end) start = Math.min(start, ranges.pop().start);
       ranges.push({ start: start, end: end });
-    }
-    if (ranges.length && ctx.opacity === 1 && !hasMask(ctx) && effects(ctx) && (ctx.effects || []).every(function (e) { return e.visible === false || e.type === 'DROP_SHADOW'; })) {
-      images.push(await _bakeNodeShadow(ctx, root, organize));
-    }
-    if (ranges.length && (effects(ctx) || ctx.opacity !== 1 || hasMask(ctx))) {
-      await whole(ctx); return;
     }
     if (ranges.length) await fonts(atoms.map(function (a) { return a.node; }));
     for (var ri = 0; ri < ranges.length; ri++) {
       var range = ranges[ri], keep = [], includePaint = false, lifted = [];
       for (var k = range.start; k <= range.end; k++) {
         var atom = atoms[k];
-        // A label can move above this PNG when no later merged paint intersects its pixels.
-        if (atom.node.type === 'TEXT' && !atom.blend && atoms.slice(k + 1, range.end + 1).every(function (a) { return !overlap(atom.bounds, a.bounds); })) { lifted.push(atom.node); continue; }
+        // Pictures, icons and buttons have the same independence as text.
+        if (!atom.paint && !atom.blend && atoms.slice(k + 1, range.end + 1).every(function (a) { return !overlap(atom.bounds, a.bounds); })) { lifted.push(atom.node); continue; }
         if (atom.paint) includePaint = true;
         else keep.push(atom.node);
       }
@@ -480,7 +496,10 @@ async function _bakeBlendStacks(root, organize) {
         _zMap[parent.id] = image.z + 0.2;
         parent = parent.parent;
       }
-      for (var lt = 0; lt < lifted.length; lt++) _zMap[lifted[lt].id] = image.z + 0.1 + lt * 0.0001;
+      for (var lt = 0; lt < lifted.length; lt++) {
+        _zMap[lifted[lt].id] = image.z + 0.1 + lt * 0.0001;
+        for (var lp = lifted[lt].parent; lp && lp !== root && lp !== ctx && image.path.indexOf(lp.id) === -1; lp = lp.parent) _zMap[lp.id] = image.z + 0.2;
+      }
       delete image.rasterNode; delete image.rasterBounds; delete image.rasterPass;
       images.push(image); keep.forEach(mark); stats.merged++; stats.layers += keep.length + (includePaint ? 1 : 0);
       if (includePaint) { paintOwners.push(ctx); _blendPaintMerged[ctx.id] = true; }
@@ -517,7 +536,6 @@ async function _bakeNodeShadow(n, root, organize) {
     dy: (cleanBounds.y - fullBounds.y) * 2, w: cleanBounds.width * 2, h: cleanBounds.height * 2 };
   image.name += '_投影'; image.blend = 'NORMAL'; image.z -= 0.01; image.shadow = true;
   image.external = n === root; delete image.rasterNode; delete image.rasterBounds;
-  if (_isContainer(n)) _effectGroupByNode[n.id] = true;
   return image;
 }
 
@@ -552,7 +570,7 @@ function _rasterMeta(n, root, organize) {
     scaleMode: 'FIT', opacity: opacity,
     hidden: false, blend: n.blendMode || 'NORMAL',
     // exportAsync already bakes the absolute transform into the PNG's axis-aligned bounds.
-    path: _pathOf(n, root.id), z: _zOf(n), rotation: 0, matte: null
+    path: _pathOf(n, root.id), z: _zOf(n), rotation: 0, matte: null, maskId: _maskByNode[n.id] || null
   };
 }
 
@@ -598,7 +616,7 @@ function _rasterOpaqueBackdrop(n, bounds, maskBounds) {
 
 // Transparent pass-through groups still need the AE backdrop. Keep their blended PNGs
 // separate, retaining paint order and the Figma masks around each render pass.
-function _rasterBlendPasses(root) {
+function _rasterBlendPasses(root, members) {
   function hasPaintOrEffect(n) {
     var fills = n.fills, strokes = n.strokes, fx = n.effects || [], i;
     if (fills && fills !== figma.mixed) for (i = 0; i < fills.length; i++) if (fills[i].visible !== false) return true;
@@ -606,12 +624,13 @@ function _rasterBlendPasses(root) {
     for (i = 0; i < fx.length; i++) if (fx[i].visible !== false) return true;
     return typeof n.opacity === 'number' && n.opacity !== 1;
   }
-  if (!_isContainer(root) || root.blendMode !== 'PASS_THROUGH' || hasPaintOrEffect(root)) return [{}];
+  if (!members && (!_isContainer(root) || root.blendMode !== 'PASS_THROUGH' || hasPaintOrEffect(root))) return [{}];
   var atoms = [], anyBlend = false, bounds = root.absoluteRenderBounds || root.absoluteBoundingBox;
   function children(n, canClose) {
     var maskAllowsBackdrop = true;
-    for (var i = 0; i < n.children.length; i++) {
-      var child = n.children[i];
+    var list = n === root && members ? members : n.children;
+    for (var i = 0; i < list.length; i++) {
+      var child = list[i];
       if (_isHidden(child)) continue;
       if (child.isMask === true) maskAllowsBackdrop = _rasterOpaqueBackdrop(child, bounds, true);
       else walk(child, canClose && maskAllowsBackdrop);
@@ -663,15 +682,25 @@ async function _exportRasterPass(im) {
     _updateRasterBounds(im);
     return im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
   }
-  var restored = [], target = (pass.blend !== 'NORMAL') ? pass.keep[0] : null;
+  var restored = [], parentState = [], target = (pass.blend !== 'NORMAL') ? pass.keep[0] : null;
   var oldBlend = target ? target.blendMode : null;
   try {
+    if (pass.mask) {
+      var parent = im.rasterNode;
+      for (var si = 0, keys = ['fills', 'strokes', 'effects', 'opacity', 'blendMode']; si < keys.length; si++) {
+        var key = keys[si];
+        if (!(key in parent)) continue;
+        parentState.push({ key: key, value: parent[key] });
+        parent[key] = key === 'opacity' ? 1 : key === 'blendMode' ? 'PASS_THROUGH' : [];
+      }
+    }
     for (var i = 0; i < pass.atoms.length; i++) {
       var atom = pass.atoms[i];
       if (pass.keep.indexOf(atom) !== -1) continue;
       // Visibility removes an item from auto layout and moves the retained artwork.
       // Suppress its paint while keeping its original place and size in the layout.
-      restored.push({ node: atom, opacity: atom.opacity }); atom.opacity = 0;
+      restored.push({ node: atom, opacity: atom.opacity, mask: atom.isMask }); atom.opacity = 0;
+      if (pass.mask && atom.isMask === true) atom.isMask = false;
     }
     if (target) target.blendMode = 'NORMAL';
     // Suppressing other artwork can shrink the render bounds. Carry the resulting crop back
@@ -680,7 +709,11 @@ async function _exportRasterPass(im) {
     return await im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
   } finally {
     if (target) target.blendMode = oldBlend;
-    for (var j = restored.length - 1; j >= 0; j--) restored[j].node.opacity = restored[j].opacity;
+    for (var j = restored.length - 1; j >= 0; j--) {
+      restored[j].node.opacity = restored[j].opacity;
+      if (pass.mask && restored[j].mask === true) restored[j].node.isMask = true;
+    }
+    for (var ps = 0; ps < parentState.length; ps++) im.rasterNode[parentState[ps].key] = parentState[ps].value;
   }
 }
 
@@ -717,6 +750,7 @@ function _contentBounds(n) {
 }
 
 function _isPureTextContainer(n) {
+  if (_maskByNode[n.id]) return false;
   if (!_isContainer(n) || n.clipsContent === true) return false;
   try { if ((n.fills || []).length || (n.strokes || []).length) return false; } catch (e) { return false; }
   try {
@@ -770,6 +804,7 @@ function collectContainers(root) {
         // cheap on a big group.
         out.push({
           id: n.id, name: n.name || 'Group', type: n.type,
+          maskId: _maskByNode[n.id] || null,
           root: (n === root),
           path: _pathOf(n, root.id), z: _zOf(n),
           x: b.x, y: b.y, w: b.width, h: b.height,
@@ -812,8 +847,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     return;
   }
   _ignoreHidden = (ignoreHidden !== false);       // default: hidden Figma layers stay out of AE
-  _convertMasks = (convertMasks === true);        // opt-in only; original behaviour otherwise
-  _rasterGroups = (rasterGroups !== false);       // default: exact Figma PNG for complex mask groups
+  _rasterGroups = (rasterGroups !== false);
+  _convertMasks = convertMasks === true || _rasterGroups;
   _rasterTexts = (rasterTexts === true);
   options = options || {};
   _mergeBlends = options.mergeBlends === true;
@@ -886,12 +921,16 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     // A fully rasterized selection needs no SVG, including a directly selected text node.
     if (_rasterWhole(node) || (_rasterTexts && node.type === 'TEXT')) useNodes = true;
     _zMap = buildZMap(node);
+    if (node.isMask === true) throw new Error('蒙版「' + node.name + '」缺少作用内容，请选择其所在分组');
     buildImportMaps(node);
-    _effectGroupByNode = {};
+    if (!useNodes && Object.keys(_maskSourceByNode).length) {
+      useNodes = true; _includeRootContainer = !!organize; buildImportMaps(node);
+    }
+    _subtreeFlagsByNode = {};
     var blendBake = _mergeBlends ? await _bakeBlendStacks(node, !!organize) : { images: [], stats: null };
-    var rasterCandidates = _collectRasterCandidates(node);
+    var rasterCandidates = _collectRasterCandidates(node, !!organize);
     var shadowImages = _rasterGroups ? await _bakeEditableShadows(node, !!organize) : [];
-    if (shadowImages.length) rasterCandidates = _collectRasterCandidates(node);
+    if (shadowImages.length) rasterCandidates = _collectRasterCandidates(node, !!organize);
     var nodeShapes = useNodes ? collectShapes(node, !!organize) : null;
     var containers = organize ? collectContainers(node) : null;
     var texts = collectTexts(node, { x: 0, y: 0 }, node.id, !!organize);
@@ -899,7 +938,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     var images = await collectImages(node, node.id, !!organize);
     images = images.concat(blendBake.images, shadowImages);
     for (var rci = 0; rci < rasterCandidates.length; rci++) {
-      var rn = rasterCandidates[rci], passes = _rasterWhole(rn) ? [{}] : _rasterBlendPasses(rn);
+      var candidate = rasterCandidates[rci], rn = candidate.node;
+      var passes = _rasterWhole(rn) ? [{}] : _rasterBlendPasses(rn, candidate.members);
       for (var rpi = 0; rpi < passes.length; rpi++) {
         var rim = _rasterMeta(rn, node, !!organize), pass = passes[rpi];
         if (pass.atoms) {
@@ -907,6 +947,17 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
           rim.name = (rpi === 0 ? rn.name : pass.keep[0].name).replace(/[^A-Za-z0-9_\-\u4e00-\u9fa5]+/g, '_');
           rim.z = _zOf(pass.keep[0]);
           rim.blend = pass.blend;
+        }
+        if (candidate.members) {
+          var outside = rn.children.filter(function (c) { return candidate.members.indexOf(c) === -1; });
+          rim.rasterPass = { atoms: outside.concat(pass.atoms || candidate.members.slice(1)),
+            keep: pass.keep || candidate.members.slice(1), blend: pass.blend || 'NORMAL', mask: candidate.mask };
+          rim.name = candidate.mask.name + '_蒙版';
+          rim.path = _pathOf(rn, node.id);
+          if (rn !== node || _includeRootContainer) rim.path.push(rn.id);
+          rim.opacity = organize ? 1 : _opacityChain(rn, false, node.id);
+          rim.blend = pass.blend || 'NORMAL'; rim.maskId = null;
+          rim.z = _zOf(pass.keep ? pass.keep[pass.keep.length - 1] : candidate.members[candidate.members.length - 1]);
         }
         images.push(rim);
       }
@@ -999,8 +1050,11 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       })(node);
       // Raster candidates arrive through the image channel. Keep them out of legacy SVG too.
       for (var rh = 0; rh < rasterCandidates.length; rh++) {
-        var rnHide = rasterCandidates[rh];
-        rasterHidden.push([rnHide, rnHide.visible]); rnHide.visible = false;
+        var hiddenMembers = rasterCandidates[rh].members || [rasterCandidates[rh].node];
+        for (var hm = 0; hm < hiddenMembers.length; hm++) {
+          var rnHide = hiddenMembers[hm];
+          rasterHidden.push([rnHide, rnHide.visible]); rnHide.visible = false;
+        }
       }
       var bytes = await node.exportAsync({ format: 'SVG', svgIdAttribute: true });   // keeps Figma layer names
       // Uint8Array -> string, chunked (fromCharCode.apply caps at ~65534 args).
@@ -1105,7 +1159,6 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     _temporaryExportRoot = null;
     _subtreeFlagsByNode = null;
     _contentBoundsByNode = null;
-    _effectGroupByNode = {};
     _blendMerged = {};
     _blendPaintMerged = {};
     _exporting = false;
@@ -1291,11 +1344,11 @@ function collectShapes(root, organize) {
             for (var pz = 0; pz < pieces.length; pz++) {
               out.push({
                 name: n.name, id: n.id + '/' + pz,
-                maskId: _maskByNode[n.id] || null, maskSource: _maskSourceByNode[n.id] || null,
+                maskId: organize && isGroup ? null : (_maskByNode[n.id] || null), maskSource: _maskSourceByNode[n.id] || null,
                 maskType: n.maskType || 'ALPHA',
                 path: _pathOf(n, root.id), z: _zOf(n),
-                prim: null, hidden: _isHidden(n), opacity: chainOpacity,
-                blend: n.blendMode || 'NORMAL',
+                prim: null, hidden: _isHidden(n), opacity: _maskSourceByNode[n.id] ? own : chainOpacity,
+                blend: organize && isGroup ? 'NORMAL' : (n.blendMode || 'NORMAL'),
                 paths: pieces[pz].d,
                 matrix: [m[0][0], m[1][0], m[0][1], m[1][1], m[0][2], m[1][2]],
                 fills: pieces[pz].fills, strokes: (pz === pieces.length - 1 ? strokes : []),
@@ -1316,7 +1369,7 @@ function collectShapes(root, organize) {
           out.push({
             name: n.name,
             id: n.id,                        // lets group effects tell leaves apart (see exportNode)
-            maskId: _maskByNode[n.id] || null,
+            maskId: organize && isGroup ? null : (_maskByNode[n.id] || null),
             maskSource: _maskSourceByNode[n.id] || null,
             maskType: n.maskType || 'ALPHA',
             // A FRAME is BOTH a container and a painted layer: the card's own background. Its
@@ -1326,8 +1379,8 @@ function collectShapes(root, organize) {
             z: _zOf(n),                      // paint order across the whole tree
             prim: prim,
             hidden: _isHidden(n),
-            opacity: chainOpacity,
-            blend: n.blendMode || 'NORMAL',
+            opacity: _maskSourceByNode[n.id] ? own : chainOpacity,
+            blend: organize && isGroup ? 'NORMAL' : (n.blendMode || 'NORMAL'),
             paths: d,
             matrix: [m[0][0], m[1][0], m[0][1], m[1][1], m[0][2], m[1][2]],   // a,b,c,d,e,f
             fills: fills,
@@ -1348,7 +1401,7 @@ function collectShapes(root, organize) {
           });
         }
       }
-    } catch (e) {}
+    } catch (e) { throw new Error('图层「' + n.name + '」读取失败：' + (e.message || e)); }
     // children are painted after the parent, so keep the natural order.
     // EXCEPT a boolean operation: Figma renders the RESULT only, its operands are not drawn.
     // Descending into them collected the operand shapes as real layers, and since they cover the
@@ -1468,15 +1521,16 @@ async function collectImages(root, rootId, organize) {
             // Was the node's OWN opacity only, so a picture inside a faded group arrived at full
             // strength. The chain fixes that, and in organize mode it stops at the container
             // because the precomp carries the group's opacity.
-            scaleMode: mode, opacity: _opacityChain(n, organize, rootId), hidden: _isHidden(n),
-            maskId: _maskByNode[n.id] || null,
-            blend: n.blendMode || 'NORMAL', path: _pathOf(n, rootId), z: _zOf(n),
+            scaleMode: mode, opacity: organize && _isContainer(n) ? 1 : _opacityChain(n, organize, rootId), hidden: _isHidden(n),
+            maskId: organize && _isContainer(n) ? null : (_maskByNode[n.id] || null),
+            blend: organize && _isContainer(n) ? 'NORMAL' : (n.blendMode || 'NORMAL'),
+            path: organize && _isContainer(n) ? _pathOf(n, rootId).concat([n.id]) : _pathOf(n, rootId), z: _zOf(n),
             rotation: _rotOf(n), matte: needsMatte ? m : null
           });
           break;                                              // one picture per node
         }
       }
-    } catch (e) {}
+    } catch (e) { throw new Error('图片「' + n.name + '」读取失败：' + (e.message || e)); }
     // operands of a boolean are not rendered by Figma, so nothing inside one is a real layer
     if (n.type !== 'BOOLEAN_OPERATION' && 'children' in n)
       for (var c = 0; c < n.children.length; c++) stack.push(n.children[c]);
@@ -1501,9 +1555,7 @@ function _pngSize(bytes) {
 async function shipImages(images) {
   if (!images.length) return;
   if (typeof figma.base64Encode !== 'function') {
-    figma.notify('已跳过图片——当前 Figma 版本不支持 base64Encode');
-    figma.ui.postMessage({ type: 'image-abort' });
-    return;
+    throw new Error('当前 Figma 版本不支持图片导出');
   }
   var CHUNK = 1024 * 1024;
   for (var q = 0; q < images.length; q++) {
@@ -1532,12 +1584,12 @@ async function shipImages(images) {
         b64 = figma.base64Encode(bytes);
         bytes = null;
       }
-    } catch (e) { continue; }
+    } catch (e) { throw new Error('图片「' + im.name + '」导出失败：' + (e.message || e)); }
     var meta = { name: im.name, ext: ext, x: im.x, y: im.y, w: im.w, h: im.h,
                  cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch,
                  natW: natW, natH: natH, scaleMode: im.scaleMode,
                  opacity: im.opacity, rotation: im.rotation, matte: im.matte,
-                 blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0),
+                 blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0), maskId: im.maskId || null,
                  hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, shadowBase: im.shadowBase || null, mergedBlend: !!im.mergedBlend, external: !!im.external };
     var parts = Math.max(1, Math.ceil(b64.length / CHUNK));
     for (var pi = 0; pi < parts; pi++) {
@@ -1877,7 +1929,7 @@ function collectTexts(root, rootBox, rootId, organize) {
             });
           }
         }
-      } catch (e) {}
+      } catch (e) { throw new Error('文字「' + n.name + '」读取失败：' + (e.message || e)); }
     }
     // text used as a boolean operand is baked into the boolean's result, not a live layer
     if (n.type !== 'BOOLEAN_OPERATION' && 'children' in n)

@@ -8,7 +8,7 @@ const root = path.join(__dirname, '..');
 
 function bridgeHarness() {
   let request, nextTimer = 0;
-  const batches = [], imports = [], timers = new Map();
+  const batches = [], imports = [], aborts = [], timers = new Map();
   const context = vm.createContext({
     module: {exports: {}}, Buffer,
     require(name) {
@@ -19,16 +19,16 @@ function bridgeHarness() {
     clearTimeout(id) { timers.delete(id); }
   });
   vm.runInContext(fs.readFileSync(path.join(root, 'client/mkBridgeServer.js'), 'utf8'), context);
-  context.module.exports.start({onSvg(svg, meta) { imports.push({svg, meta}); }, onImages(images) { batches.push(images); }});
+  context.module.exports.start({onSvg(svg, meta) { imports.push({svg, meta}); }, onImages(images) { batches.push(images); },onAbort(message){aborts.push(message);}});
   function send(message) {
     const req = new EventEmitter(); req.method = 'POST';
     let response;
     request(req, {writeHead() {}, end(body) { response = JSON.parse(body); }});
     req.emit('data', JSON.stringify(message)); req.emit('end');
-    assert.equal(response.ok, true, response.error);
+    assert.ok(response.ok || message.type==='export-abort',response.error);
     return response;
   }
-  return {send, batches, imports, timers};
+  return {send, batches, imports, timers, aborts};
 }
 function uiHarness(bridge, main) {
   const html = fs.readFileSync(path.join(root, 'figma-plugin/ui.html'), 'utf8'), elements = {};
@@ -53,13 +53,16 @@ function uiHarness(bridge, main) {
   assert.equal(bridge.batches.length, 0); assert.equal(bridge.timers.size, 0, 'A slow PNG must not cause a timeout flush');
   bridge.send({type: 'image', total: 3, image: {name: 'third'}}); // one PNG failed in Figma
   bridge.send({type: 'images-complete'});
-  assert.equal(bridge.batches.length, 1); assert.equal(bridge.batches[0].length, 2);
+  assert.equal(bridge.batches.length, 0);assert.equal(bridge.aborts.length,1,'Do not import partial image batches');
   bridge.send({type: 'images-complete'});
-  assert.equal(bridge.batches.length, 1, 'Do not organize twice');
+  assert.equal(bridge.batches.length, 0, 'Do not organize failed batches');
   bridge.send({svg, imageCount: 1, imageBatch: true}); bridge.send({type: 'images-complete'});
-  assert.equal(bridge.batches.length, 2); assert.equal(bridge.batches[1].length, 0, 'All failed PNGs must still finalize grouping');
+  assert.equal(bridge.batches.length, 0);assert.equal(bridge.aborts.length,2);
   bridge.send({svg, imageCount: 1}); bridge.send({type: 'image', total: 1, image: {name: 'old plugin'}});
-  assert.equal(bridge.batches.length, 3, 'Older plugins still finish by image count');
+  assert.equal(bridge.batches.length, 1, 'Older plugins still finish by image count');
+  bridge.send({svg,imageCount:2,imageBatch:true});bridge.send({type:'image',total:2,image:{name:'partial'}});
+  bridge.send({type:'export-abort',message:'图片「broken」导出失败'});
+  bridge.send({type:'images-complete'});assert.equal(bridge.batches.length,1);assert.equal(bridge.aborts.length,3);
 
   // Exercise both actual scripts and the bridge together, including the two UI buttons.
   const connected = bridgeHarness(), scene = group('画框', [group('卡片', [node('TEXT', '卡片标题')])]), main = harness(scene);
@@ -104,5 +107,12 @@ function uiHarness(bridge, main) {
   assert.equal(blendBridge.batches[0].filter(im=>im.mergedBlend).length,1,'Blend checkbox reaches exporter through the real iframe');
   blendUi.elements.mergeblends.checked=false;await clickBlend();
   assert.equal(blendBridge.batches[1].filter(im=>im.mergedBlend).length,0);
+  const failedBridge=bridgeHarness(),failedMain=harness(group('page',[group('*broken image',[node('RECTANGLE','art')])]));
+  failedMain.figma.currentPage.selection[0].children[0].exportAsync=async()=>{throw new Error('render failed');};
+  const failedUi=uiHarness(failedBridge,failedMain);
+  await failedMain.context.exportSelectionSVG(true,true,true,false,true,false,{});
+  assert.equal(failedBridge.imports.length,1);assert.equal(failedBridge.batches.length,0);assert.equal(failedBridge.aborts.length,1);
+  assert.match(failedUi.elements.msg.textContent,/broken_image.*render failed/);
+  assert.equal(failedUi.elements.ship.disabled,false);
   console.log('PASS: explicit completion, slow/failed images, single batch, old protocol, main → actual UI → bridge, both mark buttons');
 })().catch(e => { console.error(e); process.exitCode = 1; });

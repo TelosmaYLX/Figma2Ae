@@ -35,15 +35,16 @@ async function exportAep(packet, directory, options = {}) {
     await run(pythonPath(options), [path.join(__dirname, 'aep/writer.py'), input, directory],
       {windowsHide: true, maxBuffer: 8 * 1024 * 1024, env: {...process.env, PYTHONUTF8: '1'}});
   } catch (error) {
-    if (error.code === 'ENOENT') throw new Error('请先运行 scripts/start-aep-export.ps1');
+    if (error.code === 'ENOENT') throw new Error('AEP 导出组件缺少 Python，请重新安装');
     const detail = (error.stderr || error.message).trim();
     const message = detail.split(/\r?\n/).at(-1).replace(/^\w*Error: /, '');
     throw new Error(message, {cause: error});
+  } finally {
+    await fs.unlink(input);
   }
   const result = JSON.parse(await fs.readFile(path.join(directory, 'report.json'), 'utf8'));
   result.totalMs = Math.round(performance.now() - started);
   // Packet may contain large base64 images. Keep only the deliverable and diagnostics.
-  await fs.unlink(input);
   return {...result, directory, project: path.join(directory, 'project.aep')};
 }
 

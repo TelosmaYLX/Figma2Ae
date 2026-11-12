@@ -15,7 +15,8 @@ for(const foreground of [[0,0,0,0],[255,255,255,255],[90,180,225,128],[220,140,6
 }
 (async()=>{
   const text=node('TEXT','button label',{effects:[drop]});
-  const back=node('RECTANGLE','button background',{fills:[{type:'SOLID',color:{r:.2,g:.3,b:.8}}]});
+  const geometry=[{data:'M0 0H100V60H0Z',windingRule:'NONZERO'}];
+  const back=node('RECTANGLE','button background',{fillGeometry:geometry,cornerRadius:0,fills:[{type:'SOLID',color:{r:.2,g:.3,b:.8}}]});
   const button=group('button',[back,text],{effects:[drop]});
   const h=harness(button),result=await h.run();
   assert.equal(result.ship.texts.length,1);assert.equal(result.ship.texts[0].characters,'Editable text');
@@ -25,12 +26,12 @@ for(const foreground of [[0,0,0,0],[255,255,255,255],[90,180,225,128],[220,140,6
   assert.equal(shadows.length,2,'Group silhouette and text-local shadows must both be retained');
   assert.ok(shadows.every(im=>im.shadow));
   assert.ok(shadows.some(im=>im.external),'The root shadow must stay outside the root clip');
-  assert.equal(backgrounds.length,1);assert.equal(result.references.length,1);
+  assert.equal(backgrounds.length,0);assert.equal(result.ship.nodes.length,1);assert.equal(result.references.length,1);
   assert.deepEqual(button.effects,[drop]);assert.deepEqual(text.effects,[drop]);
   const onlyText=harness(node('TEXT','shadow text',{effects:[drop]}));
   const tr=await onlyText.run();assert.equal(tr.ship.texts.length,1);assert.equal(tr.images.length,1);assert.ok(tr.images[0].shadowBase);
-  const leaf=harness(node('RECTANGLE','shadow shape',{effects:[drop],fills:[{type:'SOLID',color:{r:1,g:0,b:0}}]}));
-  const lr=await leaf.run();assert.equal(lr.images.length,1);assert.equal(lr.images[0].shadowBase,null);assert.equal(lr.ship.nodes.length,0);
+  const leaf=harness(node('RECTANGLE','shadow shape',{fillGeometry:geometry,cornerRadius:0,effects:[drop],fills:[{type:'SOLID',color:{r:1,g:0,b:0}}]}));
+  const lr=await leaf.run();assert.equal(lr.images.length,1);assert.ok(lr.images[0].shadowBase);assert.equal(lr.ship.nodes.length,1);
   for(const effect of [{type:'INNER_SHADOW',visible:true,radius:4,offset:{x:0,y:2},color:{r:0,g:0,b:0,a:.5}},{type:'LAYER_BLUR',visible:true,radius:4}]) {
     const plain=await harness(node('RECTANGLE','non-text effect',{effects:[effect]})).run();
     assert.equal(plain.images.length,1);assert.equal(plain.ship.nodes.length,0);

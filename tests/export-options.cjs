@@ -121,7 +121,7 @@ async function check() {
   const maskHarness = harness(group('画框', [masked]));
   const maskTextResult = await maskHarness.run(true, true, true, true);
   assert.equal(maskTextResult.images.length, 1, 'An automatically rasterized mask group includes its text once');
-  assert.match(maskTextResult.images[0].name, /蒙版文字/);
+  assert.match(maskTextResult.images[0].name, /遮罩/);
   const clippedText = node('TEXT', '部分超出画框的文字');
   const clipRoot = node('FRAME', '裁剪画框', {clipsContent: true, children: [clippedText]});
   Object.defineProperty(clippedText, 'absoluteRenderBounds', {get() {
@@ -145,8 +145,9 @@ async function check() {
   const clipScene = node('FRAME', '根裁剪', {clipsContent: true, children: [nestedClip]});
   const outsideClip = node('FRAME', '祖先裁剪', {clipsContent: true, children: [clipScene]});
   const noClip = harness(clipScene);
-  nestedClip.children[0].exportAsync = async () => {
-    assert.equal(clipScene.clipsContent, false); assert.equal(nestedClip.clipsContent, false); assert.equal(outsideClip.clipsContent, false);
+  nestedClip.children[0].exportAsync = async function() {
+    assert.equal(this.parent.clipsContent, false); assert.equal(this.parent.parent.clipsContent, false);
+    assert.equal(clipScene.clipsContent,true);assert.equal(nestedClip.clipsContent,true);assert.equal(outsideClip.clipsContent,true);
     return Buffer.from([0x89, 0x50, 0, 0]);
   };
   const unclipped = await noClip.run(true, false, true, true, {enableClip: false});
@@ -220,8 +221,9 @@ async function check() {
 
   const failed = harness(group('失败恢复', [group('*坏素材', [node('TEXT', '内容')])]));
   failed.figma.currentPage.selection[0].children[0].exportAsync = async () => { throw new Error('render failed'); };
-  await failed.run();
-  assert.equal(failed.messages.filter(m => m.type === 'images-done').length, 1, 'A failed PNG must still finish the image batch');
+  await failed.context.exportSelectionSVG(true,true,true,false,true,false,{});
+  assert.match(failed.messages.find(m=>m.type==='error').message,/坏素材.*render failed/);
+  assert.equal(failed.messages.filter(m => m.type === 'images-done').length, 0, 'A failed PNG must abort the batch');
   assert.equal(failed.context._exporting, false);
 
   const overflow = node('RECTANGLE', '溢出', {absoluteBoundingBox: {x: 150, y: 120, width: 30, height: 30}});

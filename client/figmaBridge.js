@@ -325,7 +325,7 @@
     chooseImageFolder(images, function (folder) {
       try {
         folder = (folder || '').replace(/^\s+|\s+$/g, '');
-        if (!folder) { flash('已跳过图片'); submitImport(job); return; }
+        if (!folder) { finishImport('已取消导入', true); return; }
         lastImageFolder = folder.replace(/\\/g, '/');
         try { localStorage.setItem('f2a.imageFolder', lastImageFolder); } catch (eStore) {}
         var fs2 = require('fs'), path2 = require('path'), list = [], used = {};
@@ -348,7 +348,7 @@
           list.push({ file: fname, name: im.name, x: im.x, y: im.y, w: im.w, h: im.h,
                       natW: im.natW, natH: im.natH, scaleMode: im.scaleMode,
                       opacity: im.opacity, rotation: im.rotation, matte: im.matte, blend: im.blend,
-                      path: im.path, z: im.z,
+                      path: im.path, z: im.z, maskId: im.maskId || null,
                       cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch, hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, mergedBlend: !!im.mergedBlend, external: !!im.external });
         }
         submitImport(job, saveJsonTemp(list, 'images').replace(/\\/g, '/'), lastImageFolder);
@@ -424,7 +424,7 @@
         else if (meta.organize) flash("没有嵌套组，将使用当前合成");
         var job = { data: {svgPath: arg, textsPath: tp, gradMapPath: gp, effectsPath: ep,
                            shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp},
-                    ready: !meta.imageCount, targetReady: false, images: null };
+                    ready: !meta.imageCount, expectedImages: meta.imageCount || 0, targetReady: false, images: null };
         importQueue.push(job);
         // Bind the target before the PNG wait or folder dialog can change the active viewer.
         evalES('mkFigmaTargetCompId()', function (id) {
@@ -436,9 +436,19 @@
       },
       // Pictures arrive after the SVG, one message each. Ask where to keep them (AE links to
       // footage on disk, it never embeds), write the files, then import them with their mattes.
+      onAbort: function (message) {
+        for (var i = 0; i < importQueue.length; i++) {
+          if (importQueue[i].ready) continue;
+          importQueue.splice(i, 1); flash(message, true); pumpImport(); return;
+        }
+      },
       onImages: function (images) {
         for (var i = 0; i < importQueue.length; i++) {
           if (importQueue[i].ready) continue;
+          if (images.length !== importQueue[i].expectedImages) {
+            importQueue.splice(i, 1); flash('图片数据不完整，已取消导入', true); pumpImport();
+            return {ok: false, error: '图片数据不完整'};
+          }
           importQueue[i].images = images; importQueue[i].ready = true;
           pumpImport();
           return { ok: true, images: images.length };

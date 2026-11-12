@@ -121,7 +121,7 @@
       .catch(function () { say('无法连接端口 ' + PORT + ' 上的 AE 桥接服务。', 'err'); });
   }
 
-  var organize = false;      // remembered until the payload is sent, so onmessage can pass it on
+  var organize = false, bridgePending = false;
   $('mark-raster').onclick = function () { parent.postMessage({ pluginMessage: { type: 'mark-raster' } }, '*'); };
   $('unmark-raster').onclick = function () { parent.postMessage({ pluginMessage: { type: 'unmark-raster' } }, '*'); };
   for (var toolId in toolButtons) (function (id) {
@@ -185,6 +185,35 @@
     });
   };
 
+  // Figma embeds this HTML; keep the same source-over solve as client/figmaRasterEffects.js inline.
+  function extractAepShadow(full, clean) {
+    var out = new Uint8ClampedArray(full.length);
+    for (var i = 0; i < full.length; i += 4) {
+      var af = full[i + 3] / 255, ac = clean[i + 3] / 255, remaining = 1 - ac;
+      if (remaining < 1 / 255 || af <= ac) continue;
+      var alpha = Math.max(0, Math.min(1, (af - ac) / remaining));
+      out[i + 3] = Math.round(alpha * 255);
+      for (var c = 0; c < 3; c++) out[i + c] = Math.max(0, Math.min(255, (full[i + c] * af - clean[i + c] * ac) / (remaining * alpha)));
+    }
+    return out;
+  }
+  function renderAepShadow(full, base) {
+    function load(data) { return new Promise(function (resolve, reject) {
+      var image = new Image(); image.onload = function () { resolve(image); };
+      image.onerror = function () { reject(new Error('无法读取投影图片')); };
+      image.src = 'data:image/png;base64,' + data;
+    }); }
+    return Promise.all([load(full), load(base.data)]).then(function (images) {
+      var canvas = document.createElement('canvas'), clean = document.createElement('canvas');
+      canvas.width = clean.width = images[0].naturalWidth; canvas.height = clean.height = images[0].naturalHeight;
+      var context = canvas.getContext('2d'), cleanContext = clean.getContext('2d');
+      context.drawImage(images[0], 0, 0); cleanContext.drawImage(images[1], base.dx, base.dy, base.w, base.h);
+      var pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      pixels.data.set(extractAepShadow(pixels.data, cleanContext.getImageData(0, 0, canvas.width, canvas.height).data));
+      context.putImageData(pixels, 0, 0);
+      return canvas.toDataURL('image/png').split(',')[1];
+    });
+  }
   function finishAep() {
     if (!aepPacket) return;
     var packet = aepPacket; aepPacket = null;
@@ -193,11 +222,25 @@
       say('部分图片导出失败，请重试。', 'err'); return;
     }
     say('正在生成 AEP…');
-    fetch('http://127.0.0.1:7868/export', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({destination: aepDestination, packet: packet}) })
+    var prepared = Promise.resolve();
+    packet.images.forEach(function (image) {
+      if (image.shadowBase) prepared = prepared.then(function () {
+        return renderAepShadow(image.data, image.shadowBase).then(function (data) {
+          image.data = data; image.shadowBase = null;
+        }, function (error) { throw new Error('投影「' + image.name + '」处理失败：' + error.message); });
+      });
+    });
+    prepared.then(function () {
+      return fetch('http://127.0.0.1:7868/export', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({destination: aepDestination, packet: packet}) });
+    })
       .then(function (r) {
         return r.json().then(function (result) { if (!r.ok) throw new Error(result.error); return result; });
       }).then(function (result) {
-        say('已导出到 ' + result.directory + (result.warnings.length ? '；部分属性请查看 report.json。' : ''), 'ok');
+        if (result.warnings.length) {
+          var issue = result.warnings[0];
+          throw new Error('图层「' + (issue.layer || '未知') + '」：' + (issue.detail || issue.code || '存在未导出的属性'));
+        }
+        say('已导出到 ' + result.directory, 'ok');
       }).catch(function (err) { say('AEP 导出失败：' + err.message, 'err'); })
       .then(function () { aepMode = aepBusy = false; aepDestination = null; updateButton(); });
   }
@@ -206,16 +249,24 @@
   window.onmessage = function (event) {
     var msg = event.data.pluginMessage;
     if (!msg) return;
+    if (msg.type === 'image-abort') msg = {type:'error',message:'图片导出失败，已取消导出'};
     if (msg.type === 'aep-launch-error' && aepLaunchReject) aepLaunchReject(new Error(msg.message));
     if (msg.type === 'selection') { selCount = msg.count; updateButton(); }
     if (msg.type === 'export-state') { exporting = msg.busy; updateButton(); }
     if (msg.type === 'mark-result') { say(msg.message, 'ok'); }
     if (msg.type === 'tool-result') { say(msg.message, 'ok'); }
-    if (msg.type === 'error') { exporting = aepBusy = aepMode = false; aepPacket = null; updateButton(); say(msg.message, 'err'); }
+    if (msg.type === 'error') {
+      if (bridgePending) {
+        var abort = {type: 'export-abort', message: msg.message};
+        if (connected && ws && ws.readyState === 1) ws.send(JSON.stringify(abort));
+        else shipHttp(abort);
+      }
+      bridgePending = false; exporting = aepBusy = aepMode = false; aepPacket = imgAsm = null; updateButton(); say(msg.message, 'err');
+    }
     if (msg.type === 'progress') { say(msg.message); }
-    if (msg.type === 'image-abort') { say('已跳过图片。', 'err'); }
     if (msg.type === 'images-done') {
       if (aepMode) { finishAep(); return; }
+      bridgePending = false;
       var done = { type: 'images-complete' };
       if (connected && ws && ws.readyState === 1) ws.send(JSON.stringify(done));
       else shipHttp(done);
@@ -237,6 +288,7 @@
       return;
     }
     if (msg.type === 'ship') {
+      bridgePending = !aepMode && msg.imageCount > 0;
       blendNotice = msg.blendStats && msg.blendStats.external ? ' 部分叠加依赖选区外的底图，请选择更外层画框。' : '';
       if (!msg.svg || msg.svg.indexOf('<svg') === -1) { exporting = aepMode = aepBusy = false; updateButton(); say('没有可发送的内容——Figma 导出的 SVG 为空。', 'err'); return; }
       if (aepMode) {

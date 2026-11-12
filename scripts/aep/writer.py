@@ -33,11 +33,10 @@ class Writer:
         self.warnings = []
         self.counts = {'shapes': 0, 'texts': 0, 'images': 0, 'precomps': 0, 'mattes': 0}
         self.mask_defs = {}
+        self.current_layer = packet['name']
 
-    def warn(self, code, item, detail=''):
-        warning = {'code': code, 'layer': item.get('name', ''), 'detail': str(detail)}
-        if warning not in self.warnings:
-            self.warnings.append(warning)
+    def fail(self, code, item, detail=''):
+        raise ValueError('图层「' + (item.get('name') or self.current_layer) + '」无法导出：' + str(detail or code))
 
     def comp(self, name, width, height, folder):
         return folder.add_comp(name, max(4, math.ceil(width)), max(4, math.ceil(height)),
@@ -60,11 +59,11 @@ class Writer:
             aliases = {'LINEAR_DODGE': 'ADD'}
             mode = getattr(BlendingMode, aliases.get(blend, blend), None)
             if mode is None:
-                self.warn('blend', item, blend)
+                self.fail('blend', item, '不支持的混合模式 ' + blend)
             else:
                 layer.blending_mode = mode
         if item.get('blur') or item.get('fx'):
-            self.warn('effects', item, '尚未写入的模糊或图层效果；可在 Figma 中标记栅格化')
+            self.fail('effects', item, '暂不支持该模糊或图层效果，请标记该层栅格化')
 
     @staticmethod
     def transform(layer, x=0, y=0):
@@ -118,7 +117,7 @@ class Writer:
             if item.get('strokeMiter') is not None:
                 p['ADBE Vector Stroke Miter Limit'].value = item['strokeMiter']
             if item.get('strokeDash'):
-                self.warn('stroke-dash', item, '虚线暂未写入')
+                self.fail('stroke-dash', item, '暂不支持虚线描边')
         else:
             p['ADBE Vector Fill Rule'].value = item.get('fillRule', 1)
 
@@ -155,33 +154,30 @@ class Writer:
             if not paint.get('under'):
                 self.paint(root, item, paint['kind'], paint.get('color'), paint.get('gradient'),
                            paint.get('opacity', 1), paint.get('width'))
-        if item.get('imageSlot'):
-            self.warn('image-fill', item, '图片使用独立素材层；复杂图片填充需核对裁剪和层级')
         self.counts['shapes'] += 1
         return layer
 
     @lru_cache(maxsize=128)
     def font(self, family, style):
         requested = resolve_font_exact(family)
-        # Windows' generic sans fallback is Arial, which has no Chinese glyphs.
-        # Keep the missing-font diagnostic but use a CJK face for this Windows prototype.
-        effective = family if requested else 'Microsoft YaHei'
+        if requested is None:
+            self.fail('font-substitution', {}, '找不到字体 ' + family)
         bold = bool(re.search('bold|heavy|black', style, re.I))
         italic = bool(re.search('italic|oblique', style, re.I))
         face = resolve_postscript(family.replace(' ', '') + '-' + style.replace(' ', '')) or resolve_font_exact(family + ' ' + style) or resolve_font(
-            effective, bold=bold, italic=italic)
+            family, bold=bold, italic=italic)
         if face is None:
             raise ValueError('找不到字体：' + family + ' ' + style)
         with TTFont(str(face[0]), fontNumber=face[1], lazy=True) as font:
             actual_style = font['name'].getDebugName(17) or font['name'].getDebugName(2)
             if actual_style and actual_style.lower().replace(' ', '') != style.lower().replace(' ', ''):
-                self.warn('font-style', {'name': family}, style + ' → ' + actual_style)
+                self.fail('font-style', {}, '找不到字体 ' + family + ' 的样式 ' + style)
             return font['name'].getDebugName(6)
 
     def text_style(self, doc, style):
         family, variant = style.get('family', 'Arial'), style.get('style', 'Regular')
         if resolve_font_exact(family) is None:
-            self.warn('font-substitution', style, family)
+            self.fail('font-substitution', style, '找不到字体 ' + family)
         doc.font = self.font(family, variant)
         doc.font_size = style.get('fontSize', 16)
         doc.apply_fill = True
@@ -234,11 +230,7 @@ class Writer:
                 layer.transform.anchor_point.value = [rect['left'] + rect['width'] / 2, rect['top'] + rect['height'] / 2, 0]
                 x, y = box['x'] + box['w'] / 2, box['y'] + box['h'] / 2
         except NotImplementedError as error:
-            self.warn('text-metrics', item, str(error))
-            x, y = item['x'], item['y']
-            if not item.get('box'):
-                x += item.get('w', 0) * {'CENTER': 0.5, 'RIGHT': 1}.get(item.get('align'), 0)
-                y += item.get('h', 0) / 2 + (item.get('fontSize') or segments[0].get('fontSize', 16)) * 0.35
+            self.fail('text-metrics', item, '无法计算文字排版：' + str(error))
         layer.transform.position.value = [x - context['x'], y - context['y'], 0]
         layer.transform.rotation.value = item.get('rotation', 0)
         if item.get('skewX'):
@@ -286,7 +278,7 @@ class Writer:
             layer.enabled = False
             layer.guide_layer = True
         if item.get('shadowBase'):
-            self.warn('shadow-image', item, '投影图片尚未提取；请在 Figma 中标记该层栅格化')
+            self.fail('shadow-image', item, '投影图片未完成处理')
         if item.get('matte'):
             matte = item['matte']
             primitive = {'k': matte.get('kind', 'rect'), 'cx': 0, 'cy': 0, 'w': width, 'h': height,
@@ -304,7 +296,7 @@ class Writer:
             return
         definitions = self.mask_defs.get(item['maskId'], [])
         if not definitions:
-            raise ValueError('缺少 Figma 蒙版：' + item['maskId'])
+            self.fail('missing-mask', item, '缺少 Figma 蒙版：' + item['maskId'])
         matte = context['comp'].add_shape()
         self.transform(matte, -context['x'], -context['y'])
         matte.name = layer.name + ' Figma matte'
@@ -316,7 +308,7 @@ class Writer:
                        definition.get('gradient') if luma else None, definition.get('fillOpacity', 1))
         matte.transform.opacity.value = definitions[0].get('opacity', 1) * 100
         if layer.track_matte_layer is not None:
-            self.warn('combined-matte', item, '裁剪或渐变与 Figma 蒙版同时存在时需核对遮罩')
+            self.fail('combined-matte', item, '暂不支持该组合遮罩，请标记相关图层栅格化')
         layer.set_track_matte(matte, TrackMatteType.LUMA if luma else TrackMatteType.ALPHA)
         self.counts['mattes'] += 1
 
@@ -336,6 +328,7 @@ class Writer:
         entries.extend((t.get('z', 0), 'text', t, 0) for t in self.data['texts'])
         entries.extend((im.get('z', 0), 'image', im, i) for i, im in enumerate(self.data['images']))
         for _, kind, item, index in sorted(entries, key=lambda entry: entry[0]):
+            self.current_layer = item.get('name', '')
             context = self.contexts[None] if item.get('reference') else self.parent(item)
             if kind == 'container':
                 child = self.contexts[item['id']]

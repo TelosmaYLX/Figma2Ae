@@ -11,7 +11,24 @@ function normalize(packet) {
   if (!(width >= 4 && height >= 4 && width <= 30000 && height <= 30000)) {
     throw new Error('画框尺寸须在 4–30000 像素之间');
   }
-  const model = packet.nodes ? parser.fromNodes(packet.nodes, width, height) : viewport;
+  let model = viewport;
+  if (packet.nodes) {
+    try { model = parser.fromNodes(packet.nodes, width, height); }
+    catch (error) {
+      for (const node of packet.nodes) {
+        try { parser.fromNodes([node], width, height); }
+        catch { throw new Error('图层「' + node.name + '」的路径无法解析', {cause:error}); }
+      }
+      throw error;
+    }
+  }
+  if (packet.imageCount != null && packet.imageCount !== (packet.images || []).length) throw new Error('图片数据不完整，已取消导出');
+  if (packet.nodes) {
+    const emitted = new Set(model.shapes.map(shape => shape.srcIndex));
+    packet.nodes.forEach((node, index) => {
+      if (!emitted.has(index)) throw new Error('图层「' + node.name + '」的路径无法解析');
+    });
+  }
   // Editable-node geometry is already frame-relative. SVG geometry uses the render origin.
   if (!packet.nodes) {
     const dx = packet.shift?.x || 0, dy = packet.shift?.y || 0;

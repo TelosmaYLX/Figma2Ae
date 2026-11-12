@@ -38,6 +38,7 @@ function harness({rememberFolder = true, failImages = false, shadowRenderer} = {
   return {native, pending, pickers, messages,
     start(id, imageCount) { return callbacks.onSvg('<svg width="10" height="10"></svg>', {name: id, nodes: [{id, fills: [], strokes: []}], texts: [], effects: [], imageCount}); },
     images(id, reference = false, shadow = false) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3, reference, hidden: reference, external: shadow, shadowBase: shadow ? {data:'clean'} : null}] : []); },
+    abort(message){callbacks.onAbort(message);},
     finish() { assert.equal(active, 1); active--; pending.shift()('OK'); }
   };
 }
@@ -58,14 +59,17 @@ const canceled = harness({rememberFolder: false});
 canceled.start('cancel images', 1); canceled.images('image'); canceled.start('next', 0);
 assert.equal(canceled.native.length, 0, 'A folder picker is outside the native transaction');
 canceled.pickers.shift()('');
-assert.equal(canceled.native.length, 1); assert.equal(canceled.native[0].job.imagesPath, '');
-canceled.finish(); assert.equal(canceled.native[1].id, 'next'); canceled.finish();
+assert.equal(canceled.native.length,1);assert.equal(canceled.native[0].id,'next');canceled.finish();
+assert.ok(canceled.messages.some(m=>/已取消导入/.test(m)));
 const failed = harness({failImages: true});
 failed.start('disk failure', 1); failed.start('after failure', 0); failed.images('image');
 assert.deepEqual(failed.native.map(n => n.id), ['after failure']);
 assert.ok(failed.messages.some(m => /图片保存失败/.test(m))); failed.finish();
 const empty = harness(); empty.start('all PNGs failed', 2); empty.images();
-assert.equal(empty.native.length, 1); assert.equal(empty.native[0].job.imagesPath, ''); empty.finish();
+assert.equal(empty.native.length,0);assert.ok(empty.messages.some(m=>/图片数据不完整/.test(m)));
+empty.start('after incomplete batch',0);assert.equal(empty.native.length,1);empty.finish();
+const aborted=harness();aborted.start('aborted PNG',1);aborted.start('after aborted PNG',0);
+aborted.abort('图片「broken」导出失败');assert.equal(aborted.native.length,1);assert.equal(aborted.native[0].id,'after aborted PNG');aborted.finish();
 const reference = harness();reference.start('reference job',1);reference.images('original PNG',true);
 const savedReference=JSON.parse(fs.readFileSync(reference.native[0].job.imagesPath,'utf8'))[0];
 assert.equal(savedReference.reference,true);assert.equal(savedReference.hidden,true);reference.finish();

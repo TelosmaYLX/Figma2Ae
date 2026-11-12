@@ -30,6 +30,10 @@ async function check() {
   const independent=node('TEXT','unrelated',{...bounds(250,30,80,20)});
   const spatial=await harness(group('spatial',[solid('base'),independent,blend('overlay')])).run(true,false,true,false,{mergeBlends:true});
   assert.equal(spatial.ship.texts.length,1,'A disjoint label inside the paint interval stays editable');
+  const disjoint=solid('independent icon',250,30,50,20);
+  const icon=await harness(group('icons',[solid('base'),disjoint,blend('overlay')])).run(true,true,true,false,{mergeBlends:true});
+  assert.deepEqual(icon.ship.nodes.map(n=>n.name),['independent icon']);
+  assert.equal(icon.ship.blendStats.layers,2,'Unrelated shapes must not join a blend range');
   const aboveEffect=node('TEXT','outside glow',{...bounds(25,30,30,15)});
   const spatialInside=await harness(group('spatial inside',[solid('base'),aboveEffect,blend('small glow','SCREEN',25,60,30,20)])).run(true,false,true,false,{mergeBlends:true});
   assert.equal(spatialInside.ship.texts.length,1,'Text may overlap the base if it cannot intersect the blend above it');
@@ -55,11 +59,12 @@ async function check() {
   const roundedMask=solid('mask');roundedMask.isMask=true;roundedMask.cornerRadius=8;
   const closedBackground=group('closed background',[roundedMask,solid('base'),blend('pattern')]);
   const rounded=await harness(group('root',[closedBackground,blend('glow','LINEAR_DODGE',35,45,20,20),node('TEXT','top')])).run(true,false,true,false,{mergeBlends:true});
-  assert.equal(rounded.images.length,1);assert.equal(rounded.ship.blendStats.external,0,'An opaque masked background can close a smaller glow inside it');
+  assert.equal(rounded.images.length,0);assert.ok(rounded.ship.blendStats.external>0,'A mask boundary must not absorb unrelated siblings');
   const effects=await harness(group('effected',[solid('base'),blend('light'),node('TEXT','title')],{effects:[{type:'LAYER_BLUR',visible:true,radius:2}]})).run(true,true,true,false,{mergeBlends:true});
-  assert.equal(effects.images.length,1);assert.equal(effects.ship.texts.length,0,'A whole-group blur must include all affected pixels');
+  assert.equal(effects.images.length,0);assert.equal(effects.ship.texts.length,1,'A group blur stays on the editable precomp');
+  assert.equal(effects.ship.nodes.length,2);assert.ok(effects.ship.containers[0].blur);
   const drops=await harness(group('shadowed',[solid('base'),blend('light'),node('TEXT','title')],{effects:[{type:'DROP_SHADOW',visible:true,color:{r:0,g:0,b:0,a:.5},offset:{x:0,y:3},radius:5}]})).run(true,true,true,false,{mergeBlends:true});
-  assert.equal(drops.images.length,2);assert.equal(drops.ship.texts.length,1,'Group drop shadow must not force text into the blend PNG');
+  assert.equal(drops.images.length,1);assert.equal(drops.ship.texts.length,1,'Group drop shadow stays separate from all editable content');
   assert.equal(drops.images.filter(im=>im.shadowBase).length,1);assert.equal(drops.ship.containers[0].fx.length,0);
   const legacyScene=group('legacy',[solid('base'),blend('light'),node('TEXT','title')]),legacy=harness(legacyScene);
   let svgChecked=false;
