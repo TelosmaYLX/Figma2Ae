@@ -350,7 +350,10 @@ function _collectRasterCandidates(root, organize) {
       throw _layerError(n, '图层「' + n.name + '」包含不支持的填充，请标记该层栅格化');
     }
     var visibleEffects = (n.effects || []).filter(function (e) { return e.visible !== false; });
-    if (visibleEffects.some(function (e) { return e.type === 'BACKGROUND_BLUR'; })) throw _layerError(n, '图层「' + n.name + '」的背景模糊依赖外部内容，暂不支持');
+    if (visibleEffects.some(function (e) { return e.type === 'BACKGROUND_BLUR'; })) {
+      if (!_rasterGroups) throw _layerError(n, '图层「' + n.name + '」的背景模糊需要开启自动栅格化');
+      add(n); return;
+    }
     var unknownEffect = visibleEffects.some(function (e) { return ['DROP_SHADOW', 'INNER_SHADOW', 'LAYER_BLUR'].indexOf(e.type) === -1; });
     if (unknownEffect) {
       if (_rasterGroups && !_isContainer(n)) { add(n); return; }

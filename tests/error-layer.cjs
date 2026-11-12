@@ -19,15 +19,15 @@ function panel(main){
   main.figma.ui.postMessage=emit;
   return{elements,posts,pending,context,emit,get socket(){return socket;}};
 }
-async function failure(main){
-  await main.context.exportSelectionSVG(true,true,true,false,true,false,{});
+async function failure(main,rasterGroups=true){
+  await main.context.exportSelectionSVG(true,true,true,false,rasterGroups,false,{});
   const error=main.messages.find(m=>m.type==='error');assert.ok(error);return error;
 }
 async function check(){
   const first=rect('底框'),bad=rect('底框',{effects:[blur]});
   const root=node('FRAME','页面',{children:[group('卡片A',[first]),group('卡片B',[bad])]});
   const h=harness(root),page=h.figma.currentPage;page.id='page-1';page.type='PAGE';root.parent=page;
-  const error=await failure(h);assert.match(error.message,/底框.*背景模糊/);assert.equal(error.nodeId,bad.id);
+  const error=await failure(h,false);assert.match(error.message,/底框.*背景模糊.*开启自动栅格化/);assert.equal(error.nodeId,bad.id);
   assert.notEqual(error.nodeId,first.id);assert.equal(h.context._exporting,false);assert.equal(h.figma.currentPage.selection[0],root);
   assert.equal(Object.keys(h.context._exportSourceIds).length,0,'Copy mappings are released after cleanup');
   const targets=new Map([[first.id,first],[bad.id,bad]]),zoom=[],changes=[];
@@ -52,7 +52,7 @@ async function check(){
 
   const duplicate=rect('底框',{effects:[blur]}),left=group('同名分组',[rect('底框')]),right=group('同名分组',[duplicate]);
   const multi=harness(node('FRAME','multi',{children:[left,right]}));multi.figma.currentPage.selection=[left,right];
-  assert.equal((await failure(multi)).nodeId,duplicate.id,'Multi-selection maps to the correct original subtree');
+  assert.equal((await failure(multi,false)).nodeId,duplicate.id,'Multi-selection maps to the correct original subtree');
   const missing=node('TEXT','文字',{hasMissingFont:true}),fonts=harness(group('fonts',[missing]));
   assert.equal((await failure(fonts)).nodeId,missing.id);
   const raster=group('*底框',[rect('art')]),png=harness(group('PNG scene',[raster]));

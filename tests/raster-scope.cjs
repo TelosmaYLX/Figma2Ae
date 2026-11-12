@@ -82,6 +82,28 @@ async function check() {
   const shadow=await setup(group('page',[group('card',[solid('background'),solid('shadowed',{effects:[drop]}),solid('button')])])).run();
   assert.equal(shadow.images.length,1);assert.ok(shadow.images[0].shadow);assert.equal(shadow.ship.nodes.length,3);
 
+  // Background blur stays on its own PNG. Keep the copied backdrop and unrelated foreground
+  // intact while Figma renders the node, without merging them into the exported image layer.
+  const blurred=solid('底框',{effects:[{type:'BACKGROUND_BLUR',visible:true,radius:8},drop]});
+  const blurScene=group('page',[image('background photo'),group('card',[solid('card background'),blurred,node('TEXT','editable title'),solid('button')])]);
+  const blurHost=setup(blurScene),blurRenders=[];
+  blurred.exportAsync=async function(options){
+    assert.equal(options.format,'PNG');assert.equal(options.constraint.value,2);
+    assert.equal(this.effects.length,2,'Figma receives both effects unchanged');
+    assert.ok(this.parent.children.some(n=>n.name==='card background'&&n.opacity===1));
+    assert.ok(this.parent.children.some(n=>n.name==='editable title'&&n.opacity===1));
+    blurRenders.push(this.id);return Buffer.alloc(24);
+  };
+  const blurResult=await blurHost.run();
+  assert.equal(blurResult.images.length,2);assert.equal(blurResult.images.filter(im=>im.sourceId===blurred.id).length,1);
+  assert.equal(blurResult.images.filter(im=>im.shadow).length,0,'The PNG already contains its drop shadow');
+  assert.equal(blurResult.ship.texts.length,1);assert.equal(blurResult.ship.texts[0].characters,'Editable text');
+  assert.deepEqual(blurResult.ship.nodes.map(n=>n.name),['background photo','card background','button']);
+  assert.ok(blurResult.ship.containers.some(c=>c.name==='card'));assert.equal(blurRenders.length,1);
+  assert.equal(blurred.effects.length,2);assert.ok(blurScene.children.every(n=>n.opacity===1));
+  await blurHost.context.exportSelectionSVG(true,true,true,false,false,false,{});
+  const disabled=blurHost.messages.find(m=>m.type==='error');assert.match(disabled.message,/底框.*开启自动栅格化/);assert.equal(disabled.nodeId,blurred.id);
+
   const failed=setup(group('page',[group('*broken PNG',[solid('art')]),solid('button')]));
   failed.figma.currentPage.selection[0].children[0].exportAsync=async()=>{throw new Error('renderer failed');};
   await failed.context.exportSelectionSVG(true,true,true,false,true,false,{});
@@ -89,7 +111,6 @@ async function check() {
   assert.equal(failed.messages.some(m=>m.type==='images-done'),false);assert.equal(failed.context._exporting,false);
   for(const [art,reason] of [
     [solid('missing photo',{fills:[{type:'IMAGE',imageHash:null}]}),/missing photo.*素材缺失/],
-    [solid('background blur',{effects:[{type:'BACKGROUND_BLUR',visible:true,radius:4}]}),/background blur.*背景模糊/],
     [group('unsupported group',[solid('child')],{effects:[{type:'GLASS',visible:true}]}),/unsupported group.*不支持的效果/],
     [solid('empty mask',{isMask:true}),/empty mask.*没有被遮罩/]
   ]){
