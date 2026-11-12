@@ -2,7 +2,8 @@
 <!-- Only the UI iframe can do network; the main thread (code.js) exports SVG and posts it here. -->
 <!-- Primary: import. Secondary: direct AEP export, marking and document tools. Existing tokens, 8px gaps/radii,
      10px button padding and 12px group spacing; retain the current dark theme. The shared image
-     folder is secondary: full selectable address, 8px gap, 36px folder button. -->
+     folder is secondary: full selectable address, 8px gap, 36px folder button.
+     Error text stays primary in its group; the optional locate action uses panel/text tokens and an 8px gap. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#8a8a8a; --ok:#22c55e; --err:#ef4444; }
   html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); }
@@ -30,6 +31,8 @@
   .mark-hint { margin-top:8px; color:var(--muted); }
   .msg { margin-top:10px; min-height:16px; color:var(--muted); overflow-wrap:anywhere; }
   .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
+  .locate-layer { width:auto; margin-top:8px; padding:8px 10px; background:var(--panel); color:var(--text); }
+  .locate-layer:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .hint { margin-top:12px; font-size:11px; color:var(--muted); }
 </style>
 <div class="wrap">
@@ -51,6 +54,7 @@
   </div>
   <div class="mark-hint">名称以 * 开头的图层将导出为图片。</div>
   <div id="msg" class="msg"></div>
+  <button id="locate-layer" class="locate-layer" title="选中并显示出错图层" hidden>定位图层</button>
   <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="nodemode" checked> 可编辑图层
   </label>
@@ -98,6 +102,7 @@
   var ws = null, connected = false, selCount = 0, imgAsm = null, exporting = false, blendNotice = '';
   var aepMode = false, aepBusy = false, aepPacket = null, aepDestination = null;
   var imageFolder = '', folderBusy = false;
+  var errorNodeId = null, locatingLayer = false;
   var $ = function (id) { return document.getElementById(id); };
   var toolButtons = { 'detach-instances': 'detach', 'convert-groups': 'group-to-frame', 'expand-groups': 'expand', 'delete-hidden': 'delete-hidden' };
 
@@ -109,13 +114,23 @@
     if (state) readImageFolder().catch(function (error) { say(error.message, 'err'); });
   }
   function updateButton() {
-    $('ship').disabled = folderBusy || exporting || aepBusy || !(connected && selCount > 0);
-    $('image-folder-choose').disabled = folderBusy || exporting || aepBusy || !connected;
-    $('export-aep').disabled = folderBusy || exporting || aepBusy || selCount === 0;
-    $('mark-raster').disabled = $('unmark-raster').disabled = folderBusy || exporting || aepBusy || selCount === 0;
-    for (var id in toolButtons) $(id).disabled = folderBusy || exporting || aepBusy || selCount === 0;
+    var busy = locatingLayer || folderBusy || exporting || aepBusy;
+    $('ship').disabled = busy || !(connected && selCount > 0);
+    $('image-folder-choose').disabled = busy || !connected;
+    $('locate-layer').disabled = busy;
+    $('export-aep').disabled = busy || selCount === 0;
+    $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
+    for (var id in toolButtons) $(id).disabled = busy || selCount === 0;
   }
-  function say(text, cls) { var m = $('msg'); m.textContent = text; m.className = 'msg ' + (cls || ''); }
+  function say(text, cls, nodeId) {
+    var m = $('msg'); m.textContent = text; m.className = 'msg ' + (cls || '');
+    errorNodeId = nodeId || null; $('locate-layer').hidden = !errorNodeId;
+  }
+  $('locate-layer').onclick = function () {
+    if (!errorNodeId || locatingLayer) return;
+    locatingLayer = true; updateButton();
+    parent.postMessage({pluginMessage:{type:'locate-layer',nodeId:errorNodeId}}, '*');
+  };
   function showImageFolder(directory) {
     imageFolder = directory || '';
     $('image-folder-path').textContent = imageFolder || '未选择';
@@ -150,6 +165,7 @@
     ws.onmessage = function (ev) {
       try {
         var ack = JSON.parse(ev.data);
+        if (errorNodeId) return;
         if (ack.ok) say('完成——' + (ack.shapes != null ? '已在 AE 中创建 ' + ack.shapes + ' 个形状图层。' : '已发送到 AE。') + blendNotice, 'ok');
         else say('AE 错误：' + (ack.error || '未知错误'), 'err');
       } catch (e) { say('已发送。', 'ok'); }
@@ -162,8 +178,8 @@
   function shipHttp(payload) {
     fetch('http://127.0.0.1:' + PORT, { method: 'POST', body: JSON.stringify(payload) })
       .then(function (r) { return r.json(); })
-      .then(function (ack) { say(ack.ok ? '完成（HTTP）——' + (ack.shapes||'') + ' 个形状。' + blendNotice : 'AE 错误：' + ack.error, ack.ok ? 'ok' : 'err'); })
-      .catch(function () { say('无法连接端口 ' + PORT + ' 上的 AE 桥接服务。', 'err'); });
+      .then(function (ack) { if (!errorNodeId && payload.type !== 'export-abort') say(ack.ok ? '完成（HTTP）——' + (ack.shapes||'') + ' 个形状。' + blendNotice : 'AE 错误：' + ack.error, ack.ok ? 'ok' : 'err'); })
+      .catch(function () { if (!errorNodeId && payload.type !== 'export-abort') say('无法连接端口 ' + PORT + ' 上的 AE 桥接服务。', 'err'); });
   }
 
   var organize = false, bridgePending = false;
@@ -284,7 +300,7 @@
       if (image.shadowBase) prepared = prepared.then(function () {
         return renderAepShadow(image.data, image.shadowBase).then(function (data) {
           image.data = data; image.shadowBase = null;
-        }, function (error) { throw new Error('投影「' + image.name + '」处理失败：' + error.message); });
+        }, function (error) { var failure = new Error('投影「' + image.name + '」处理失败：' + error.message); failure.nodeId = image.sourceId; throw failure; });
       });
     });
     prepared.then(function () {
@@ -298,7 +314,7 @@
           throw new Error('图层「' + (issue.layer || '未知') + '」：' + (issue.detail || issue.code || '存在未导出的属性'));
         }
         say('已导出到 ' + result.directory, 'ok');
-      }).catch(function (err) { say('AEP 导出失败：' + err.message, 'err'); })
+      }).catch(function (err) { say('AEP 导出失败：' + err.message, 'err', err.nodeId); })
       .then(function () { aepMode = aepBusy = false; aepDestination = null; updateButton(); });
   }
 
@@ -308,6 +324,10 @@
     if (!msg) return;
     if (msg.type === 'image-abort') msg = {type:'error',message:'图片导出失败，已取消导出'};
     if (msg.type === 'selection') { selCount = msg.count; updateButton(); }
+    if (msg.type === 'locate-result') {
+      locatingLayer = false; updateButton();
+      if (!msg.ok) say(msg.message, 'err');
+    }
     if (msg.type === 'export-state') { exporting = msg.busy; updateButton(); }
     if (msg.type === 'mark-result') { say(msg.message, 'ok'); }
     if (msg.type === 'tool-result') { say(msg.message, 'ok'); }
@@ -317,7 +337,7 @@
         if (connected && ws && ws.readyState === 1) ws.send(JSON.stringify(abort));
         else shipHttp(abort);
       }
-      bridgePending = false; exporting = aepBusy = aepMode = false; aepPacket = imgAsm = null; updateButton(); say(msg.message, 'err');
+      bridgePending = false; exporting = aepBusy = aepMode = false; aepPacket = imgAsm = null; updateButton(); say(msg.message, 'err', msg.nodeId);
     }
     if (msg.type === 'progress') { say(msg.message); }
     if (msg.type === 'images-done') {

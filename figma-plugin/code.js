@@ -52,6 +52,30 @@ var _maskSourceByNode = {};    // mask node + all its descendants -> mask ROOT i
 var _exporting = false;        // one export at a time: temporary image fills must never overlap
 var _subtreeFlagsByNode = null;
 var _contentBoundsByNode = null;
+var _exportSourceIds = {};      // temporary copy id -> original document node id
+function _rememberExportSource(original, copy) {
+  _exportSourceIds[copy.id] = original.id;
+  if (original.children && copy.children)
+    for (var i = 0; i < original.children.length; i++) _rememberExportSource(original.children[i], copy.children[i]);
+}
+function _layerError(node, message) {
+  var error = new Error(message);
+  error.nodeId = node.sourceId || _exportSourceIds[node.id] || node.id || null;
+  return error;
+}
+async function locateErrorLayer(id) {
+  try {
+    var target = await figma.getNodeByIdAsync(id);
+    if (!target || target.removed) throw new Error('图层已删除或不存在。');
+    var page = target.parent;
+    while (page && page.type !== 'PAGE') page = page.parent;
+    if (!page) throw new Error('该图层不在画布中。');
+    if (page.id !== figma.currentPage.id) await figma.setCurrentPageAsync(page);
+    figma.currentPage.selection = [target];
+    figma.viewport.scrollAndZoomIntoView([target]);
+    figma.ui.postMessage({type:'locate-result',ok:true});
+  } catch (error) { figma.ui.postMessage({type:'locate-result',ok:false,message:'定位失败：' + error.message}); }
+}
 function _isForcedRaster(n) { return !!(n && n.name && n.name.charAt(0) === '*'); }
 function _rasterWhole(n) {
   return _isForcedRaster(n) || n.type === 'TEXT_PATH' ||
@@ -312,39 +336,39 @@ function _collectRasterCandidates(root, organize) {
       add(n); return;
     }
     if (_rasterTexts && n.type === 'TEXT') { add(n); return; }
-    if (n.type === 'TEXT' && n.hasMissingFont) throw new Error('文字「' + n.name + '」缺少字体');
+    if (n.type === 'TEXT' && n.hasMissingFont) throw _layerError(n, '文字「' + n.name + '」缺少字体');
     var paintLists = [n.fills || [], n.strokes || []], unsupportedPaint = false;
     for (var pl = 0; pl < paintLists.length; pl++) if (paintLists[pl] !== figma.mixed) {
       for (var pi = 0; pi < paintLists[pl].length; pi++) {
         var paint = paintLists[pl][pi];
-        if (paint.visible !== false && paint.type === 'IMAGE' && !paint.imageHash) throw new Error('图层「' + n.name + '」的图片素材缺失');
+        if (paint.visible !== false && paint.type === 'IMAGE' && !paint.imageHash) throw _layerError(n, '图层「' + n.name + '」的图片素材缺失');
         if (paint.visible !== false && ['SOLID', 'IMAGE', 'GRADIENT_LINEAR', 'GRADIENT_RADIAL'].indexOf(paint.type) === -1) unsupportedPaint = true;
       }
     }
     if (unsupportedPaint) {
       if (_rasterGroups && !_isContainer(n)) { add(n); return; }
-      throw new Error('图层「' + n.name + '」包含不支持的填充，请标记该层栅格化');
+      throw _layerError(n, '图层「' + n.name + '」包含不支持的填充，请标记该层栅格化');
     }
     var visibleEffects = (n.effects || []).filter(function (e) { return e.visible !== false; });
-    if (visibleEffects.some(function (e) { return e.type === 'BACKGROUND_BLUR'; })) throw new Error('图层「' + n.name + '」的背景模糊依赖外部内容，暂不支持');
+    if (visibleEffects.some(function (e) { return e.type === 'BACKGROUND_BLUR'; })) throw _layerError(n, '图层「' + n.name + '」的背景模糊依赖外部内容，暂不支持');
     var unknownEffect = visibleEffects.some(function (e) { return ['DROP_SHADOW', 'INNER_SHADOW', 'LAYER_BLUR'].indexOf(e.type) === -1; });
     if (unknownEffect) {
       if (_rasterGroups && !_isContainer(n)) { add(n); return; }
-      throw new Error('图层「' + n.name + '」包含不支持的效果，请标记该层栅格化');
+      throw _layerError(n, '图层「' + n.name + '」包含不支持的效果，请标记该层栅格化');
     }
     if (_rasterGroups) {
       if (n.type === 'BOOLEAN_OPERATION' && !(n.fillGeometry || []).length) { add(n); return; }
       var localEffects = visibleEffects.filter(function (e) { return e.type !== 'DROP_SHADOW'; });
-      if (_isContainer(n) && localEffects.length && !organize) throw new Error('图层「' + n.name + '」的组效果需要启用预合成');
+      if (_isContainer(n) && localEffects.length && !organize) throw _layerError(n, '图层「' + n.name + '」的组效果需要启用预合成');
       if (!_isContainer(n) && n.type !== 'TEXT' && (localEffects.length || _singleImageNeedsRaster(n))) { add(n); return; }
     }
     if (_convertMasks) {
       var runs = _maskRuns(n);
       for (var mi = 0; mi < runs.length; mi++) {
         var run = runs[mi];
-        if (run.members.length < 2) throw new Error('蒙版「' + run.mask.name + '」没有被遮罩的图层');
+        if (run.members.length < 2) throw _layerError(run.mask, '蒙版「' + run.mask.name + '」没有被遮罩的图层');
         if (_nativeMaskSupported(run, organize)) continue;
-        if (!_rasterGroups) throw new Error('蒙版「' + run.mask.name + '」无法转换，请开启自动栅格化');
+        if (!_rasterGroups) throw _layerError(run.mask, '蒙版「' + run.mask.name + '」无法转换，请开启自动栅格化');
         out.push({ node: n, mask: run.mask, members: run.members });
         for (var mm = 0; mm < run.members.length; mm++) _markRaster(run.members[mm]);
       }
@@ -562,6 +586,7 @@ function _rasterMeta(n, root, organize) {
   if (typeof n.opacity === 'number' && n.opacity > 0) opacity /= n.opacity;
   return {
     rasterNode: n,
+    sourceId: _exportSourceIds[n.id] || n.id,
     rasterBounds: b,
     name: (n.name || 'figma-group').replace(/[^A-Za-z0-9_\-\u4e00-\u9fa5]+/g, '_'),
     x: b.x, y: b.y, w: b.width, h: b.height,
@@ -863,6 +888,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     return;
   }
   _exporting = true;
+  _exportSourceIds = {};
   _contentBoundsByNode = {};
   figma.ui.postMessage({ type: 'export-state', busy: true });
 
@@ -881,7 +907,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       transforms.push(original.absoluteTransform.map(function (row) { return row.slice(); }));
       sizes.push({ width: original.width, height: original.height });
       var reference = _rasterMeta(original, original, false);
-      reference.rasterBytes = await original.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
+      try { reference.rasterBytes = await original.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } }); }
+      catch (referenceError) { throw _layerError(original, '图层「' + original.name + '」原图导出失败：' + referenceError.message); }
       delete reference.rasterNode; delete reference.rasterBounds;
       reference.name += '_原图对照'; reference.reference = true; reference.hidden = true;
       reference.opacity = 1; reference.blend = 'NORMAL'; reference.path = [];
@@ -897,6 +924,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       var copy = originals[ci0].clone();
       try {
         workspace.appendChild(copy);
+        _rememberExportSource(originals[ci0], copy);
         if ((copy.width !== sizes[ci0].width || copy.height !== sizes[ci0].height) && typeof copy.resizeWithoutConstraints === 'function')
           copy.resizeWithoutConstraints(sizes[ci0].width, sizes[ci0].height);
         copy.relativeTransform = _matrixProduct(_inverseMatrix(workspace.absoluteTransform), transforms[ci0]);
@@ -921,7 +949,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     // A fully rasterized selection needs no SVG, including a directly selected text node.
     if (_rasterWhole(node) || (_rasterTexts && node.type === 'TEXT')) useNodes = true;
     _zMap = buildZMap(node);
-    if (node.isMask === true) throw new Error('蒙版「' + node.name + '」缺少作用内容，请选择其所在分组');
+    if (node.isMask === true) throw _layerError(node, '蒙版「' + node.name + '」缺少作用内容，请选择其所在分组');
     buildImportMaps(node);
     if (!useNodes && Object.keys(_maskSourceByNode).length) {
       useNodes = true; _includeRootContainer = !!organize; buildImportMaps(node);
@@ -1147,7 +1175,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     await shipImages(images);      // sequential, chunked — see shipImages for why
     if (images.length) figma.ui.postMessage({ type: 'images-done' });
   } catch (e) {
-    figma.ui.postMessage({ type: 'error', message: '导出失败：' + (e && e.message ? e.message : e) });
+    figma.ui.postMessage({ type: 'error', message: '导出失败：' + (e && e.message ? e.message : e), nodeId: e && e.nodeId || null });
   } finally {
     for (var rv2 = 0; rv2 < rasterHidden.length; rv2++) { try { rasterHidden[rv2][0].visible = rasterHidden[rv2][1]; } catch (erv) {} }
     for (var rr = 0; rr < restore.length; rr++) { try { restore[rr][0].opacity = restore[rr][1]; } catch (er) {} }
@@ -1159,6 +1187,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     _temporaryExportRoot = null;
     _subtreeFlagsByNode = null;
     _contentBoundsByNode = null;
+    _exportSourceIds = {};
     _blendMerged = {};
     _blendPaintMerged = {};
     _exporting = false;
@@ -1401,7 +1430,7 @@ function collectShapes(root, organize) {
           });
         }
       }
-    } catch (e) { throw new Error('图层「' + n.name + '」读取失败：' + (e.message || e)); }
+    } catch (e) { throw _layerError(n, '图层「' + n.name + '」读取失败：' + (e.message || e)); }
     // children are painted after the parent, so keep the natural order.
     // EXCEPT a boolean operation: Figma renders the RESULT only, its operands are not drawn.
     // Descending into them collected the operand shapes as real layers, and since they cover the
@@ -1511,6 +1540,7 @@ async function collectImages(root, rootId, organize) {
           } catch (etm) {}
           out.push({
             _node: n,
+            sourceId: _exportSourceIds[n.id] || n.id,
             name: (n.name || 'image').replace(/[^A-Za-z0-9_\-]+/g, '_'),
             hash: f.imageHash,
             cx: ccx, cy: ccy, cw: lw, ch: lh,
@@ -1530,7 +1560,7 @@ async function collectImages(root, rootId, organize) {
           break;                                              // one picture per node
         }
       }
-    } catch (e) { throw new Error('图片「' + n.name + '」读取失败：' + (e.message || e)); }
+    } catch (e) { throw _layerError(n, '图片「' + n.name + '」读取失败：' + (e.message || e)); }
     // operands of a boolean are not rendered by Figma, so nothing inside one is a real layer
     if (n.type !== 'BOOLEAN_OPERATION' && 'children' in n)
       for (var c = 0; c < n.children.length; c++) stack.push(n.children[c]);
@@ -1584,8 +1614,8 @@ async function shipImages(images) {
         b64 = figma.base64Encode(bytes);
         bytes = null;
       }
-    } catch (e) { throw new Error('图片「' + im.name + '」导出失败：' + (e.message || e)); }
-    var meta = { name: im.name, ext: ext, x: im.x, y: im.y, w: im.w, h: im.h,
+    } catch (e) { throw _layerError(im, '图片「' + im.name + '」导出失败：' + (e.message || e)); }
+    var meta = { name: im.name, sourceId: im.sourceId || null, ext: ext, x: im.x, y: im.y, w: im.w, h: im.h,
                  cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch,
                  natW: natW, natH: natH, scaleMode: im.scaleMode,
                  opacity: im.opacity, rotation: im.rotation, matte: im.matte,
@@ -1929,7 +1959,7 @@ function collectTexts(root, rootBox, rootId, organize) {
             });
           }
         }
-      } catch (e) { throw new Error('文字「' + n.name + '」读取失败：' + (e.message || e)); }
+      } catch (e) { throw _layerError(n, '文字「' + n.name + '」读取失败：' + (e.message || e)); }
     }
     // text used as a boolean operand is baked into the boolean's result, not a live layer
     if (n.type !== 'BOOLEAN_OPERATION' && 'children' in n)
@@ -1940,6 +1970,7 @@ function collectTexts(root, rootBox, rootId, organize) {
 }
 
 figma.ui.onmessage = function (msg) {
+  if (msg.type === 'locate-layer') return locateErrorLayer(msg.nodeId);
   if (msg.type === 'ship-selection') exportSelectionSVG(!!msg.useNodes, !!msg.organize, msg.ignoreHidden !== false, msg.convertMasks === true, msg.rasterGroups !== false, msg.rasterTexts === true, msg);
   if (msg.type === 'mark-raster') markRasterSelection(true);
   if (msg.type === 'unmark-raster') markRasterSelection(false);
