@@ -19,7 +19,14 @@ function node(type, name, extra = {}) {
     getStyledTextSegments() { return [{characters: n.characters, fontName: n.fontName, fontSize: n.fontSize, fills: n.fills}]; }
   }, extra);
   if (n.children) n.children.forEach(c => { c.parent = n; });
+  if(type==='INSTANCE'&&!n.detachInstance)n.detachInstance=mockDetachInstance;
   return n;
+}
+function mockDetachInstance(){
+  assert.equal(this.type,'INSTANCE');
+  const parent=this.parent,index=parent.children.indexOf(this),frame=mockClone(this);
+  frame.type='FRAME';delete frame.detachInstance;frame.parent=parent;
+  parent.children.splice(index,1,frame);this.remove();return frame;
 }
 const group = (name, children, extra = {}) => node('GROUP', name, {children, blendMode: 'PASS_THROUGH', ...extra});
 function mockClone(n) {

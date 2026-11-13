@@ -60,6 +60,7 @@ var _exporting = false;        // one export at a time: temporary image fills mu
 var _subtreeFlagsByNode = null;
 var _contentBoundsByNode = null;
 var _exportSourceIds = {};      // temporary copy id -> original document node id
+var _exportInstanceNodes = {}; // detached frames that originated as instances
 function _rememberExportSource(original, copy) {
   _exportSourceIds[copy.id] = original.id;
   if (original.children && copy.children)
@@ -86,7 +87,24 @@ async function locateErrorLayer(id) {
 function _isForcedRaster(n) { return !!(n && n.name && n.name.charAt(0) === '*'); }
 function _rasterWhole(n) {
   return _isForcedRaster(n) || n.type === 'TEXT_PATH' ||
-         (_rasterAllGroups && n.type === 'GROUP' && n !== _temporaryExportRoot) || (_rasterInstances && n.type === 'INSTANCE');
+         (_rasterAllGroups && n.type === 'GROUP' && n !== _temporaryExportRoot) ||
+         (_rasterInstances && (n.type === 'INSTANCE' || !!_exportInstanceNodes[n.id]));
+}
+
+// Instance descendants cannot override isMask or tree structure. Detach only export
+// copies, outermost first, then remap the replacement frame/child IDs to the originals.
+function _detachExportInstances(original, copy, includeRaster) {
+  if (_rasterWhole(copy) && !includeRaster && !copy.isMask) return copy;
+  if (copy.type === 'INSTANCE') {
+    try { copy = copy.detachInstance(); }
+    catch (error) { throw _layerError(original, '实例「' + original.name + '」分离失败：' + error.message); }
+    _rememberExportSource(original, copy);
+    _exportInstanceNodes[copy.id] = true;
+  }
+  var children = copy.children ? copy.children.slice() : [];
+  for (var i = 0; i < children.length; i++)
+    _detachExportInstances(original.children[i], children[i], includeRaster);
+  return copy;
 }
 
 function markRasterSelection(mark) {
@@ -1042,6 +1060,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   }
   _exporting = true;
   _exportSourceIds = {};
+  _exportInstanceNodes = {};
   _contentBoundsByNode = {};
   figma.ui.postMessage({ type: 'export-state', busy: true });
 
@@ -1086,7 +1105,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
         if ((copy.width !== sizes[ci0].width || copy.height !== sizes[ci0].height) && typeof copy.resizeWithoutConstraints === 'function')
           copy.resizeWithoutConstraints(sizes[ci0].width, sizes[ci0].height);
         copy.relativeTransform = _matrixProduct(_inverseMatrix(workspace.absoluteTransform), transforms[ci0]);
-      } catch (cloneError) { copy.remove(); throw cloneError; }
+        copy = _detachExportInstances(originals[ci0], copy, options.enableClip === false);
+      } catch (cloneError) { if (!copy.removed) copy.remove(); throw cloneError; }
       copies.push(copy);
     }
     name = originals.length === 1 ? originals[0].name : 'Selection (' + originals.length + ')';
@@ -1349,6 +1369,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     _subtreeFlagsByNode = null;
     _contentBoundsByNode = null;
     _exportSourceIds = {};
+    _exportInstanceNodes = {};
     _blendMerged = {};
     _blendPaintMerged = {};
     _exporting = false;
