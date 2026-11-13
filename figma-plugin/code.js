@@ -373,7 +373,8 @@ function _collectRasterCandidates(root, organize) {
       var runs = _maskRuns(n);
       for (var mi = 0; mi < runs.length; mi++) {
         var run = runs[mi];
-        if (run.members.length < 2) throw _layerError(run.mask, '蒙版「' + run.mask.name + '」没有被遮罩的图层');
+        // A mask without exported siblings contributes no artwork of its own.
+        if (run.members.length < 2) { _markRaster(run.mask); continue; }
         if (_nativeMaskSupported(run, organize)) continue;
         if (!_rasterGroups) throw _layerError(run.mask, '蒙版「' + run.mask.name + '」无法转换，请开启自动栅格化');
         out.push({ node: n, mask: run.mask, members: run.members });

@@ -111,8 +111,7 @@ async function check() {
   assert.equal(failed.messages.some(m=>m.type==='images-done'),false);assert.equal(failed.context._exporting,false);
   for(const [art,reason] of [
     [solid('missing photo',{fills:[{type:'IMAGE',imageHash:null}]}),/missing photo.*素材缺失/],
-    [group('unsupported group',[solid('child')],{effects:[{type:'GLASS',visible:true}]}),/unsupported group.*不支持的效果/],
-    [solid('empty mask',{isMask:true}),/empty mask.*没有被遮罩/]
+    [group('unsupported group',[solid('child')],{effects:[{type:'GLASS',visible:true}]}),/unsupported group.*不支持的效果/]
   ]){
     const invalid=setup(group('page',[art]));await invalid.context.exportSelectionSVG(true,true,true,false,true,false,{});
     assert.match(invalid.messages.find(m=>m.type==='error').message,reason);assert.equal(invalid.messages.some(m=>m.type==='ship'),false);

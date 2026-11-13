@@ -139,6 +139,14 @@ node tests/benchmark-export.cjs
 
 ## 局部栅格化与明确失败
 
+开启“忽略隐藏图层”时，蒙版作用范围内没有可导出对象，则跳过这个空蒙版，不再中止整批导出，也不把蒙版本身输出成图片。隐藏蒙版仍按隐藏规则跳过；其他蒙版和裁剪边界保持各自的作用范围。
+
+```powershell
+node tests/empty-masks.cjs
+```
+
+检查使用实际导出函数与模拟 Figma 节点，覆盖空矢量/图片蒙版、全部内容隐藏、隐藏蒙版、后续有效蒙版和裁剪边界，确认不读取空图片蒙版的素材且不改动原图层。
+
 ```powershell
 node tests/raster-scope.cjs
 node tests/aep-fidelity.cjs
