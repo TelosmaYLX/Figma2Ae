@@ -102,7 +102,7 @@ async function check() {
   assert.ok(blurResult.ship.containers.some(c=>c.name==='card'));assert.equal(blurRenders.length,1);
   assert.equal(blurred.effects.length,2);assert.ok(blurScene.children.every(n=>n.opacity===1));
   await blurHost.context.exportSelectionSVG(true,true,true,false,false,false,{});
-  const disabled=blurHost.messages.find(m=>m.type==='error');assert.match(disabled.message,/底框.*开启自动栅格化/);assert.equal(disabled.nodeId,blurred.id);
+  const disabled=blurHost.messages.find(m=>m.type==='error');assert.match(disabled.message,/底框.*开启“模糊、阴影和特殊效果”/);assert.equal(disabled.nodeId,blurred.id);
 
   const failed=setup(group('page',[group('*broken PNG',[solid('art')]),solid('button')]));
   failed.figma.currentPage.selection[0].children[0].exportAsync=async()=>{throw new Error('renderer failed');};
@@ -111,7 +111,7 @@ async function check() {
   assert.equal(failed.messages.some(m=>m.type==='images-done'),false);assert.equal(failed.context._exporting,false);
   for(const [art,reason] of [
     [solid('missing photo',{fills:[{type:'IMAGE',imageHash:null}]}),/missing photo.*素材缺失/],
-    [group('unsupported group',[solid('child')],{effects:[{type:'GLASS',visible:true}]}),/unsupported group.*不支持的效果/]
+    [group('unsupported group',[solid('child')],{effects:[{type:'GLASS',visible:true}]}),/unsupported group.*不支持的玻璃效果/]
   ]){
     const invalid=setup(group('page',[art]));await invalid.context.exportSelectionSVG(true,true,true,false,true,false,{});
     assert.match(invalid.messages.find(m=>m.type==='error').message,reason);assert.equal(invalid.messages.some(m=>m.type==='ship'),false);

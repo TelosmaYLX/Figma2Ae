@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const {fixture} = require('./direct-aep.cjs');
+const rasterControls = {effects:'raster-effects',paints:'raster-paints',imageCrops:'raster-image-crops',masks:'raster-masks',booleans:'raster-booleans'};
 
 function ui(packet, behavior='success') {
   const html=fs.readFileSync(require('node:path').join(__dirname,'../figma-plugin/ui.html'),'utf8'),elements={},posts=[],requests=[];
@@ -45,7 +46,7 @@ function ui(packet, behavior='success') {
       assert.equal(elements['export-aep'].disabled,true,'Button stays locked while the server writes');
       assert.equal(elements['raster-scale'].disabled,true,'Keep the selected scale fixed until export completes');
       assert.equal(elements['native-image-masks'].disabled,true);
-      for(const id of ['organize','enableclip','ignorehidden','rastergroups','mergeblends','rastertexts','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
+      for(const id of ['organize','enableclip','ignorehidden',...Object.values(rasterControls),'mergeblends','rastertexts','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
       assert.equal(posts.filter(m=>m.type==='ship-selection').length,1,'Collect and check Figma content before the server can choose a folder');
       assert.equal(elements['open-aep-folder'].hidden,true);
       if(behavior==='layer-error')return {ok:false,json:async()=>({error:'图层「shadow」无法导出：暂不支持该模糊或图层效果，请标记该层栅格化',nodeId:'original-shadow-id'})};
@@ -61,6 +62,8 @@ function ui(packet, behavior='success') {
       assert.equal(message.rasterScale,Number(elements['raster-scale'].value));
       assert.equal(message.nativeImageMasks,elements['native-image-masks'].value==='separate');
       assert.equal(message.convertMasks,true);
+      assert.equal(message.rasterGroups,undefined,'No broad hidden rasterization switch');
+      for(const [key,id] of Object.entries(rasterControls))assert.equal(message.rasterize[key],elements[id].checked,key+' is independently transmitted');
       emit({...packet,type:'ship',imageCount:packet.images.length});
       if(behavior==='export-error'){emit({type:'error',message:'Figma error'});finish();return;}
       for(let i=0;i<packet.images.length;i++){
@@ -79,9 +82,12 @@ function ui(packet, behavior='success') {
   assert.equal(elements['bicubic-export'].checked,false,'Bicubic export is opt-in');
   assert.equal(elements['native-image-masks'].value,'separate','Preserve original images and masks by default');
   assert.equal(elements.nodemode,undefined);assert.equal(elements.convertmask,undefined);
+  assert.equal(elements.rastergroups,undefined);
+  for(const id of Object.values(rasterControls))assert.equal(elements[id].checked,true,id+' preserves automatic handling by default');
   if(behavior==='merged-masks')elements['native-image-masks'].value='merge';
   if(behavior==='flat'){
-    elements.organize.checked=false;elements.rastergroups.checked=false;elements.mergeblends.checked=false;
+    elements.organize.checked=false;elements.mergeblends.checked=false;
+    for(const [index,id] of Object.values(rasterControls).entries())elements[id].checked=index%2===0;
   }
   if(behavior==='bicubic'){
     elements['bicubic-export'].checked=true;

@@ -28,7 +28,7 @@ async function check(){
   const first=rect('底框'),bad=rect('底框',{effects:[blur]});
   const root=node('FRAME','页面',{children:[group('卡片A',[first]),group('卡片B',[bad])]});
   const h=harness(root),page=h.figma.currentPage;page.id='page-1';page.type='PAGE';root.parent=page;
-  const error=await failure(h,false);assert.match(error.message,/底框.*背景模糊.*开启自动栅格化/);assert.equal(error.nodeId,bad.id);
+  const error=await failure(h,false);assert.match(error.message,/底框.*背景模糊.*开启“模糊、阴影和特殊效果”/);assert.equal(error.nodeId,bad.id);
   assert.notEqual(error.nodeId,first.id);assert.equal(h.context._exporting,false);assert.equal(h.figma.currentPage.selection[0],root);
   assert.equal(Object.keys(h.context._exportSourceIds).length,0,'Copy mappings are released after cleanup');
   const targets=new Map([[first.id,first],[bad.id,bad]]),zoom=[],changes=[];

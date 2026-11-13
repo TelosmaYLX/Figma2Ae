@@ -39,6 +39,10 @@
   .settings legend { padding:0 4px; font-weight:600; }
   .option { display:flex; align-items:center; gap:8px; min-height:28px; cursor:pointer; }
   .option input { flex:0 0 auto; margin:0; accent-color:var(--accent); }
+  .option-stack { align-items:flex-start; padding:4px 0; }
+  .option-stack + .option-stack { margin-top:8px; }
+  .option-stack input { margin-top:2px; }
+  .option-stack small { display:block; margin-top:4px; font-size:11px; line-height:1.5; color:var(--muted); }
   .setting-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:36px; }
   .setting-row + .setting-row { margin-top:8px; }
   .setting-row select { min-width:88px; max-width:65%; min-height:36px; padding:8px; border:0; border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
@@ -92,8 +96,17 @@
   <details id="advanced-options">
     <summary>高级选项</summary>
     <div class="advanced-group">
-      <div class="advanced-label">自动处理</div>
-      <label class="option"><input type="checkbox" id="rastergroups" checked> 自动栅格化不支持的内容</label>
+      <div class="advanced-label">允许自动转为图片</div>
+      <label class="option option-stack"><input type="checkbox" id="raster-effects" checked><span>模糊、阴影和特殊效果<small>投影、内阴影、图层/背景模糊、玻璃、噪点、纹理、着色器。</small></span></label>
+      <label class="option option-stack"><input type="checkbox" id="raster-paints" checked><span>特殊填充与描边<small>角度/菱形渐变、视频静帧、图案、着色器。</small></span></label>
+      <label class="option option-stack"><input type="checkbox" id="raster-image-crops" checked><span>图片裁剪<small>固定自定义裁剪；独立蒙版中的原图继续保留。</small></span></label>
+      <label class="option option-stack"><input type="checkbox" id="raster-masks" checked><span>复杂蒙版<small>图片、渐变或效果蒙版；图片分离时只渲染蒙版。</small></span></label>
+      <label class="option option-stack"><input type="checkbox" id="raster-booleans" checked><span>布尔运算结果<small>仅在无法读取结果路径时转为图片。</small></span></label>
+      <div class="hint">能原生转换时保留可编辑内容。关闭后无法转换的图层会报错，可定位处理。</div>
+      <div class="hint">按所在图层转图；组上的效果可能连同组内内容一起合并。</div>
+    </div>
+    <div class="advanced-group">
+      <div class="advanced-label">混合模式</div>
       <label class="option" title="将混合图层与必要底图合并，保留范围外的可编辑内容。"><input type="checkbox" id="mergeblends" checked> 合并混合模式与底图</label>
     </div>
     <div class="advanced-group">
@@ -147,7 +160,7 @@
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
     $('open-aep-folder').disabled = busy || openingFolder;
-    var settings = ['organize','enableclip','ignorehidden','native-image-masks','raster-scale','rastergroups','mergeblends','rastertexts','rasterallgroups','rasterinstances','bicubic-export'];
+    var settings = ['organize','enableclip','ignorehidden','native-image-masks','raster-scale','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends','rastertexts','rasterallgroups','rasterinstances','bicubic-export'];
     for (var i = 0; i < settings.length; i++) $(settings[i]).disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
@@ -228,7 +241,7 @@
     exporting = true; updateButton();
     blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', target: direct ? 'aep' : 'ae', useNodes: true, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, nativeImageMasks: $('native-image-masks').value === 'separate', ignoreHidden: $('ignorehidden').checked, convertMasks: true, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', target: direct ? 'aep' : 'ae', useNodes: true, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, nativeImageMasks: $('native-image-masks').value === 'separate', ignoreHidden: $('ignorehidden').checked, convertMasks: true, rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked, masks: $('raster-masks').checked, booleans: $('raster-booleans').checked}, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   }
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;

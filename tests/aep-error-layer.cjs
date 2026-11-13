@@ -59,7 +59,7 @@ async function check(){
       }
       h.messages.length=0;
       await h.context.exportSelectionSVG(true,true,true,false,false,false,{target:'aep'});
-      const preflight=h.messages.find(m=>m.type==='error');assert.equal(preflight.nodeId,bad.id);assert.match(preflight.message,/自动栅格化/);
+      const preflight=h.messages.find(m=>m.type==='error');assert.equal(preflight.nodeId,bad.id);assert.match(preflight.message,/开启“模糊、阴影和特殊效果”/);
       if(kind==='shape'){
         const invalid=structuredClone(packet),target=invalid.nodes.find(n=>n.sourceId===bad.id);target.paths=[{d:'unsupported'}];
         const rejected=await fetch(url,{method:'POST',body:JSON.stringify({packet:invalid})});

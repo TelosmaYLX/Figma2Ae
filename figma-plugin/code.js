@@ -40,7 +40,15 @@ var _convertMasks = false;      // original-compatible default: masks stay ordin
 var _nativeImageMasks = false;
 var _directAep = false;
 var _independentMasks = {};
-var _rasterGroups = true;       // local fallback for content the native channels cannot express
+var _rasterOptions = {};       // independent permissions for automatic PNG conversion
+var _rasterOptionNames = { effects: '模糊、阴影和特殊效果', paints: '特殊填充与描边', imageCrops: '图片裁剪', masks: '复杂蒙版', booleans: '布尔运算结果' };
+function _requireRasterOption(n, key, reason) {
+  if (_rasterOptions[key]) return;
+  throw _layerError(n, (n.isMask ? '蒙版' : '图层') + '「' + n.name + '」' + reason + '，请开启“' + _rasterOptionNames[key] + '”或标记为图片');
+}
+function _effectName(e) {
+  return { DROP_SHADOW: '投影', INNER_SHADOW: '内阴影', LAYER_BLUR: '图层模糊', BACKGROUND_BLUR: '背景模糊', GLASS: '玻璃', NOISE: '噪点', TEXTURE: '纹理', SHADER: '着色器' }[e.type] || e.type;
+}
 var _rasterTexts = false;       // opt-in: export each remaining text node as a PNG
 var _rasterScale = 1;
 var _rasterRenderScale = 1;
@@ -365,10 +373,10 @@ function _singleImageNeedsRaster(n) {
       // appearance instead of silently discarding that transform.
       if (p.scaleMode === 'CROP' || p.imageTransform) crop = true;
     }
-    var fx = n.effects || [];
-    for (var j = 0; j < fx.length; j++) if (fx[j].visible !== false) crop = true;
   } catch (e) { return false; }
-  return image && crop;
+  if (image && crop) _requireRasterOption(n, 'imageCrops', '的自定义图片裁剪需要固定为 PNG');
+  var effect = _rasterOptions.effects && (n.effects || []).some(function (e) { return e.visible !== false; });
+  return image && (crop || effect);
 }
 function _collectRasterCandidates(root, organize) {
   var out = [];
@@ -386,38 +394,45 @@ function _collectRasterCandidates(root, organize) {
     }
     if (_rasterTexts && n.type === 'TEXT') { add(n); return; }
     if (n.type === 'TEXT' && n.hasMissingFont) throw _layerError(n, '文字「' + n.name + '」缺少字体');
-    var paintLists = [n.fills || [], n.strokes || []], unsupportedPaint = false;
+    var paintLists = [n.fills || [], n.strokes || []], unsupportedPaint = [];
     for (var pl = 0; pl < paintLists.length; pl++) if (paintLists[pl] !== figma.mixed) {
       for (var pi = 0; pi < paintLists[pl].length; pi++) {
         var paint = paintLists[pl][pi];
         if (paint.visible !== false && paint.type === 'IMAGE' && !paint.imageHash) throw _layerError(n, '图层「' + n.name + '」的图片素材缺失');
-        if (paint.visible !== false && ['SOLID', 'IMAGE', 'GRADIENT_LINEAR', 'GRADIENT_RADIAL'].indexOf(paint.type) === -1) unsupportedPaint = true;
+        if (paint.visible !== false && ['SOLID', 'IMAGE', 'GRADIENT_LINEAR', 'GRADIENT_RADIAL'].indexOf(paint.type) === -1)
+          unsupportedPaint.push({ GRADIENT_ANGULAR: '角度渐变', GRADIENT_DIAMOND: '菱形渐变', VIDEO: '视频', PATTERN: '图案', SHADER: '着色器' }[paint.type] || paint.type);
       }
     }
-    if (unsupportedPaint) {
-      if (_rasterGroups && !_isContainer(n)) { add(n); return; }
-      throw _layerError(n, '图层「' + n.name + '」包含不支持的填充，请标记该层栅格化');
+    if (unsupportedPaint.length) {
+      _requireRasterOption(n, 'paints', '含无法原生转换的' + unsupportedPaint.join('、') + '填充或描边');
+      if (!_isContainer(n)) { add(n); return; }
+      throw _layerError(n, '图层「' + n.name + '」包含不支持的' + unsupportedPaint.join('、') + '填充或描边，请将该容器标记为图片');
     }
     var visibleEffects = (n.effects || []).filter(function (e) { return e.visible !== false; });
     if (visibleEffects.some(function (e) { return e.type === 'BACKGROUND_BLUR'; })) {
-      if (!_rasterGroups) throw _layerError(n, '图层「' + n.name + '」的背景模糊需要开启自动栅格化');
+      _requireRasterOption(n, 'effects', '的背景模糊需要转为图片');
       add(n); return;
     }
-    if (_directAep && visibleEffects.some(function (e) { return e.type !== 'DROP_SHADOW'; })) {
-      if (!_rasterGroups) throw _layerError(n, '图层「' + n.name + '」的效果需要开启自动栅格化');
-      add(n); return;
+    if (_directAep && visibleEffects.length) {
+      _requireRasterOption(n, 'effects', '的' + visibleEffects.map(_effectName).join('、') + '暂不能原生写入 AEP');
+      if (visibleEffects.some(function (e) { return e.type !== 'DROP_SHADOW'; })) { add(n); return; }
     }
     var unknownEffect = visibleEffects.some(function (e) { return ['DROP_SHADOW', 'INNER_SHADOW', 'LAYER_BLUR'].indexOf(e.type) === -1; });
     if (unknownEffect) {
-      if (_rasterGroups && !_isContainer(n)) { add(n); return; }
-      throw _layerError(n, '图层「' + n.name + '」包含不支持的效果，请标记该层栅格化');
+      _requireRasterOption(n, 'effects', '含无法原生转换的' + visibleEffects.map(_effectName).join('、') + '效果');
+      if (!_isContainer(n)) { add(n); return; }
+      throw _layerError(n, '图层「' + n.name + '」包含不支持的' + visibleEffects.map(_effectName).join('、') + '效果，请标记该层栅格化');
     }
-    if (_rasterGroups) {
-      if (n.type === 'BOOLEAN_OPERATION' && !(n.fillGeometry || []).length) { add(n); return; }
+    if (n.type === 'BOOLEAN_OPERATION' && !(n.fillGeometry || []).length) {
+      _requireRasterOption(n, 'booleans', '未提供布尔运算的结果路径');
+      add(n); return;
+    }
+    if (_rasterOptions.effects) {
       var localEffects = visibleEffects.filter(function (e) { return e.type !== 'DROP_SHADOW'; });
       if (_isContainer(n) && localEffects.length && !organize) throw _layerError(n, '图层「' + n.name + '」的组效果需要启用预合成');
-      if (!_isContainer(n) && n.type !== 'TEXT' && (localEffects.length || _singleImageNeedsRaster(n))) { add(n); return; }
+      if (!_isContainer(n) && n.type !== 'TEXT' && localEffects.length) { add(n); return; }
     }
+    if (_singleImageNeedsRaster(n)) { add(n); return; }
     if (_convertMasks) {
       var runs = _maskRuns(n);
       for (var mi = 0; mi < runs.length; mi++) {
@@ -426,11 +441,15 @@ function _collectRasterCandidates(root, organize) {
         if (run.members.length < 2) { _markRaster(run.mask); continue; }
         if (_nativeImageMasks && run.members.slice(1).some(_containsImage)) {
           _independentMasks[run.mask.id] = run.mask;
-          if (!_nativeMaskGeometrySupported(run.mask)) _markRaster(run.mask);
+          if (!_nativeMaskGeometrySupported(run.mask)) {
+            if (!_rasterWhole(run.mask)) _requireRasterOption(run.mask, 'masks', '需要单独渲染为遮罩图片');
+            _markRaster(run.mask);
+          }
           continue;
         }
         if (_nativeMaskSupported(run, organize)) continue;
-        if (!_rasterGroups) throw _layerError(run.mask, '蒙版「' + run.mask.name + '」无法转换，请开启自动栅格化');
+        // Choosing merged image masks is itself an explicit request to bake that scope.
+        if (!run.members.slice(1).some(_containsImage)) _requireRasterOption(run.mask, 'masks', '无法转换为原生轨道遮罩');
         out.push({ node: n, mask: run.mask, members: run.members });
         for (var mm = 0; mm < run.members.length; mm++) _markRaster(run.members[mm]);
       }
@@ -1038,12 +1057,16 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     return;
   }
   _ignoreHidden = (ignoreHidden !== false);       // default: hidden Figma layers stay out of AE
-  _rasterGroups = (rasterGroups !== false);
   _rasterTexts = (rasterTexts === true);
   options = options || {};
   _directAep = options.target === 'aep';
   _nativeImageMasks = options.nativeImageMasks === true;
-  _convertMasks = convertMasks === true || _rasterGroups || _nativeImageMasks;
+  // Keep the legacy API argument as the default for callers without per-category settings.
+  var rasterDefaults = rasterGroups !== false, rasterOptions = options.rasterize || {};
+  _rasterOptions = {};
+  for (var rasterKey in _rasterOptionNames) _rasterOptions[rasterKey] = rasterOptions[rasterKey] == null ?
+    (rasterDefaults || (rasterKey === 'masks' && _nativeImageMasks)) : rasterOptions[rasterKey] === true;
+  _convertMasks = convertMasks === true || rasterDefaults || _nativeImageMasks || _rasterOptions.masks;
   _rasterScale = options.rasterScale == null ? 1 : Number(options.rasterScale);
   _bicubicExport = options.bicubicExport === true;
   _rasterRenderScale = _rasterScale * (_bicubicExport ? 2 : 1);
@@ -1135,7 +1158,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     _subtreeFlagsByNode = {};
     var blendBake = _mergeBlends ? await _bakeBlendStacks(node, !!organize) : { images: [], stats: null };
     var rasterCandidates = _collectRasterCandidates(node, !!organize);
-    var shadowImages = _rasterGroups ? await _bakeEditableShadows(node, !!organize) : [];
+    var shadowImages = _rasterOptions.effects ? await _bakeEditableShadows(node, !!organize) : [];
     if (shadowImages.length) rasterCandidates = _collectRasterCandidates(node, !!organize);
     var maskImages = await _bakeIndependentMasks(node, !!organize);
     var nodeShapes = useNodes ? collectShapes(node, !!organize) : null;
