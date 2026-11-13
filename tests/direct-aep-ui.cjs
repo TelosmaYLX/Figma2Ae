@@ -42,6 +42,7 @@ function ui(packet, behavior='success') {
       assert.equal(url,'http://127.0.0.1:7868/export');
       assert.equal(elements['export-aep'].disabled,true,'Button stays locked while the server writes');
       assert.equal(elements['raster-scale'].disabled,true,'Keep the selected scale fixed until export completes');
+      assert.equal(elements['native-image-masks'].disabled,true);
       assert.equal(posts.filter(m=>m.type==='ship-selection').length,1,'Collect and check Figma content before the server can choose a folder');
       assert.equal(elements['open-aep-folder'].hidden,true);
       if(['server-error','picker-error'].includes(behavior))return {ok:false,json:async()=>({error:behavior==='picker-error'?'Picker failure':'Test failure'})};
@@ -53,6 +54,7 @@ function ui(packet, behavior='success') {
       if(message.type!=='ship-selection')return;
       assert.equal(message.useNodes,true);
       assert.equal(message.rasterScale,Number(elements['raster-scale'].value));
+      assert.equal(message.nativeImageMasks,elements['native-image-masks'].checked);
       emit({...packet,type:'ship',imageCount:packet.images.length});
       if(behavior==='export-error'){emit({type:'error',message:'Figma error'});finish();return;}
       for(let i=0;i<packet.images.length;i++){
@@ -69,6 +71,8 @@ function ui(packet, behavior='success') {
   function emit(message){window.onmessage({data:{pluginMessage:message}});}
   vm.runInContext(html.match(/<script>([\s\S]*)<\/script>/)[1],context);
   assert.equal(elements['bicubic-export'].checked,false,'Bicubic export is opt-in');
+  assert.equal(elements['native-image-masks'].checked,false,'Independent image masks are opt-in');
+  if(behavior==='native-masks')elements['native-image-masks'].checked=true;
   if(behavior==='bicubic'){
     elements['bicubic-export'].checked=true;
     context.renderBicubic=async image=>{
@@ -88,14 +92,15 @@ function ui(packet, behavior='success') {
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   const packet=await fixture();
-  for(const behavior of ['success','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','export-error','missing-image','open-error']){
+  for(const behavior of ['success','native-masks','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
     assert.equal(h.elements['export-aep'].disabled,false);
     assert.equal(h.elements['raster-scale'].disabled,false);
+    assert.equal(h.elements['native-image-masks'].disabled,false);
     assert.equal(h.requests.some(r=>r.url.endsWith('/select-directory')),false,'The UI must not choose a folder ahead of validation');
-    if(['success','bicubic','cold-start','shadow','warnings','open-error'].includes(behavior)){
+    if(['success','native-masks','bicubic','cold-start','shadow','warnings','open-error'].includes(behavior)){
       const request=JSON.parse(h.requests.find(r=>r.url.endsWith('/export')).options.body);
       assert.deepEqual(Object.keys(request),['packet']);
       const body=request.packet;
@@ -131,7 +136,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
     if(behavior==='shadow-error'){
       assert.equal(h.requests.some(r=>r.url.endsWith('/export')),false);assert.match(h.elements.msg.textContent,/投影.*PNG decode failed/);
     }
-    if(['success','cold-start','shadow','open-error'].includes(behavior)){
+    if(['success','native-masks','cold-start','shadow','open-error'].includes(behavior)){
       assert.equal(h.elements['open-aep-folder'].hidden,false);
       h.elements['open-aep-folder'].onclick();h.elements['open-aep-folder'].onclick();
       assert.equal(h.requests.filter(r=>r.url.endsWith('/open-directory')).length,1,'Opening has its own click lock');

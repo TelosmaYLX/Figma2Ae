@@ -314,3 +314,20 @@ node tests/figma-node-api.cjs
 ```
 
 测试在严格模式下使用不带填充/描边的不可扩展 Group，并保持克隆后的节点不可扩展。修复前可复现 `Cannot add property fills, object is not extensible`，修复后普通合并、嵌套组、组投影，以及复杂组栅格化开关的检查均通过。该回归检查模拟原生节点的属性限制，没有执行新的在线 Figma 渲染。
+
+## 图片与独立蒙版
+
+```powershell
+node tests/native-image-masks.cjs
+node tests/direct-aep-ui.cjs
+```
+
+使用实际采集代码与模拟 Figma API，检查原图字节保留、独立矢量／Alpha／亮度蒙版、蒙版内可编辑文字，以及图片自身 CROP 与外部蒙版的嵌套。生成真 AEP，再读取二进制检查素材尺寸、原图变换和轨道遮罩关系；也覆盖默认关闭、重复导出重置、自动栅格化关闭和双三次选项。UI 检查覆盖新选项的默认值、参数传递和导出期间禁用。设置面板在 320、375、1280 像素宽度检查，无水平溢出。
+
+原生 AE 属性检查需先生成上述测试数据，在 AE 空闲且 F2A 面板打开时运行：
+
+```powershell
+node scripts/ae-eval.mjs tests/ae-native-image-masks.jsx artifacts/native-image-masks/ae-report.json native-image-masks
+```
+
+脚本只创建并清理测试项，不替换或保存当前工程。本轮尝试遇到脚本回调超时，尚未形成完整原生 AE 报告；离线检查不代表新的真实 Figma → AE 端到端或像素一致性验收。

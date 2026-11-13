@@ -37,6 +37,8 @@ function _pathOf(n, rootId) {
 var _zMap = null;
 var _ignoreHidden = true;
 var _convertMasks = false;      // original-compatible default: masks stay ordinary Figma layers
+var _nativeImageMasks = false;
+var _independentMasks = {};
 var _rasterGroups = true;       // local fallback for content the native channels cannot express
 var _rasterTexts = false;       // opt-in: export each remaining text node as a PNG
 var _rasterScale = 1;
@@ -237,8 +239,8 @@ function _maskRuns(n) {
   }
   return runs;
 }
-function _nativeMaskSupported(run, organize) {
-  var mask = run.mask, fills = mask.fills;
+function _nativeMaskGeometrySupported(mask) {
+  var fills = mask.fills;
   if (_rasterWhole(mask) || (mask.children && mask.type !== 'BOOLEAN_OPERATION') ||
       !mask.fillGeometry || !mask.fillGeometry.length || !fills || fills === figma.mixed ||
       (mask.strokes || []).some(function (p) { return p.visible !== false; }) ||
@@ -247,6 +249,10 @@ function _nativeMaskSupported(run, organize) {
   if (visible.length !== 1 || visible[0].type !== 'SOLID') return false;
   // Vector masks ignore paint alpha. Both writers express ordinary solid alpha/luma masks.
   if (mask.maskType === 'VECTOR' && (visible[0].opacity != null && visible[0].opacity !== 1)) return false;
+  return true;
+}
+function _nativeMaskSupported(run, organize) {
+  if (!_nativeMaskGeometrySupported(run.mask)) return false;
   function supported(n) {
     if (_ignoreHidden && _isHidden(n)) return true;
     if (_isContainer(n) && (!organize || (n.effects || []).some(function (e) { return e.visible !== false; }))) return false;
@@ -256,6 +262,12 @@ function _nativeMaskSupported(run, organize) {
     return n.type === 'BOOLEAN_OPERATION' || !n.children || n.children.every(supported);
   }
   return run.members.slice(1).every(supported);
+}
+
+function _containsImage(n) {
+  if (_ignoreHidden && _isHidden(n)) return false;
+  if (n.fills && n.fills !== figma.mixed && n.fills.some(function (p) { return p.visible !== false && p.type === 'IMAGE'; })) return true;
+  return !!(n.children && n.children.some(_containsImage));
 }
 
 // Build mask relationships BEFORE collecting any channel. A mask applies to the siblings AFTER
@@ -308,8 +320,16 @@ function _markRaster(n) {
   _rasterByNode[n.id] = true;
   if (n.children) for (var i = 0; i < n.children.length; i++) _markRaster(n.children[i]);
 }
+function _usesIndependentMask(n) {
+  if (!_nativeImageMasks) return false;
+  for (var current = n; current; current = current.parent) {
+    if (_maskByNode[current.id]) return !!_independentMasks[_maskByNode[current.id]];
+  }
+  return false;
+}
 function _singleImageNeedsRaster(n) {
   if (!n || _isContainer(n) || n.type === 'TEXT' || _maskSourceByNode[n.id] || _maskByNode[n.id]) return false;
+  if (_usesIndependentMask(n)) return false;
   var image = false, crop = false;
   try {
     var paints = n.fills || [];
@@ -330,12 +350,14 @@ function _singleImageNeedsRaster(n) {
 function _collectRasterCandidates(root, organize) {
   var out = [];
   _rasterByNode = {};
+  _independentMasks = {};
   for (var mergedId in _blendMerged) _rasterByNode[mergedId] = true;
   _subtreeFlagsByNode = {};
   function add(n) { out.push({ node: n }); _markRaster(n); }
   function scan(n) {
     if (_ignoreHidden && _isHidden(n)) return;
     if (_rasterByNode[n.id]) return;
+    if (_independentMasks[n.id]) return;
     if (_rasterWhole(n)) {
       add(n); return;
     }
@@ -375,6 +397,11 @@ function _collectRasterCandidates(root, organize) {
         var run = runs[mi];
         // A mask without exported siblings contributes no artwork of its own.
         if (run.members.length < 2) { _markRaster(run.mask); continue; }
+        if (_nativeImageMasks && run.members.slice(1).some(_containsImage)) {
+          _independentMasks[run.mask.id] = run.mask;
+          if (!_nativeMaskGeometrySupported(run.mask)) _markRaster(run.mask);
+          continue;
+        }
         if (_nativeMaskSupported(run, organize)) continue;
         if (!_rasterGroups) throw _layerError(run.mask, '蒙版「' + run.mask.name + '」无法转换，请开启自动栅格化');
         out.push({ node: n, mask: run.mask, members: run.members });
@@ -386,6 +413,32 @@ function _collectRasterCandidates(root, organize) {
   }
   scan(root);
   return out;
+}
+
+async function _bakeIndependentMasks(root, organize) {
+  var images = [];
+  for (var id in _independentMasks) {
+    var n = _independentMasks[id];
+    if (_nativeMaskGeometrySupported(n)) continue;
+    var im = _rasterMeta(n, root, organize), wasMask = n.isMask;
+    var fills = n.fills, strokes = n.strokes, effects = n.effects, opacity = n.opacity;
+    try {
+      n.isMask = false;
+      if (n.maskType === 'VECTOR') {
+        n.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+        n.strokes = []; n.effects = []; n.opacity = 1;
+      }
+      im.rasterBytes = await _exportRasterPng(im);
+    } finally {
+      n.isMask = wasMask;
+      if (n.maskType === 'VECTOR') { n.fills = fills; n.strokes = strokes; n.effects = effects; n.opacity = opacity; }
+    }
+    im.maskSource = id; im.maskType = n.maskType || 'ALPHA'; im.maskId = null;
+    im.opacity = 1; im.blend = 'NORMAL';
+    delete im.rasterNode; delete im.rasterBounds;
+    images.push(im);
+  }
+  return images;
 }
 
 // Blend pixels depend on the paint below them. Baking only the blend layer still asks AE to
@@ -911,9 +964,10 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   }
   _ignoreHidden = (ignoreHidden !== false);       // default: hidden Figma layers stay out of AE
   _rasterGroups = (rasterGroups !== false);
-  _convertMasks = convertMasks === true || _rasterGroups;
   _rasterTexts = (rasterTexts === true);
   options = options || {};
+  _nativeImageMasks = options.nativeImageMasks === true;
+  _convertMasks = convertMasks === true || _rasterGroups || _nativeImageMasks;
   _rasterScale = options.rasterScale == null ? 1 : Number(options.rasterScale);
   _bicubicExport = options.bicubicExport === true;
   _rasterRenderScale = _rasterScale * (_bicubicExport ? 2 : 1);
@@ -1005,12 +1059,13 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     var rasterCandidates = _collectRasterCandidates(node, !!organize);
     var shadowImages = _rasterGroups ? await _bakeEditableShadows(node, !!organize) : [];
     if (shadowImages.length) rasterCandidates = _collectRasterCandidates(node, !!organize);
+    var maskImages = await _bakeIndependentMasks(node, !!organize);
     var nodeShapes = useNodes ? collectShapes(node, !!organize) : null;
     var containers = organize ? collectContainers(node) : null;
     var texts = collectTexts(node, { x: 0, y: 0 }, node.id, !!organize);
     var effects = collectEffects(node, { x: 0, y: 0 });
     var images = await collectImages(node, node.id, !!organize);
-    images = images.concat(blendBake.images, shadowImages);
+    images = images.concat(blendBake.images, shadowImages, maskImages);
     for (var rci = 0; rci < rasterCandidates.length; rci++) {
       var candidate = rasterCandidates[rci], rn = candidate.node;
       var passes = _rasterWhole(rn) ? [{}] : _rasterBlendPasses(rn, candidate.members);
@@ -1204,6 +1259,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     for (var im = 0; im < images.length; im++) {
       images[im].x -= origin.x; images[im].y -= origin.y;
       images[im].cx -= origin.x; images[im].cy -= origin.y;
+      if (images[im].imageMatrix) { images[im].imageMatrix[4] -= origin.x; images[im].imageMatrix[5] -= origin.y; }
     }
 
     // containers are frame-relative too, so the precomps line up with everything else
@@ -1573,6 +1629,15 @@ async function collectImages(root, rootId, organize) {
           if (f.type !== 'IMAGE' || f.visible === false || !f.imageHash) continue;
           var b = n.absoluteBoundingBox;
           var mode = f.scaleMode || 'FILL';
+          var imageMatrix = null;
+          if (mode === 'CROP' && f.imageTransform && _usesIndependentMask(n)) {
+            var crop = _inverseMatrix(f.imageTransform);
+            var placement = _matrixProduct(n.absoluteTransform, [
+              [n.width * crop[0][0], n.width * crop[0][1], n.width * crop[0][2]],
+              [n.height * crop[1][0], n.height * crop[1][1], n.height * crop[1][2]]
+            ]);
+            imageMatrix = [placement[0][0], placement[1][0], placement[0][1], placement[1][1], placement[0][2], placement[1][2]];
+          }
           var m = _matteOf(n);
           var needsMatte = (m.kind !== 'rect') || (m.r > 0) || (mode !== 'FIT');
           // absoluteBoundingBox is AXIS-ALIGNED, so for a rotated picture it is bigger than
@@ -1589,6 +1654,7 @@ async function collectImages(root, rootId, organize) {
             sourceId: _exportSourceIds[n.id] || n.id,
             name: (n.name || 'image').replace(/[^A-Za-z0-9_\-]+/g, '_'),
             hash: f.imageHash,
+            imageMatrix: imageMatrix, preserveSource: _usesIndependentMask(n),
             cx: ccx, cy: ccy, cw: lw, ch: lh,
             x: b.x, y: b.y, w: b.width, h: b.height,
           // What the precomp must be able to hold. A clipping frame hides its overflow anyway,
@@ -1663,11 +1729,12 @@ async function shipImages(images) {
     } catch (e) { throw _layerError(im, '图片「' + im.name + '」导出失败：' + (e.message || e)); }
     var meta = { name: im.name, sourceId: im.sourceId || null, ext: ext, x: im.x, y: im.y, w: im.w, h: im.h,
                  cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch,
-                 natW: natW, natH: natH, scaleMode: im.scaleMode, rasterScale: im.rasterScale || null,
+                 natW: natW, natH: natH, scaleMode: im.scaleMode, rasterScale: im.rasterScale || null, imageMatrix: im.imageMatrix || null,
+                 maskSource: im.maskSource || null, maskType: im.maskType || null,
                  opacity: im.opacity, rotation: im.rotation, matte: im.matte,
                  blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0), maskId: im.maskId || null,
                  hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, shadowBase: im.shadowBase || null, mergedBlend: !!im.mergedBlend, external: !!im.external };
-    if (_bicubicExport) {
+    if (_bicubicExport && !(im.preserveSource && !im.rasterScale)) {
       var factor = im.rasterScale ? 0.5 : _rasterScale * (im.scaleMode === 'FIT'
         ? Math.min(im.cw / natW, im.ch / natH) : Math.max(im.cw / natW, im.ch / natH));
       meta.bicubic = { width: Math.max(1, Math.ceil(natW * factor)), height: Math.max(1, Math.ceil(natH * factor)) };

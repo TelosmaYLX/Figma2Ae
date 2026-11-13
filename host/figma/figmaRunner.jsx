@@ -38,7 +38,7 @@ function _mkShiftModel(model, dx, dy) {
 
 var _mkNodeOrigin = { x: 0, y: 0 };     // frame origin for node mode, set by the panel
 
-function runSvgToShapes(pathOrSvg, gradientPresets, effects, shiftX, shiftY) {
+function runSvgToShapes(pathOrSvg, gradientPresets, effects, shiftX, shiftY, imageMasks, imageFolder) {
   try {
     if (typeof SVGParser === "undefined" || typeof AEShapeBuilder === "undefined")
       return "ERROR: Figma 引擎未加载。";
@@ -59,7 +59,8 @@ function runSvgToShapes(pathOrSvg, gradientPresets, effects, shiftX, shiftY) {
     _mkShiftModel(model, Number(shiftX) || 0, Number(shiftY) || 0);
     if (!model.shapes.length) return "ERROR: 没有支持的形状（路径、矩形、圆形、椭圆、直线或多边形）。";
 
-    var layers = AEShapeBuilder.build(model, { comp: comp, oneLayer: false, name: name, gradientPresets: gradientPresets || null, effects: effects || null });
+    var layers = AEShapeBuilder.build(model, { comp: comp, oneLayer: false, name: name, gradientPresets: gradientPresets || null,
+                                             effects: effects || null, imageMasks: imageMasks, imageFolder: imageFolder });
     return "OK: 已从 " + model.shapes.length + " 个形状创建 " + layers.length + " 个形状图层。";
   } catch (e) {
     return "ERROR: " + e.toString();
@@ -126,7 +127,8 @@ function runImportBatch(jobPath) {
     return AEShapeBuilder.withUndo("Figma -> AE", function () {
       try {
         var status = runImport(job.svgPath, job.textsPath, job.gradMapPath, job.effectsPath,
-                               job.shiftX || 0, job.shiftY || 0, job.nodesPath, job.containersPath);
+                               job.shiftX || 0, job.shiftY || 0, job.nodesPath, job.containersPath,
+                               job.imagesPath ? _mkReadJson(job.imagesPath) : null, job.imageFolder);
         if (/^(ERROR|node error)/i.test(status)) return status;
         if (job.imagesPath && job.imageFolder) {
           var images = runImportImages(job.imagesPath, job.imageFolder);
@@ -138,7 +140,7 @@ function runImportBatch(jobPath) {
   } catch (e) { return "batch error: " + e.toString(); }
 }
 
-function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY, nodesPath, containersPath) {
+function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY, nodesPath, containersPath, imageMasks, imageFolder) {
   var gradPresets = null, effects = null;
   try { gradPresets = _mkReadJson(gradMapPath); } catch (eg) {}
   try { effects = _mkReadJson(effectsPath); } catch (ee) {}
@@ -166,12 +168,12 @@ function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY,
           if (!effN.length) effN = null;
         }
         var lyrsN = AEShapeBuilder.build(modelN, { comp: compN, oneLayer: false, name: "Figma UI",
-                                                   gradientPresets: gradPresets || null, effects: effN });
+                                                   gradientPresets: gradPresets || null, effects: effN, imageMasks: imageMasks, imageFolder: imageFolder });
         status = "可编辑模式：已从 " + nodes.length + " 个 Figma 图层创建 " + lyrsN.length + " 个图层。";
       }
     } catch (eN) { status = "node error: " + eN.toString(); }
   } else {
-    status = runSvgToShapes(svgPath, gradPresets, effects, shiftX, shiftY);
+    status = runSvgToShapes(svgPath, gradPresets, effects, shiftX, shiftY, imageMasks, imageFolder);
   }
 
   try {

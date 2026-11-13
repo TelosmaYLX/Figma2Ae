@@ -1232,19 +1232,26 @@ var AEShapeBuilder = (function () {
   }
 
   var _maskDefs = {};   // Figma mask root id -> geometry records (never rendered as art)
+  var _imageMaskDefs = {}, _imageMaskFolder = '';
+  function registerImageMasks(images, folder) {
+    if (folder) _imageMaskFolder = folder;
+    for (var i = 0; images && i < images.length; i++)
+      if (images[i].maskSource) _imageMaskDefs[images[i].maskSource] = images[i];
+  }
   // Build one white ALPHA matte above a masked layer. All regions of a container mask share a
   // single matte layer; this keeps the mask out of the visible artwork and preserves editability.
   function applyNodeMask(lyr, sdata) {
     if (!sdata.maskId) return null;
     var defs = _maskDefs[sdata.maskId];
-    if (!defs || !defs.length) { _diag.push("mask missing " + sdata.maskId); return null; }
+    var imageMask = _imageMaskDefs[sdata.maskId];
+    if ((!defs || !defs.length) && !imageMask) { _diag.push("mask missing " + sdata.maskId); return null; }
     var comp = lyr.containingComp;
-    var isLuma = (defs[0].maskType === 'LUMINANCE');
+    var isLuma = ((imageMask || defs[0]).maskType === 'LUMINANCE');
     var matteKind = isLuma ? TrackMatteType.LUMA : TrackMatteType.ALPHA;
-    var mt = comp.layers.addShape();
+    var mt = imageMask ? createImageFootage(comp, imageMask, _imageMaskFolder) : comp.layers.addShape();
     mt.name = "Figma 遮罩 - " + (lyr.name || "图层");
-    var contents = mt.property("ADBE Root Vectors Group");
-    for (var i = 0; i < defs.length; i++) {
+    var contents = imageMask ? null : mt.property("ADBE Root Vectors Group");
+    for (var i = 0; !imageMask && i < defs.length; i++) {
       var def = defs[i];
       if (isLuma) {
         // Luminance depends on the ORIGINAL colours, not on a white alpha silhouette.
@@ -1264,7 +1271,7 @@ var AEShapeBuilder = (function () {
           grp.property("ADBE Vector Transform Group").property("ADBE Vector Group Opacity").setValue(maskOpacity * 100);
       } catch (eop) {}
     }
-    zeroTransform(mt);
+    if (!imageMask) zeroTransform(mt);
     mt.moveBefore(lyr);                       // AE requires the matte directly above its content
     try { lyr.setTrackMatte(mt, matteKind); }
     catch (e1) { try { lyr.trackMatteType = matteKind; } catch (e2) {} }
@@ -1281,6 +1288,8 @@ var AEShapeBuilder = (function () {
     var shapes = model.shapes, N = shapes.length, i;
     _diag = []; _fontMiss = {}; _fontMissList = []; _imgSlots = []; _layerPaths = []; _mattePairs = []; _referenceLayers = [];
     _maskDefs = {};
+    _imageMaskDefs = {}; _imageMaskFolder = '';
+    registerImageMasks(opts.imageMasks, opts.imageFolder);
     _presetComp = null; _presetLayer = null;   // one full deselect per import, not per gradient
 
     beginUndo("SVG -> Shapes");
@@ -1857,48 +1866,113 @@ var AEShapeBuilder = (function () {
   // Figma crops a picture with the frame it sits in (circle, rounded card, or simply a box
   // the image overflows). AE has no crop on footage, so the frame is rebuilt as a shape layer
   // and used as an ALPHA track matte over the full-resolution footage.
+  function createImageFootage(comp, im, folder) {
+    var f = new File(folder + "/" + im.file);
+    if (!f.exists) throw new Error("IMG missing " + im.file);
+
+    // Reuse footage the project already holds for this exact file — importing the same
+    // picture again on every run piled up duplicates in the project panel.
+    var item = null;
+    try {
+      for (var pi = 1; pi <= app.project.numItems; pi++) {
+        var it = app.project.item(pi);
+        if (it instanceof FootageItem && it.mainSource && it.mainSource.file &&
+            it.mainSource.file.fsName === f.fsName) { item = it; break; }
+      }
+    } catch (eScan) {}
+    if (!item) item = app.project.importFile(new ImportOptions(f));
+    var lyr = comp.layers.add(item);
+    lyr.name = im.name || "Image";
+
+    // Fit the footage to the Figma box. FIT keeps it inside; everything else (FILL,
+    // CROP, TILE) covers the box and the overflow is hidden by the matte.
+    // Use the node's OWN size/centre (cw/ch/cx/cy) — the bounding box is axis-aligned and
+    // therefore too big for a rotated picture, which skewed both the fit and the crop.
+    var fw = (im.cw != null ? im.cw : im.w), fh = (im.ch != null ? im.ch : im.h);
+    var fx0 = (im.cx != null ? im.cx : im.x + im.w / 2), fy0 = (im.cy != null ? im.cy : im.y + im.h / 2);
+    var nw = im.natW || item.width || 1, nh = im.natH || item.height || 1;
+    var sx = fw / nw, sy = fh / nh;
+    // Baked PNGs already carry the Figma scale. Integer pixel padding must not resize them.
+    var sc = im.rasterScale ? 1 / im.rasterScale : (im.scaleMode === 'FIT') ? Math.min(sx, sy) : Math.max(sx, sy);
+    var tg = lyr.property("ADBE Transform Group");
+    tg.property("ADBE Anchor Point").setValue([nw / 2, nh / 2, 0]);
+    tg.property("ADBE Position").setValue([fx0, fy0, 0]);
+    tg.property("ADBE Scale").setValue([sc * 100, sc * 100, 100]);
+    if (im.rotation) { try { tg.property("ADBE Rotate Z").setValue(im.rotation); } catch (er) {} }
+    if (im.imageMatrix) {
+      var m = im.imageMatrix, a = m[0] / nw, b = m[1] / nw, c = m[2] / nh, d = m[3] / nh;
+      var scaleX = Math.sqrt(a * a + b * b), scaleY = (a * d - b * c) / scaleX;
+      if (Math.abs(a * c + b * d) > 0.00001 * Math.max(scaleX * Math.abs(scaleY), 0.00000001))
+        throw new Error('暂不支持该图片裁剪倾斜');
+      tg.property("ADBE Scale").setValue([scaleX * 100, scaleY * 100, 100]);
+      tg.property("ADBE Rotate Z").setValue(Math.atan2(b, a) * 180 / Math.PI);
+      tg.property("ADBE Position").setValue([m[4] + (m[0] + m[2]) / 2, m[5] + (m[1] + m[3]) / 2, 0]);
+    }
+    if (im.opacity != null && im.opacity < 1) tg.property("ADBE Opacity").setValue(im.opacity * 100);
+
+    var mt = null;
+    if (im.matte) {
+      mt = comp.layers.addShape();
+      mt.name = (im.name || "Image") + " matte";
+      var contents = mt.property("ADBE Root Vectors Group");
+      var grp = contents.addProperty("ADBE Vector Group");
+      grp.name = "Crop";
+      var gc = grp.property("ADBE Vectors Group");
+      // Build the crop shape around the ORIGIN, then rotate/position the whole layer —
+      // that way the matte turns with the picture instead of staying axis-aligned.
+      if (im.matte.kind === 'ellipse') {
+        var el = gc.addProperty("ADBE Vector Shape - Ellipse");
+        el.property("ADBE Vector Ellipse Size").setValue([fw, fh]);
+        el.property("ADBE Vector Ellipse Position").setValue([0, 0]);
+      } else {
+        var rc = gc.addProperty("ADBE Vector Shape - Rect");
+        rc.property("ADBE Vector Rect Size").setValue([fw, fh]);
+        rc.property("ADBE Vector Rect Position").setValue([0, 0]);
+        if (im.matte.r) rc.property("ADBE Vector Rect Roundness").setValue(im.matte.r);
+      }
+      var fl = gc.addProperty("ADBE Vector Graphic - Fill");
+      fl.property("ADBE Vector Fill Color").setValue([1, 1, 1, 1]);
+      var mtg = mt.property("ADBE Transform Group");
+      mtg.property("ADBE Anchor Point").setValue([0, 0, 0]);
+      mtg.property("ADBE Position").setValue([fx0, fy0, 0]);
+      if (im.rotation) { try { mtg.property("ADBE Rotate Z").setValue(im.rotation); } catch (er2) {} }
+      mt.moveBefore(lyr);                       // a matte must sit directly above
+      try { lyr.setTrackMatte(mt, TrackMatteType.ALPHA); }   // AE 23+
+      catch (e1) { try { lyr.trackMatteType = TrackMatteType.ALPHA; } catch (e2) {} }
+      mt.enabled = false;                       // matte layers render off, as usual
+    }
+    // Two different masks cannot share one AE track-matte slot. More importantly, a crop
+    // matte must never be separated from its footage by a later group precompose. Pack the
+    // pair into its own small comp immediately; the Figma mask (if any) can then be applied
+    // to this precomp on the outside.
+    if (mt) {
+      try {
+        var cropIndices = [mt.index, lyr.index];
+        var cropComp = comp.layers.precompose(cropIndices, (im.name || "Image") + " crop", true);
+        var cropLayer = null;
+        for (var cp = 1; cp <= comp.numLayers; cp++) {
+          if (comp.layer(cp).source === cropComp) { cropLayer = comp.layer(cp); break; }
+        }
+        if (!cropLayer) throw new Error("crop precomp layer not found");
+        lyr = cropLayer;
+        lyr.name = im.name || "Image";
+        mt = null;
+      } catch (eipc) { throw new Error("IMG crop precomp: " + String(eipc)); }
+    }
+    return lyr;
+  }
+
   function buildImages(comp, images, folder) {
     if (!comp || !(comp instanceof CompItem) || !images || !images.length) return 0;
+    registerImageMasks(images, folder);
     var made = 0;
     beginUndo("Figma -> Images");
     try {
       for (var i = 0; i < images.length; i++) {
         try {
           var im = images[i];
-          var f = new File(folder + "/" + im.file);
-          if (!f.exists) { _diag.push("IMG missing " + im.file); continue; }
-
-          // Reuse footage the project already holds for this exact file — importing the same
-          // picture again on every run piled up duplicates in the project panel.
-          var item = null;
-          try {
-            for (var pi = 1; pi <= app.project.numItems; pi++) {
-              var it = app.project.item(pi);
-              if (it instanceof FootageItem && it.mainSource && it.mainSource.file &&
-                  it.mainSource.file.fsName === f.fsName) { item = it; break; }
-            }
-          } catch (eScan) {}
-          if (!item) item = app.project.importFile(new ImportOptions(f));
-          var lyr = comp.layers.add(item);
-          lyr.name = im.name || "Image";
-
-          // Fit the footage to the Figma box. FIT keeps it inside; everything else (FILL,
-          // CROP, TILE) covers the box and the overflow is hidden by the matte.
-          // Use the node's OWN size/centre (cw/ch/cx/cy) — the bounding box is axis-aligned and
-          // therefore too big for a rotated picture, which skewed both the fit and the crop.
-          var fw = (im.cw != null ? im.cw : im.w), fh = (im.ch != null ? im.ch : im.h);
-          var fx0 = (im.cx != null ? im.cx : im.x + im.w / 2), fy0 = (im.cy != null ? im.cy : im.y + im.h / 2);
-          var nw = im.natW || item.width || 1, nh = im.natH || item.height || 1;
-          var sx = fw / nw, sy = fh / nh;
-          // Baked PNGs already carry the Figma scale. Integer pixel padding must not resize them.
-          var sc = im.rasterScale ? 1 / im.rasterScale : (im.scaleMode === 'FIT') ? Math.min(sx, sy) : Math.max(sx, sy);
-          var tg = lyr.property("ADBE Transform Group");
-          tg.property("ADBE Anchor Point").setValue([nw / 2, nh / 2, 0]);
-          tg.property("ADBE Position").setValue([fx0, fy0, 0]);
-          tg.property("ADBE Scale").setValue([sc * 100, sc * 100, 100]);
-          if (im.rotation) { try { tg.property("ADBE Rotate Z").setValue(im.rotation); } catch (er) {} }
-          if (im.opacity != null && im.opacity < 1) tg.property("ADBE Opacity").setValue(im.opacity * 100);
-
+          if (im.maskSource) { made++; continue; }
+          var lyr = createImageFootage(comp, im, folder);
           // References stay outside the artwork hierarchy and never consume image slots.
           if (im.reference) {
             lyr.enabled = false; lyr.moveToBeginning(); _referenceLayers.push(lyr);
@@ -1906,54 +1980,6 @@ var AEShapeBuilder = (function () {
           }
 
           var mt = null, slotZ = null;
-          if (im.matte) {
-            mt = comp.layers.addShape();
-            mt.name = (im.name || "Image") + " matte";
-            var contents = mt.property("ADBE Root Vectors Group");
-            var grp = contents.addProperty("ADBE Vector Group");
-            grp.name = "Crop";
-            var gc = grp.property("ADBE Vectors Group");
-            // Build the crop shape around the ORIGIN, then rotate/position the whole layer —
-            // that way the matte turns with the picture instead of staying axis-aligned.
-            if (im.matte.kind === 'ellipse') {
-              var el = gc.addProperty("ADBE Vector Shape - Ellipse");
-              el.property("ADBE Vector Ellipse Size").setValue([fw, fh]);
-              el.property("ADBE Vector Ellipse Position").setValue([0, 0]);
-            } else {
-              var rc = gc.addProperty("ADBE Vector Shape - Rect");
-              rc.property("ADBE Vector Rect Size").setValue([fw, fh]);
-              rc.property("ADBE Vector Rect Position").setValue([0, 0]);
-              if (im.matte.r) rc.property("ADBE Vector Rect Roundness").setValue(im.matte.r);
-            }
-            var fl = gc.addProperty("ADBE Vector Graphic - Fill");
-            fl.property("ADBE Vector Fill Color").setValue([1, 1, 1, 1]);
-            var mtg = mt.property("ADBE Transform Group");
-            mtg.property("ADBE Anchor Point").setValue([0, 0, 0]);
-            mtg.property("ADBE Position").setValue([fx0, fy0, 0]);
-            if (im.rotation) { try { mtg.property("ADBE Rotate Z").setValue(im.rotation); } catch (er2) {} }
-            mt.moveBefore(lyr);                       // a matte must sit directly above
-            try { lyr.setTrackMatte(mt, TrackMatteType.ALPHA); }   // AE 23+
-            catch (e1) { try { lyr.trackMatteType = TrackMatteType.ALPHA; } catch (e2) {} }
-            mt.enabled = false;                       // matte layers render off, as usual
-          }
-          // Two different masks cannot share one AE track-matte slot. More importantly, a crop
-          // matte must never be separated from its footage by a later group precompose. Pack the
-          // pair into its own small comp immediately; the Figma mask (if any) can then be applied
-          // to this precomp on the outside.
-          if (mt) {
-            try {
-              var cropIndices = [mt.index, lyr.index];
-              var cropComp = comp.layers.precompose(cropIndices, (im.name || "Image") + " crop", true);
-              var cropLayer = null;
-              for (var cp = 1; cp <= comp.numLayers; cp++) {
-                if (comp.layer(cp).source === cropComp) { cropLayer = comp.layer(cp); break; }
-              }
-              if (!cropLayer) throw new Error("crop precomp layer not found");
-              lyr = cropLayer;
-              lyr.name = im.name || "Image";
-              mt = null;
-            } catch (eipc) { _diag.push("IMG crop precomp:" + String(eipc).substr(0, 35)); }
-          }
           // Put the footage back where it belongs in the stack: find the placeholder left by
           // the SVG pass (matched on centre) and move the layer(s) there.
           if (!im.shadow && !im.mergedBlend) {

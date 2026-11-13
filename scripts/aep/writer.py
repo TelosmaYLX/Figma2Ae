@@ -34,6 +34,7 @@ class Writer:
         self.warnings = []
         self.counts = {'shapes': 0, 'texts': 0, 'images': 0, 'precomps': 0, 'mattes': 0}
         self.mask_defs = {}
+        self.image_mask_defs = {}
         self.current_layer = packet['name']
 
     def fail(self, code, item, detail=''):
@@ -316,6 +317,14 @@ class Writer:
         return layer
 
     def image(self, context, item, index):
+        if item.get('matte') and (item.get('maskId') or item.get('maskSource')):
+            crop_comp = self.comp(item['name'] + ' crop', context['comp'].width, context['comp'].height, self.precomps)
+            self.image({**context, 'comp': crop_comp}, {**item, 'maskId': None, 'maskSource': None, 'blend': 'NORMAL'}, index)
+            layer = context['comp'].add(crop_comp)
+            self.transform(layer)
+            self.common(layer, {**item, 'opacity': 1})
+            self.counts['precomps'] += 1
+            return layer
         ext = item.get('ext', 'png').lower()
         if ext not in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
             raise ValueError('不支持的图片格式：' + ext)
@@ -335,6 +344,17 @@ class Writer:
         layer.transform.position.value = [cx - context['x'], cy - context['y'], 0]
         layer.transform.scale.value = [scale * 100, scale * 100, 100]
         layer.transform.rotation.value = item.get('rotation', 0)
+        if item.get('imageMatrix'):
+            m = item['imageMatrix']
+            a, b, c, d = m[0] / nw, m[1] / nw, m[2] / nh, m[3] / nh
+            sx = math.hypot(a, b)
+            sy = (a * d - b * c) / sx
+            if abs(a * c + b * d) > 1e-5 * max(sx * abs(sy), 1e-8):
+                self.fail('image-skew', item, '暂不支持该图片裁剪倾斜')
+            layer.transform.scale.value = [sx * 100, sy * 100, 100]
+            layer.transform.rotation.value = math.degrees(math.atan2(b, a))
+            layer.transform.position.value = [m[4] + (m[0] + m[2]) / 2 - context['x'],
+                                               m[5] + (m[1] + m[3]) / 2 - context['y'], 0]
         if item.get('reference'):
             layer.enabled = False
             layer.guide_layer = True
@@ -355,6 +375,16 @@ class Writer:
     def apply_mask(self, context, layer, item):
         if not layer or not item.get('maskId'):
             return
+        if layer.track_matte_layer is not None:
+            self.fail('combined-matte', item, '暂不支持该组合遮罩，请标记相关图层栅格化')
+        image_mask = self.image_mask_defs.get(item['maskId'])
+        if image_mask:
+            mask_item, index = image_mask
+            matte = self.image(context, mask_item, index)
+            matte.name = mask_item['name']
+            layer.set_track_matte(matte, TrackMatteType.LUMA if mask_item.get('maskType') == 'LUMINANCE' else TrackMatteType.ALPHA)
+            self.counts['mattes'] += 1
+            return
         definitions = self.mask_defs.get(item['maskId'], [])
         if not definitions:
             self.fail('missing-mask', item, '缺少 Figma 蒙版：' + item['maskId'])
@@ -369,8 +399,6 @@ class Writer:
                        definition.get('gradient') if luma else None, definition.get('fillOpacity', 1))
         matte.transform.opacity.value = definitions[0].get('opacity', 1) * 100
         self.center_anchor(matte, self.shape_rect({'subpaths': [sub for definition in definitions for sub in definition['subpaths']]}))
-        if layer.track_matte_layer is not None:
-            self.fail('combined-matte', item, '暂不支持该组合遮罩，请标记相关图层栅格化')
         layer.set_track_matte(matte, TrackMatteType.LUMA if luma else TrackMatteType.ALPHA)
         self.counts['mattes'] += 1
 
@@ -388,7 +416,11 @@ class Writer:
             else:
                 entries.append((shape.get('z', 0), 'shape', shape, 0))
         entries.extend((t.get('z', 0), 'text', t, 0) for t in self.data['texts'])
-        entries.extend((im.get('z', 0), 'image', im, i) for i, im in enumerate(self.data['images']))
+        for i, image in enumerate(self.data['images']):
+            if image.get('maskSource'):
+                self.image_mask_defs[image['maskSource']] = (image, i)
+            else:
+                entries.append((image.get('z', 0), 'image', image, i))
         for _, kind, item, index in sorted(entries, key=lambda entry: entry[0]):
             self.current_layer = item.get('name', '')
             context = self.contexts[None] if item.get('reference') else self.parent(item)

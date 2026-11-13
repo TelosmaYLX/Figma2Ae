@@ -4,6 +4,7 @@ const path = require('node:path');
 const {spawn, execFile} = require('node:child_process');
 const {promisify} = require('node:util');
 const {fixture} = require('./direct-aep.cjs');
+const {fixture:nativeMasks} = require('./native-image-masks.cjs');
 const run = promisify(execFile);
 
 async function check() {
@@ -47,7 +48,14 @@ async function check() {
     const rejected=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:invalid})});
     assert.equal(rejected.status,400);assert.match((await rejected.json()).error,/Direct AEP smoke.*效果/);
     assert.deepEqual(await fs.readdir(parent),['自定义 工程']);
-    await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result},null,2));
+    const independent=await nativeMasks();
+    const nativeResponse=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:independent.packet})});
+    assert.equal(nativeResponse.status,200,await nativeResponse.clone().text());
+    const nativeResult=await nativeResponse.json();
+    for(let i=0;i<independent.packet.images.length;i++)if(independent.packet.images[i].name.endsWith('_photo'))
+      assert.deepEqual(await fs.readFile(path.join(nativeResult.directory,'Assets',String(i).padStart(4,'0')+'.png')),independent.original);
+    await run(python,[path.join(root,'tests/check-native-image-masks.py'),nativeResult.project],{env,windowsHide:true});
+    await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult},null,2));
     console.log('PASS: relocated Windows package, no Node/Python on PATH, isolated Python/Tcl, bundled HTTP service and real AEP folder');
     console.log(testRoot);
   } finally {child.kill();}

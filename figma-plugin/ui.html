@@ -6,7 +6,8 @@
      folder is secondary: full selectable address, 8px gap, 36px folder button.
      Status text leads; optional locate/open-folder actions are secondary, using panel/text tokens and an 8px gap.
      Raster scale is a labelled secondary setting: 12px group spacing, 8px gap/radius and a 36px native select.
-     The opt-in bicubic experiment is a secondary native checkbox, using the existing 8px gap and muted text. -->
+     The opt-in bicubic experiment is a secondary native checkbox, using the existing 8px gap and muted text.
+     Independent image masks are a secondary native checkbox beside the mask settings, using the same 8px gap and muted text. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#8a8a8a; --ok:#22c55e; --err:#ef4444; }
   html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); }
@@ -104,6 +105,9 @@
   <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
     <input type="checkbox" id="convertmask"> 转换 Figma 蒙版为 AE 轨道遮罩（实验）
   </label>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer" title="保留原始图片，使用独立的 AE 轨道遮罩。">
+    <input type="checkbox" id="native-image-masks"> 图片与蒙版分离
+  </label>
   <div class="hint">整体栅格化会合并组内图层。</div>
   <details id="layer-tools" class="layer-tools">
     <summary>图层工具</summary>
@@ -141,6 +145,7 @@
     $('open-aep-folder').disabled = busy || openingFolder;
     $('raster-scale').disabled = busy;
     $('bicubic-export').disabled = busy;
+    $('native-image-masks').disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
     for (var id in toolButtons) $(id).disabled = busy || selCount === 0;
@@ -223,7 +228,7 @@
     exporting = true; updateButton();
     blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, nativeImageMasks: $('native-image-masks').checked, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   }
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;
