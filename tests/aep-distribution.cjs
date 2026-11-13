@@ -8,6 +8,7 @@ const {fixture:nativeMasks} = require('./native-image-masks.cjs');
 const {fixture:nestedMasks} = require('./nested-image-masks.cjs');
 const {fixture:instanceCopies} = require('./export-instances.cjs');
 const {fixture:strokeStyles} = require('./stroke-styles.cjs');
+const {fixture:outlinedStrokes} = require('./outlined-dashes.cjs');
 const run = promisify(execFile);
 
 async function check() {
@@ -80,7 +81,12 @@ async function check() {
       await run(python,[path.join(root,'tests/check-stroke-styles.py'),styledResult.project,styleModel],{env,windowsHide:true});
       styleResults.push(styledResult);
     }
-    await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult,nestedResult,instanceResult,styleResult:styleResults[0],thinStyleResult:styleResults[1]},null,2));
+    const outlinedFixture=outlinedStrokes(true),outlinedPacket=await outlinedFixture.h.run(true,true,true,false,{target:'aep',outlineTexts:true});
+    const outlinedResponse=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:{...outlinedPacket.ship,imageCount:0,images:[]}})});
+    assert.equal(outlinedResponse.status,200,await outlinedResponse.clone().text());
+    const outlinedResult=await outlinedResponse.json();assert.equal(outlinedResult.counts.texts,0);
+    await run(python,[path.join(root,'tests/check-outlined-dashes.py'),outlinedResult.project],{env,windowsHide:true});
+    await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult,nestedResult,instanceResult,styleResult:styleResults[0],thinStyleResult:styleResults[1],outlinedResult},null,2));
     console.log('PASS: relocated Windows package, no Node/Python on PATH, isolated Python/Tcl, bundled HTTP service and real AEP folder');
     console.log(testRoot);
   } finally {child.kill();}

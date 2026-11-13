@@ -125,6 +125,14 @@ class Writer:
 
     @staticmethod
     def shape_rect(item):
+        outlined = [paint for paint in item.get('extraPaints') or [] if paint.get('subpaths')]
+        if outlined:
+            boxes = [Writer.shape_rect(paint) for paint in outlined]
+            if item.get('fill') is not None or item.get('gradient') or item.get('stroke') or item.get('strokeGradient'):
+                boxes.append(Writer.shape_rect({**item, 'extraPaints': None}))
+            left, top = min(b['left'] for b in boxes), min(b['top'] for b in boxes)
+            return {'left': left, 'top': top, 'width': max(b['left'] + b['width'] for b in boxes) - left,
+                    'height': max(b['top'] + b['height'] for b in boxes) - top}
         primitive = item.get('prim')
         if primitive:
             width = primitive['w'] if primitive['k'] == 'rect' else primitive['rx'] * 2
@@ -161,11 +169,11 @@ class Writer:
             p = contents.add_property('ADBE Vector Shape - Group')
             p['ADBE Vector Shape'].value = Shape(sub['verts'], sub['inT'], sub['outT'], closed=bool(sub['closed']))
 
-    def paint(self, root, item, kind, color, gradient, opacity=1, width=None, white=False):
+    def paint(self, root, item, kind, color, gradient, opacity=1, width=None, white=False, geometry=None):
         group = root.add_property('ADBE Vector Group')
         group.name = 'Stroke' if kind == 'stroke' else 'Fill'
         contents = group['ADBE Vectors Group']
-        self.geom(contents, item)
+        self.geom(contents, geometry if geometry is not None else item)
         stroke = kind == 'stroke'
         width = item.get('strokeWidth', 1) if width is None else width
         if stroke and item.get('strokeAlign', 'CENTER') != 'CENTER':
@@ -193,7 +201,9 @@ class Writer:
             if item.get('strokeDash'):
                 self.fail('stroke-dash', item, '暂不支持虚线描边')
         else:
-            p['ADBE Vector Fill Rule'].value = item.get('fillRule', 1)
+            p['ADBE Vector Fill Rule'].value = (geometry if geometry is not None else item).get('fillRule', 1)
+        if geometry is not None:
+            group.move_to(0)
 
     @staticmethod
     def stroke_style(layer, stroke, fill_opacity=None):
@@ -271,6 +281,9 @@ class Writer:
                 if gradient:
                     gradient['start'] = [gradient['start'][0] - cx, gradient['start'][1] - cy]
                     gradient['end'] = [gradient['end'][0] - cx, gradient['end'][1] - cy]
+            for paint in item.get('extraPaints') or []:
+                for sub in paint.get('subpaths') or []:
+                    sub['verts'] = [[x - cx, y - cy] for x, y in sub['verts']]
         self.transform(layer, cx - context['x'], cy - context['y'])
         root = layer['ADBE Root Vectors Group']
         if white:
@@ -287,7 +300,7 @@ class Writer:
         for paint in item.get('extraPaints') or []:
             if not paint.get('under'):
                 self.paint(root, item, paint['kind'], paint.get('color'), paint.get('gradient'),
-                           paint.get('opacity', 1), paint.get('width'))
+                           paint.get('opacity', 1), paint.get('width'), geometry=paint if paint.get('subpaths') else None)
         stroke_scale = self.stroke_style(layer, item.get('layerStroke'), item.get('layerFillOpacity'))
         self.center_anchor(layer, self.shape_rect(item))
         layer = self.scale_stroke_layer(layer, stroke_scale)

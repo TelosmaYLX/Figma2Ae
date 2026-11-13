@@ -790,7 +790,7 @@ var AEShapeBuilder = (function () {
       g = contents.property(at);
     } catch (emv) {}
     var gc = g.property("ADBE Vectors Group");
-    addGeom(gc, sdata, false);
+    addGeom(gc, ep.subpaths ? {subpaths:ep.subpaths,prim:null} : sdata, false);
     if (ep.kind === 'stroke') {
       if (!ep.color) return;
       // this group holds nothing but the geometry and this one stroke, so the offset is safe here
@@ -843,8 +843,9 @@ var AEShapeBuilder = (function () {
         try { applyStrokeStyle(target.paint, { strokeCap: ep.cap, strokeJoin: ep.join, strokeMiter: ep.miter, strokeDash: ep.dash, strokeDashOffset: ep.dashOffset }); } catch (e3) {}
       } else {
         try { if (ep.opacity != null && ep.opacity < 1) target.paint.property("ADBE Vector Fill Opacity").setValue(ep.opacity * 100); } catch (e4) {}
+        if (ep.fillRule) target.paint.property("ADBE Vector Fill Rule").setValue(ep.fillRule);
       }
-      addGeom(target.gc, sdata, true);
+      addGeom(target.gc, ep.subpaths ? {subpaths:ep.subpaths,prim:null} : sdata, true);
       if (ep.kind === 'stroke') {
         addOffsetPaths(target.gc,
                        strokeOffsetAmount({ strokeAlign: ep.align, strokeGradient: ep.gradient, strokeWidth: ep.width }),

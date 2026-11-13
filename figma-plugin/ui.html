@@ -2,7 +2,7 @@
 <!-- Only the UI iframe can do network; the main thread (code.js) exports SVG and posts it here. -->
 <!-- Plain HTML; no Tailwind or component library. Use the existing :root tokens and dark theme. -->
 <!-- Refactoring UI constraints (§2.1, §2.8, §3.6): import is primary; AEP export is secondary.
-     Common settings are grouped by layers and images; advanced settings and document tools are collapsed.
+     Common settings are grouped by layers, text and images; advanced settings and document tools are collapsed.
      Keep the existing dark tokens, 8px control gaps/radii, 12px panel padding and 16px section spacing.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
@@ -74,6 +74,18 @@
     <label class="option"><input type="checkbox" id="ignorehidden" checked> 忽略隐藏图层</label>
   </fieldset>
   <fieldset class="settings">
+    <legend>文字</legend>
+    <div class="setting-row">
+      <label for="text-mode">导出方式</label>
+      <select id="text-mode" aria-describedby="text-mode-hint">
+        <option value="editable" selected>可编辑文字</option>
+        <option value="vector">矢量形状（无需字体）</option>
+        <option value="png">PNG 图片</option>
+      </select>
+    </div>
+    <div class="hint" id="text-mode-hint">细描边文字自动转为矢量。</div>
+  </fieldset>
+  <fieldset class="settings">
     <legend>图片</legend>
     <div class="setting-row">
       <label for="native-image-masks">图片蒙版</label>
@@ -111,7 +123,6 @@
     </div>
     <div class="advanced-group">
       <div class="advanced-label">强制转为图片</div>
-      <label class="option"><input type="checkbox" id="rastertexts"> 文字</label>
       <label class="option"><input type="checkbox" id="rasterallgroups"> Group 分组</label>
       <label class="option"><input type="checkbox" id="rasterinstances"> 组件实例</label>
       <div class="hint">转为图片后，内部内容不可单独编辑。</div>
@@ -146,6 +157,10 @@
   var imageTasks = Promise.resolve(), processingImages = false, imageProcessingFailed = false;
   var $ = function (id) { return document.getElementById(id); };
   var toolButtons = { 'detach-instances': 'detach', 'convert-groups': 'group-to-frame', 'expand-groups': 'expand', 'delete-hidden': 'delete-hidden' };
+  $('text-mode').onchange = function () {
+    var hints = {editable:'细描边文字自动转为矢量。',vector:'无需本机字体，文字内容不可编辑。',png:'文字转为图片，内容不可编辑。'};
+    $('text-mode-hint').textContent = hints[this.value];
+  };
 
   function setConn(state) {
     connected = state;
@@ -160,7 +175,7 @@
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
     $('open-aep-folder').disabled = busy || openingFolder;
-    var settings = ['organize','enableclip','ignorehidden','native-image-masks','raster-scale','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends','rastertexts','rasterallgroups','rasterinstances','bicubic-export'];
+    var settings = ['organize','enableclip','ignorehidden','text-mode','native-image-masks','raster-scale','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends','rasterallgroups','rasterinstances','bicubic-export'];
     for (var i = 0; i < settings.length; i++) $(settings[i]).disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
@@ -241,7 +256,7 @@
     exporting = true; updateButton();
     blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', target: direct ? 'aep' : 'ae', useNodes: true, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, nativeImageMasks: $('native-image-masks').value === 'separate', ignoreHidden: $('ignorehidden').checked, convertMasks: true, rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked, masks: $('raster-masks').checked, booleans: $('raster-booleans').checked}, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', target: direct ? 'aep' : 'ae', useNodes: true, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, nativeImageMasks: $('native-image-masks').value === 'separate', ignoreHidden: $('ignorehidden').checked, convertMasks: true, rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked, masks: $('raster-masks').checked, booleans: $('raster-booleans').checked}, mergeBlends: $('mergeblends').checked, outlineTexts: $('text-mode').value === 'vector', rasterTexts: $('text-mode').value === 'png', rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   }
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;

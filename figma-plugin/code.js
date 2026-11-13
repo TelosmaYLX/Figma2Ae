@@ -50,6 +50,7 @@ function _effectName(e) {
   return { DROP_SHADOW: '投影', INNER_SHADOW: '内阴影', LAYER_BLUR: '图层模糊', BACKGROUND_BLUR: '背景模糊', GLASS: '玻璃', NOISE: '噪点', TEXTURE: '纹理', SHADER: '着色器' }[e.type] || e.type;
 }
 var _rasterTexts = false;       // opt-in: export each remaining text node as a PNG
+var _outlineTexts = false;     // opt-in: export text glyphs as filled vector paths
 var _rasterScale = 1;
 var _rasterRenderScale = 1;
 var _bicubicExport = false;
@@ -393,7 +394,7 @@ function _collectRasterCandidates(root, organize) {
       add(n); return;
     }
     if (_rasterTexts && n.type === 'TEXT') { add(n); return; }
-    if (n.type === 'TEXT' && n.hasMissingFont) throw _layerError(n, '文字「' + n.name + '」缺少字体');
+    if (n.type === 'TEXT' && n.hasMissingFont && !_vectorText(n)) throw _layerError(n, '文字「' + n.name + '」缺少字体');
     var paintLists = [n.fills || [], n.strokes || []], unsupportedPaint = [];
     for (var pl = 0; pl < paintLists.length; pl++) if (paintLists[pl] !== figma.mixed) {
       for (var pi = 0; pi < paintLists[pl].length; pi++) {
@@ -1059,6 +1060,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _ignoreHidden = (ignoreHidden !== false);       // default: hidden Figma layers stay out of AE
   _rasterTexts = (rasterTexts === true);
   options = options || {};
+  _outlineTexts = options.outlineTexts === true;
   _directAep = options.target === 'aep';
   _nativeImageMasks = options.nativeImageMasks === true;
   // Keep the legacy API argument as the default for callers without per-category settings.
@@ -1163,7 +1165,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     var maskImages = await _bakeIndependentMasks(node, !!organize);
     var nodeShapes = useNodes ? collectShapes(node, !!organize) : null;
     var containers = organize ? collectContainers(node) : null;
-    var texts = collectTexts(node, { x: 0, y: 0 }, node.id, !!organize);
+    var texts = collectTexts(node, { x: 0, y: 0 }, node.id, !!organize, !!useNodes);
     var effects = collectEffects(node, { x: 0, y: 0 });
     var images = await collectImages(node, node.id, !!organize);
     images = images.concat(blendBake.images, shadowImages, maskImages);
@@ -1460,6 +1462,73 @@ function _paints(list, n) {
   return out;
 }
 
+function _needsStrokeOutline(n) {
+  if (!(n.strokes || []).some(function (p) { return p.visible !== false; }) || n.strokeWeight === 0) return false;
+  if (n.dashPattern && n.dashPattern.length) return true;
+  if (typeof n.strokeWeight === 'number') return n.strokeWeight > 0 && n.strokeWeight < 1;
+  return ['strokeTopWeight', 'strokeRightWeight', 'strokeBottomWeight', 'strokeLeftWeight'].some(function (key) {
+    return n[key] > 0 && n[key] < 1;
+  });
+}
+
+function _vectorText(n) { return n.type === 'TEXT' && (_outlineTexts || _needsStrokeOutline(n)); }
+
+function _isolatedExportCopy(n, root) {
+  var transform = n.absoluteTransform.map(function (row) { return row.slice(); }), copy = n.clone();
+  root.parent.appendChild(copy);
+  if ((copy.width !== n.width || copy.height !== n.height) && typeof copy.resizeWithoutConstraints === 'function') copy.resizeWithoutConstraints(n.width, n.height);
+  copy.relativeTransform = _matrixProduct(_inverseMatrix(root.parent.absoluteTransform), transform);
+  return copy;
+}
+
+function _vectorPaintParts(vector) {
+  var m = vector.absoluteTransform, geo = vector.fillGeometry || [], paints = _paints(vector.fills, vector);
+  var matrix = [m[0][0], m[1][0], m[0][1], m[1][1], m[0][2], m[1][2]];
+  var regions = vector.vectorNetwork && vector.vectorNetwork.regions, parts = [];
+  if (regions && regions.length === geo.length && regions.some(function (r) { return JSON.stringify(r.fills) !== JSON.stringify(regions[0].fills); })) {
+    for (var i = 0; i < geo.length; i++) parts.push({ geometry: [geo[i]], fills: _paints(regions[i].fills && regions[i].fills.length ? regions[i].fills : vector.fills, vector), matrix: matrix });
+  } else parts.push({ geometry: geo, fills: paints, matrix: matrix });
+  return parts.filter(function (part) { return part.geometry.length && part.fills.length; }).map(function (part) {
+    part.paths = part.geometry.map(function (p) { return { d: p.data, evenOdd: p.windingRule === 'EVENODD' }; });
+    return part;
+  });
+}
+
+function _vectorTextFills(n, root) {
+  var copy = null, vector = null;
+  try {
+    copy = _isolatedExportCopy(n, root);
+    copy.strokes = [];
+    vector = figma.flatten([copy], root.parent);
+    return _vectorPaintParts(vector);
+  } catch (error) { throw _layerError(n, '文字「' + n.name + '」转矢量失败：' + (error.message || error)); }
+  finally {
+    if (vector && !vector.removed) vector.remove();
+    if (copy && !copy.removed) copy.remove();
+  }
+}
+
+function _outlineExportStroke(n, root, force) {
+  if (force ? !(n.strokes || []).some(function (p) { return p.visible !== false; }) || n.strokeWeight === 0 : !_needsStrokeOutline(n)) return null;
+  var copy = null, outline = null;
+  try {
+    // Outline an isolated copy: adding the new vector must not reflow an auto-layout parent.
+    copy = _isolatedExportCopy(n, root);
+    outline = copy.outlineStroke();
+    if (!outline || !(outline.fillGeometry || []).length) throw new Error('未生成描边轮廓');
+    var parts = _vectorPaintParts(outline);
+    for (var k = 0; k < parts.length; k++) {
+      if (parts[k].fills.some(function (p) { return p.kind === 'image'; })) throw new Error('图片描边需要标记为图片');
+    }
+    return parts;
+  } catch (error) {
+    throw _layerError(n, '图层「' + n.name + '」描边轮廓化失败：' + (error.message || error));
+  } finally {
+    if (outline && !outline.removed) outline.remove();
+    if (copy && !copy.removed) copy.remove();
+  }
+}
+
 var CAP = { NONE: 1, ROUND: 2, SQUARE: 3 };
 var JOIN = { MITER: 1, ROUND: 2, BEVEL: 3 };
 
@@ -1496,11 +1565,27 @@ function collectShapes(root, organize) {
       }
     } catch (egb) {}
     try {
-      if (n.type !== 'TEXT' && n.absoluteBoundingBox && typeof n.fillGeometry !== 'undefined') {
+      if ((n.type !== 'TEXT' || _vectorText(n)) && n.absoluteBoundingBox && typeof n.fillGeometry !== 'undefined') {
         var geo = n.fillGeometry || [];
         var fills = _paints(n.fills, n);
         var strokes = _paints(n.strokes, n);
         var strokeAsFill = false;
+        var textVector = _vectorText(n), outlines = _outlineExportStroke(n, root, textVector), outlineBase = null;
+        if (outlines) strokes = [];
+        if (textVector) {
+          var glyphs = _vectorTextFills(n, root);
+          if (glyphs.length) {
+            outlineBase = glyphs.shift(); geo = outlineBase.geometry; fills = outlineBase.fills;
+            outlines = glyphs.concat(outlines || []);
+          }
+        }
+        if (outlines) {
+          if (!fills.length && outlines.length) {
+            outlineBase = outlines.shift();
+            geo = outlineBase.geometry;
+            fills = outlineBase.fills;
+          }
+        }
 
         // A stroke-only shape (divider, progress bar, icon line) has an EMPTY fillGeometry —
         // there is nothing to fill — so requiring it dropped those layers entirely. Fall back
@@ -1521,7 +1606,7 @@ function collectShapes(root, organize) {
         // that is really an arc or a donut keeps its outline (that is the progress ring).
         var prim = null;
         try {
-          if (!strokeAsFill) {
+          if (!strokeAsFill && !outlineBase) {
             if (n.type === 'RECTANGLE' || n.type === 'FRAME' || n.type === 'COMPONENT' || n.type === 'INSTANCE') {
               if (typeof n.cornerRadius === 'number') prim = { k: 'rect', w: n.width, h: n.height, r: n.cornerRadius || 0 };
             } else if (n.type === 'ELLIPSE') {
@@ -1545,7 +1630,7 @@ function collectShapes(root, organize) {
           // Not gated on n.type: a boolean op or a frame-bound vector carries a network too, and
           // requiring VECTOR is what kept the cursor black. Just ask for the network.
           var vn = null;
-          try { vn = n.vectorNetwork || null; } catch (evn0) { vn = null; }
+          try { vn = outlineBase ? null : (n.vectorNetwork || null); } catch (evn0) { vn = null; }
           var rgs = vn && vn.regions ? vn.regions : null;
           if (geo.length > 1) _vnStats.multi++;
           if (rgs) _vnStats.net++;
@@ -1572,7 +1657,7 @@ function collectShapes(root, organize) {
         if (geo.length && (fills.length || strokes.length)) {
           var d = [];
           for (var g = 0; g < geo.length; g++) d.push({ d: geo[g].data, evenOdd: geo[g].windingRule === 'EVENODD' });
-          var m = n.absoluteTransform;
+          var m = outlineBase ? [[outlineBase.matrix[0], outlineBase.matrix[2], outlineBase.matrix[4]], [outlineBase.matrix[1], outlineBase.matrix[3], outlineBase.matrix[5]]] : n.absoluteTransform;
           if (pieces) {
             // one AE layer per painted region, in the network's own order (first = bottom)
             for (var pz = 0; pz < pieces.length; pz++) {
@@ -1591,7 +1676,8 @@ function collectShapes(root, organize) {
                 strokeAlign: n.strokeAlign || 'CENTER',
                 cap: CAP[n.strokeCap] || null, join: JOIN[n.strokeJoin] || null,
                 miter: (typeof n.strokeMiterLimit === 'number' ? n.strokeMiterLimit : null),
-                dash: (n.dashPattern && n.dashPattern.length) ? n.dashPattern.slice(0) : null,
+                dash: outlines ? null : ((n.dashPattern && n.dashPattern.length) ? n.dashPattern.slice(0) : null),
+                outlinedStrokes: pz === pieces.length - 1 ? outlines : null,
                 fx: (pz === 0 ? _textEffects(n) : []),     // one shadow per node, not per region
                 inheritedBlur: groupBlur
               });
@@ -1627,7 +1713,8 @@ function collectShapes(root, organize) {
             cap: CAP[n.strokeCap] || null,
             join: JOIN[n.strokeJoin] || null,
             miter: (typeof n.strokeMiterLimit === 'number' ? n.strokeMiterLimit : null),
-            dash: (n.dashPattern && n.dashPattern.length) ? n.dashPattern.slice(0) : null,
+            dash: outlines ? null : ((n.dashPattern && n.dashPattern.length) ? n.dashPattern.slice(0) : null),
+            outlinedStrokes: outlines,
             // effects belong to the node, so no bounding-box matching is needed here.
             // In organize mode a container's shadow is carried by its PRECOMP, so leaving it on
             // the background as well drew the same drop shadow twice.
@@ -2123,12 +2210,13 @@ function _rendersMultiline(n, fsz) {
   } catch (e) { return false; }
 }
 
-function collectTexts(root, rootBox, rootId, organize) {
+function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
   var out = [];
   function walk(n) {
     if (_ignoreHidden && _isHidden(n)) return;
     if (_rasterByNode[n.id]) return;
     if (_maskSourceByNode[n.id]) return;       // mask contours never become text/art layers
+    if (vectorTexts && _vectorText(n)) return;
     if (n.type === 'TEXT') {
       var _hid = _isHidden(n);
       try {

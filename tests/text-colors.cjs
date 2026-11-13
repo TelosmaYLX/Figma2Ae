@@ -14,13 +14,14 @@ async function check(){
   ];
   const texts=colors.map(([name,color],i)=>node('TEXT',name,{characters:'Text',fills:paint(color),
     absoluteBoundingBox:{x:24,y:24+i*42,width:160,height:28},fontSize:24}));
-  texts.push(node('TEXT','Thin colored text',{characters:'Text',fills:paint(colors[0][1]),strokes:paint([1,0,0]),strokeWeight:.6666666865348816,strokeAlign:'OUTSIDE',fontSize:24}));
   const rich=node('TEXT','Rich colors',{characters:'RGB',fills:Symbol(),getStyledTextSegments(){
     return colors.slice(0,3).map(([name,color],i)=>({characters:'RGB'[i],fontName:{family:'Arial',style:'Regular'},fontSize:24,fills:paint(color)}));
   }});
   const root=node('FRAME','Text colors',{width:240,height:500,children:[...texts,rich]}),h=harness(root);
   rich.fills=h.figma.mixed;
   const result=await h.run(),packet={...result.ship,imageCount:0,images:[]};
+  // Legacy raw packets still support editable thin text; the plugin now outlines it.
+  packet.texts.push({...packet.texts[0],name:'Thin colored text',stroke:{color:[1,0,0],width:.6666666865348816,align:'OUTSIDE',opacity:1}});
   for(const [name,color] of colors)assert.deepEqual(packet.texts.find(t=>t.name===name).color,color,'Figma colors must be collected without changing their value');
   const output=path.resolve('artifacts/text-colors');await fs.mkdir(output,{recursive:true});
   const directory=await fs.mkdtemp(path.join(output,'aep-')),written=await exportAep(packet,directory);

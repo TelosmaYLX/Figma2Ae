@@ -774,6 +774,34 @@ var SVGParser = (function () {
     return { width: width, height: height, shapes: layerStyleStrokes(shapes) };
   }
 
+  // Figma's outlined dashes keep their own geometry while sharing the source layer.
+  function appendOutlinedStrokes(nodes, shapes, width, height, origin) {
+    var i, k;
+    for (i = 0; i < nodes.length; i++) {
+      var outlines = nodes[i].outlinedStrokes;
+      if (!outlines || !outlines.length) continue;
+      var base = null;
+      for (k = shapes.length - 1; k >= 0; k--) if (shapes[k].srcIndex === i) { base = shapes[k]; break; }
+      if (!base) continue;
+      for (var oi = 0; oi < outlines.length; oi++) {
+        var outlined = fromNodes([{name: nodes[i].name, paths: outlines[oi].paths, matrix: outlines[oi].matrix, fills: outlines[oi].fills, strokes: []}], width, height, origin).shapes;
+        for (var os = 0; os < outlined.length; os++) {
+          var shape = outlined[os];
+          if (base.imageSlot) {
+            shape.name = nodes[i].name + ' 描边'; shape.srcIndex = i; shape.path = base.path;
+            shape.z = base.z + .001; shape.opacity = base.opacity; shape.blend = base.blend;
+            shape.hidden = base.hidden; shape.maskId = base.maskId; shapes.push(shape);
+          } else {
+            var paints = shape.extraPaints || [];
+            paints = paints.filter(function (p) { return p.under; }).concat([{kind:'fill',color:shape.fill,gradient:shape.gradient,opacity:shape.fillOpacity}]).concat(paints.filter(function (p) { return !p.under; }));
+            base.extraPaints = base.extraPaints || [];
+            for (var op = 0; op < paints.length; op++) base.extraPaints.push({kind:'fill',color:paints[op].color,gradient:paints[op].gradient,opacity:paints[op].opacity,fillRule:shape.fillRule,subpaths:shape.subpaths});
+          }
+        }
+      }
+    }
+  }
+
   // Layer Styles stroke follows the alpha boundary of closed artwork. Open paths,
   // dashes and gradient strokes are path paints and keep their original geometry.
   function layerStyleStrokes(shapes) {
@@ -988,6 +1016,7 @@ var SVGParser = (function () {
       if (extras.length) sh.extraPaints = extras;
       shapes.push(sh);
     }
+    appendOutlinedStrokes(nodes, shapes, width, height, origin);
     return { width: width, height: height, shapes: layerStyleStrokes(shapes) };
   }
 
