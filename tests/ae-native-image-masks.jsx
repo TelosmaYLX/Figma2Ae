@@ -9,7 +9,7 @@
   function inspect(comps,kind){
     var layers=[],found=[];
     for(var c=0;c<comps.length;c++)for(var n=1;n<=comps[c].numLayers;n++)layers.push(comps[c].layer(n));
-    var names=['Vector_photo','Bitmap_photo','Luma_photo','Cropped_photo','Masked label','Grouped content'];
+    var names=['Vector_photo','Bitmap mask 内容','Luma_photo','Cropped_photo','Grouped content'];
     for(var i=0;i<names.length;i++){
       var target=null,name=names[i];
       for(var n=0;n<layers.length;n++){
@@ -19,7 +19,7 @@
       assert(target,kind+' missing independent matte: '+name);
       assert(target.trackMatteType===(name==='Luma_photo'?TrackMatteType.LUMA:TrackMatteType.ALPHA),kind+' wrong matte type: '+name);
       assert(!target.trackMatteLayer.enabled,kind+' matte is visible as artwork: '+name);
-      found.push({name:name,matte:target.trackMatteLayer.name,type:String(target.trackMatteType)});
+      found.push({name:name,matte:target.trackMatteLayer.name,type:name==='Luma_photo'?'LUMA':'ALPHA'});
     }
     var originals=0,crop=null;
     for(var n=0;n<layers.length;n++)if(layers[n] instanceof AVLayer&&layers[n].source instanceof FootageItem&&/^(Vector|Bitmap|Luma|Cropped|Grouped)_photo$/.test(layers[n].name)){
@@ -40,15 +40,18 @@
     var status=runImportBatch(dir+'/job.json');
     progress('host imported');
     assert(!/error:|mask missing|IMG missing|IMG crop precomp:/i.test(status),status);
-    var hostComps=[];
-    for(var i=1;i<=app.project.numItems;i++)if(!before[app.project.item(i).id]&&app.project.item(i) instanceof CompItem)hostComps.push(app.project.item(i));
+    var hostComps=[],hostIds={};
+    for(var i=1;i<=app.project.numItems;i++){
+      var item=app.project.item(i);hostIds[item.id]=true;
+      if(!before[item.id]&&item instanceof CompItem)hostComps.push(item);
+    }
     inspect(hostComps,'host');
     progress('host checked');
     var exported=read('result.json');imported=app.project.importFile(new ImportOptions(new File(exported.project)));
     progress('aep imported');
     var aepComps=[];
-    function walk(folder){for(var i=1;i<=folder.numItems;i++){var item=folder.item(i);if(item instanceof FolderItem)walk(item);else if(item instanceof CompItem)aepComps.push(item);}}
-    walk(imported);inspect(aepComps,'aep');
+    for(var i=1;i<=app.project.numItems;i++)if(!hostIds[app.project.item(i).id]&&app.project.item(i) instanceof CompItem)aepComps.push(app.project.item(i));
+    inspect(aepComps,'aep');
     report.passed=true;report.status=status;
   }catch(error){report.error=String(error);report.line=error.line;}
   finally{

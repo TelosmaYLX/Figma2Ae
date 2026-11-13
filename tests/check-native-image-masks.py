@@ -10,13 +10,16 @@ def comps(folder):
         elif hasattr(item,'items'):yield from comps(item)
 
 layers=[layer for comp in comps(app.project.root_folder) for layer in comp.layers]
-for name in ['Vector_photo','Bitmap_photo','Luma_photo','Cropped_photo','Masked label','Grouped content']:
+for name in ['Vector_photo','Bitmap mask 内容','Luma_photo','Cropped_photo','Grouped content']:
     matching=[layer for layer in layers if layer.name==name and layer.track_matte_layer is not None
               and (layer.track_matte_layer.name.endswith('_mask') or layer.track_matte_layer.name.endswith(' Figma matte'))]
     assert len(matching)==1,(name,[(l.name,l.track_matte_layer) for l in layers if l.name==name])
     target=matching[0]
     assert target.track_matte_type==(TrackMatteType.LUMA if name=='Luma_photo' else TrackMatteType.ALPHA),name
     assert not target.track_matte_layer.enabled,name
+shared=next(layer for layer in layers if layer.name=='Bitmap mask 内容')
+assert not shared.collapse_transformation
+assert all(layer.track_matte_layer is None for layer in shared.source.layers if layer.name in ['Bitmap_photo','Masked label'])
 crop=next(layer for layer in layers if layer.name=='Cropped_photo' and layer.source and not hasattr(layer.source,'layers'))
 for name in ['Vector_photo','Bitmap_photo','Luma_photo','Cropped_photo','Grouped_photo']:
     original=next(layer for layer in layers if layer.name==name and layer.source and not hasattr(layer.source,'layers'))

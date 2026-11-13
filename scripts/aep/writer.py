@@ -429,7 +429,7 @@ class Writer:
                 layer = context['comp'].add(child['comp'])
                 self.common(layer, item)
                 # Keep the original box; collapse non-clipping groups so overflow stays visible.
-                layer.collapse_transformation = not item.get('clip', False)
+                layer.collapse_transformation = not item.get('clip', False) and not item.get('maskScope', False)
                 if not item.get('clip') and (item.get('blend') != 'PASS_THROUGH' or item.get('opacity', 1) < 1):
                     # Force group compositing before opacity/blend without cropping its overflow.
                     mask = layer.masks.add_property('ADBE Mask Atom')

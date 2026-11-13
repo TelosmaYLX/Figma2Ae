@@ -392,7 +392,23 @@ var AEShapeBuilder = (function () {
         if (members.length < 1) { empty++; emptyNames.push(c.name || "?"); continue; }
         members.sort(function (a, b) { return a - b; });
 
+        // Precompose invalidates the old layer wrappers. Rebind pairs to the new comp's
+        // layers in the same stack order, including pairs nested by an outer mask scope.
+        var memberSlots = {}, movingPairs = [];
+        for (j = 0; j < members.length; j++) memberSlots[members[j]] = j + 1;
+        for (j = 0; j < _mattePairs.length; j++) {
+          var pair = _mattePairs[j];
+          try {
+            if (pair.lyr.containingComp.id !== comp.id || pair.mt.containingComp.id !== comp.id) continue;
+            var layerSlot = memberSlots[pair.lyr.index], matteSlot = memberSlots[pair.mt.index];
+            if (layerSlot && matteSlot) movingPairs.push({ pair: pair, layer: layerSlot, matte: matteSlot });
+          } catch (epair) {}
+        }
         var pc = comp.layers.precompose(members, c.name || "Group", true);
+        for (j = 0; j < movingPairs.length; j++) {
+          movingPairs[j].pair.lyr = pc.layer(movingPairs[j].layer);
+          movingPairs[j].pair.mt = pc.layer(movingPairs[j].matte);
+        }
         // Find the new layer by its SOURCE rather than assuming which index precompose used —
         // guessing the slot means the group's effects can land on a completely unrelated layer.
         var pcLayer = null;
@@ -439,7 +455,7 @@ var AEShapeBuilder = (function () {
         applyBlend(pcLayer, c.blend);
         if (c.hidden) { try { pcLayer.enabled = false; } catch (eh) {} }
         // Non-clipping groups keep their overflow in the parent without enlarging the comp.
-        try { pcLayer.collapseTransformation = !c.clip; } catch (ect) {}
+        try { pcLayer.collapseTransformation = !c.clip && !c.maskScope; } catch (ect) {}
         if (!c.clip && (c.blend !== 'PASS_THROUGH' || (c.opacity != null && c.opacity < 1))) {
           // A closed, zero-area subtract mask composites this group before applying its
           // opacity/blend, without cutting off overflow or changing the comp dimensions.

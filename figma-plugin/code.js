@@ -222,10 +222,14 @@ function buildZMap(root) {
 }
 function _zOf(n) { return (_zMap && _zMap[n.id] != null) ? _zMap[n.id] : 0; }
 
-// A mask ends at the next mask object or clipping container, never at an ancestor's bounds.
+// A sibling group keeps its own inner masks without ending the mask outside that group.
 function _maskBoundary(n) {
-  return n.isMask === true || (_isContainer(n) && (n.clipsContent === true ||
-    (n.children || []).some(function (c) { return c.visible !== false && c.isMask === true; })));
+  return n.isMask === true || (_isContainer(n) && n.clipsContent === true);
+}
+// Blend baking cannot cross an object with its own mask dependencies.
+function _blendBoundary(n) {
+  return _maskBoundary(n) || (_isContainer(n) &&
+    (n.children || []).some(function (c) { return c.visible !== false && c.isMask === true; }));
 }
 function _maskRuns(n) {
   var runs = [], active = null;
@@ -441,6 +445,53 @@ async function _bakeIndependentMasks(root, organize) {
   return images;
 }
 
+// One mask over several siblings must composite their result once. Add a packet-only
+// precomp around that scope; nested Figma groups and their own masks stay inside it.
+function _nestIndependentMasks(root, organize, channels, containers) {
+  if (!_nativeImageMasks) return;
+  var scopes = [];
+  (function walk(n) {
+    if ((_ignoreHidden && _isHidden(n)) || _rasterByNode[n.id] || _maskSourceByNode[n.id]) return;
+    var runs = _maskRuns(n);
+    for (var i = 0; i < runs.length; i++) {
+      var run = runs[i];
+      if (!_independentMasks[run.mask.id] || run.members.length < 3) continue;
+      if (!organize) throw _layerError(run.mask, '蒙版「' + run.mask.name + '」需要开启“将 Figma 组转换为预合成”');
+      var ids = {}, left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+      for (var j = 1; j < run.members.length; j++) {
+        var member = run.members[j], b = _contentBounds(member);
+        ids[member.id] = true;
+        left = Math.min(left, b.x); top = Math.min(top, b.y);
+        right = Math.max(right, b.x + b.w); bottom = Math.max(bottom, b.y + b.h);
+        var render = member.absoluteRenderBounds;
+        if (render) {
+          left = Math.min(left, render.x); top = Math.min(top, render.y);
+          right = Math.max(right, render.x + render.width); bottom = Math.max(bottom, render.y + render.height);
+        }
+      }
+      var container = { id: run.mask.id + '-scope', name: run.mask.name + ' 内容', type: 'GROUP',
+        maskScope: true, maskId: run.mask.id, path: _pathOf(run.mask, root.id), z: _zOf(run.mask),
+        x: left, y: top, w: right - left, h: bottom - top,
+        cb: { x: left, y: top, w: right - left, h: bottom - top },
+        opacity: 1, blend: 'NORMAL', clip: false, hidden: false, blur: 0, fx: [] };
+      containers.push(container); scopes.push({ container: container, members: ids });
+    }
+    if (n.type !== 'BOOLEAN_OPERATION' && n.children) for (var i = 0; i < n.children.length; i++) walk(n.children[i]);
+  })(root);
+  for (var si = 0; si < scopes.length; si++) {
+    var scope = scopes[si], target = scope.container;
+    for (var ci = 0; ci < channels.length; ci++) for (var ri = 0; ri < channels[ci].length; ri++) {
+      var row = channels[ci][ri];
+      if (row === target || row.reference) continue;
+      var path = row.path || [], at = -1;
+      for (var pi = 0; pi < path.length; pi++) if (scope.members[path[pi]]) { at = pi; break; }
+      if (at < 0 && !scope.members[row.id] && row.maskId !== target.maskId) continue;
+      row.path = path.slice(); row.path.splice(at < 0 ? path.length : at, 0, target.id);
+      if (row.maskId === target.maskId) row.maskId = null;
+    }
+  }
+}
+
 // Blend pixels depend on the paint below them. Baking only the blend layer still asks AE to
 // repeat that operation. Render the smallest closed sibling range instead, on the export copy.
 async function _bakeBlendStacks(root, organize) {
@@ -525,13 +576,13 @@ async function _bakeBlendStacks(root, organize) {
       if (!atoms[end].blend) continue;
       var needed = atoms[end].bounds, start = -1;
       for (var back = end - 1; back >= 0; back--) {
-        if (_maskBoundary(atoms[back].node) || _subtreeFlags(atoms[back].node).marked) break;
+        if (_blendBoundary(atoms[back].node) || _subtreeFlags(atoms[back].node).marked) break;
         if (atoms[back].blend) needed = union(needed, atoms[back].bounds);
         if (masksClose(ctx, needed) && !atoms[back].blend && opaque(atoms[back].node, needed)) { start = back; break; }
       }
       if (start < 0 && isolated) start = 0;
       if (start < 0) continue;
-      if (atoms.slice(start, end + 1).some(function (a) { return _maskBoundary(a.node) || _subtreeFlags(a.node).marked || !!_maskByNode[a.node.id]; })) continue;
+      if (atoms.slice(start, end + 1).some(function (a) { return _blendBoundary(a.node) || _subtreeFlags(a.node).marked || !!_maskByNode[a.node.id]; })) continue;
       while (ranges.length && start <= ranges[ranges.length - 1].end) start = Math.min(start, ranges.pop().start);
       ranges.push({ start: start, end: end });
     }
@@ -1091,6 +1142,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
         images.push(rim);
       }
     }
+    _nestIndependentMasks(node, !!organize, [nodeShapes || [], texts, images, containers || []], containers);
 
     // Disable clipping only AFTER the container table has captured it. The root is exported
     // uncut so off-frame artwork survives, then collectContainers restores that boundary as an

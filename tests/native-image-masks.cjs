@@ -40,7 +40,10 @@ async function fixture(){
   const photos=images.filter(im=>im.name.endsWith('_photo')),sources=images.filter(im=>im.maskSource);
   assert.equal(photos.length,5);assert.equal(sources.length,3);assert.equal(collected.ship.texts.length,1);
   assert.ok(photos.every(im=>im.data===original.toString('base64')&&im.rasterScale===null&&!im.bicubic),'Keep exact source bytes for every independent picture');
-  assert.ok(photos.filter(im=>im.name!=='Grouped_photo').every(im=>im.maskId));
+  assert.ok(photos.filter(im=>!['Grouped_photo','Bitmap_photo'].includes(im.name)).every(im=>im.maskId));
+  const shared=collected.ship.containers.find(c=>c.maskScope&&c.name==='Bitmap mask 内容');
+  assert.ok(shared&&photos.find(im=>im.name==='Bitmap_photo').path.includes(shared.id));
+  assert.equal(collected.ship.texts[0].maskId,null);assert.ok(collected.ship.texts[0].path.includes(shared.id));
   assert.deepEqual(sources.map(im=>im.maskType).sort(),['ALPHA','ALPHA','LUMINANCE']);
   assert.ok(sources.every(im=>im.data===maskBytes.toString('base64')&&!im.maskId));
   assert.ok(collected.ship.nodes.filter(n=>n.maskSource).every(n=>n.name.includes('Vector')||n.name.includes('Cropped')));

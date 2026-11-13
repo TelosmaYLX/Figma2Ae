@@ -5,6 +5,7 @@ const {spawn, execFile} = require('node:child_process');
 const {promisify} = require('node:util');
 const {fixture} = require('./direct-aep.cjs');
 const {fixture:nativeMasks} = require('./native-image-masks.cjs');
+const {fixture:nestedMasks} = require('./nested-image-masks.cjs');
 const run = promisify(execFile);
 
 async function check() {
@@ -55,7 +56,12 @@ async function check() {
     for(let i=0;i<independent.packet.images.length;i++)if(independent.packet.images[i].name.endsWith('_photo'))
       assert.deepEqual(await fs.readFile(path.join(nativeResult.directory,'Assets',String(i).padStart(4,'0')+'.png')),independent.original);
     await run(python,[path.join(root,'tests/check-native-image-masks.py'),nativeResult.project],{env,windowsHide:true});
-    await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult},null,2));
+    const nested=await nestedMasks();
+    const nestedResponse=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:nested.packet})});
+    assert.equal(nestedResponse.status,200,await nestedResponse.clone().text());
+    const nestedResult=await nestedResponse.json();
+    await run(python,[path.join(root,'tests/check-nested-image-masks.py'),nestedResult.project],{env,windowsHide:true});
+    await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult,nestedResult},null,2));
     console.log('PASS: relocated Windows package, no Node/Python on PATH, isolated Python/Tcl, bundled HTTP service and real AEP folder');
     console.log(testRoot);
   } finally {child.kill();}

@@ -330,4 +330,13 @@ node tests/direct-aep-ui.cjs
 node scripts/ae-eval.mjs tests/ae-native-image-masks.jsx artifacts/native-image-masks/ae-report.json native-image-masks
 ```
 
-脚本只创建并清理测试项，不替换或保存当前工程。本轮尝试遇到脚本回调超时，尚未形成完整原生 AE 报告；离线检查不代表新的真实 Figma → AE 端到端或像素一致性验收。
+脚本只创建并清理测试项，不替换或保存当前工程。上述独立蒙版回放已通过 AE 26 的直接导入和 AEP 导入属性检查，包含五张原图、共享图片/文字蒙版、Alpha／亮度蒙版和 CROP 嵌套。Figma 节点和 PNG 渲染仍为模拟，不代表新鲜真实 Figma 导出的像素一致性验收。
+
+### KV 外层与组内蒙版
+
+```powershell
+node tests/nested-image-masks.cjs
+node scripts/ae-eval.mjs tests/ae-nested-image-masks.jsx artifacts/nested-image-masks/ae-report.json nested-image-masks
+```
+
+样例复现最下方 `image 381`、四个带 `image 378` 的组，以及独立前景图片。检查外层共享预合成、四个独立局部遮罩、隐藏内容重新显示后的归属、原图字节、局部效果溢出、相邻蒙版边界、选项关闭和未开启预合成的提示。真实 AE 26 中两条导入路径均保留一个外层遮罩和四个局部遮罩，四张图片的组内位置为 `[40,24]`；直接导入记录的六对遮罩连接全部有效（包括相邻的独立蒙版）。预合成后用新图层引用重新记录遮罩配对，避免旧引用造成“丢失”误报。报告位于 `artifacts/nested-image-masks/`。
