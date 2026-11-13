@@ -1,6 +1,6 @@
 # 直接导出 AEP（实验）
 
-这一版将 F2A 数据包直接写成二进制 `.aep`。点击导出时，由已打开的 AE/F2A 面板启动本地组件；工程写入仍不调用 AE 建层。导出时选择保存位置，直接生成文件夹，内含 `project.aep`、`Assets/` 和 `report.json`；在 AE 中打开 `project.aep` 即可，不再打包 ZIP。
+这一版将 F2A 数据包直接写成二进制 `.aep`。点击导出时，由已打开的 AE/F2A 面板启动本地组件；工程写入仍不调用 AE 建层。保存窗口内可选择位置并修改名称，生成同名文件夹，内含同名 `.aep`、`Assets/` 和 `report.json`；在 AE 中打开该 `.aep` 即可，不再打包 ZIP。
 
 ## 使用
 
@@ -26,15 +26,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-aep-launcher.ps1
 
 重新运行 Figma 开发插件，打开 AE 的 F2A 面板，选中内容并点击“导出 AEP（实验）”。服务未运行时，插件向 AE 面板的 `POST /aep/start` 请求启动；CEP 通过 Windows 唤起注册组件。服务就绪后先采集内容、处理图片并在临时目录生成完整 AEP，字体、素材和工程检查全部通过才弹出保存位置窗口。已运行时直接复用。每次导出无需手动运行脚本；AE 面板未打开、版本过旧、组件未安装或启动失败会分别提示。
 
-启动器在后台运行本地服务 `127.0.0.1:7868`；分发版直接使用包内环境，开发版按需创建 `.venv-aep` 并安装固定依赖。重复唤起复用运行中的服务。服务使用 Tkinter 弹出原生目录窗口。日志位于安装或开发目录的 `artifacts/aep-service/`。
+启动器在后台运行本地服务 `127.0.0.1:7868`；分发版直接使用包内环境，开发版按需创建 `.venv-aep` 并安装固定依赖。重复唤起复用运行中的服务。服务使用 Tkinter 弹出原生保存窗口。日志位于安装或开发目录的 `artifacts/aep-service/`。
 
 调试时仍可手动运行 `powershell -ExecutionPolicy Bypass -File .\scripts\start-aep-export.ps1`；加 `-Background` 在后台启动。关闭服务进程后，下一次点击导出会再次启动。卸载唤起入口可删除当前用户注册表中的 `HKCU\Software\Classes\f2a-aep`。
 
-所选位置下会创建以选区命名的文件夹；同名时加 ` (2)`、` (3)`，不覆盖旧工程。取消选择不会在目标位置创建文件，临时工程在取消、失败或保存完成后自动清理。导出成功后显示完整保存路径及“打开文件夹”按钮，点击即可在资源管理器中打开本次导出的文件夹。
+保存窗口默认使用选区名称，也可自行改名。例如在桌面输入“新工程”，会生成 `桌面/新工程/新工程.aep`。同名时文件夹和 AEP 名称加 ` (2)`、` (3)`，不覆盖旧工程。取消选择不会在目标位置创建文件，临时工程在取消、失败或保存完成后自动清理。导出成功后显示完整保存路径及“打开文件夹”按钮，点击后显示资源管理器窗口。
 
 原“导入到 After Effects”按钮仍使用原通道。新增按钮复用同一组栅格化、分组、裁剪选项，并使用可编辑节点数据。合成默认为 30 fps、10 秒。
 
 “切图倍率”默认 1×，可选 1×、2×、3×、4×，同时作用于导入 AE 和导出 AEP。倍率控制栅格化图层、投影及原图参考的 PNG 分辨率；AE 按对应倍率还原画面尺寸。普通图片填充继续使用原始素材，不随切图倍率重采样。
+
+小数边界的切图使用对齐选区像素网格的透明画布，保留图形原始变换和小数偏移，避免 PNG 宽高分别取整改变比例及回放时再次过滤边缘。AEP 图层使用最佳质量和双三次采样；“双三次导出（实验）”仍是独立、默认关闭的切图处理选项。
 
 也可从已经收集的 F2A 数据包生成工程：
 
@@ -58,7 +60,7 @@ node scripts/export-aep.cjs packet.json output-directory
 
 当前 Figma 桌面客户端的外部链接白名单不包含 `f2a-aep:`；直接使用 `figma.openExternal` 会在组件启动前被拒绝。原先测试替换了该宿主方法，因此没有覆盖这项限制。现在由具备 Node 进程接口的 CEP 执行 Windows 协议唤起，仍沿用 [Windows URI 协议注册方式](https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa767914(v=vs.85))；安装路径由当前设备注册表解析。
 
-服务协议版本为 3：`POST /export` 接收 `{packet}`，完成工程生成和检查后调用原生目录窗口；取消返回 `{cancelled:true}`，保存成功返回 JSON 路径、报告及 `exportId`。`POST /open-directory` 接收 `{exportId}`，只打开本服务记录的成功导出目录，不接受任意路径。旧的提前选目录接口已移除。目录窗口使用 [Python 标准库的原生目录对话框](https://docs.python.org/3/library/dialog.html#tkinter.filedialog.askdirectory)。
+服务协议版本为 3：`POST /export` 接收 `{packet}`，完成工程生成和检查后调用原生保存窗口；取消返回 `{cancelled:true}`，保存成功返回 JSON 路径、报告及 `exportId`。`POST /open-directory` 接收 `{exportId}`，只打开本服务记录的成功导出目录，不接受任意路径。旧的提前选目录接口已移除。命名使用 Python 标准库的 `asksaveasfilename`，返回目标文件夹名称，不在窗口阶段创建文件。
 
 ## 范围
 

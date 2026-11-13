@@ -6,11 +6,16 @@ const path = require('node:path');
 const os = require('node:os');
 const {spawn} = require('node:child_process');
 const {randomUUID} = require('node:crypto');
-const {exportAep, chooseDirectory} = require('./export-aep.cjs');
+const {exportAep, chooseDestination} = require('./export-aep.cjs');
 
-async function createOutputDirectory(parent, name) {
+function outputName(name) {
   let base = String(name || 'Figma').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100).replace(/[. ]+$/, '') || 'Figma';
   if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(base)) base = '_' + base;
+  return base;
+}
+
+async function createOutputDirectory(parent, name) {
+  const base = outputName(name);
   for (let index = 1; ; index++) {
     const directory = path.join(parent, base + (index === 1 ? '' : ' (' + index + ')'));
     try { await fs.mkdir(directory); return directory; }
@@ -62,14 +67,19 @@ function start(options = {}) {
             const issue = prepared.warnings[0];
             throw new Error('图层「' + (issue.layer || '未知') + '」：' + (issue.detail || issue.code || '存在未导出的属性'));
           }
-          const parent = await (options.chooseDirectory || chooseDirectory)(options);
-          if (!parent) return {cancelled:true};
-          const directory = await createOutputDirectory(path.resolve(parent), body.packet.name);
-          try { await fs.cp(temporary, directory, {recursive:true}); }
+          const destination = await (options.chooseDestination || chooseDestination)({...options, name:outputName(body.packet.name)});
+          if (!destination) return {cancelled:true};
+          const target = path.resolve(destination);
+          const directory = await createOutputDirectory(path.dirname(target), path.basename(target).replace(/\.aep$/i, ''));
+          const project = path.join(directory, path.basename(directory) + '.aep');
+          try {
+            await fs.cp(temporary, directory, {recursive:true});
+            await fs.rename(path.join(directory, 'project.aep'), project);
+          }
           catch (error) { await fs.rm(directory, {recursive:true, force:true}); throw error; }
           const exportId = randomUUID();
           exports.set(exportId, directory);
-          return {...prepared, directory, project:path.join(directory, 'project.aep'), exportId};
+          return {...prepared, directory, project, exportId};
         } finally { await fs.rm(temporary, {recursive:true, force:true}); }
       });
       res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8'});
@@ -82,7 +92,7 @@ function start(options = {}) {
     }
   });
   server.listen(options.port ?? 7868, '127.0.0.1', () => {
-    if (!options.quiet) console.log('F2A AEP: http://127.0.0.1:' + server.address().port + '\n导出时选择文件夹');
+    if (!options.quiet) console.log('F2A AEP: http://127.0.0.1:' + server.address().port + '\n导出时选择位置和名称');
   });
   return server;
 }
@@ -90,11 +100,11 @@ function start(options = {}) {
 function openDirectory(directory) {
   return new Promise((resolve, reject) => {
     const child = spawn(path.join(process.env.SystemRoot, 'explorer.exe'), [directory],
-      {windowsHide:true, detached:true, stdio:'ignore'});
+      {windowsHide:false, detached:true, stdio:'ignore'});
     child.once('error', reject);
     child.once('spawn', () => { child.unref(); resolve(); });
   });
 }
 
 if (require.main === module) start();
-module.exports = {start};
+module.exports = {start, openDirectory};

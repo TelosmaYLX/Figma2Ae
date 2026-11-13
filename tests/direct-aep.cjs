@@ -61,12 +61,13 @@ async function check() {
   assert.equal(result.warnings.length,0,JSON.stringify(result.warnings));
   assert.deepEqual((await fs.readdir(directory)).sort(),['Assets','project.aep','report.json']);
   const parent=await fs.mkdtemp(path.join(output,'选择 位置-'));
-  const choices=[null,parent,parent],opened=[],temporary=await fs.mkdtemp(path.join(output,'checks-'));
+  const choices=[null,path.join(parent,'自定义 项目'),path.join(parent,'自定义 项目.aep')],opened=[],temporary=await fs.mkdtemp(path.join(output,'checks-'));
   let pickerCalls=0,failOpen=false;
   const server=start({port:0,quiet:true,tempRoot:temporary,openDirectory:async directory=>{
     if(failOpen)throw new Error('Explorer failure');
     opened.push(directory);
-  },chooseDirectory:async()=>{
+  },chooseDestination:async(options)=>{
+    assert.ok(options.name);assert.doesNotMatch(options.name,/[<>:"/\\|?*]/);
     pickerCalls++;
     const folders=await fs.readdir(temporary);assert.equal(folders.length,1);
     const checked=path.join(temporary,folders[0]);
@@ -103,9 +104,10 @@ async function check() {
     assert.equal(response.status,200,await response.clone().text());
     assert.match(response.headers.get('Content-Type'),/application\/json/);
     const exported=await response.json();
-    assert.equal(exported.directory,path.join(parent,'导出_.._AEP'));
+    assert.equal(exported.directory,path.join(parent,'自定义 项目'));
+    assert.equal(exported.project,path.join(exported.directory,'自定义 项目.aep'));
     assert.equal(exported.archive,undefined);
-    assert.deepEqual((await fs.readdir(exported.directory)).sort(),['Assets','project.aep','report.json']);
+    assert.deepEqual((await fs.readdir(exported.directory)).sort(),['Assets','report.json','自定义 项目.aep']);
     const original=await fs.readFile(exported.project);
     assert.equal(original.toString('ascii',0,4),'RIFX');
     assert.deepEqual(await fs.readdir(temporary),[],'Only the final folder remains after saving');
@@ -121,7 +123,9 @@ async function check() {
     failOpen=true;const explorerError=await open({exportId:exported.exportId});assert.equal(explorerError.status,400);assert.match((await explorerError.json()).error,/Explorer failure/);failOpen=false;
     const second=await post({packet:named});
     assert.equal(second.status,200,await second.clone().text());
-    assert.equal((await second.json()).directory,path.join(parent,'导出_.._AEP (2)'));
+    const duplicate=await second.json();
+    assert.equal(duplicate.directory,path.join(parent,'自定义 项目 (2)'));
+    assert.equal(duplicate.project,path.join(duplicate.directory,'自定义 项目 (2).aep'));
     assert.deepEqual(await fs.readFile(exported.project),original,'An existing project is never overwritten');
     const pickerError=await post({packet});assert.equal(pickerError.status,400);assert.match((await pickerError.json()).error,/Picker failed/);
     assert.deepEqual(await fs.readdir(temporary),[]);

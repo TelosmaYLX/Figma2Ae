@@ -33,7 +33,8 @@ async function check(name, fn) {
     assert.deepEqual(result.ship.shift, {x:0,y:0});
     assert.deepEqual(result.ship.nodes[0].matrix.slice(4), [10.75,20.5]);
     assert.deepEqual([result.ship.texts[0].x,result.ship.texts[0].y], [18.375,24.875]);
-    assert.deepEqual([result.images[0].x,result.images[0].y], [28.625,21.875]);
+    assert.deepEqual([result.images[0].x,result.images[0].y], [28,21]);
+    assert.deepEqual([result.images[0].w,result.images[0].h], [21,11], 'Pad the fractional artwork without changing its transform');
     class CompItem { constructor() { this.width=300;this.height=300; } }
     const files = {nodes: JSON.stringify(result.ship.nodes)};
     function File(name) { this.exists=name in files;this.open=()=>{};this.close=()=>{};this.read=()=>files[name]; }
@@ -81,12 +82,13 @@ async function check(name, fn) {
     }});
     const h=harness(layout),passes=h.context._rasterBlendPasses(layout);
     assert.equal(passes.length,2);
+    h.context._rasterOrigin={x:600.125,y:300.5};
     const im=h.context._rasterMeta(layout,layout,false);im.x-=600.125;im.y-=300.5;im.rasterPass=passes[1];
     let renderedX;
     layout.exportAsync=async()=>{renderedX=glow.absoluteRenderBounds.x;return new Uint8Array([1]);};
     await h.context._exportRasterPass(im);
     assert.equal(renderedX,600.625,'Rendering a separate glow must not reflow it into the preceding slot');
-    assert.deepEqual([im.x,im.y,im.cx,im.cy],[.5,47.875,10.5,52.875]);
+    assert.deepEqual([im.x,im.y,im.cx,im.cy],[0,47,10.5,52.5]);
     assert.equal(lead.visible,true);assert.equal(lead.opacity,.6);assert.equal(glow.blendMode,'SOFT_LIGHT');
     layout.exportAsync=async()=>{throw new Error('forced PNG failure');};
     await assert.rejects(()=>h.context._exportRasterPass(im),/forced PNG failure/);

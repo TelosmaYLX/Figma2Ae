@@ -17,7 +17,7 @@ from fontTools.misc.bezierTools import calcCubicBounds
 from py_aep import ImportOptions
 from py_aep.models.properties.gradient import Gradient, GradientAlphaStop, GradientColorStop
 from py_aep.models.properties.shape import Shape
-from py_aep.enums import BlendingMode, MaskMode, ParagraphJustification, TrackMatteType
+from py_aep.enums import BlendingMode, LayerQuality, LayerSamplingQuality, MaskMode, ParagraphJustification, TrackMatteType
 from py_aep.svg.fonts import resolve_font, resolve_font_exact, resolve_postscript
 
 
@@ -49,6 +49,8 @@ class Writer:
 
     def common(self, layer, item):
         layer.name = item.get('name') or 'Layer'
+        layer.quality = LayerQuality.BEST
+        layer.sampling_quality = LayerSamplingQuality.BICUBIC
         layer.enabled = not item.get('hidden', False)
         layer.transform.opacity.value = item.get('opacity', 1) * 100
         blend = item.get('blend', 'NORMAL')

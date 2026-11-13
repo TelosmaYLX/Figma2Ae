@@ -33,13 +33,14 @@ async function check(){
   const nested=at(node('FRAME','Nested clip',{clipsContent:true,cornerRadius:8,children:[curve,outlined,raster,rotated]}),525.5,230.25,460.5,90.25);
   const root=at(node('FRAME','AEP layout',{children:[nested,...texts,gradient,paragraph,rich,photo('FIT'),photo('FILL'),group('Mask group',[mask,masked])]}),500.125,200.375,640,360);
   const h=harness(root);
-  (function render(n){n.exportAsync=async options=>png(Math.ceil(n.absoluteRenderBounds.width*options.constraint.value),Math.ceil(n.absoluteRenderBounds.height*options.constraint.value));if(n.children)n.children.forEach(render);})(root);
+  (function render(n){n.exportAsync=async function(options){return png(Math.round(this.absoluteRenderBounds.width*options.constraint.value),Math.round(this.absoluteRenderBounds.height*options.constraint.value));};if(n.children)n.children.forEach(render);})(root);
   h.context.figma.getImageByHash=()=>({getBytesAsync:async()=>png(300,200),getSizeAsync:async()=>({width:300,height:200})});
   const result=await h.run(true,true,true,false,{rasterScale:scale}),messages=h.messages;
   const images=messages.filter(m=>m.type==='image-chunk'&&m.seq===0).map(m=>({...m.meta,data:messages.filter(c=>c.type==='image-chunk'&&c.index===m.index).map(c=>c.dataPart).join('')}));
   const baked=images.find(im=>/Fractional_raster$/.test(im.name));
-  assert.equal(baked.rasterScale,scale);assert.deepEqual([baked.natW,baked.natH],[Math.ceil(100.37*scale),Math.ceil(37.21*scale)]);
-  assert.ok(Math.abs(Math.min(baked.cw/baked.natW,baked.ch/baked.natH)-1/scale)>.0001,'Reproduce the old fractional FIT shrink');
+  assert.equal(baked.rasterScale,scale);
+  assert.deepEqual([baked.natW,baked.natH],[Math.round(baked.cw*scale),Math.round(baked.ch*scale)]);
+  assert.equal(baked.x*scale,Math.round(baked.x*scale));assert.equal(baked.y*scale,Math.round(baked.y*scale));
   assert.equal(images.find(im=>im.name==='Photo_FIT').rasterScale,null);
   const packet={...result.ship,images},directory=await fs.mkdtemp(path.resolve(__dirname,'../artifacts/aep-layout-'));
   const exported=await exportAep(packet,directory),expected=path.join(directory,'expected.json');

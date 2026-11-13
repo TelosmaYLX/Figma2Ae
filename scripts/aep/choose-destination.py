@@ -1,5 +1,6 @@
-"""Select the parent directory for a direct AEP export using the native dialog."""
+"""Name an AEP export folder using the native Save As dialog."""
 import json
+import sys
 import tkinter as tk
 from tkinter import filedialog
 
@@ -9,7 +10,9 @@ def main():
     root.withdraw()
     root.attributes('-topmost', True)
     try:
-        directory = filedialog.askdirectory(parent=root, title='选择 AEP 导出位置', mustexist=True)
+        directory = filedialog.asksaveasfilename(
+            parent=root, title='保存 AEP 工程文件夹', initialfile=sys.argv[1],
+            filetypes=[('AEP 工程文件夹', '*')], confirmoverwrite=False)
         print(json.dumps({'directory': directory or None}, ensure_ascii=False))
     finally:
         root.destroy()

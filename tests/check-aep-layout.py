@@ -3,6 +3,7 @@ import math
 import sys
 from pathlib import Path
 import py_aep
+from py_aep.enums import LayerQuality, LayerSamplingQuality
 
 app=py_aep.parse(sys.argv[1])
 model=json.loads(Path(sys.argv[2]).read_text(encoding='utf-8'))
@@ -22,6 +23,9 @@ contexts={item['id']:item for item in model['containers']}
 def origin(item):
     return next(([contexts[key]['x'],contexts[key]['y']] for key in reversed(item.get('path') or []) if key in contexts),[0,0])
 for layer in layers.values():
+    assert layer.quality == LayerQuality.BEST
+    if layer.source is not None:
+        assert layer.sampling_quality == LayerSamplingQuality.BICUBIC,layer.name
     if layer.name=='Outside stroke':
         # Offset Paths is not supported by the library's sourceRect implementation.
         close(layer.transform.anchor_point.value[0],0);close(layer.transform.anchor_point.value[1],0)
@@ -47,6 +51,7 @@ for item in model['images']:
     scales=[item.get('cw',item['w'])/layer.source.width,item.get('ch',item['h'])/layer.source.height]
     wanted=1/item['rasterScale'] if item.get('rasterScale') else (min(scales) if item['scaleMode']=='FIT' else max(scales))
     for value in layer.transform.scale.value[:2]:close(value,wanted*100)
+    close(layer.source.pixel_aspect,1)
     close(layer.transform.position.value[0],item['cx']-ox);close(layer.transform.position.value[1],item['cy']-oy)
 for item in model['texts']:
     layer=layers[item['name']];rect=layer.source_rect_at_time(0,False);box=item.get('ink') or item;ox,oy=origin(item)

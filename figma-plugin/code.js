@@ -42,6 +42,7 @@ var _rasterTexts = false;       // opt-in: export each remaining text node as a 
 var _rasterScale = 1;
 var _rasterRenderScale = 1;
 var _bicubicExport = false;
+var _rasterOrigin = { x: 0, y: 0 };
 var _rasterAllGroups = false;
 var _rasterInstances = false;
 var _temporaryExportRoot = null;
@@ -441,7 +442,7 @@ async function _bakeBlendStacks(root, organize) {
   async function whole(n) {
     if (n.type === 'TEXT') await fonts([n]);
     var im = _rasterMeta(n, root, organize);
-    im.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
+    im.rasterBytes = await _exportRasterPng(im);
     delete im.rasterNode; delete im.rasterBounds;
     im.name += '_叠加合并'; im.mergedBlend = true; images.push(im); mark(n); stats.merged++; stats.layers++;
   }
@@ -557,11 +558,12 @@ async function _bakeNodeShadow(n, root, organize) {
     var segments = n.getStyledTextSegments(['fontName']);
     for (var f = 0; f < segments.length; f++) await figma.loadFontAsync(segments[f].fontName);
   }
-  var image = _rasterMeta(n, root, organize), fullBounds = image.rasterBounds;
-  image.rasterBytes = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
+  var image = _rasterMeta(n, root, organize);
+  image.rasterBytes = await _exportRasterPng(image);
+  var fullBounds = image.rasterBounds;
   n.effects = effects.filter(function (e) { return e.type !== 'DROP_SHADOW' || e.visible === false; });
-  var cleanBounds = n.absoluteRenderBounds || n.absoluteBoundingBox;
-  var clean = await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
+  var cleanImage = _rasterMeta(n, root, organize);
+  var clean = await _exportRasterPng(cleanImage), cleanBounds = cleanImage.rasterBounds;
   image.shadowBase = { data: figma.base64Encode(clean), dx: (cleanBounds.x - fullBounds.x) * _rasterRenderScale,
     dy: (cleanBounds.y - fullBounds.y) * _rasterRenderScale, w: cleanBounds.width * _rasterRenderScale, h: cleanBounds.height * _rasterRenderScale };
   image.name += '_投影'; image.blend = 'NORMAL'; image.z -= 0.01; image.shadow = true;
@@ -694,8 +696,8 @@ function _rasterBlendPasses(root, members) {
   return passes;
 }
 
-function _updateRasterBounds(im) {
-  var b = im.rasterNode.absoluteRenderBounds || im.rasterNode.absoluteBoundingBox;
+function _updateRasterBounds(im, bounds) {
+  var b = bounds || im.rasterNode.absoluteRenderBounds || im.rasterNode.absoluteBoundingBox;
   if (!b) return;
   im.x += b.x - im.rasterBounds.x; im.y += b.y - im.rasterBounds.y;
   im.w = im.cw = b.width; im.h = im.ch = b.height;
@@ -705,13 +707,42 @@ function _updateRasterBounds(im) {
   im.rasterBounds = { x: b.x, y: b.y, width: b.width, height: b.height };
 }
 
+// Render into a pixel-aligned canvas instead of letting Figma independently round the
+// tight PNG width/height. Keep fractional artwork inside transparent padding, so AE
+// can use the original pixel scale without stretching or filtering the tight crop again.
+async function _exportRasterPng(im) {
+  var n = im.rasterNode, b = n.absoluteRenderBounds || n.absoluteBoundingBox;
+  var left = _rasterOrigin.x + Math.floor((b.x - _rasterOrigin.x) * _rasterScale + 0.000001) / _rasterScale;
+  var top = _rasterOrigin.y + Math.floor((b.y - _rasterOrigin.y) * _rasterScale + 0.000001) / _rasterScale;
+  var width = Math.max(1, Math.ceil((b.x + b.width - left) * _rasterScale - 0.000001)) / _rasterScale;
+  var height = Math.max(1, Math.ceil((b.y + b.height - top) * _rasterScale - 0.000001)) / _rasterScale;
+  if (Math.abs(left - b.x) < 0.000001 && Math.abs(top - b.y) < 0.000001 &&
+      Math.abs(width - b.width) < 0.000001 && Math.abs(height - b.height) < 0.000001)
+    return n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
+  var frame = figma.createFrame();
+  try {
+    frame.name = 'F2A 切图'; frame.fills = []; frame.clipsContent = true;
+    frame.resizeWithoutConstraints(width, height); frame.x = left; frame.y = top;
+    var transform = n.absoluteTransform.map(function (row) { return row.slice(); });
+    var size = { width: n.width, height: n.height };
+    var copy = n.clone(); frame.appendChild(copy);
+    if ((copy.width !== size.width || copy.height !== size.height) && typeof copy.resizeWithoutConstraints === 'function')
+      copy.resizeWithoutConstraints(size.width, size.height);
+    copy.relativeTransform = _matrixProduct(_inverseMatrix(frame.absoluteTransform), transform);
+    var bytes = await frame.exportAsync({ format: 'PNG', useAbsoluteBounds: true,
+      constraint: { type: 'SCALE', value: _rasterRenderScale } });
+    _updateRasterBounds(im, { x: left, y: top, width: width, height: height });
+    return bytes;
+  } finally { frame.remove(); }
+}
+
 async function _exportRasterPass(im) {
   var pass = im.rasterPass;
   if (!pass) {
     // Root clipping may have been disabled after metadata collection. Measure the same bounds
     // the PNG now uses, so partially clipped text is not squeezed into its earlier visible box.
     _updateRasterBounds(im);
-    return im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
+    return _exportRasterPng(im);
   }
   var restored = [], parentState = [], target = (pass.blend !== 'NORMAL') ? pass.keep[0] : null;
   var oldBlend = target ? target.blendMode : null;
@@ -737,7 +768,7 @@ async function _exportRasterPass(im) {
     // Suppressing other artwork can shrink the render bounds. Carry the resulting crop back
     // into the already frame-relative metadata, so separate glow layers do not move.
     _updateRasterBounds(im);
-    return await im.rasterNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
+    return await _exportRasterPng(im);
   } finally {
     if (target) target.blendMode = oldBlend;
     for (var j = restored.length - 1; j >= 0; j--) {
@@ -909,6 +940,10 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   var disabledClips = [];
   try {
     if ([1, 2, 3, 4].indexOf(_rasterScale) === -1) throw new Error('请选择有效的切图倍率');
+    _rasterOrigin = {
+      x: Math.min.apply(null, sel.map(function (n) { return n.absoluteBoundingBox.x; })),
+      y: Math.min.apply(null, sel.map(function (n) { return n.absoluteBoundingBox.y; }))
+    };
     // Capture the untouched selection before creating or changing any temporary node.
     // Multi-selection keeps one complete reference for each selected frame/group.
     var transforms = [], sizes = [];

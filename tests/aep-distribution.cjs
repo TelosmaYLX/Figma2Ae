@@ -25,7 +25,7 @@ async function check() {
   assert.ok(tclSources.every(p=>path.resolve(p).toLowerCase().startsWith(pythonRoot.toLowerCase()+path.sep)));
   const parent = path.join(testRoot,'导出 位置');
   await fs.mkdir(parent);
-  const child = spawn(node, ['-e', "const s=require(process.argv[1]).start({port:0,quiet:true,chooseDirectory:async()=>process.argv[2]});s.on('listening',()=>process.stdout.write('PORT:'+s.address().port+'\\n'));", path.join(target,'scripts/aep-server.cjs'), parent], {env,windowsHide:true,stdio:['ignore','pipe','pipe']});
+  const child = spawn(node, ['-e', "const s=require(process.argv[1]).start({port:0,quiet:true,chooseDestination:async()=>process.argv[2]});s.on('listening',()=>process.stdout.write('PORT:'+s.address().port+'\\n'));", path.join(target,'scripts/aep-server.cjs'), path.join(parent,'自定义 工程')], {env,windowsHide:true,stdio:['ignore','pipe','pipe']});
   let stderr='';child.stderr.on('data',part=>{stderr+=part;});
   try {
     const port = await new Promise((resolve,reject)=>{
@@ -42,11 +42,11 @@ async function check() {
     const result=await response.json();
     assert.equal(result.counts.texts,1);assert.equal(result.counts.images,2);
     assert.equal((await fs.readFile(result.project)).toString('ascii',0,4),'RIFX');
-    assert.deepEqual((await fs.readdir(result.directory)).sort(),['Assets','project.aep','report.json']);
+    assert.deepEqual((await fs.readdir(result.directory)).sort(),['Assets','report.json','自定义 工程.aep']);
     const invalid=await fixture();invalid.containers[0].blur=3;
     const rejected=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:invalid})});
     assert.equal(rejected.status,400);assert.match((await rejected.json()).error,/Direct AEP smoke.*效果/);
-    await assert.rejects(()=>fs.access(path.join(parent,'Direct AEP smoke (2)','project.aep')));
+    assert.deepEqual(await fs.readdir(parent),['自定义 工程']);
     await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result},null,2));
     console.log('PASS: relocated Windows package, no Node/Python on PATH, isolated Python/Tcl, bundled HTTP service and real AEP folder');
     console.log(testRoot);

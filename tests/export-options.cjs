@@ -63,6 +63,12 @@ function harness(root, code = source) {
       const frame=node('FRAME','temporary',{children:[],parent:{type:'PAGE'}});
       frame.appendChild=function(n){n.parent=this;this.children.push(n);};
       frame.remove=function(){this.children.slice().forEach(c=>c.remove());this.removed=true;};
+      frame.x=frame.y=0;
+      frame.resizeWithoutConstraints=function(w,h){this.width=w;this.height=h;};
+      Object.defineProperty(frame,'absoluteTransform',{get(){return [[1,0,this.x],[0,1,this.y]];}});
+      Object.defineProperty(frame,'absoluteBoundingBox',{get(){return {x:this.x,y:this.y,width:this.width,height:this.height};}});
+      Object.defineProperty(frame,'absoluteRenderBounds',{get(){return this.absoluteBoundingBox;}});
+      frame.exportAsync=function(options){return this.children[0].exportAsync.call(this,options);};
       return frame;
     },
     group(nodes,parent) {const g=group('temporary selection',nodes);g.exportAsync=root.exportAsync;g.clone=function(){return mockClone(this);};g.remove=function(){this.removed=true;this.children.slice().forEach(c=>c.remove());};parent.appendChild(g);return g;}

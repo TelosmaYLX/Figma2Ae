@@ -88,7 +88,7 @@ async function check() {
   const blurScene=group('page',[image('background photo'),group('card',[solid('card background'),blurred,node('TEXT','editable title'),solid('button')])]);
   const blurHost=setup(blurScene),blurRenders=[];
   blurred.exportAsync=async function(options){
-    assert.equal(options.format,'PNG');assert.equal(options.constraint.value,2);
+    assert.equal(options.format,'PNG');assert.equal(options.constraint.value,1);
     assert.equal(this.effects.length,2,'Figma receives both effects unchanged');
     assert.ok(this.parent.children.some(n=>n.name==='card background'&&n.opacity===1));
     assert.ok(this.parent.children.some(n=>n.name==='editable title'&&n.opacity===1));

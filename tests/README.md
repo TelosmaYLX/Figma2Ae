@@ -4,15 +4,33 @@
 
 ## 导出检查与打开文件夹
 
-AEP 导出先完成 Figma 采集、图片处理和临时工程生成，再弹出保存位置窗口。字体缺失、图片损坏和不支持的效果均在选择目录前报错。取消、出错及保存完成后清理临时文件；成功后显示“打开文件夹”，只打开本次导出的目录，开始新导出时隐藏旧按钮。
+AEP 导出先完成 Figma 采集、图片处理和临时工程生成，再弹出原生保存窗口。可在窗口内修改工程文件夹名称，AEP 使用同名文件；同名目录加序号，不覆盖旧工程。字体缺失、图片损坏和不支持的效果均在选择位置前报错。取消、出错及保存完成后清理临时文件；成功后显示“打开文件夹”，开始新导出时隐藏旧按钮。
 
 ```powershell
 node tests/direct-aep.cjs
 node tests/direct-aep-ui.cjs
+node tests/aep-open-directory.cjs
+.\.venv-aep\Scripts\python.exe tests\aep-destination.py
 node tests/aep-distribution.cjs
 ```
 
-检查使用真实 Python/AEP 写入与 HTTP 服务，覆盖检查/窗口顺序、取消和失败清理、中文路径、同名目录、临时素材删除后的相对引用、打开目录标识与错误，以及 UI 按钮显隐和重复点击。目录窗口、Explorer 调用和 Figma UI 由测试模拟，未进行本轮真实 Figma 窗口点击验收。分发测试可通过首个参数指定分发目录。
+检查使用真实 Python/AEP 写入与 HTTP 服务，覆盖检查/窗口顺序、取消和失败清理、自定义中文名称、同名目录、临时素材删除后的相对引用、打开目录标识与错误，以及 UI 按钮显隐和重复点击。`aep-destination.py` 实际打开 Windows 保存窗口，自动输入中文名称并测试取消，不创建工程。Explorer 启动回归确认窗口可见；本机另通过 Shell.Application 实测中文及空格目录可见。Figma UI 由测试模拟；分发测试可通过首个参数指定分发目录。
+
+## 图片像素对齐
+
+小数边界的栅格内容放入对齐选区像素网格的透明画布，保留原图形变换；避免紧贴内容的 PNG 宽高取整改变比例，再在 AE 中重新采样。已对齐的内容直接导出。普通原始图片不重采样，切图倍率和预合成尺寸保持原规则；AEP 图层写入最佳质量及双三次采样。
+
+```powershell
+node tests/raster-pixels.cjs
+node tests/raster-scale.cjs
+node tests/bicubic-export.cjs
+node tests/aep-layout.cjs 1
+node scripts/ae-eval.mjs tests/ae-aep-layout.jsx artifacts/aep-layout-pixels-ae-1x.json
+node tests/aep-layout.cjs 4
+node scripts/ae-eval.mjs tests/ae-aep-layout.jsx artifacts/aep-layout-pixels-ae-4x.json
+```
+
+像素检查使用实际导出代码与模拟 Figma 画布，覆盖 1×/2×/3×/4×、双三次输出、原变换与小数偏移、透明补边和失败清理。真实 AE 检查临时导入生成的工程，核对图片倍率、像素比例、位置和采样设置，渲染后移除测试项目项。上述检查不替代一次新的在线 Figma 导出画面对照。完整画布边界使用 Figma 的 [useAbsoluteBounds](https://developers.figma.com/docs/plugins/api/ExportSettings/#useabsolutebounds-boolean-readonly)。
 
 ## 锚点与栅格比例
 

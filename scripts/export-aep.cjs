@@ -15,8 +15,8 @@ function pythonPath(options = {}) {
     process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'));
 }
 
-async function chooseDirectory(options = {}) {
-  const {stdout} = await run(pythonPath(options), [path.join(__dirname, 'aep/choose-directory.py')],
+async function chooseDestination(options = {}) {
+  const {stdout} = await run(pythonPath(options), [path.join(__dirname, 'aep/choose-destination.py'), options.name],
     {windowsHide: true, env: {...process.env, PYTHONUTF8: '1'}});
   return JSON.parse(stdout).directory;
 }
@@ -60,4 +60,4 @@ if (require.main === module) {
       .catch(error => { console.error(error.message); process.exitCode = 1; });
   }
 }
-module.exports = {exportAep, chooseDirectory};
+module.exports = {exportAep, chooseDestination};
