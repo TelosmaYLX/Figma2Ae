@@ -479,7 +479,7 @@ function _nestIndependentMasks(root, organize, channels, containers) {
     for (var i = 0; i < runs.length; i++) {
       var run = runs[i];
       if (!_independentMasks[run.mask.id] || run.members.length < 3) continue;
-      if (!organize) throw _layerError(run.mask, '蒙版「' + run.mask.name + '」需要开启“将 Figma 组转换为预合成”');
+      if (!organize) throw _layerError(run.mask, '蒙版「' + run.mask.name + '」需要开启“保留分组层级”以建立预合成');
       var ids = {}, left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
       for (var j = 1; j < run.members.length; j++) {
         var member = run.members[j], b = _contentBounds(member);
@@ -2191,7 +2191,6 @@ figma.ui.onmessage = function (msg) {
   if (msg.type === 'mark-raster') markRasterSelection(true);
   if (msg.type === 'unmark-raster') markRasterSelection(false);
   if (msg.type === 'layer-tool') runLayerTool(msg.action);
-  if (msg.type === 'tools-open') figma.ui.resize(320, msg.open ? 760 : 630);
   if (msg.type === 'close') figma.closePlugin(msg.message || undefined);
   if (msg.type === 'notify') figma.notify(msg.message);
 };

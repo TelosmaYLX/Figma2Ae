@@ -3,9 +3,9 @@ import math
 import sys
 from pathlib import Path
 import py_aep
-from py_aep.enums import LayerQuality, LayerSamplingQuality
 
 app=py_aep.parse(sys.argv[1])
+baseline=py_aep.new('26.0x67').project.root_folder.add_comp('Defaults',100,100,1,1,30).add_shape()
 model=json.loads(Path(sys.argv[2]).read_text(encoding='utf-8'))
 def comps(folder):
     for item in folder.items:
@@ -23,9 +23,9 @@ contexts={item['id']:item for item in model['containers']}
 def origin(item):
     return next(([contexts[key]['x'],contexts[key]['y']] for key in reversed(item.get('path') or []) if key in contexts),[0,0])
 for layer in layers.values():
-    assert layer.quality == LayerQuality.BEST
+    assert layer.quality == baseline.quality
     if layer.source is not None:
-        assert layer.sampling_quality == LayerSamplingQuality.BICUBIC,layer.name
+        assert layer.sampling_quality == baseline.sampling_quality,layer.name
     if layer.name=='Outside stroke':
         # Offset Paths is not supported by the library's sourceRect implementation.
         close(layer.transform.anchor_point.value[0],0);close(layer.transform.anchor_point.value[1],0)

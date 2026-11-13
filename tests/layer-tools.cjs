@@ -47,6 +47,7 @@ function harness(nodes, selection = nodes) {
   const html = fs.readFileSync(path.join(__dirname, '../figma-plugin/ui.html'), 'utf8'), elements = {}, window = {};
   for (const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) elements[m[1]] = {checked: /\bchecked\b/.test(m[0]), disabled: /\bdisabled\b/.test(m[0])};
   elements['raster-scale'].value='1';
+  elements['native-image-masks'].value='separate';
   vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1], {
     window, document: {getElementById: id => elements[id]}, WebSocket: function () {},
     parent: {postMessage(m) { figma.ui.onmessage(m.pluginMessage); }}, setTimeout() {}

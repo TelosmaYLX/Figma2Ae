@@ -34,6 +34,7 @@ function uiHarness(bridge, main) {
   const html = fs.readFileSync(path.join(root, 'figma-plugin/ui.html'), 'utf8'), elements = {};
   for (const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) elements[m[1]] = {checked: /\bchecked\b/.test(m[0]), disabled: /\bdisabled\b/.test(m[0])};
   elements['raster-scale'].value='1';
+  elements['native-image-masks'].value='separate';
   let socket;
   function WebSocket() { socket = this; this.readyState = 1; this.send = text => bridge.send(JSON.parse(text)); }
   const window = {};

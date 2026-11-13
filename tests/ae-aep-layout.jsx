@@ -35,7 +35,9 @@
     main.saveFrameToPng(0,new File(root+'/artifacts/aep-layout-ae.png'));
     for(var n=0;n<checked.length;n++){
       var layer=checked[n],rect=layer.sourceRectAtTime(0,false),anchor=layer.transform.anchorPoint.value;
-      if(layer.quality!==LayerQuality.BEST||(layer.source&&layer.samplingQuality!==LayerSamplingQuality.BICUBIC))throw new Error(layer.name+' sampling quality differs');
+      var defaultLayer=layer.source?main.layers.add(layer.source):main.layers.addShape();
+      var defaultQuality=defaultLayer.quality,defaultSampling=defaultLayer.samplingQuality;defaultLayer.remove();
+      if(layer.quality!==defaultQuality||(layer.source&&layer.samplingQuality!==defaultSampling))throw new Error(layer.name+' changed default sampling or quality');
       if(layer instanceof TextLayer&&!layer.collapseTransformation)throw new Error(layer.name+' is missing continuous rasterization');
       close(anchor[0],rect.left+rect.width/2,layer.name+' anchor X');
       close(anchor[1],rect.top+rect.height/2,layer.name+' anchor Y');

@@ -1,17 +1,14 @@
 <!-- ui.html — Figma plugin iframe. Holds the WebSocket client to the AE bridge. -->
 <!-- Only the UI iframe can do network; the main thread (code.js) exports SVG and posts it here. -->
 <!-- Plain HTML; no Tailwind or component library. Use the existing :root tokens and dark theme. -->
-<!-- Primary: import. Secondary: direct AEP export, marking and document tools. Existing tokens, 8px gaps/radii,
-     10px button padding and 12px group spacing; retain the current dark theme. The shared image
-     folder is secondary: full selectable address, 8px gap, 36px folder button.
-     Status text leads; optional locate/open-folder actions are secondary, using panel/text tokens and an 8px gap.
-     Raster scale is a labelled secondary setting: 12px group spacing, 8px gap/radius and a 36px native select.
-     The opt-in bicubic experiment is a secondary native checkbox, using the existing 8px gap and muted text.
-     Independent image masks are a secondary native checkbox beside the mask settings, using the same 8px gap and muted text. -->
+<!-- Refactoring UI constraints (§2.1, §2.8, §3.6): import is primary; AEP export is secondary.
+     Common settings are grouped by layers and images; advanced settings and document tools are collapsed.
+     Keep the existing dark tokens, 8px control gaps/radii, 12px panel padding and 16px section spacing.
+     Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
-  :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#8a8a8a; --ok:#22c55e; --err:#ef4444; }
-  html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); }
-  .wrap { padding:14px; }
+  :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#a3a3a3; --ok:#22c55e; --err:#ef4444; }
+  html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); color-scheme:dark; scrollbar-width:thin; }
+  .wrap { padding:14px; box-sizing:border-box; max-width:480px; margin:0 auto; }
   .status { display:flex; align-items:center; gap:8px; margin-bottom:12px; color:var(--muted); }
   .dot { width:8px; height:8px; border-radius:50%; background:var(--muted); }
   .dot.on { background:var(--ok); } .dot.off { background:var(--err); }
@@ -28,19 +25,27 @@
   .image-folder-choose:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .mark-actions { display:flex; gap:8px; margin-top:12px; }
   .mark-actions button { flex:1; min-width:0; background:var(--panel); color:var(--text); }
-  .layer-tools { margin-top:12px; }
-  .layer-tools summary { cursor:pointer; font-weight:600; }
+  details { margin-top:12px; border-radius:8px; background:var(--panel); padding:12px; }
+  summary { cursor:pointer; font-weight:600; }
   .tool-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
   .tool-actions button { background:var(--panel); color:var(--text); }
   .mark-hint { margin-top:8px; color:var(--muted); }
   .msg { margin-top:10px; min-height:16px; color:var(--muted); overflow-wrap:anywhere; }
+  .msg:empty { display:none; }
   .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
   .locate-layer,.open-folder { width:auto; margin-top:8px; padding:8px 10px; background:var(--panel); color:var(--text); }
   .locate-layer:focus-visible,.open-folder:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  .raster-scale { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px; }
-  .raster-scale select { min-width:80px; min-height:36px; padding:8px 10px; border:0; border-radius:8px; background:var(--panel); color:var(--text); font:inherit; color-scheme:dark; }
-  .raster-scale select:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  .hint { margin-top:12px; font-size:11px; color:var(--muted); }
+  .settings { margin:16px 0 0; padding:12px; border:0; min-width:0; border-radius:8px; background:var(--panel); }
+  .settings legend { padding:0 4px; font-weight:600; }
+  .option { display:flex; align-items:center; gap:8px; min-height:28px; cursor:pointer; }
+  .option input { flex:0 0 auto; margin:0; accent-color:var(--accent); }
+  .setting-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:36px; }
+  .setting-row + .setting-row { margin-top:8px; }
+  .setting-row select { min-width:88px; max-width:65%; min-height:36px; padding:8px; border:0; border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+  input:focus-visible,select:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .advanced-group { margin-top:16px; }
+  .advanced-label { margin:0 0 4px; color:var(--muted); font-size:11px; }
+  .hint { margin-top:8px; font-size:11px; color:var(--muted); }
 </style>
 <div class="wrap">
   <div class="status"><span id="dot" class="dot"></span><span id="conn">正在连接 After Effects…</span></div>
@@ -55,62 +60,61 @@
   </div>
   <button id="ship" disabled>导入到 After Effects</button>
   <button id="export-aep" class="aep-export" disabled>导出 AEP（实验）</button>
-  <div class="mark-actions">
-    <button id="mark-raster" disabled>标记栅格化</button>
-    <button id="unmark-raster" disabled>取消标记</button>
-  </div>
-  <div class="mark-hint">名称以 * 开头的图层将导出为图片。</div>
   <div id="msg" class="msg"></div>
   <button id="locate-layer" class="locate-layer" title="选中并显示出错图层" hidden>定位图层</button>
   <button type="button" id="open-aep-folder" class="open-folder" hidden>打开文件夹</button>
-  <div class="raster-scale">
-    <label for="raster-scale">切图倍率</label>
-    <select id="raster-scale">
-      <option value="1" selected>1×</option>
-      <option value="2">2×</option>
-      <option value="3">3×</option>
-      <option value="4">4×</option>
-    </select>
-  </div>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer" title="高倍率切图后双三次缩回所选倍率，耗时更长。">
-    <input type="checkbox" id="bicubic-export"> 双三次导出（实验）
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="nodemode" checked> 可编辑图层
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="rastertexts"> 文字自动栅格化
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="organize" checked> 将 Figma 组转换为预合成（推荐）
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="ignorehidden" checked> 忽略隐藏图层（默认）
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="rastergroups" checked> 自动栅格化复杂组
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer" title="将叠加层与必要底图合并，保留范围外的可编辑图层。">
-    <input type="checkbox" id="mergeblends" checked> 合并叠加模式图层
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="rasterallgroups"> Group 整组栅格化
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="rasterinstances"> 实例整体栅格化
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="enableclip" checked> 保留画框裁剪
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer">
-    <input type="checkbox" id="convertmask"> 转换 Figma 蒙版为 AE 轨道遮罩（实验）
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer" title="保留原始图片，使用独立的 AE 轨道遮罩。">
-    <input type="checkbox" id="native-image-masks"> 图片与蒙版分离
-  </label>
-  <div class="hint">整体栅格化会合并组内图层。</div>
+  <fieldset class="settings">
+    <legend>图层</legend>
+    <label class="option" title="将 Figma 分组转换为 AE 预合成。"><input type="checkbox" id="organize" checked> 保留分组层级</label>
+    <label class="option"><input type="checkbox" id="enableclip" checked> 保留画框裁剪</label>
+    <label class="option"><input type="checkbox" id="ignorehidden" checked> 忽略隐藏图层</label>
+  </fieldset>
+  <fieldset class="settings">
+    <legend>图片</legend>
+    <div class="setting-row">
+      <label for="native-image-masks">图片蒙版</label>
+      <select id="native-image-masks">
+        <option value="separate" selected>原图 + 独立蒙版</option>
+        <option value="merge">合并成图片</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label for="raster-scale">切图倍率</label>
+      <select id="raster-scale">
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+        <option value="3">3×</option>
+        <option value="4">4×</option>
+      </select>
+    </div>
+    <div class="hint">倍率只影响栅格化图片。</div>
+  </fieldset>
+  <details id="advanced-options">
+    <summary>高级选项</summary>
+    <div class="advanced-group">
+      <div class="advanced-label">自动处理</div>
+      <label class="option"><input type="checkbox" id="rastergroups" checked> 自动栅格化不支持的内容</label>
+      <label class="option" title="将混合图层与必要底图合并，保留范围外的可编辑内容。"><input type="checkbox" id="mergeblends" checked> 合并混合模式与底图</label>
+    </div>
+    <div class="advanced-group">
+      <div class="advanced-label">强制转为图片</div>
+      <label class="option"><input type="checkbox" id="rastertexts"> 文字</label>
+      <label class="option"><input type="checkbox" id="rasterallgroups"> Group 分组</label>
+      <label class="option"><input type="checkbox" id="rasterinstances"> 组件实例</label>
+      <div class="hint">转为图片后，内部内容不可单独编辑。</div>
+    </div>
+    <div class="advanced-group">
+      <div class="advanced-label">图片处理</div>
+      <label class="option" title="高倍率渲染后缩小，耗时更长；不改变 AE 图层采样。"><input type="checkbox" id="bicubic-export"> 双三次缩小（实验）</label>
+    </div>
+  </details>
   <details id="layer-tools" class="layer-tools">
     <summary>图层工具</summary>
+    <div class="mark-actions">
+      <button id="mark-raster" disabled>标记为图片</button>
+      <button id="unmark-raster" disabled>取消标记</button>
+    </div>
+    <div class="mark-hint">名称以 * 开头的图层将导出为图片。</div>
     <div class="tool-actions">
       <button id="detach-instances" disabled>分离实例</button>
       <button id="convert-groups" disabled>Group 转 Frame</button>
@@ -143,9 +147,8 @@
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
     $('open-aep-folder').disabled = busy || openingFolder;
-    $('raster-scale').disabled = busy;
-    $('bicubic-export').disabled = busy;
-    $('native-image-masks').disabled = busy;
+    var settings = ['organize','enableclip','ignorehidden','native-image-masks','raster-scale','rastergroups','mergeblends','rastertexts','rasterallgroups','rasterinstances','bicubic-export'];
+    for (var i = 0; i < settings.length; i++) $(settings[i]).disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
     for (var id in toolButtons) $(id).disabled = busy || selCount === 0;
@@ -216,19 +219,16 @@
   for (var toolId in toolButtons) (function (id) {
     $(id).onclick = function () { parent.postMessage({ pluginMessage: { type: 'layer-tool', action: toolButtons[id] } }, '*'); };
   })(toolId);
-  $('layer-tools').ontoggle = function () { parent.postMessage({ pluginMessage: { type: 'tools-open', open: this.open } }, '*'); };
   function beginExport(direct) {
-    // Precomps require the Figma tree. Editable node mode is now the default: it avoids the
-    // old SVG behaviour where every paint became another AE layer.
+    // Nodes and mask conversion are standard for both destinations.
     organize = $('organize').checked;
-    var useNodes = direct || $('nodemode').checked || organize;
     aepMode = direct; aepPacket = null; imgAsm = null;
     imageTasks = Promise.resolve(); processingImages = imageProcessingFailed = false;
     aepResultId = null; $('open-aep-folder').hidden = true;
     exporting = true; updateButton();
     blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', target: direct ? 'aep' : 'ae', useNodes: useNodes, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, nativeImageMasks: $('native-image-masks').checked, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', target: direct ? 'aep' : 'ae', useNodes: true, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, nativeImageMasks: $('native-image-masks').value === 'separate', ignoreHidden: $('ignorehidden').checked, convertMasks: true, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   }
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;

@@ -7,7 +7,9 @@ function ui(packet, behavior='success') {
   const html=fs.readFileSync(require('node:path').join(__dirname,'../figma-plugin/ui.html'),'utf8'),elements={},posts=[],requests=[];
   for(const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g))elements[m[1]]={checked:/\bchecked\b/.test(m[0]),disabled:/\bdisabled\b/.test(m[0]),hidden:/\bhidden\b/.test(m[0])};
   assert.match(html,/<option value="1" selected>1×<\/option>/);
+  assert.match(html,/<option value="separate" selected>原图 \+ 独立蒙版<\/option>/);
   elements['raster-scale'].value='1';
+  elements['native-image-masks'].value='separate';
   let finish, clock=0, healthCalls=0;
   const done=new Promise(r=>{finish=r;});
   const launches=[];
@@ -43,6 +45,7 @@ function ui(packet, behavior='success') {
       assert.equal(elements['export-aep'].disabled,true,'Button stays locked while the server writes');
       assert.equal(elements['raster-scale'].disabled,true,'Keep the selected scale fixed until export completes');
       assert.equal(elements['native-image-masks'].disabled,true);
+      for(const id of ['organize','enableclip','ignorehidden','rastergroups','mergeblends','rastertexts','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
       assert.equal(posts.filter(m=>m.type==='ship-selection').length,1,'Collect and check Figma content before the server can choose a folder');
       assert.equal(elements['open-aep-folder'].hidden,true);
       if(behavior==='layer-error')return {ok:false,json:async()=>({error:'图层「shadow」无法导出：暂不支持该模糊或图层效果，请标记该层栅格化',nodeId:'original-shadow-id'})};
@@ -56,7 +59,8 @@ function ui(packet, behavior='success') {
       assert.equal(message.useNodes,true);
       assert.equal(message.target,'aep');
       assert.equal(message.rasterScale,Number(elements['raster-scale'].value));
-      assert.equal(message.nativeImageMasks,elements['native-image-masks'].checked);
+      assert.equal(message.nativeImageMasks,elements['native-image-masks'].value==='separate');
+      assert.equal(message.convertMasks,true);
       emit({...packet,type:'ship',imageCount:packet.images.length});
       if(behavior==='export-error'){emit({type:'error',message:'Figma error'});finish();return;}
       for(let i=0;i<packet.images.length;i++){
@@ -73,8 +77,12 @@ function ui(packet, behavior='success') {
   function emit(message){window.onmessage({data:{pluginMessage:message}});}
   vm.runInContext(html.match(/<script>([\s\S]*)<\/script>/)[1],context);
   assert.equal(elements['bicubic-export'].checked,false,'Bicubic export is opt-in');
-  assert.equal(elements['native-image-masks'].checked,false,'Independent image masks are opt-in');
-  if(behavior==='native-masks')elements['native-image-masks'].checked=true;
+  assert.equal(elements['native-image-masks'].value,'separate','Preserve original images and masks by default');
+  assert.equal(elements.nodemode,undefined);assert.equal(elements.convertmask,undefined);
+  if(behavior==='merged-masks')elements['native-image-masks'].value='merge';
+  if(behavior==='flat'){
+    elements.organize.checked=false;elements.rastergroups.checked=false;elements.mergeblends.checked=false;
+  }
   if(behavior==='bicubic'){
     elements['bicubic-export'].checked=true;
     context.renderBicubic=async image=>{
@@ -94,7 +102,7 @@ function ui(packet, behavior='success') {
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   const packet=await fixture();
-  for(const behavior of ['success','native-masks','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
+  for(const behavior of ['success','native-masks','merged-masks','flat','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
@@ -102,7 +110,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
     assert.equal(h.elements['raster-scale'].disabled,false);
     assert.equal(h.elements['native-image-masks'].disabled,false);
     assert.equal(h.requests.some(r=>r.url.endsWith('/select-directory')),false,'The UI must not choose a folder ahead of validation');
-    if(['success','native-masks','bicubic','cold-start','shadow','warnings','open-error'].includes(behavior)){
+    if(['success','native-masks','merged-masks','flat','bicubic','cold-start','shadow','warnings','open-error'].includes(behavior)){
       const request=JSON.parse(h.requests.find(r=>r.url.endsWith('/export')).options.body);
       assert.deepEqual(Object.keys(request),['packet']);
       const body=request.packet;
@@ -147,7 +155,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
       assert.equal(h.elements['locate-layer'].disabled,false);
     }
     if(behavior==='server-error')assert.equal(h.elements['locate-layer'].hidden,true,'Errors without an original layer ID have no locate action');
-    if(['success','native-masks','cold-start','shadow','open-error'].includes(behavior)){
+    if(['success','native-masks','merged-masks','flat','cold-start','shadow','open-error'].includes(behavior)){
       assert.equal(h.elements['open-aep-folder'].hidden,false);
       h.elements['open-aep-folder'].onclick();h.elements['open-aep-folder'].onclick();
       assert.equal(h.requests.filter(r=>r.url.endsWith('/open-directory')).length,1,'Opening has its own click lock');
