@@ -1948,7 +1948,7 @@ function _textStroke(n) {
   for (var i = strokes.length - 1; i >= 0; i--) {
     var p = strokes[i];
     if (p.visible === false || p.type !== 'SOLID') continue;
-    return { color: [p.color.r, p.color.g, p.color.b], width: n.strokeWeight, align: n.strokeAlign || 'CENTER' };
+    return { color: [p.color.r, p.color.g, p.color.b], width: n.strokeWeight, align: n.strokeAlign || 'CENTER', opacity: p.opacity == null ? 1 : p.opacity };
   }
   return null;
 }
@@ -2071,7 +2071,19 @@ function _inkBounds(n, rootBox) {
       if (e.visible !== false && (e.type === 'DROP_SHADOW' || e.type === 'LAYER_BLUR' || e.type === 'BACKGROUND_BLUR')) return null;
     }
     var rb = n.absoluteRenderBounds;
-    if (rb && typeof rb.y === 'number') return { x: rb.x - rootBox.x, y: rb.y - rootBox.y, w: rb.width, h: rb.height };
+    if (rb && typeof rb.y === 'number') {
+      var ink = { x: rb.x - rootBox.x, y: rb.y - rootBox.y, w: rb.width, h: rb.height };
+      var stroke = _textStroke(n);
+      // Layer Styles do not enlarge sourceRectAtTime(). Align the glyphs using
+      // their unstroked bounds, rather than moving/scaling them to the outer edge.
+      if (stroke && !_rotOf(n) && !_skewOf(n)) {
+        var amount = stroke.width * (stroke.align === 'OUTSIDE' ? 1 : stroke.align === 'CENTER' ? 0.5 : 0);
+        var matrix = n.absoluteTransform;
+        var dx = amount * Math.abs(matrix[0][0]), dy = amount * Math.abs(matrix[1][1]);
+        ink.x += dx; ink.y += dy; ink.w -= dx * 2; ink.h -= dy * 2;
+      }
+      return ink;
+    }
   } catch (e) {}
   return null;
 }

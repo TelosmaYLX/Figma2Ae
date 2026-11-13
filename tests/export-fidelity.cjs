@@ -98,5 +98,9 @@ function group(name, children, extra = {}) {
   assert.ok(rawMeta[0].rotation > 14 && rawMeta[0].rotation < 16, 'Raw bitmaps still need their node rotation');
   const stroke = context._textStroke({strokes:[{type:'SOLID',visible:false,color:{r:0,g:0,b:0}},{type:'SOLID',color:{r:1,g:1,b:1}}],strokeWeight:4/3,strokeAlign:'OUTSIDE'});
   assert.equal(stroke.width,4/3);assert.equal(stroke.align,'OUTSIDE');assert.deepEqual(Array.from(stroke.color),[1,1,1]);
+  const strokedText=node('TEXT','stroke ink',{strokes:[{type:'SOLID',opacity:.4,color:{r:1,g:1,b:1}}],strokeWeight:2,strokeAlign:'OUTSIDE',
+    absoluteTransform:[[1,0,0],[0,1,0]],absoluteBoundingBox:{x:10,y:20,width:100,height:40},absoluteRenderBounds:{x:8,y:18,width:104,height:44}});
+  assert.equal(context._textStroke(strokedText).opacity,.4);
+  assert.deepEqual({...context._inkBounds(strokedText,{x:0,y:0})},{x:10,y:20,w:100,h:40});
   console.log('PASS: rendered rotation, backdrop blending, paint order, masks, state restoration');
 })().catch(e => {console.error(e); process.exitCode = 1;});

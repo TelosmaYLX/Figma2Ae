@@ -20,7 +20,8 @@
     rich.stroke={color:[1,1,1],width:4/3,align:'OUTSIDE'};
     AEShapeBuilder.buildText(comp,[rich]);
     var stroked=comp.layer(1).property('ADBE Text Properties').property('ADBE Text Document').value;
-    if(!stroked.applyStroke || stroked.strokeOverFill || Math.abs(stroked.strokeWidth-8/3)>0.01)throw new Error('Editable outside text stroke missing');
+    var style=comp.layer(1).property('ADBE Layer Styles').property('frameFX/enabled');
+    if(stroked.applyStroke || !style.enabled || style.property('frameFX/style').value!==1 || Math.abs(style.property('frameFX/size').value-4/3)>0.01)throw new Error('Editable outside text Layer Style stroke missing');
     return JSON.stringify({passed:true,subtitleWidth:rect.width,richSubtitleWidth:richWidth,figmaWidth:text.ink.w,outsideTextStroke:true});
   }catch(e){return JSON.stringify({passed:false,error:e.toString(),line:e.line});}
   finally{if(comp)comp.remove();if(prev&&prev.openInViewer)prev.openInViewer();app.endUndoGroup();}

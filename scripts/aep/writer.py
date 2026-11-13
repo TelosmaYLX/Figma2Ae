@@ -159,6 +159,27 @@ class Writer:
         else:
             p['ADBE Vector Fill Rule'].value = item.get('fillRule', 1)
 
+    @staticmethod
+    def stroke_style(layer, stroke, fill_opacity=None):
+        if not stroke or not stroke.get('width', 0) > 0:
+            return
+        styles = layer['ADBE Layer Styles']
+        style = styles['frameFX/enabled']
+        style['frameFX/mode2'].value = 1
+        style['frameFX/color'].value = [*stroke['color'], 1]
+        style['frameFX/size'].value = stroke['width']
+        style['frameFX/opacity'].value = stroke.get('opacity', 1) * 100
+        style['frameFX/style'].value = {'OUTSIDE': 1, 'INSIDE': 2, 'CENTER': 3}.get(stroke.get('align'), 3)
+        if fill_opacity is not None:
+            styles['ADBE Blend Options Group']['ADBE Adv Blend Group']['ADBE Layer Fill Opacity2'].value = fill_opacity * 100
+        # py-aep exposes inert style placeholders; materialize their enable flags
+        # after writing leaves, matching an applied native AE Layer Style.
+        for group in (style, styles):
+            group._tdsb.enabled = True
+            group._tdsb.hidden = False
+            group._tdsb.synthetic = False
+            group.__dict__['enabled'] = True
+
     def shape(self, context, item, white=False):
         layer = context['comp'].add_shape()
         self.common(layer, item)
@@ -193,6 +214,7 @@ class Writer:
             if not paint.get('under'):
                 self.paint(root, item, paint['kind'], paint.get('color'), paint.get('gradient'),
                            paint.get('opacity', 1), paint.get('width'))
+        self.stroke_style(layer, item.get('layerStroke'), item.get('layerFillOpacity'))
         self.center_anchor(layer, self.shape_rect(item))
         self.counts['shapes'] += 1
         return layer
@@ -264,12 +286,7 @@ class Writer:
             doc.space_after = item['paragraphSpacing']
         if item.get('paragraphIndent') is not None:
             doc.first_line_indent = item['paragraphIndent']
-        if item.get('stroke'):
-            stroke = item['stroke']
-            doc.apply_stroke = True
-            doc.stroke_color = stroke['color']
-            doc.stroke_width = stroke['width']
-            doc.stroke_over_fill = False
+        doc.apply_stroke = False
         start = 0
         for segment in segments:
             end = start + len(segment['characters'].encode('utf-16-le')) // 2
@@ -297,7 +314,13 @@ class Writer:
         self.center_anchor(layer, rect)
         # Alpha does not change glyph geometry. Measure before adding text animators,
         # which the library's text-metrics implementation does not model.
-        self.text_fill_opacity(layer, segments or [{'characters': chars, 'opacity': item.get('fillOpacity', 1)}])
+        fills = segments or [{'characters': chars, 'opacity': item.get('fillOpacity', 1)}]
+        fill_opacity = fills[0].get('opacity', 1)
+        if item.get('stroke') and all(s.get('opacity', 1) == fill_opacity for s in fills):
+            self.stroke_style(layer, item['stroke'], fill_opacity)
+        else:
+            self.text_fill_opacity(layer, fills)
+            self.stroke_style(layer, item.get('stroke'))
         if item.get('skewX'):
             animator = layer['ADBE Text Properties']['ADBE Text Animators'].add_property('ADBE Text Animator')
             animator.name = 'Figma skew'

@@ -771,7 +771,53 @@ var SVGParser = (function () {
     // the rule is proven on real files. Flip to true to re-enable.
     var MERGE_PAINTS = false;
     if (MERGE_PAINTS) mergeStrokeTwins(shapes);
-    return { width: width, height: height, shapes: shapes };
+    return { width: width, height: height, shapes: layerStyleStrokes(shapes) };
+  }
+
+  // Layer Styles stroke follows the alpha boundary of closed artwork. Open paths,
+  // dashes and gradient strokes are path paints and keep their original geometry.
+  function layerStyleStrokes(shapes) {
+    var out = [];
+    for (var i = 0; i < shapes.length; i++) {
+      var s = shapes[i], closed = !!s.prim, j;
+      if (!closed && s.subpaths.length) {
+        closed = true;
+        for (j = 0; j < s.subpaths.length; j++) if (!s.subpaths[j].closed) closed = false;
+      }
+      if (!closed) { out.push(s); continue; }
+      var strokes = [], extras = [], paints = s.extraPaints || [];
+      if (s.stroke && s.strokeWidth > 0 && !(s.strokeDash && s.strokeDash.length)) {
+        strokes.push({color:s.stroke, width:s.strokeWidth, opacity:s.strokeOpacity, align:s.strokeAlign});
+        s.stroke = null;
+      }
+      for (j = 0; j < paints.length; j++) {
+        var p = paints[j];
+        if (p.kind === 'stroke' && p.color && !p.gradient && p.width > 0 && !(p.dash && p.dash.length))
+          strokes.push({color:p.color, width:p.width, opacity:p.opacity, align:p.align});
+        else extras.push(p);
+      }
+      s.extraPaints = extras.length ? extras : null;
+      if (!strokes.length) { out.push(s); continue; }
+      // Keep paint alpha in Fill Opacity, so a translucent fill does not also
+      // attenuate its independent border. More complex fills get a border carrier.
+      if (strokes.length === 1 && !s.gradient && !s.strokeGradient && !s.stroke && !extras.length) {
+        s.layerStroke = strokes[0];
+        s.layerFillOpacity = s.fill ? s.fillOpacity : 0;
+        s.fill = s.fill || [1,1,1]; s.fillOpacity = 1;
+        out.push(s);
+      } else {
+        var hasBase = !!(s.fill || s.gradient || s.stroke || s.strokeGradient || extras.length);
+        if (hasBase) out.push(s);
+        for (j = 0; j < strokes.length; j++) {
+          var carrier = _paintCopy(s, !hasBase && j === 0);
+          carrier.name = s.name + ' stroke' + (j ? ' ' + (j + 1) : '');
+          carrier.fill = [1,1,1]; carrier.layerFillOpacity = 0; carrier.layerStroke = strokes[j];
+          if (s.z != null) carrier.z = s.z + (j + 1) / 10000;
+          out.push(carrier);
+        }
+      }
+    }
+    return out;
   }
 
   // One paint of a multi-gradient node as its own layer. subpaths and prim are only ever read
@@ -852,8 +898,7 @@ var SVGParser = (function () {
         // NOT `|| 1`: zero is falsy in JS, so a Figma stroke set to weight 0 came through as a
         // visible 1px line. Only a missing value falls back.
         strokeWidth: (nd.strokeWeight == null ? 1 : nd.strokeWeight),
-        // Figma can hang the stroke INSIDE or OUTSIDE the path; AE only ever centres it, so the
-        // builder shifts the centreline by half the width with an Offset Paths operator.
+        // Closed solid borders map to Layer Styles Stroke with native alignment.
         strokeAlign: nd.strokeAlign || 'CENTER',
         strokeOpacity: 1,
         strokeCap: nd.cap || null, strokeJoin: nd.join || null, strokeMiter: nd.miter || null,
@@ -943,7 +988,7 @@ var SVGParser = (function () {
       if (extras.length) sh.extraPaints = extras;
       shapes.push(sh);
     }
-    return { width: width, height: height, shapes: shapes };
+    return { width: width, height: height, shapes: layerStyleStrokes(shapes) };
   }
 
   return { parse: parse, parseColor: parseColor, parseTransform: parseTransform, parsePathData: parsePathData, fromNodes: fromNodes };

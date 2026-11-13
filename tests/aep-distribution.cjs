@@ -7,6 +7,7 @@ const {fixture} = require('./direct-aep.cjs');
 const {fixture:nativeMasks} = require('./native-image-masks.cjs');
 const {fixture:nestedMasks} = require('./nested-image-masks.cjs');
 const {fixture:instanceCopies} = require('./export-instances.cjs');
+const {fixture:strokeStyles} = require('./stroke-styles.cjs');
 const run = promisify(execFile);
 
 async function check() {
@@ -68,7 +69,13 @@ async function check() {
     assert.equal(instanceResponse.status,200,await instanceResponse.clone().text());
     const instanceResult=await instanceResponse.json();assert.equal(instanceResult.counts.texts,1);assert.equal(instanceResult.warnings.length,0);
     assert.equal((await fs.readFile(instanceResult.project)).toString('ascii',0,4),'RIFX');
-    await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult,nestedResult,instanceResult},null,2));
+    const styled=strokeStyles();
+    const styleResponse=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:styled.packet})});
+    assert.equal(styleResponse.status,200,await styleResponse.clone().text());
+    const styleResult=await styleResponse.json();assert.equal(styleResult.counts.texts,5);
+    const styleModel=path.join(testRoot,'stroke-model.json');await fs.writeFile(styleModel,JSON.stringify(styled.model));
+    await run(python,[path.join(root,'tests/check-stroke-styles.py'),styleResult.project,styleModel],{env,windowsHide:true});
+    await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult,nestedResult,instanceResult,styleResult},null,2));
     console.log('PASS: relocated Windows package, no Node/Python on PATH, isolated Python/Tcl, bundled HTTP service and real AEP folder');
     console.log(testRoot);
   } finally {child.kill();}

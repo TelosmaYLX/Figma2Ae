@@ -112,7 +112,7 @@ node tests/export-fidelity.cjs
 node scripts/ae-eval.mjs tests/ae-punctuation.jsx artifacts/fidelity/punctuation-report.json
 ```
 
-导出检查覆盖已渲染 PNG 不重复旋转、原始位图保留旋转、柔光分层顺序、保留原遮罩、文字描边，以及导出失败后还原 Figma 属性。AE 检查使用真实副标题，验证普通文字和富文本的标点宽度，同时保留其他字符的字偶距，并检查可编辑的外侧文字描边。
+导出检查覆盖已渲染 PNG 不重复旋转、原始位图保留旋转、柔光分层顺序、保留原遮罩、文字描边，以及导出失败后还原 Figma 属性。AE 检查使用真实副标题，验证普通文字和富文本的标点宽度，同时保留其他字符的字偶距，并检查图层样式中的外侧文字描边。
 
 本地 SVG 的光效对照可通过以下命令复现：
 
@@ -126,6 +126,17 @@ node scripts/ae-eval.mjs scripts/replay-ae.jsx artifacts/fidelity/final-report.j
 光效对照从原 SVG 提取普通纹理和两层柔光，不使用参考 PNG 裁图替代素材。该检查验证 AE 的实际合成；Figma 端导出状态和分层行为另由 `export-fidelity.cjs` 验证。
 
 完整样例的前后渲染、对照图和本地回放数据位于 `artifacts/fidelity/`；它们不进入 Git。`scripts/replay-ae.jsx` 可以回放该目录的数据，`scripts/compare-fidelity.py` 可以重新生成对照图。
+
+## 图层样式描边
+
+闭合形状和文字的纯色描边使用 AE「图层样式 → 描边」，保留颜色、尺寸、不透明度，以及内部/外部/居中位置。形状路径不再通过偏移路径模拟位置。无填充的边框隐藏承载形状的填充；透明填充与描边分别保存透明度。渐变/多重填充或多重描边需要独立的描边层，保留各自的绘制顺序。开放线条、虚线及渐变描边继续使用路径绘制，因为图层样式沿图层 alpha 轮廓绘制，不能替代这些路径属性。
+
+```powershell
+node tests/stroke-styles.cjs
+node scripts/ae-eval.mjs tests/ae-stroke-styles.jsx artifacts/stroke-styles/ae-report.json
+```
+
+第一条使用构造节点检查共享解析器的两种输入、真实 AEP 写入及二进制回读；第二条在 AE 中检查直接创建和导入 AEP 后的样式启用状态、参数可编辑性、三种位置，以及形状中没有旧描边/偏移路径。实际宿主检查以报告的 `passed` 为准。在独立空白 AE 会话中传入 `export` 可保存 `artifacts/stroke-styles/native.aep`，再用 aerender 分别渲染其中的 `F2A stroke styles direct` 和 `Stroke styles` 合成作画面对照。这些检查不代替新一次在线 Figma 文档渲染。预设通过 `.venv-aep\Scripts\python.exe scripts/build-stroke-preset.py` 从项目现有图层样式模板生成，随扩展打包。
 
 ## 导出速度和星号标记
 

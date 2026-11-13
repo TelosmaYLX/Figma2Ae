@@ -634,24 +634,12 @@ var AEShapeBuilder = (function () {
     }
     return null;
   }
-  var _presetComp = null, _presetLayer = null;
-  function deselectAll(comp) { for (var k = 1; k <= comp.numLayers; k++) comp.layer(k).selected = false; }
-  // applyPreset needs a selected layer, but clearing the whole comp for EVERY gradient made the
-  // import quadratic. Deselect once per comp, then only switch the layer selected by the previous
-  // preset application. External/user selections are still cleared on the first call.
+  // applyPreset applies to every selected layer. Newly created layers can leave other
+  // selections behind, so clear the small selectedLayers set, not the whole composition.
   function selectForPreset(comp, lyr) {
-    if (_presetComp !== comp) {
-      deselectAll(comp);
-      _presetComp = comp;
-      _presetLayer = null;
-    }
-    // A failed shape may have removed the previous layer. Native AE references can throw
-    // even during comparison, so only touch the old selection inside the guarded access.
-    if (_presetLayer) {
-      try { _presetLayer.selected = false; } catch (eold) {}
-    }
+    var selected = comp.selectedLayers;
+    for (var i = 0; i < selected.length; i++) if (selected[i] !== lyr) selected[i].selected = false;
     lyr.selected = true;
-    _presetLayer = lyr;
   }
 
   // Apply a generated gradient .ffx to an EMPTY shape layer (preset brings a group with the
@@ -1306,7 +1294,6 @@ var AEShapeBuilder = (function () {
     _maskDefs = {};
     _imageMaskDefs = {}; _imageMaskFolder = '';
     registerImageMasks(opts.imageMasks, opts.imageFolder);
-    _presetComp = null; _presetLayer = null;   // one full deselect per import, not per gradient
 
     beginUndo("SVG -> Shapes");
     try {
@@ -1417,6 +1404,7 @@ var AEShapeBuilder = (function () {
             lyr.name = nm;                                    // applyPreset renames the layer
           }
 
+          addStrokeStyle(lyr, sdata.layerStroke, sdata.layerFillOpacity);
           addBlur(lyr, sdata.blur);
           // Node mode: shadows belong to this layer by definition — no matching required.
           if (sdata.fx && sdata.fx.length) {
@@ -1555,13 +1543,27 @@ var AEShapeBuilder = (function () {
     }
   }
 
+  function addStrokeStyle(lyr, stroke, fillOpacity) {
+    if (!stroke || !(stroke.width > 0)) return;
+    var name = lyr.name;
+    selectForPreset(lyr.containingComp, lyr);
+    lyr.applyPreset(new File(_MK_DIR + '/stroke-template.ffx'));
+    lyr.name = name;
+    var styles = lyr.property('ADBE Layer Styles'), style = styles.property('frameFX/enabled');
+    style.property('frameFX/mode2').setValue(1);
+    style.property('frameFX/color').setValue([stroke.color[0],stroke.color[1],stroke.color[2],1]);
+    style.property('frameFX/size').setValue(stroke.width);
+    style.property('frameFX/opacity').setValue((stroke.opacity == null ? 1 : stroke.opacity) * 100);
+    // ExtendScript associates chained ternaries differently; keep these branches explicit.
+    var position = 3;
+    if (stroke.align === 'INSIDE') position = 2;
+    else if (stroke.align === 'OUTSIDE') position = 1;
+    style.property('frameFX/style').setValue(position);
+    styles.property('ADBE Blend Options Group').property('ADBE Adv Blend Group').property('ADBE Layer Fill Opacity2').setValue((fillOpacity == null ? 1 : fillOpacity) * 100);
+  }
+
   function applyTextStroke(doc, t) {
-    doc.applyStroke = !!t.stroke;
-    if (!t.stroke) return;
-    doc.strokeColor = t.stroke.color;
-    // Drawing the centered stroke behind the fill leaves only its outer half visible.
-    doc.strokeOverFill = t.stroke.align !== 'OUTSIDE';
-    doc.strokeWidth = t.stroke.width * (t.stroke.align === 'OUTSIDE' ? 2 : 1);
+    doc.applyStroke = false;
   }
 
   function applyParagraphStyle(doc, style) {
@@ -1606,7 +1608,8 @@ var AEShapeBuilder = (function () {
       else doc.justification = ParagraphJustification.LEFT_JUSTIFY;
     } catch (e1) {}
     tp.setValue(doc);
-    applyTextFillOpacity(tl, [{characters:doc.text,opacity:style.fillOpacity}]);
+    if (style.stroke) addStrokeStyle(tl, style.stroke, style.fillOpacity);
+    else applyTextFillOpacity(tl, [{characters:doc.text,opacity:style.fillOpacity}]);
   }
   // one text layer; px = left x (or center/right per align), py = baseline
   function makeOneText(comp, chars, style, px, py, align, boxW) {
@@ -1714,7 +1717,11 @@ var AEShapeBuilder = (function () {
     applyTextStroke(doc, t);
     try { tp.setValue(doc); } catch (esv) { tl.remove(); return null; }
     if (!applied) { tl.remove(); return null; }
-    applyTextFillOpacity(tl, t.segs);
+    var fillOpacity = t.segs[0].opacity == null ? 1 : t.segs[0].opacity;
+    for (k = 1; k < t.segs.length; k++)
+      if ((t.segs[k].opacity == null ? 1 : t.segs[k].opacity) !== fillOpacity) { fillOpacity = null; break; }
+    if (t.stroke && fillOpacity != null) addStrokeStyle(tl, t.stroke, fillOpacity);
+    else { applyTextFillOpacity(tl, t.segs); addStrokeStyle(tl, t.stroke); }
     return tl;
   }
 
