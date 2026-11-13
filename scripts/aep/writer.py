@@ -15,10 +15,48 @@ import py_aep
 from fontTools.ttLib import TTFont
 from fontTools.misc.bezierTools import calcCubicBounds
 from py_aep import ImportOptions
+from py_aep.models import TextLayer
+from py_aep.cos import serializer as cos_serializer
 from py_aep.models.properties.gradient import Gradient, GradientAlphaStop, GradientColorStop
 from py_aep.models.properties.shape import Shape
 from py_aep.enums import BlendingMode, MaskMode, ParagraphJustification, TrackMatteType
 from py_aep.svg.fonts import resolve_font, resolve_font_exact, resolve_postscript
+
+
+def serialize_text_colors(document):
+    """Keep text color tokens within AE's decimal parser limits."""
+    colors = set()
+
+    def collect(value):
+        if isinstance(value, dict):
+            if getattr(value.get('99'), 'value', None) == 'SimplePaint':
+                colors.update(id(channel) for channel in value['0']['1'])
+            for child in value.values():
+                collect(child)
+        elif isinstance(value, list):
+            for child in value:
+                collect(child)
+
+    collect(document._cos_data)
+    original = cos_serializer._format_float
+
+    def color_float(value):
+        if id(value) not in colors:
+            return original(value)
+        # Long fractions spill into the next channel; exponent notation can
+        # make AE reject the text layer. Keep other document values unchanged.
+        text = f'{value:.8f}'.rstrip('0').rstrip('.')
+        if '.' not in text:
+            text += '.0'
+        if text.startswith('0.') and text != '0.0':
+            text = text[1:]
+        return text.encode('ascii')
+
+    cos_serializer._format_float = color_float
+    try:
+        document._propagate_cos()
+    finally:
+        cos_serializer._format_float = original
 
 
 class Writer:
@@ -522,6 +560,10 @@ class Writer:
             if getattr(layer, 'guide_layer', False):
                 layer.move_to_beginning()
         self.current_item = {}
+        for comp in self.project.compositions:
+            for layer in comp.layers:
+                if isinstance(layer, TextLayer):
+                    serialize_text_colors(layer['ADBE Text Properties']['ADBE Text Document'].value)
         self.project.save(str(self.output / 'project.aep'))
 
 
