@@ -88,7 +88,7 @@ function start(options = {}) {
     } catch (error) {
       if (error.cause) console.error(error.cause.stderr || error.cause);
       res.writeHead(400, {'Content-Type': 'application/json; charset=utf-8'});
-      res.end(JSON.stringify({error: error.message}));
+      res.end(JSON.stringify({error: error.message, nodeId: error.nodeId || null}));
     }
   });
   server.listen(options.port ?? 7868, '127.0.0.1', () => {

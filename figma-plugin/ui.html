@@ -228,7 +228,7 @@
     exporting = true; updateButton();
     blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', useNodes: useNodes, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, nativeImageMasks: $('native-image-masks').checked, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', target: direct ? 'aep' : 'ae', useNodes: useNodes, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, nativeImageMasks: $('native-image-masks').checked, ignoreHidden: $('ignorehidden').checked, convertMasks: $('convertmask').checked, rasterGroups: $('rastergroups').checked, mergeBlends: $('mergeblends').checked, rasterTexts: $('rastertexts').checked, rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   }
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;
@@ -281,7 +281,10 @@
   };
   function aepRequest(route, body) {
     return fetch('http://127.0.0.1:7868' + route, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(function (response) {
-      return response.json().then(function (result) { if (!response.ok) throw new Error(result.error); return result; });
+      return response.json().then(function (result) {
+        if (!response.ok) { var error = new Error(result.error); error.nodeId = result.nodeId || null; throw error; }
+        return result;
+      });
     });
   }
   $('open-aep-folder').onclick = function () {

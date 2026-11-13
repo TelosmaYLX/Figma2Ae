@@ -64,9 +64,13 @@ node tests/aep-fidelity.cjs
 
 ```powershell
 node tests/error-layer.cjs
+node tests/aep-error-layer.cjs
+node tests/direct-aep-ui.cjs
 ```
 
 检查使用实际导出代码与 UI，模拟 Figma 选中和视口接口，覆盖同名节点、多选、临时副本删除、字体/图片/背景模糊错误、跨页、目标删除和延迟桥接回执。没有将该检查表述为真实 Figma 窗口点击验收。
+
+AEP 写入错误通过 Python → Node → HTTP → UI 保留原图层 ID。实际 HTTP 检查复现同名 `shadow` 分组、文字和图形的效果错误，确认定位目标与原节点相同；路径解析错误也保留 ID。AEP 专用采集在自动栅格化开启时渲染不支持效果的对象，普通 AE 导入继续保留原生组模糊。UI 回归确认写入失败后按钮可见、可点击且不清除错误提示；没有定位目标的连接/系统错误保持无按钮。报错界面在 320、375、1280 像素宽度检查，无水平溢出。Figma 节点和渲染使用模拟数据，未进行真实 Figma 文档的点击定位验收。
 
 ## 图片保存位置
 

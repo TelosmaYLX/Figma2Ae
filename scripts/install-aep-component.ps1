@@ -10,7 +10,13 @@ if ($aepSource -ne $aepTarget) {
     # Updating a component may replace its runtime; stop only executables installed here.
     Get-CimInstance Win32_Process -Filter "Name = 'node.exe' OR Name = 'python.exe' OR Name = 'pythonw.exe'" | Where-Object {
         $_.ExecutablePath -and $_.ExecutablePath.StartsWith($aepTarget + '\', [StringComparison]::OrdinalIgnoreCase)
-    } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+    } | ForEach-Object {
+        $aepProcess = Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue
+        if ($aepProcess) {
+            Stop-Process -InputObject $aepProcess -Force
+            if (-not $aepProcess.WaitForExit(10000)) { throw 'Cannot stop the previous AEP export component.' }
+        }
+    }
     foreach ($aepPart in @('runtime', 'scripts', 'host', 'figma-plugin', 'cep-extension', 'runtime-manifest.json', 'README.txt')) {
         Copy-Item -LiteralPath (Join-Path $aepSource $aepPart) -Destination $aepTarget -Recurse -Force
     }

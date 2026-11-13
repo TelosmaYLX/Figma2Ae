@@ -47,7 +47,8 @@ async function check() {
     assert.deepEqual((await fs.readdir(result.directory)).sort(),['Assets','report.json','自定义 工程.aep']);
     const invalid=await fixture();invalid.containers[0].blur=3;
     const rejected=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:invalid})});
-    assert.equal(rejected.status,400);assert.match((await rejected.json()).error,/Direct AEP smoke.*效果/);
+    assert.equal(rejected.status,400);const issue=await rejected.json();assert.match(issue.error,/Direct AEP smoke.*效果/);
+    assert.equal(issue.nodeId,invalid.containers[0].sourceId,'Bundled Python → HTTP preserves the original Figma ID');
     assert.deepEqual(await fs.readdir(parent),['自定义 工程']);
     const independent=await nativeMasks();
     const nativeResponse=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:independent.packet})});

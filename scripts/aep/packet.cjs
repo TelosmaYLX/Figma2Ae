@@ -2,6 +2,11 @@
 
 // Share the production geometry parser; this module never loads ExtendScript or AE.
 const parser = require('../../host/figma/svgParser.js');
+function layerError(node, message, cause) {
+  const error = new Error(message, {cause});
+  error.nodeId = node.sourceId || null;
+  return error;
+}
 
 function normalize(packet) {
   if (typeof packet.svg !== 'string' || !packet.svg.includes('<svg')) throw new Error('缺少 Figma 导出数据');
@@ -17,7 +22,7 @@ function normalize(packet) {
     catch (error) {
       for (const node of packet.nodes) {
         try { parser.fromNodes([node], width, height); }
-        catch { throw new Error('图层「' + node.name + '」的路径无法解析', {cause:error}); }
+        catch { throw layerError(node, '图层「' + node.name + '」的路径无法解析', error); }
       }
       throw error;
     }
@@ -26,8 +31,9 @@ function normalize(packet) {
   if (packet.nodes) {
     const emitted = new Set(model.shapes.map(shape => shape.srcIndex));
     packet.nodes.forEach((node, index) => {
-      if (!emitted.has(index)) throw new Error('图层「' + node.name + '」的路径无法解析');
+      if (!emitted.has(index)) throw layerError(node, '图层「' + node.name + '」的路径无法解析');
     });
+    for (const shape of model.shapes) shape.sourceId = packet.nodes[shape.srcIndex].sourceId || null;
   }
   // Editable-node geometry is already frame-relative. SVG geometry uses the render origin.
   if (!packet.nodes) {

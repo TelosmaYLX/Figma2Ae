@@ -45,6 +45,7 @@ function ui(packet, behavior='success') {
       assert.equal(elements['native-image-masks'].disabled,true);
       assert.equal(posts.filter(m=>m.type==='ship-selection').length,1,'Collect and check Figma content before the server can choose a folder');
       assert.equal(elements['open-aep-folder'].hidden,true);
+      if(behavior==='layer-error')return {ok:false,json:async()=>({error:'图层「shadow」无法导出：暂不支持该模糊或图层效果，请标记该层栅格化',nodeId:'original-shadow-id'})};
       if(['server-error','picker-error'].includes(behavior))return {ok:false,json:async()=>({error:behavior==='picker-error'?'Picker failure':'Test failure'})};
       if(behavior==='cancel')return {ok:true,json:async()=>({cancelled:true})};
       return {ok:true,json:async()=>({directory:'D:\\导出 位置\\Direct AEP smoke',exportId:'completed-export',warnings:behavior==='warnings'?[{},{}]:[]})};
@@ -53,6 +54,7 @@ function ui(packet, behavior='success') {
       posts.push(message);
       if(message.type!=='ship-selection')return;
       assert.equal(message.useNodes,true);
+      assert.equal(message.target,'aep');
       assert.equal(message.rasterScale,Number(elements['raster-scale'].value));
       assert.equal(message.nativeImageMasks,elements['native-image-masks'].checked);
       emit({...packet,type:'ship',imageCount:packet.images.length});
@@ -87,12 +89,12 @@ function ui(packet, behavior='success') {
   };
   emit({type:'selection',count:1});
   assert.equal(elements.ship.disabled,true,'AE is disconnected');assert.equal(elements['export-aep'].disabled,false);
-  return {elements,posts,requests,context,done,launches};
+  return {elements,posts,requests,context,done,launches,emit};
 }
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   const packet=await fixture();
-  for(const behavior of ['success','native-masks','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','export-error','missing-image','open-error']){
+  for(const behavior of ['success','native-masks','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
@@ -136,6 +138,15 @@ const flush=()=>new Promise(r=>setImmediate(r));
     if(behavior==='shadow-error'){
       assert.equal(h.requests.some(r=>r.url.endsWith('/export')),false);assert.match(h.elements.msg.textContent,/投影.*PNG decode failed/);
     }
+    if(behavior==='layer-error'){
+      assert.match(h.elements.msg.textContent,/AEP 导出失败.*shadow/);
+      assert.equal(h.elements['locate-layer'].hidden,false);assert.equal(h.elements['locate-layer'].disabled,false);
+      const message=h.elements.msg.textContent;
+      h.elements['locate-layer'].onclick();assert.equal(h.posts.at(-1).type,'locate-layer');assert.equal(h.posts.at(-1).nodeId,'original-shadow-id');
+      h.emit({type:'locate-result',ok:true});assert.equal(h.elements.msg.textContent,message);
+      assert.equal(h.elements['locate-layer'].disabled,false);
+    }
+    if(behavior==='server-error')assert.equal(h.elements['locate-layer'].hidden,true,'Errors without an original layer ID have no locate action');
     if(['success','native-masks','cold-start','shadow','open-error'].includes(behavior)){
       assert.equal(h.elements['open-aep-folder'].hidden,false);
       h.elements['open-aep-folder'].onclick();h.elements['open-aep-folder'].onclick();

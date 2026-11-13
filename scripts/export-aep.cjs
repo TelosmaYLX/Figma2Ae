@@ -37,8 +37,12 @@ async function exportAep(packet, directory, options = {}) {
   } catch (error) {
     if (error.code === 'ENOENT') throw new Error('AEP 导出组件缺少 Python，请重新安装');
     const detail = (error.stderr || error.message).trim();
-    const message = detail.split(/\r?\n/).at(-1).replace(/^\w*Error: /, '');
-    throw new Error(message, {cause: error});
+    const last = detail.split(/\r?\n/).at(-1);
+    let issue;
+    try { issue = JSON.parse(last); } catch {}
+    const failure = new Error(issue?.error || last.replace(/^\w*Error: /, ''), {cause: error});
+    failure.nodeId = issue?.nodeId || null;
+    throw failure;
   } finally {
     await fs.unlink(input);
   }

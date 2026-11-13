@@ -36,9 +36,12 @@ class Writer:
         self.mask_defs = {}
         self.image_mask_defs = {}
         self.current_layer = packet['name']
+        self.current_item = {}
 
     def fail(self, code, item, detail=''):
-        raise ValueError('图层「' + (item.get('name') or self.current_layer) + '」无法导出：' + str(detail or code))
+        error = ValueError('图层「' + (item.get('name') or self.current_layer) + '」无法导出：' + str(detail or code))
+        error.node_id = item.get('sourceId') or self.current_item.get('sourceId')
+        raise error
 
     def comp(self, name, width, height, folder):
         return folder.add_comp(name, max(4, math.ceil(width)), max(4, math.ceil(height)),
@@ -423,6 +426,7 @@ class Writer:
                 entries.append((image.get('z', 0), 'image', image, i))
         for _, kind, item, index in sorted(entries, key=lambda entry: entry[0]):
             self.current_layer = item.get('name', '')
+            self.current_item = item
             context = self.contexts[None] if item.get('reference') else self.parent(item)
             if kind == 'container':
                 child = self.contexts[item['id']]
@@ -456,6 +460,7 @@ class Writer:
         for layer in self.main.layers:
             if getattr(layer, 'guide_layer', False):
                 layer.move_to_beginning()
+        self.current_item = {}
         self.project.save(str(self.output / 'project.aep'))
 
 
@@ -464,7 +469,11 @@ def main():
     packet = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
     output = Path(sys.argv[2]).resolve()
     writer = Writer(packet, output)
-    writer.write()
+    try:
+        writer.write()
+    except Exception as error:
+        print(json.dumps({'error': str(error), 'nodeId': getattr(error, 'node_id', None) or writer.current_item.get('sourceId')}, ensure_ascii=False), file=sys.stderr)
+        sys.exit(1)
     report = {'format': 'aep', 'writer': 'py-aep ' + py_aep.__version__, 'aeVersion': '26.0',
               'width': packet['width'], 'height': packet['height'], 'frameRate': packet['frameRate'],
               'duration': packet['duration'], 'counts': writer.counts, 'warnings': writer.warnings,

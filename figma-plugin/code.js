@@ -38,6 +38,7 @@ var _zMap = null;
 var _ignoreHidden = true;
 var _convertMasks = false;      // original-compatible default: masks stay ordinary Figma layers
 var _nativeImageMasks = false;
+var _directAep = false;
 var _independentMasks = {};
 var _rasterGroups = true;       // local fallback for content the native channels cannot express
 var _rasterTexts = false;       // opt-in: export each remaining text node as a PNG
@@ -384,6 +385,10 @@ function _collectRasterCandidates(root, organize) {
       if (!_rasterGroups) throw _layerError(n, '图层「' + n.name + '」的背景模糊需要开启自动栅格化');
       add(n); return;
     }
+    if (_directAep && visibleEffects.some(function (e) { return e.type !== 'DROP_SHADOW'; })) {
+      if (!_rasterGroups) throw _layerError(n, '图层「' + n.name + '」的效果需要开启自动栅格化');
+      add(n); return;
+    }
     var unknownEffect = visibleEffects.some(function (e) { return ['DROP_SHADOW', 'INNER_SHADOW', 'LAYER_BLUR'].indexOf(e.type) === -1; });
     if (unknownEffect) {
       if (_rasterGroups && !_isContainer(n)) { add(n); return; }
@@ -470,6 +475,7 @@ function _nestIndependentMasks(root, organize, channels, containers) {
         }
       }
       var container = { id: run.mask.id + '-scope', name: run.mask.name + ' 内容', type: 'GROUP',
+        sourceId: _exportSourceIds[run.mask.id] || run.mask.id,
         maskScope: true, maskId: run.mask.id, path: _pathOf(run.mask, root.id), z: _zOf(run.mask),
         x: left, y: top, w: right - left, h: bottom - top,
         cb: { x: left, y: top, w: right - left, h: bottom - top },
@@ -970,7 +976,7 @@ function collectContainers(root) {
         // keeps a frame-sized comp, so no render-bounds probing is needed — and that call is not
         // cheap on a big group.
         out.push({
-          id: n.id, name: n.name || 'Group', type: n.type,
+          id: n.id, sourceId: _exportSourceIds[n.id] || n.id, name: n.name || 'Group', type: n.type,
           maskId: _maskByNode[n.id] || null,
           root: (n === root),
           path: _pathOf(n, root.id), z: _zOf(n),
@@ -1017,6 +1023,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _rasterGroups = (rasterGroups !== false);
   _rasterTexts = (rasterTexts === true);
   options = options || {};
+  _directAep = options.target === 'aep';
   _nativeImageMasks = options.nativeImageMasks === true;
   _convertMasks = convertMasks === true || _rasterGroups || _nativeImageMasks;
   _rasterScale = options.rasterScale == null ? 1 : Number(options.rasterScale);
@@ -1526,7 +1533,7 @@ function collectShapes(root, organize) {
             // one AE layer per painted region, in the network's own order (first = bottom)
             for (var pz = 0; pz < pieces.length; pz++) {
               out.push({
-                name: n.name, id: n.id + '/' + pz,
+                name: n.name, id: n.id + '/' + pz, sourceId: _exportSourceIds[n.id] || n.id,
                 maskId: organize && isGroup ? null : (_maskByNode[n.id] || null), maskSource: _maskSourceByNode[n.id] || null,
                 maskType: n.maskType || 'ALPHA',
                 path: _pathOf(n, root.id), z: _zOf(n),
@@ -1552,6 +1559,7 @@ function collectShapes(root, organize) {
           out.push({
             name: n.name,
             id: n.id,                        // lets group effects tell leaves apart (see exportNode)
+            sourceId: _exportSourceIds[n.id] || n.id,
             maskId: organize && isGroup ? null : (_maskByNode[n.id] || null),
             maskSource: _maskSourceByNode[n.id] || null,
             maskType: n.maskType || 'ALPHA',
@@ -2098,7 +2106,7 @@ function collectTexts(root, rootBox, rootId, organize) {
             var rSize = (typeof n.fontSize === 'number') ? n.fontSize : (runs.length ? runs[0].fontSize : 16);
             var rWraps = /[\n\u2028\u2029]/.test(rChars) || (rChars.length * rSize * 0.52) > (b.width * 1.05) ||
                          _rendersMultiline(n, rSize);
-            out.push({ _node: n, runs: true, name: n.name, opacity: nodeOp, maskId: _maskByNode[n.id] || null, x: x, y: y, w: b.width, h: b.height, align: align, segs: runs,
+            out.push({ _node: n, sourceId: _exportSourceIds[n.id] || n.id, runs: true, name: n.name, opacity: nodeOp, maskId: _maskByNode[n.id] || null, x: x, y: y, w: b.width, h: b.height, align: align, segs: runs,
                        path: _pathOf(n, rootId), z: _zOf(n), box: !!(rFixed && rWraps), hidden: _hid, blur: _blurOf(n), blend: n.blendMode || 'NORMAL',
                        rotation: _rotOf(n), skewX: _skewOf(n), stroke: _textStroke(n), fx: _textEffects(n), grad: _gradFill(n), ink: _inkBounds(n, rootBox),
                        leading: _leading(n.lineHeight, rSize), paragraphSpacing: typeof n.paragraphSpacing === 'number' ? n.paragraphSpacing : null,
@@ -2122,7 +2130,7 @@ function collectTexts(root, rootBox, rootId, organize) {
                         _rendersMultiline(n, fsz);
             var isBox = fixedW && wraps;
             out.push({
-              _node: n, name: n.name, maskId: _maskByNode[n.id] || null, characters: _applyCase(n.characters, tc),
+              _node: n, sourceId: _exportSourceIds[n.id] || n.id, name: n.name, maskId: _maskByNode[n.id] || null, characters: _applyCase(n.characters, tc),
               path: _pathOf(n, rootId), z: _zOf(n),
               x: x, y: y, w: b.width, h: b.height,
               fontSize: fsz, family: fam2, style: sty2,
