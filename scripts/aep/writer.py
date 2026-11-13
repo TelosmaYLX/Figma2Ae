@@ -94,11 +94,7 @@ class Writer:
         layer.enabled = not item.get('hidden', False)
         layer.transform.opacity.value = item.get('opacity', 1) * 100
         blend = item.get('blend', 'NORMAL')
-        if blend == 'PASS_THROUGH':
-            # A precomp with pass-through contents needs collapse transformations.
-            if item.get('id'):
-                layer.collapse_transformation = True
-        else:
+        if blend != 'PASS_THROUGH':
             aliases = {'LINEAR_DODGE': 'ADD'}
             mode = getattr(BlendingMode, aliases.get(blend, blend), None)
             if mode is None:
@@ -544,15 +540,7 @@ class Writer:
                 child = self.contexts[item['id']]
                 layer = context['comp'].add(child['comp'])
                 self.common(layer, item)
-                # Keep the original box; collapse non-clipping groups so overflow stays visible.
-                layer.collapse_transformation = not item.get('clip', False) and not item.get('maskScope', False)
-                if not item.get('clip') and (item.get('blend') != 'PASS_THROUGH' or item.get('opacity', 1) < 1):
-                    # Force group compositing before opacity/blend without cropping its overflow.
-                    mask = layer.masks.add_property('ADBE Mask Atom')
-                    mask.name = 'Group composite'
-                    mask.mask_mode = MaskMode.SUBTRACT
-                    mask['ADBE Mask Shape'].value = Shape([[0, 0]] * 4, [[0, 0]] * 4,
-                                                          [[0, 0]] * 4, closed=True)
+                layer.collapse_transformation = False
                 self.transform(layer, child['x'] - context['x'], child['y'] - context['y'])
                 self.center_anchor(layer, layer.source_rect_at_time(0, False))
                 if item.get('clip') and item.get('r'):

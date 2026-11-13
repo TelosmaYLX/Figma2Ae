@@ -20,7 +20,7 @@
           close(anchor[1], layer.source.height / 2, layer.name + ' anchor Y');
           var origin = {x: offset.x + position[0] - anchor[0], y: offset.y + position[1] - anchor[1]};
           close(origin.x, definition.x, layer.name + ' original X'); close(origin.y, definition.y, layer.name + ' original Y');
-          if (layer.collapseTransformation === !!definition.clip) throw Error(layer.name + ' overflow/clipping differs');
+          if (layer.collapseTransformation) throw Error(layer.name + ' has collapse transformations enabled');
           walk(layer.source, origin); count++;
         } else if (layer instanceof ShapeLayer) {
           var rect = layer.sourceRectAtTime(0, false), definition = null;
@@ -48,10 +48,14 @@
     var baseline = app.project.items.addComp('F2A flat bounds reference', model.width, model.height, 1, model.duration, model.frameRate);
     baseline.parentFolder = folder;
     var flat = read(F2A_ROOT + '/artifacts/comp-bounds-native.json').model;
-    // This fixture uses one solid rectangular clipping frame. Build its visible intersection
-    // directly as the independent flat reference; the other frame must retain its overflow.
-    for (i = 0; i < flat.shapes.length; i++) if (flat.shapes[i].name === 'Clipped artwork') {
-      var shape = flat.shapes[i]; shape.prim = {k: 'rect', cx: 450.5, cy: 230.5, w: 101, h: 61, r: 0};
+    // Without collapse, every precomp clips at its own edges. Intersect the rectangular
+    // artwork with all ancestor boxes to build an independent flat reference.
+    for (i = 0; i < flat.shapes.length; i++) {
+      var shape = flat.shapes[i],p=shape.prim,left=p.cx-p.w/2,top=p.cy-p.h/2,right=left+p.w,bottom=top+p.h,path=shape.path||[];
+      for(var a=0;a<path.length;a++)for(var c=0;c<flat.containers.length;c++)if(flat.containers[c].id===path[a]){
+        var box=flat.containers[c];left=Math.max(left,box.x);top=Math.max(top,box.y);right=Math.min(right,box.x+box.w);bottom=Math.min(bottom,box.y+box.h);
+      }
+      shape.prim={k:'rect',cx:(left+right)/2,cy:(top+bottom)/2,w:right-left,h:bottom-top,r:0};
     }
     var faded = null, fadedShapes = [], flatShapes = [];
     for (i = 0; i < flat.containers.length; i++) if (flat.containers[i].name === 'Faded frame') faded = flat.containers[i];
@@ -72,6 +76,7 @@
     locate(imported); if (!aep) throw Error('Missing exported composition');
     inspect(aep, model, 'aep');
     aep.saveFrameToPng(0, new File(fixture.directory + '/aep.png'));
+    if(F2A_CASE==='export'){aep.name='F2A AEP bounds';app.project.save(new File(fixture.directory+'/native.aep'));}
     return JSON.stringify({passed: true, compositions: results, directory: fixture.directory});
   } catch (error) {return JSON.stringify({passed: false, error: String(error), line: error.line, compositions: results});}
   finally {

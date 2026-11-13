@@ -36,6 +36,8 @@ node scripts/ae-eval.mjs tests/ae-aep-layout.jsx artifacts/aep-layout-pixels-ae-
 
 AEP 的形状按路径边界、文字按字形边界、图片及预合成按素材尺寸居中锚点，并补偿位置保持画面不动。文字补齐原生连续栅格化标志，避免 AE 把字形内容边界读成整张合成。切图倍率默认 1×，可选 1×/2×/3×/4×；栅格 PNG 携带 `rasterScale`，AE/AEP 按倍率倒数缩放；普通图片保留原始像素与 FIT/FILL，不按栅格规则处理。
 
+所有预合成图层默认关闭塌陷变换，原合成尺寸与质量/采样不变。`node tests/comp-bounds.cjs` 及 `tests/ae-comp-bounds.jsx` 检查六个嵌套预合成的尺寸、位置及关闭状态；后者同时检查直接创建和 AEP 导入。关闭塌陷后，原边界外的内容按 AE 规则裁切；文字的连续栅格化仍保留。
+
 ```powershell
 node tests/raster-scale.cjs
 node tests/aep-layout.cjs 1

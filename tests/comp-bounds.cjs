@@ -35,8 +35,8 @@ async function check() {
   (function render(n) {n.exportAsync = async () => png(); if(n.children)n.children.forEach(render);})(root);
   const {ship} = await h.run(true, true, true);
   const packet = {...ship, images: [], imageCount: 0};
-  // The old content-union metadata deliberately exceeds this frame. Both exporters must
-  // use the original box while retaining the overflow in the parent composition.
+  // Content bounds deliberately exceed this frame; keep its original dimensions and
+  // let AE clip at the composition edges with collapse transformations disabled.
   assert.ok(packet.containers.find(c => c.name === 'Unclipped frame').cb.w > 83);
   const model = normalize(packet);
   assert.equal(model.containers.length, 6);

@@ -26,6 +26,7 @@ for layer in layers.values():
     assert layer.quality == baseline.quality
     if layer.source is not None:
         assert layer.sampling_quality == baseline.sampling_quality,layer.name
+        if hasattr(layer.source,'layers'):assert not layer.collapse_transformation,layer.name
     if layer.name=='Outside stroke':
         # Offset Paths is not supported by the library's sourceRect implementation.
         close(layer.transform.anchor_point.value[0],0);close(layer.transform.anchor_point.value[1],0)
@@ -37,7 +38,7 @@ for item in model['containers']:
     layer=layers[item['name']];bounds=contexts[item['id']];ox,oy=origin(item)
     assert layer.source.width==max(4,math.ceil(item['w']))
     assert layer.source.height==max(4,math.ceil(item['h']))
-    assert layer.collapse_transformation == (not bool(item.get('clip')))
+    assert not layer.collapse_transformation
     top_left=point(layer,0,0)
     close(top_left[0],bounds['x']-ox);close(top_left[1],bounds['y']-oy)
 curve=layers['Bezier shape']

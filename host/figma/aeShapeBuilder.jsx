@@ -454,16 +454,7 @@ var AEShapeBuilder = (function () {
         if (c.fx && c.fx.length) { try { addLayerEffects(pcLayer, c.fx); } catch (efx) {} }
         applyBlend(pcLayer, c.blend);
         if (c.hidden) { try { pcLayer.enabled = false; } catch (eh) {} }
-        // Non-clipping groups keep their overflow in the parent without enlarging the comp.
-        try { pcLayer.collapseTransformation = !c.clip && !c.maskScope; } catch (ect) {}
-        if (!c.clip && (c.blend !== 'PASS_THROUGH' || (c.opacity != null && c.opacity < 1))) {
-          // A closed, zero-area subtract mask composites this group before applying its
-          // opacity/blend, without cutting off overflow or changing the comp dimensions.
-          var compositeMask = pcLayer.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
-          compositeMask.name = "Group composite";
-          compositeMask.maskMode = MaskMode.SUBTRACT;
-          compositeMask.property("ADBE Mask Shape").setValue(roundedRectShape(0, 0, 0, 0, 0));
-        }
+        try { pcLayer.collapseTransformation = false; } catch (ect) {}
 
         // the swallowed layers are gone; this precomp now stands in for them one level up
         for (j = 0; j < _layerPaths.length; j++) {

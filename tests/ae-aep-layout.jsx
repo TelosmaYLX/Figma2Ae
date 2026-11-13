@@ -30,7 +30,7 @@
       var container=model.containers[c],precomp=layers[container.name];
       close(precomp.source.width,Math.max(4,Math.ceil(container.w)),container.name+' width');
       close(precomp.source.height,Math.max(4,Math.ceil(container.h)),container.name+' height');
-      if(precomp.collapseTransformation===!!container.clip)throw new Error(container.name+' overflow handling differs');
+      if(precomp.collapseTransformation)throw new Error(container.name+' has collapse transformations enabled');
     }
     main.saveFrameToPng(0,new File(root+'/artifacts/aep-layout-ae.png'));
     for(var n=0;n<checked.length;n++){

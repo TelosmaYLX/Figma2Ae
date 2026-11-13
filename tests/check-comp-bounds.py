@@ -32,7 +32,7 @@ def inspect(comp, offset=(0, 0)):
             expected = definitions[layer.name]
             source = layer.source
             assert (source.width, source.height) == (max(4, math.ceil(expected['w'])), max(4, math.ceil(expected['h'])))
-            assert layer.collapse_transformation == (not bool(expected['clip']))
+            assert not layer.collapse_transformation
             anchor, position = layer.transform.anchor_point.value, layer.transform.position.value
             close(anchor[0], source.width / 2)
             close(anchor[1], source.height / 2)
@@ -44,7 +44,7 @@ def inspect(comp, offset=(0, 0)):
 
 
 assert inspect(find_main(project.root_folder)) == len(definitions)
-print('PASS: real AEP retains all 6 original boxes, centered anchors, exact nested placement and clipping flags')
+print('PASS: real AEP retains all 6 original boxes, centered anchors, exact nested placement and disabled precomp collapse')
 
 if '--renders' in sys.argv[2:]:
     from PIL import Image, ImageChops
@@ -57,4 +57,4 @@ if '--renders' in sys.argv[2:]:
         difference = ImageChops.difference(reference, rendered)
         extrema = difference.getextrema()
         assert max(high for low, high in extrema) <= 1, (name, extrema, difference.getbbox())
-        print('PASS:', name, 'render matches the flat reference, including group opacity, visible overflow and clipping')
+        print('PASS:', name, 'render matches the flat reference, including group opacity and composition-edge clipping')
