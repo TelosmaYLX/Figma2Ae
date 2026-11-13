@@ -1405,6 +1405,7 @@ var AEShapeBuilder = (function () {
           }
 
           addStrokeStyle(lyr, sdata.layerStroke, sdata.layerFillOpacity);
+          lyr = scaleStrokeLayer(lyr, sdata.layerStroke);
           addBlur(lyr, sdata.blur);
           // Node mode: shadows belong to this layer by definition — no matching required.
           if (sdata.fx && sdata.fx.length) {
@@ -1552,7 +1553,7 @@ var AEShapeBuilder = (function () {
     var styles = lyr.property('ADBE Layer Styles'), style = styles.property('frameFX/enabled');
     style.property('frameFX/mode2').setValue(1);
     style.property('frameFX/color').setValue([stroke.color[0],stroke.color[1],stroke.color[2],1]);
-    style.property('frameFX/size').setValue(stroke.width);
+    style.property('frameFX/size').setValue(stroke.width * Math.max(1, Math.ceil(1 / stroke.width)));
     style.property('frameFX/opacity').setValue((stroke.opacity == null ? 1 : stroke.opacity) * 100);
     // ExtendScript associates chained ternaries differently; keep these branches explicit.
     var position = 3;
@@ -1560,6 +1561,37 @@ var AEShapeBuilder = (function () {
     else if (stroke.align === 'OUTSIDE') position = 1;
     style.property('frameFX/style').setValue(position);
     styles.property('ADBE Blend Options Group').property('ADBE Adv Blend Group').property('ADBE Layer Fill Opacity2').setValue((fillOpacity == null ? 1 : fillOpacity) * 100);
+  }
+
+  function scaleStrokeLayer(lyr, stroke) {
+    if (!stroke || !(stroke.width > 0 && stroke.width < 1)) return lyr;
+    var scale = Math.ceil(1 / stroke.width), comp = lyr.containingComp;
+    var rect = lyr.sourceRectAtTime(comp.time, false), pad = stroke.width + 1;
+    var left = rect.left - pad, top = rect.top - pad, t = lyr.property('ADBE Transform Group');
+    var anchor = t.property('ADBE Anchor Point').value, position = t.property('ADBE Position').value;
+    var size = t.property('ADBE Scale').value, rotation = t.property('ADBE Rotate Z').value;
+    var opacity = t.property('ADBE Opacity').value, blend = lyr.blendingMode, enabled = lyr.enabled, name = lyr.name;
+    var source = app.project.items.addComp(name + ' 细描边', Math.max(4, Math.ceil((rect.width + 2 * pad) * scale)),
+      Math.max(4, Math.ceil((rect.height + 2 * pad) * scale)), comp.pixelAspect, comp.duration, comp.frameRate);
+    source.parentFolder = comp.parentFolder;
+    lyr.copyToComp(source);
+    var inner = source.layer(1), it = inner.property('ADBE Transform Group');
+    it.property('ADBE Anchor Point').setValue([left, top, 0]);
+    it.property('ADBE Position').setValue([0, 0, 0]);
+    it.property('ADBE Scale').setValue([100 * scale, 100 * scale, 100]);
+    it.property('ADBE Rotate Z').setValue(0);
+    it.property('ADBE Opacity').setValue(100);
+    inner.blendingMode = BlendingMode.NORMAL; inner.enabled = true;
+    var outer = comp.layers.add(source), ot = outer.property('ADBE Transform Group');
+    outer.name = name;
+    ot.property('ADBE Anchor Point').setValue([(anchor[0] - left) * scale, (anchor[1] - top) * scale, anchor[2] || 0]);
+    ot.property('ADBE Position').setValue(position);
+    ot.property('ADBE Scale').setValue([size[0] / scale, size[1] / scale, size[2] == null ? 100 : size[2]]);
+    ot.property('ADBE Rotate Z').setValue(rotation);
+    ot.property('ADBE Opacity').setValue(opacity);
+    outer.blendingMode = blend; outer.enabled = enabled;
+    outer.moveBefore(lyr); lyr.remove();
+    return outer;
   }
 
   function applyTextStroke(doc, t) {
@@ -1871,6 +1903,7 @@ var AEShapeBuilder = (function () {
         }
         if (tt.name) { try { p.tl.name = tt.name; } catch (enm) {} }   // keep Figma's layer name
         applyBlend(p.tl, tt.blend);
+        p.tl = scaleStrokeLayer(p.tl, tt.stroke);
         // Track BEFORE the decoration: a gradient fill turns this very layer into a matte, and
         // pairMatte has to find the record that already exists to re-tag it.
         var textMatte = applyNodeMask(p.tl, tt);

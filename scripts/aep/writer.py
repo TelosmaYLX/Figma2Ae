@@ -160,12 +160,13 @@ class Writer:
     @staticmethod
     def stroke_style(layer, stroke, fill_opacity=None):
         if not stroke or not stroke.get('width', 0) > 0:
-            return
+            return 1
+        scale = max(1, math.ceil(1 / stroke['width']))
         styles = layer['ADBE Layer Styles']
         style = styles['frameFX/enabled']
         style['frameFX/mode2'].value = 1
         style['frameFX/color'].value = [*stroke['color'], 1]
-        style['frameFX/size'].value = stroke['width']
+        style['frameFX/size'].value = stroke['width'] * scale
         style['frameFX/opacity'].value = stroke.get('opacity', 1) * 100
         style['frameFX/style'].value = {'OUTSIDE': 1, 'INSIDE': 2, 'CENTER': 3}.get(stroke.get('align'), 3)
         if fill_opacity is not None:
@@ -177,6 +178,43 @@ class Writer:
             group._tdsb.hidden = False
             group._tdsb.synthetic = False
             group.__dict__['enabled'] = True
+        return scale
+
+    def scale_stroke_layer(self, layer, scale):
+        if scale == 1:
+            return layer
+        # Native Layer Style Stroke starts at 1 px. Render the editable layer at
+        # a larger local size, then scale its precomp down to retain a subpixel border.
+        rect = layer.source_rect_at_time(0, False)
+        pad = layer['ADBE Layer Styles']['frameFX/enabled']['frameFX/size'].value / scale + 1
+        left, top = rect['left'] - pad, rect['top'] - pad
+        anchor, position = list(layer.transform.anchor_point.value), list(layer.transform.position.value)
+        size, rotation = list(layer.transform.scale.value), layer.transform.rotation.value
+        opacity, blend, enabled, name = layer.transform.opacity.value, layer.blending_mode, layer.enabled, layer.name
+        parent = layer.containing_comp
+        source = self.comp(name + ' 细描边', (rect['width'] + 2 * pad) * scale,
+                           (rect['height'] + 2 * pad) * scale, self.precomps)
+        inner = layer.copy_to_comp(source)
+        inner.transform.anchor_point.value = [left, top, 0]
+        inner.transform.position.value = [0, 0, 0]
+        inner.transform.scale.value = [100 * scale, 100 * scale, 100]
+        inner.transform.rotation.value = 0
+        inner.transform.opacity.value = 100
+        inner.blending_mode = BlendingMode.NORMAL
+        inner.enabled = True
+        outer = parent.add(source)
+        outer.name = name
+        outer.transform.anchor_point.value = [(anchor[0] - left) * scale, (anchor[1] - top) * scale, anchor[2]]
+        outer.transform.position.value = position
+        outer.transform.scale.value = [size[0] / scale, size[1] / scale, size[2]]
+        outer.transform.rotation.value = rotation
+        outer.transform.opacity.value = opacity
+        outer.blending_mode = blend
+        outer.enabled = enabled
+        outer.move_before(layer)
+        layer.remove()
+        self.counts['precomps'] += 1
+        return outer
 
     def shape(self, context, item, white=False):
         layer = context['comp'].add_shape()
@@ -212,8 +250,9 @@ class Writer:
             if not paint.get('under'):
                 self.paint(root, item, paint['kind'], paint.get('color'), paint.get('gradient'),
                            paint.get('opacity', 1), paint.get('width'))
-        self.stroke_style(layer, item.get('layerStroke'), item.get('layerFillOpacity'))
+        stroke_scale = self.stroke_style(layer, item.get('layerStroke'), item.get('layerFillOpacity'))
         self.center_anchor(layer, self.shape_rect(item))
+        layer = self.scale_stroke_layer(layer, stroke_scale)
         self.counts['shapes'] += 1
         return layer
 
@@ -315,16 +354,17 @@ class Writer:
         fills = segments or [{'characters': chars, 'opacity': item.get('fillOpacity', 1)}]
         fill_opacity = fills[0].get('opacity', 1)
         if item.get('stroke') and all(s.get('opacity', 1) == fill_opacity for s in fills):
-            self.stroke_style(layer, item['stroke'], fill_opacity)
+            stroke_scale = self.stroke_style(layer, item['stroke'], fill_opacity)
         else:
             self.text_fill_opacity(layer, fills)
-            self.stroke_style(layer, item.get('stroke'))
+            stroke_scale = self.stroke_style(layer, item.get('stroke'))
         if item.get('skewX'):
             animator = layer['ADBE Text Properties']['ADBE Text Animators'].add_property('ADBE Text Animator')
             animator.name = 'Figma skew'
             animator['ADBE Text Animator Properties'].add_property('ADBE Text Skew').value = item['skewX']
             animator['ADBE Text Selectors'].add_property('ADBE Text Selector')
         self.counts['texts'] += 1
+        layer = self.scale_stroke_layer(layer, stroke_scale)
         if item.get('grad'):
             g = item['grad']
             p0 = g.get('p0') or [item['x'] + g['h0']['x'] * item['w'], item['y'] + g['h0']['y'] * item['h']]

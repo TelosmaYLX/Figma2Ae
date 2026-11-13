@@ -69,13 +69,18 @@ async function check() {
     assert.equal(instanceResponse.status,200,await instanceResponse.clone().text());
     const instanceResult=await instanceResponse.json();assert.equal(instanceResult.counts.texts,1);assert.equal(instanceResult.warnings.length,0);
     assert.equal((await fs.readFile(instanceResult.project)).toString('ascii',0,4),'RIFX');
-    const styled=strokeStyles();
-    const styleResponse=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:styled.packet})});
-    assert.equal(styleResponse.status,200,await styleResponse.clone().text());
-    const styleResult=await styleResponse.json();assert.equal(styleResult.counts.texts,5);
-    const styleModel=path.join(testRoot,'stroke-model.json');await fs.writeFile(styleModel,JSON.stringify(styled.model));
-    await run(python,[path.join(root,'tests/check-stroke-styles.py'),styleResult.project,styleModel],{env,windowsHide:true});
-    await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult,nestedResult,instanceResult,styleResult},null,2));
+    const styleResults=[];
+    for(const thin of [false,true]){
+      const styled=strokeStyles(thin);
+      const styleResponse=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:styled.packet})});
+      assert.equal(styleResponse.status,200,await styleResponse.clone().text());
+      const styledResult=await styleResponse.json();assert.equal(styledResult.counts.texts,5);
+      if(thin)assert.equal(styledResult.counts.precomps,8);
+      const styleModel=path.join(testRoot,thin?'thin-stroke-model.json':'stroke-model.json');await fs.writeFile(styleModel,JSON.stringify(styled.model));
+      await run(python,[path.join(root,'tests/check-stroke-styles.py'),styledResult.project,styleModel],{env,windowsHide:true});
+      styleResults.push(styledResult);
+    }
+    await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult,nestedResult,instanceResult,styleResult:styleResults[0],thinStyleResult:styleResults[1]},null,2));
     console.log('PASS: relocated Windows package, no Node/Python on PATH, isolated Python/Tcl, bundled HTTP service and real AEP folder');
     console.log(testRoot);
   } finally {child.kill();}

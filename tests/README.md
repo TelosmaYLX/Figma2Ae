@@ -138,6 +138,8 @@ node scripts/ae-eval.mjs tests/ae-stroke-styles.jsx artifacts/stroke-styles/ae-r
 
 第一条使用构造节点检查共享解析器的两种输入、真实 AEP 写入及二进制回读；第二条在 AE 中检查直接创建和导入 AEP 后的样式启用状态、参数可编辑性、三种位置，以及形状中没有旧描边/偏移路径。实际宿主检查以报告的 `passed` 为准。在独立空白 AE 会话中传入 `export` 可保存 `artifacts/stroke-styles/native.aep`，再用 aerender 分别渲染其中的 `F2A stroke styles direct` 和 `Stroke styles` 合成作画面对照。这些检查不代替新一次在线 Figma 文档渲染。预设通过 `.venv-aep\Scripts\python.exe scripts/build-stroke-preset.py` 从项目现有图层样式模板生成，随扩展打包。
 
+增加 `node tests/stroke-styles.cjs --thin` 覆盖 0.6666666865348816、0.9103375673294067、0.25、0.1 和 0.5 px 的形状/文字描边。检查仅细描边增加局部预合成、内部原生描边宽度合法、内外缩放相抵、旋转/透明度/原生轨道遮罩保留；普通宽度的结构保持不变。随后同一原生脚本可检查直接导入与 AEP 回读两条通路。
+
 ## 导出速度和星号标记
 
 选中 Figma 图层后点击“标记栅格化”，名称会加上 `*` 前缀；“取消标记”只移除所选图层的前缀。标记组时包含组内文字，作为一张 PNG 导入。关闭“自动栅格化复杂组”后，星号仍生效；取消标记后恢复自动策略。

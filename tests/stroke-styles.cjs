@@ -14,7 +14,7 @@ function rect(name,align,x,y,extra={}){
     fills:[fill],strokes:[stroke],strokeWeight:4,strokeAlign:align,
     prim:{k:'rect',w:80,h:50,r:0},z:y+x/1000,...extra};
 }
-function fixture(){
+function fixture(thin=false){
   const nodes=['INSIDE','OUTSIDE','CENTER'].map((align,i)=>rect(align,align,30+i*130,30));
   nodes.push(rect('Border only','INSIDE',30,120,{fills:[]}));
   nodes.push(rect('Translucent fill','OUTSIDE',160,120,{fills:[{...fill,opacity:.3}]}));
@@ -29,11 +29,19 @@ function fixture(){
     {characters:'A',family:'Arial',style:'Regular',fontSize:28,color:[0,0,1]},
     {characters:'bc',family:'Arial',style:'Bold',fontSize:28,color:[0,1,0]}]});
   texts.push({...texts[1],name:'Text translucent',x:160,y:360,fillOpacity:.3});
+  if(thin){
+    for(const [i,width] of [0.6666666865348816,0.9103375673294067,.25,.1].entries())nodes[i].strokeWeight=width;
+    for(let i=0;i<4;i++)texts[i].stroke={...texts[i].stroke,width:[0.6666666865348816,0.9103375673294067,.25,.5][i]};
+    texts[0].rotation=-17;texts[1].rotation=26;texts[0].opacity=.6;
+    nodes[0].maskId='thin-mask';
+    nodes.unshift(rect('Thin stroke matte','CENTER',25,25,{id:'thin-mask',strokes:[],strokeWeight:0,maskSource:'thin-mask',prim:{k:'rect',w:100,h:70,r:0}}));
+  }
   const packet={name:'Stroke styles',svg:'<svg width="440" height="430"></svg>',frame:{width:440,height:430},nodes,texts,imageCount:0};
   return {packet,model:normalize(packet),gradient,texts};
 }
 async function check(){
-  const {packet,model,gradient,texts}=fixture(),styles=model.shapes.filter(s=>s.layerStroke);
+  const thin=process.argv.includes('--thin');
+  const {packet,model,gradient,texts}=fixture(thin),styles=model.shapes.filter(s=>s.layerStroke);
   assert.equal(styles.length,8);assert.ok(model.shapes.every(s=>!s.stroke&&!s.strokeGradient));
   assert.equal(styles.find(s=>s.name==='Border only').layerFillOpacity,0);
   assert.equal(styles.find(s=>s.name==='Translucent fill').layerFillOpacity,.3);
@@ -43,7 +51,7 @@ async function check(){
   assert.ok(styles.every(s=>s.layerStroke.opacity===.75));
   const svg=parser.parse('<svg width="100" height="80"><rect x="10" y="10" width="60" height="40" fill="none" stroke="red" stroke-width="3"/></svg>');
   assert.equal(svg.shapes[0].layerFillOpacity,0);assert.equal(svg.shapes[0].layerStroke.width,3);
-  const line=parser.fromNodes([{...packet.nodes[0],prim:null,paths:[{d:'M0 0L80 0'}],fills:[]}],100,80).shapes[0];
+  const line=parser.fromNodes([{...packet.nodes.find(n=>n.strokes.length),maskId:null,prim:null,paths:[{d:'M0 0L80 0'}],fills:[]}],100,80).shapes[0];
   assert.ok(line.stroke);assert.ok(!line.layerStroke,'Open lines remain path geometry');
   const parent=path.resolve('artifacts/stroke-styles');await fs.mkdir(parent,{recursive:true});
   const directory=await fs.mkdtemp(path.join(parent,'aep-')),result=await exportAep(packet,directory);
@@ -52,10 +60,11 @@ async function check(){
   const gradFile=path.join(parent,'fill.ffx');
   await fs.writeFile(gradFile,ffx.generate(await fs.readFile('host/figma/grad-template.ffx'),{
     colorStops:gradient.stops.map(s=>({loc:s.offset,rgb:s.color})),alphaStops:gradient.stops.map(s=>({loc:s.offset,a:s.opacity}))}));
-  const presets={5:{fill:gradFile.replaceAll('\\','/')}};
+  const presets={[model.shapes.findIndex(s=>s.name==='Gradient fill')]:{fill:gradFile.replaceAll('\\','/')}};
   await fs.writeFile(path.join(parent,'input.json'),JSON.stringify({packet,model,presets,project:result.project}));
   execFileSync(path.resolve('.venv-aep/Scripts/python.exe'),['tests/check-stroke-styles.py',result.project,expected],{stdio:'inherit'});
-  await fs.writeFile(path.join(parent,'report.json'),JSON.stringify({passed:true,styles:styles.length,texts:texts.length,...result},null,2));
+  if(thin)assert.equal(result.counts.precomps,8,'Only fractional styles get local precomps');
+  await fs.writeFile(path.join(parent,thin?'report-thin.json':'report.json'),JSON.stringify({passed:true,styles:styles.length,texts:texts.length,...result},null,2));
   console.log('PASS: solid closed borders and editable text use Layer Styles; native alignments, fill/stroke alpha, no-fill, gradients, multiple borders; real AEP generation');
 }
 if(require.main===module)check().catch(error=>{console.error(error);process.exitCode=1;});
