@@ -9,6 +9,7 @@
     for(var i=0;i<model.shapes.length;i++){
       var item=model.shapes[i];if(item.maskSource||item.name==='Solid style')continue;
       var layer=layers[item.name];if(!(layer instanceof ShapeLayer))throw new Error(item.name+' is not an editable shape');
+      var rect=layer.sourceRectAtTime(0,false);if(rect.width>model.width||rect.height>model.height)throw new Error(item.name+' retained page-space contour coordinates');
       var count=paints(layer.property('ADBE Root Vectors Group'));if(count.strokes)throw new Error(item.name+' retained path stroke');
       if(count.paths<item.subpaths.length)throw new Error(item.name+' lost contour paths');
       near(layer.property('ADBE Transform Group').property('ADBE Opacity').value,item.opacity*100,item.name+' opacity');

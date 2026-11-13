@@ -939,7 +939,12 @@ function _contentBounds(n) {
   var b = n.absoluteBoundingBox;
   if (!b) return null;
   var minx = b.x, miny = b.y, maxx = b.x + b.width, maxy = b.y + b.height;
-  if (!_rasterByNode[n.id] && n.type !== 'BOOLEAN_OPERATION' && n.children) {
+  var render = n.absoluteRenderBounds;
+  if (render) {
+    minx = Math.min(minx, render.x); miny = Math.min(miny, render.y);
+    maxx = Math.max(maxx, render.x + render.width); maxy = Math.max(maxy, render.y + render.height);
+  }
+  if (!_rasterByNode[n.id] && n.type !== 'BOOLEAN_OPERATION' && n.clipsContent !== true && n.children) {
     for (var i = 0; i < n.children.length; i++) {
       var c = n.children[i];
       if (_ignoreHidden && _isHidden(c)) continue;       // hidden art must not inflate precomps
@@ -1348,12 +1353,20 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     if (nodeShapes) {
       for (var ns = 0; ns < nodeShapes.length; ns++) {
         var nsh = nodeShapes[ns];
-        nsh.matrix[4] -= origin.x; nsh.matrix[5] -= origin.y;
-        var lists = [nsh.fills, nsh.strokes];
-        for (var li = 0; li < lists.length; li++) {
-          for (var pi2 = 0; pi2 < lists[li].length; pi2++) {
-            var pp = lists[li][pi2];
-            if (pp && pp.p0) { pp.p0[0] -= origin.x; pp.p0[1] -= origin.y; pp.p1[0] -= origin.x; pp.p1[1] -= origin.y; }
+        var parts = [nsh].concat(nsh.outlinedStrokes || []);
+        for (var np = 0; np < parts.length; np++) {
+          var part = parts[np];
+          // Regions can share a matrix/paint object. Rebase independent copies once.
+          part.matrix = part.matrix.slice(); part.matrix[4] -= origin.x; part.matrix[5] -= origin.y;
+          var lists = ['fills', 'strokes'];
+          for (var li = 0; li < lists.length; li++) {
+            part[lists[li]] = (part[lists[li]] || []).map(function (paint) {
+              if (!paint.p0) return paint;
+              var shifted = {}; for (var key in paint) shifted[key] = paint[key];
+              shifted.p0 = [paint.p0[0] - origin.x, paint.p0[1] - origin.y];
+              shifted.p1 = [paint.p1[0] - origin.x, paint.p1[1] - origin.y];
+              return shifted;
+            });
           }
         }
       }

@@ -12,7 +12,9 @@
           var definition = null;
           for (var c = 0; c < model.containers.length; c++) if (model.containers[c].name === layer.name) definition = model.containers[c];
           if (!definition) throw Error('Unexpected precomp ' + layer.name);
-          var actual = {kind: kind, name: layer.name, width: layer.source.width, height: layer.source.height};
+          if(layer.name==='Unclipped frame')definition={x:6,y:186,w:111,h:71};
+          if(layer.name==='Faded frame')definition={x:10,y:10,w:103,h:83};
+          var actual = {kind: kind, name: layer.name, width: layer.source.width, height: layer.source.height,collapse:layer.collapseTransformation};
           results.push(actual);
           close(layer.source.width, Math.max(4, Math.ceil(definition.w)), layer.name + ' width');
           close(layer.source.height, Math.max(4, Math.ceil(definition.h)), layer.name + ' height');
@@ -48,11 +50,10 @@
     var baseline = app.project.items.addComp('F2A flat bounds reference', model.width, model.height, 1, model.duration, model.frameRate);
     baseline.parentFolder = folder;
     var flat = read(F2A_ROOT + '/artifacts/comp-bounds-native.json').model;
-    // Without collapse, every precomp clips at its own edges. Intersect the rectangular
-    // artwork with all ancestor boxes to build an independent flat reference.
+    // Only Figma's explicit clipping frame may cut content in the independent reference.
     for (i = 0; i < flat.shapes.length; i++) {
       var shape = flat.shapes[i],p=shape.prim,left=p.cx-p.w/2,top=p.cy-p.h/2,right=left+p.w,bottom=top+p.h,path=shape.path||[];
-      for(var a=0;a<path.length;a++)for(var c=0;c<flat.containers.length;c++)if(flat.containers[c].id===path[a]){
+      for(var a=0;a<path.length;a++)for(var c=0;c<flat.containers.length;c++)if(flat.containers[c].id===path[a]&&flat.containers[c].clip){
         var box=flat.containers[c];left=Math.max(left,box.x);top=Math.max(top,box.y);right=Math.min(right,box.x+box.w);bottom=Math.min(bottom,box.y+box.h);
       }
       shape.prim={k:'rect',cx:(left+right)/2,cy:(top+bottom)/2,w:right-left,h:bottom-top,r:0};

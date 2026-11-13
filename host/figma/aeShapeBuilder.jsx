@@ -418,10 +418,15 @@ var AEShapeBuilder = (function () {
         if (!pcLayer) { _diag.push("precomp " + (c.name || "?") + ": layer not found"); continue; }
 
         var tg = pcLayer.property("ADBE Transform Group");
-        // Use the original frame/group box. AE requires integer dimensions; do not add padding
-        // or force even sizes. Exact inverse offsets preserve fractional Figma positions.
-        var W = Math.max(4, Math.ceil(c.w)), H = Math.max(4, Math.ceil(c.h));
-        var dx = -c.x, dy = -c.y;
+        // An unclipped Figma container can draw outside its own box. With collapse disabled,
+        // include that content in the precomp and cancel the changed origin in the parent.
+        var bounds = c, cb = c.cb;
+        if (!c.clip && cb && (cb.x < c.x || cb.y < c.y || cb.x + cb.w > c.x + c.w || cb.y + cb.h > c.y + c.h)) {
+          var left = Math.floor(Math.min(c.x, cb.x)), top = Math.floor(Math.min(c.y, cb.y));
+          bounds = {x:left,y:top,w:Math.ceil(Math.max(c.x+c.w,cb.x+cb.w))-left,h:Math.ceil(Math.max(c.y+c.h,cb.y+cb.h))-top};
+        }
+        var W = Math.max(4, Math.ceil(bounds.w)), H = Math.max(4, Math.ceil(bounds.h));
+        var dx = -bounds.x, dy = -bounds.y;
 
         // Resizing a comp does not move its layers, so the contents are shifted first and the
         // precomp layer is then placed so every pixel lands back exactly where Figma had it.

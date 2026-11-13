@@ -30,6 +30,8 @@ def inspect(comp, offset=(0, 0)):
     for layer in comp.layers:
         if hasattr(getattr(layer, 'source', None), 'layers'):
             expected = definitions[layer.name]
+            if layer.name=='Unclipped frame': expected={**expected,'x':6,'y':186,'w':111,'h':71}
+            if layer.name=='Faded frame': expected={**expected,'x':10,'y':10,'w':103,'h':83}
             source = layer.source
             assert (source.width, source.height) == (max(4, math.ceil(expected['w'])), max(4, math.ceil(expected['h'])))
             assert not layer.collapse_transformation
@@ -44,17 +46,32 @@ def inspect(comp, offset=(0, 0)):
 
 
 assert inspect(find_main(project.root_folder)) == len(definitions)
-print('PASS: real AEP retains all 6 original boxes, centered anchors, exact nested placement and disabled precomp collapse')
+print('PASS: real AEP keeps collapse off, expands unclipped content/stroke bounds and retains clipping/placement')
 
 if '--renders' in sys.argv[2:]:
     from PIL import Image, ImageChops
 
-    directory = Path(fixture['directory'])
+    render_index = sys.argv.index('--renders')
+    directory = Path(sys.argv[render_index + 1]) if len(sys.argv) > render_index + 1 else Path(fixture['directory'])
     reference = Image.open(directory / 'reference.png').convert('RGBA')
+    regions = {'groupOpacity': (5, 5, 118, 100), 'overflowAndStroke': (3, 183, 118, 262),
+               'explicitClip': (388, 188, 520, 280)}
+    report = {}
     for name in ('native', 'aep'):
         rendered = Image.open(directory / (name + '.png')).convert('RGBA')
         assert rendered.size == reference.size
-        difference = ImageChops.difference(reference, rendered)
-        extrema = difference.getextrema()
-        assert max(high for low, high in extrema) <= 1, (name, extrema, difference.getbbox())
-        print('PASS:', name, 'render matches the flat reference, including group opacity and composition-edge clipping')
+        report[name] = {}
+        # These integer-aligned regions test compositing and clipping independently of
+        # the fractional button's additional default precomp sampling at its edges.
+        for label, box in regions.items():
+            error = max(high for low, high in ImageChops.difference(reference.crop(box), rendered.crop(box)).getextrema())
+            report[name][label] = error
+            assert error <= 1, (name, label, error)
+        print('PASS:', name, 'render retains overflow/stroke, group opacity and explicit clipping')
+    if (directory / 'before.png').exists():
+        previous = Image.open(directory / 'before.png').convert('RGBA')
+        report['before'] = {label: max(high for low, high in ImageChops.difference(reference.crop(box), previous.crop(box)).getextrema()) for label, box in regions.items()}
+        assert report['before']['overflowAndStroke'] > 32
+    delta = ImageChops.difference(Image.open(directory / 'native.png').convert('RGBA'), Image.open(directory / 'aep.png').convert('RGBA'))
+    assert max(high for low, high in delta.getextrema()) == 0
+    (directory / 'render-report.json').write_text(json.dumps({'passed': True, 'errors': report}, indent=2), encoding='utf-8')

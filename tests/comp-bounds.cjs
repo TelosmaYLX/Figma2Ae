@@ -25,6 +25,7 @@ async function check() {
     rect('Bottom button', 570.375, 331.625, 203, 46, orange)]), 570.375, 280.625, 203, 97);
   const overflow = at(node('FRAME', 'Unclipped frame', {children: [
     rect('Visible overflow', 510.125, 390.375, 103, 63, blue)]}), 520.125, 400.375, 83, 43);
+  Object.assign(overflow.children[0],{strokes:[{type:'SOLID',color:orange}],strokeWeight:4,strokeAlign:'OUTSIDE',absoluteRenderBounds:{x:506.125,y:386.375,width:111,height:71}});
   const clip = at(node('FRAME', 'Clipped frame', {clipsContent: true, children: [
     rect('Clipped artwork', 890.125, 390.375, 121, 81, orange)]}), 900.125, 400.375, 101, 61);
   const faded = at(node('FRAME', 'Faded frame', {opacity: .5, children: [
@@ -35,8 +36,7 @@ async function check() {
   (function render(n) {n.exportAsync = async () => png(); if(n.children)n.children.forEach(render);})(root);
   const {ship} = await h.run(true, true, true);
   const packet = {...ship, images: [], imageCount: 0};
-  // Content bounds deliberately exceed this frame; keep its original dimensions and
-  // let AE clip at the composition edges with collapse transformations disabled.
+  // Content and an outside stroke exceed the frame: disabling collapse must not crop them.
   assert.ok(packet.containers.find(c => c.name === 'Unclipped frame').cb.w > 83);
   const model = normalize(packet);
   assert.equal(model.containers.length, 6);

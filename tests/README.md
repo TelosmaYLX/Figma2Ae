@@ -36,7 +36,7 @@ node scripts/ae-eval.mjs tests/ae-aep-layout.jsx artifacts/aep-layout-pixels-ae-
 
 AEP 的形状按路径边界、文字按字形边界、图片及预合成按素材尺寸居中锚点，并补偿位置保持画面不动。文字补齐原生连续栅格化标志，避免 AE 把字形内容边界读成整张合成。切图倍率默认 1×，可选 1×/2×/3×/4×；栅格 PNG 携带 `rasterScale`，AE/AEP 按倍率倒数缩放；普通图片保留原始像素与 FIT/FILL，不按栅格规则处理。
 
-所有预合成图层默认关闭塌陷变换，原合成尺寸与质量/采样不变。`node tests/comp-bounds.cjs` 及 `tests/ae-comp-bounds.jsx` 检查六个嵌套预合成的尺寸、位置及关闭状态；后者同时检查直接创建和 AEP 导入。关闭塌陷后，原边界外的内容按 AE 规则裁切；文字的连续栅格化仍保留。
+所有预合成图层默认关闭塌陷变换，质量/采样不变。未裁切容器在需要时扩展为实际内容边界并补偿位置，Figma 裁剪画框仍保留原边界。`node tests/comp-bounds.cjs` 及 `tests/ae-comp-bounds.jsx` 覆盖六个嵌套预合成，包括框外内容、外描边和半透明重叠；后者同时检查直接创建与 AEP 导入。平面参考只裁切 Figma 明确开启裁剪的画框，不能把错误的预合成裁切当成正确基准。文字的连续栅格化仍保留。
 
 ```powershell
 node tests/raster-scale.cjs
@@ -146,7 +146,7 @@ node scripts/ae-eval.mjs tests/ae-stroke-styles.jsx artifacts/stroke-styles/ae-r
 node tests/outlined-dashes.cjs
 ```
 
-此检查运行生产采集器、解析器和真实 AEP 写入，模拟 Figma `outlineStroke()` 与 `flatten()` 返回的几何，覆盖填充与独立轮廓、端点曲线、旋转、蒙版、0.667/0.125 px 描边、细描边文字、多色字形及全部文字转矢量。全部矢量模式使用本机不存在的字体名称，断言不生成文字图层。检查源图层/选择不变、副本清理和错误定位。`tests/ae-outlined-dashes.jsx` 仅在独立空白 AE 会话中运行：检查直接创建和 AEP 导入后的路径、叠放、透明度、渐变、轨道遮罩，以及不存在细描边缩放预合成；报告和渲染工程写入 `artifacts/outlined-dashes/`。这不等同于在线 Figma 文档的轮廓化或像素对照。
+此检查运行生产采集器、解析器和真实 AEP 写入，模拟 Figma `outlineStroke()` 与 `flatten()` 返回的几何，覆盖填充与独立轮廓、端点曲线、旋转、蒙版、0.667/0.125 px 描边、细描边文字、多色字形及全部文字转矢量。场景位于页面 `(-321.5,4008)`，并与原点场景比较几何及渐变坐标，防止新轮廓漏掉原点换算或共享矩阵被重复平移。全部矢量模式使用本机不存在的字体名称，断言不生成文字图层。检查源图层/选择不变、副本清理和错误定位。`tests/ae-outlined-dashes.jsx` 仅在独立空白 AE 会话中运行：检查直接创建和 AEP 导入后的路径、叠放、透明度、渐变、轨道遮罩、图层内容范围，以及不存在细描边缩放预合成；报告和渲染工程写入 `artifacts/outlined-dashes/`。这不等同于在线 Figma 文档的轮廓化或像素对照。
 
 ## 导出速度和星号标记
 

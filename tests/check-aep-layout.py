@@ -19,9 +19,12 @@ def point(layer,x,y):
     dx,dy=(x-anchor[0])*scale[0]/100,(y-anchor[1])*scale[1]/100
     angle=math.radians(layer.transform.rotation.value)
     return [position[0]+dx*math.cos(angle)-dy*math.sin(angle),position[1]+dx*math.sin(angle)+dy*math.cos(angle)]
-contexts={item['id']:item for item in model['containers']}
+contexts={}
 def origin(item):
     return next(([contexts[key]['x'],contexts[key]['y']] for key in reversed(item.get('path') or []) if key in contexts),[0,0])
+for item in sorted(model['containers'],key=lambda c:len(c.get('path') or [])):
+    parent=origin(item);corner=point(layers[item['name']],0,0)
+    contexts[item['id']]={'x':parent[0]+corner[0],'y':parent[1]+corner[1]}
 for layer in layers.values():
     assert layer.quality == baseline.quality
     if layer.source is not None:
@@ -36,8 +39,15 @@ for layer in layers.values():
     close(layer.transform.anchor_point.value[1],rect['top']+rect['height']/2)
 for item in model['containers']:
     layer=layers[item['name']];bounds=contexts[item['id']];ox,oy=origin(item)
-    assert layer.source.width==max(4,math.ceil(item['w']))
-    assert layer.source.height==max(4,math.ceil(item['h']))
+    if item.get('clip'):
+        assert layer.source.width==max(4,math.ceil(item['w']))
+        assert layer.source.height==max(4,math.ceil(item['h']))
+        close(bounds['x'],item['x']);close(bounds['y'],item['y'])
+    else:
+        content=item.get('cb') or item
+        assert bounds['x']<=content['x'] and bounds['y']<=content['y']
+        assert bounds['x']+layer.source.width>=content['x']+content['w']
+        assert bounds['y']+layer.source.height>=content['y']+content['h']
     assert not layer.collapse_transformation
     top_left=point(layer,0,0)
     close(top_left[0],bounds['x']-ox);close(top_left[1],bounds['y']-oy)

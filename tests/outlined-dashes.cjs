@@ -10,7 +10,7 @@ const fill=[{type:'SOLID',color:{r:.2,g:.3,b:.4},opacity:.4}],stroke=[{type:'SOL
 const rectPath=(x,y,w,h)=>`M${x} ${y}H${x+w}V${y+h}H${x}Z`;
 const capsule='M2 0H8C10 0 10 4 8 4H2C0 4 0 0 2 0Z';
 const geometry=[{data:'M0 0H80V50H0Z',windingRule:'NONZERO'}];
-function fixture(allText=false){
+function fixture(allText=false,offset={x:-321.5,y:4008}){
   const outlined=[],temporary=[],calls=[],originals=[];
   function dashed(name,x,y,extra={}){
     const shape=node(extra.type||'RECTANGLE',name,{width:80,height:50,cornerRadius:0,fillGeometry:geometry,fills:[],strokes:stroke,
@@ -51,6 +51,7 @@ function fixture(allText=false){
   const normalText=node('TEXT','Normal text',{characters:'Ab',fontName:{family:allText?'F2A unavailable font':'Arial',style:'Regular'},fontSize:20,fills:fill,fillGeometry:geometry});
   const rich=node('TEXT','Rich outline',{characters:'AB',fills:[],fillGeometry:geometry,fontName:{family:'F2A unavailable font',style:'Regular'},glyphPaints:[[{type:'SOLID',color:{r:1,g:0,b:0}}],[{type:'SOLID',color:{r:0,g:0,b:1}}]],absoluteTransform:[[1,0,30],[0,1,470]]});
   const root=node('FRAME','Outlined dashes',{width:300,height:540,absoluteBoundingBox:{x:0,y:0,width:300,height:540},absoluteRenderBounds:{x:0,y:0,width:300,height:540},absoluteTransform:[[1,0,0],[0,1,0]],children:[filled,empty,line,rotated,scope,solid,thin,tiny,thinText,grad,normalText,...(allText?[rich]:[])]});
+  (function move(n){n.absoluteTransform[0][2]+=offset.x;n.absoluteTransform[1][2]+=offset.y;for(const key of ['absoluteBoundingBox','absoluteRenderBounds']){n[key].x+=offset.x;n[key].y+=offset.y;}if(n.children)n.children.forEach(move);})(root);
   const h=harness(root),before=JSON.stringify(originals.map(n=>({id:n.id,dash:n.dashPattern,strokes:n.strokes,fills:n.fills,transform:n.absoluteTransform})));
   if(allText)rich.fills=h.figma.mixed;
   h.figma.flatten=function(nodes,parent){
@@ -81,6 +82,9 @@ async function collect(){
   const directory=await fs.mkdtemp(path.join(output,'aep-')),result=await exportAep(packet,directory);
   const vectorFixture=fixture(true),vectorResult=await vectorFixture.h.run(true,true,true,false,{target:'aep',outlineTexts:true}),vectorPacket={...vectorResult.ship,imageCount:0,images:[]},vectorModel=normalize(vectorPacket);
   assert.equal(vectorPacket.texts.length,0);assert.equal(vectorModel.texts.length,0);
+  const zero=fixture(true,{x:0,y:0}),zeroResult=await zero.h.run(true,true,true,false,{target:'aep',outlineTexts:true}),zeroModel=normalize({...zeroResult.ship,imageCount:0,images:[]});
+  const fingerprint=shapes=>JSON.stringify(shapes,(key,value)=>['sourceId','srcIndex','path','maskId','maskSource'].includes(key)?undefined:typeof value==='number'?Math.round(value*1e6)/1e6:value);
+  assert.equal(fingerprint(vectorModel.shapes),fingerprint(zeroModel.shapes),'Page offsets must not move contours, multicolor glyphs or gradient handles');
   assert.ok(vectorModel.shapes.find(s=>s.name==='Normal text'));
   assert.ok(vectorModel.shapes.find(s=>s.name==='Rich outline').extraPaints.some(p=>p.color[2]===1));
   const vectorOutput=await fs.mkdtemp(path.join(output,'vector-')),vectorWritten=await exportAep(vectorPacket,vectorOutput);

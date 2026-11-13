@@ -518,6 +518,13 @@ class Writer:
         containers = sorted(self.data['containers'], key=lambda c: len(c.get('path') or []))
         for container in containers:
             bounds = container
+            cb = container.get('cb')
+            if not container.get('clip') and cb and (cb['x'] < container['x'] or cb['y'] < container['y'] or
+                    cb['x'] + cb['w'] > container['x'] + container['w'] or cb['y'] + cb['h'] > container['y'] + container['h']):
+                left, top = math.floor(min(container['x'], cb['x'])), math.floor(min(container['y'], cb['y']))
+                bounds = {'x': left, 'y': top,
+                          'w': math.ceil(max(container['x'] + container['w'], cb['x'] + cb['w'])) - left,
+                          'h': math.ceil(max(container['y'] + container['h'], cb['y'] + cb['h'])) - top}
             self.contexts[container['id']] = {'comp': self.comp(container['name'], bounds['w'], bounds['h'], self.precomps),
                                               'x': bounds['x'], 'y': bounds['y']}
             entries.append((container.get('z', 0), 'container', container, 0))
