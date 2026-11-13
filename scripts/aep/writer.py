@@ -547,7 +547,7 @@ class Writer:
                 child = self.contexts[item['id']]
                 layer = context['comp'].add(child['comp'])
                 self.common(layer, item)
-                layer.collapse_transformation = False
+                layer.collapse_transformation = item.get('collapseForBlends', False)
                 self.transform(layer, child['x'] - context['x'], child['y'] - context['y'])
                 self.center_anchor(layer, layer.source_rect_at_time(0, False))
                 if item.get('clip') and item.get('r'):

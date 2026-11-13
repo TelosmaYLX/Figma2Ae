@@ -1,0 +1,31 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const path=require('node:path');
+const {node,group,harness}=require('./export-options.cjs');
+const {exportAep}=require('../scripts/export-aep.cjs');
+const {normalize}=require('../scripts/aep/packet.cjs');
+const fill=[{type:'SOLID',color:{r:.8,g:.8,b:.8}}];
+const rect=(name,extra={})=>node('RECTANGLE',name,{fills:fill,cornerRadius:0,fillGeometry:[{data:'M0 0H100V60H0Z',windingRule:'NONZERO'}],...extra});
+async function fixture(){
+ const nested=group('Pass wrapper',[group('Mask group',[rect('Mask',{isMask:true,maskType:'ALPHA'}),rect('Overlay',{blendMode:'OVERLAY'})])]);
+ const normal=group('Normal boundary',[group('Inner pass',[rect('Internal multiply',{blendMode:'MULTIPLY'})])],{blendMode:'NORMAL'});
+ const source=group('Scene',[rect('External backdrop'),nested,group('Plain group',[rect('Plain artwork')]),normal],{blendMode:'NORMAL'});
+ const h=harness(source),result=await h.run(true,false,true,false,{target:'aep',nativeImageMasks:true,mergeBlends:false}),packet={...result.ship,imageCount:0,images:[]};
+ const flags=Object.fromEntries(packet.containers.map(c=>[c.name,c.collapseForBlends]));
+ assert.deepEqual(flags,{'Scene':false,'Pass wrapper':true,'Mask group':true,'Plain group':false,'Normal boundary':false,'Inner pass':true});
+ const overlay=packet.nodes.find(n=>n.name==='Overlay');
+ assert.ok(overlay.maskId&&packet.nodes.some(n=>n.maskSource===overlay.maskId),'The retained blend still has its independent matte');
+ const text=await harness(group('Text scene',[rect('Text backdrop'),group('Normal text wrapper',[node('TEXT','Mixed text',{blendMode:'MULTIPLY'})],{blendMode:'NORMAL'})])).run(true,false,true,false,{target:'aep',mergeBlends:false});
+ const textBoundary=text.ship.containers.find(c=>c.name==='Normal text wrapper');
+ assert.ok(textBoundary&&!textBoundary.collapseForBlends,'A text-only normal wrapper must remain an isolation boundary');
+ assert.ok(text.ship.containers.every(c=>!c.collapseForBlends),'A normal text wrapper must stop outward blending');
+ const merged=await harness(group('Closed merge',[rect('Opaque backdrop'),rect('Baked overlay',{blendMode:'OVERLAY'})],{blendMode:'NORMAL'})).run(true,false,true,false,{target:'aep',mergeBlends:true});
+ assert.ok(merged.ship.containers.every(c=>!c.collapseForBlends),'Already merged blend content needs no pass-through');
+ const output=await fs.mkdtemp(path.resolve('artifacts/blend-pass-through-')),resultAep=await exportAep(packet,output);
+ await fs.writeFile(path.join(output,'packet.json'),JSON.stringify(packet));
+ await fs.writeFile(path.join(output,'fixture.json'),JSON.stringify({model:normalize(packet),project:resultAep.project,directory:output}));
+ console.log('PASS: retained blend layers mark only pass-through ancestor chains; normal/plain/merged groups stay uncollapsed; real AEP written');
+ return {packet,project:resultAep.project,flags};
+}
+if(require.main===module)fixture().catch(e=>{console.error(e);process.exitCode=1;});
+module.exports={fixture};

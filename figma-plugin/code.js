@@ -978,6 +978,8 @@ function _isPureTextContainer(n) {
   var hasText = false, hasPaint = false;
   (function walk(m) {
     if (!m || (_ignoreHidden && _isHidden(m))) return;
+    // Normal text-only wrappers must still isolate their blended descendants.
+    if (m !== n && n.blendMode === 'NORMAL' && m.blendMode && m.blendMode !== 'NORMAL' && m.blendMode !== 'PASS_THROUGH') hasPaint = true;
     if (m.type === 'TEXT') hasText = true;
     else if (m !== n) {
       try { if ((m.fills || []).length || (m.strokes || []).length) hasPaint = true; } catch (e3) {}
@@ -1043,6 +1045,26 @@ function collectContainers(root) {
       for (var c = 0; c < n.children.length; c++) walk(n.children[c]);
   })(root);
   return out;
+}
+
+// Only retained blend layers need a pass-through chain. A normal/effect/matte boundary
+// composites its children locally, so the dependency stops there.
+function _markBlendPassThrough(containers, channels) {
+  var byId = {}, i;
+  for (i = 0; i < containers.length; i++) { byId[containers[i].id] = containers[i]; containers[i].collapseForBlends = false; }
+  var rows = containers.slice();
+  for (i = 0; i < channels.length; i++) rows = rows.concat(channels[i]);
+  for (i = 0; i < rows.length; i++) {
+    var row = rows[i], blend = row.blend || 'NORMAL';
+    if (row.reference || row.maskSource || blend === 'NORMAL' || blend === 'PASS_THROUGH') continue;
+    var path = row.path || [];
+    for (var p = path.length - 1; p >= 0; p--) {
+      var c = byId[path[p]];
+      if (!c) continue;
+      if (c.blend !== 'PASS_THROUGH' || c.clip || c.maskScope || c.maskId || c.blur || (c.fx && c.fx.length) || c.opacity < 1) break;
+      c.collapseForBlends = true;
+    }
+  }
 }
 
 function _disableExportClipping(root, changed) {
@@ -1200,6 +1222,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       }
     }
     _nestIndependentMasks(node, !!organize, [nodeShapes || [], texts, images, containers || []], containers);
+    if (containers) _markBlendPassThrough(containers, [nodeShapes || [], texts, images]);
 
     // Disable clipping only AFTER the container table has captured it. The root is exported
     // uncut so off-frame artwork survives, then collectContainers restores that boundary as an

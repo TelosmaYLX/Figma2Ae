@@ -36,7 +36,9 @@ node scripts/ae-eval.mjs tests/ae-aep-layout.jsx artifacts/aep-layout-pixels-ae-
 
 AEP 的形状按路径边界、文字按字形边界、图片及预合成按素材尺寸居中锚点，并补偿位置保持画面不动。文字补齐原生连续栅格化标志，避免 AE 把字形内容边界读成整张合成。切图倍率默认 1×，可选 1×/2×/3×/4×；栅格 PNG 携带 `rasterScale`，AE/AEP 按倍率倒数缩放；普通图片保留原始像素与 FIT/FILL，不按栅格规则处理。
 
-所有预合成图层默认关闭塌陷变换，质量/采样不变。未裁切容器在需要时扩展为实际内容边界并补偿位置，Figma 裁剪画框仍保留原边界。`node tests/comp-bounds.cjs` 及 `tests/ae-comp-bounds.jsx` 覆盖六个嵌套预合成，包括框外内容、外描边和半透明重叠；后者同时检查直接创建与 AEP 导入。平面参考只裁切 Figma 明确开启裁剪的画框，不能把错误的预合成裁切当成正确基准。文字的连续栅格化仍保留。
+预合成默认关闭塌陷变换。导出后仍保留叠加等混合层时，仅为其穿透祖先链标记 `collapseForBlends`；普通组、已合并内容保持关闭。正常混合模式、整体裁剪/蒙版、整体效果或透明度构成合成边界，不继续向上传递。直接创建和 AEP 写入使用同一标记，质量/采样不变。`node tests/blend-pass-through.cjs` 验证导出标记、保留蒙版和已合并内容；在独立空白 AE 会话运行 `tests/ae-blend-pass-through.jsx`（设置 `F2A_ROOT`、`F2A_BLEND_FIXTURE`）检查两个后端实际读入的塌陷状态。
+
+未裁切容器在需要时扩展为实际内容边界并补偿位置，Figma 裁剪画框仍保留原边界。`node tests/comp-bounds.cjs` 及 `tests/ae-comp-bounds.jsx` 覆盖六个嵌套预合成，包括框外内容、外描边和半透明重叠；后者同时检查直接创建与 AEP 导入。平面参考只裁切 Figma 明确开启裁剪的画框，不能把错误的预合成裁切当成正确基准。文字的连续栅格化仍保留。
 
 ```powershell
 node tests/raster-scale.cjs
