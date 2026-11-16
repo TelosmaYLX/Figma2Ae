@@ -2,7 +2,7 @@
 <ExtensionList>
   <Extension Id="F2A">
     <HostList>
-      <Host Name="AEFT" Port="8621"/>
+      <Host Name="AEFT" Port="7368"/>
     </HostList>
   </Extension>
 </ExtensionList>

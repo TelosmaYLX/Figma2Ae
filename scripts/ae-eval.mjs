@@ -3,7 +3,7 @@ import path from 'node:path';
 
 // Evaluate a local JSX through the running CEP panel. No project is opened or replaced.
 const script = path.resolve(process.argv[2]).replaceAll('\\', '/');
-const targets = await (await fetch('http://127.0.0.1:8621/json')).json();
+const targets = await (await fetch('http://127.0.0.1:7368/json')).json();
 const target = targets.find(t => t.title === 'F2A');
 if (!target) throw new Error('F2A panel is not running');
 const socket = new WebSocket(target.webSocketDebuggerUrl);

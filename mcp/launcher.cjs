@@ -5,7 +5,7 @@ var http = require('http');
 var fs = require('fs');
 var path = require('path');
 var spawn = require('child_process').spawn;
-var PORT = Number(process.env.F2A_MCP_PORT || 7869);
+var PORT = Number(process.env.F2A_MCP_PORT || 7367);
 
 function health(callback) {
   var done = false;

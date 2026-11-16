@@ -28,7 +28,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-aep-launcher.ps1
 
 重新运行 Figma 开发插件，打开 AE 的 F2A 面板，选中内容并点击“导出 AEP（实验）”。服务未运行时，插件向 AE 面板的 `POST /aep/start` 请求启动；CEP 通过 Windows 唤起注册组件。服务就绪后先采集内容、处理图片并在临时目录生成完整 AEP，字体、素材和工程检查全部通过才弹出保存位置窗口。已运行时直接复用。每次导出无需手动运行脚本；AE 面板未打开、版本过旧、组件未安装或启动失败会分别提示。
 
-启动器在后台运行本地服务 `127.0.0.1:7868`；分发版直接使用包内环境，开发版按需创建 `.venv-aep` 并安装固定依赖。重复唤起复用运行中的服务。服务使用 Tkinter 弹出原生保存窗口。日志位于安装或开发目录的 `artifacts/aep-service/`。
+启动器在后台运行本地服务 `127.0.0.1:7366`；分发版直接使用包内环境，开发版按需创建 `.venv-aep` 并安装固定依赖。重复唤起复用运行中的服务。服务使用 Tkinter 弹出原生保存窗口。日志位于安装或开发目录的 `artifacts/aep-service/`。
 
 调试时仍可手动运行 `powershell -ExecutionPolicy Bypass -File .\scripts\start-aep-export.ps1`；加 `-Background` 在后台启动。关闭服务进程后，下一次点击导出会再次启动。卸载唤起入口可删除当前用户注册表中的 `HKCU\Software\Classes\f2a-aep`。
 

@@ -93,7 +93,7 @@ function start(options = {}) {
       res.end(JSON.stringify({error: error.message, nodeId: error.nodeId || null}));
     }
   });
-  server.listen(options.port ?? 7868, '127.0.0.1', () => {
+  server.listen(options.port ?? 7366, '127.0.0.1', () => {
     if (!options.quiet) console.log('F2A AEP: http://127.0.0.1:' + server.address().port + '\n导出时选择位置和名称');
   });
   return server;

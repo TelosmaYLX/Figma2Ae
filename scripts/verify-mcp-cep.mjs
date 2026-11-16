@@ -3,7 +3,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 
 // Checks the actual CEP runtime and local service; does not evaluate host JSX.
-const targets=await (await fetch('http://127.0.0.1:8621/json')).json();
+const targets=await (await fetch('http://127.0.0.1:7368/json')).json();
 const target=targets.find(item=>item.title==='F2A');
 if(!target)throw new Error('Open the F2A panel in After Effects first.');
 const socket=new WebSocket(target.webSocketDebuggerUrl);
@@ -31,7 +31,7 @@ try {
     await new Promise(resolve=>setTimeout(resolve,100));
   }
   assert.ok(state?.ready,JSON.stringify(state));
-  const service=await (await fetch('http://127.0.0.1:7869/health')).json();
+  const service=await (await fetch('http://127.0.0.1:7367/health')).json();
   assert.equal(service.service,'f2a-mcp');
   const output=path.resolve('artifacts/mcp');await fs.mkdir(output,{recursive:true});
   const screenshot=await command('Page.captureScreenshot',{format:'png'});

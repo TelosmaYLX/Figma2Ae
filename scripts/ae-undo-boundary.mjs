@@ -7,7 +7,7 @@ const root = path.resolve('.').replaceAll('\\', '/');
 const source = await fs.readFile('tests/ae-undo.jsx', 'utf8');
 const start = `var F2A_ROOT=${JSON.stringify(root)};var F2A_CASE='batch-boundary';\n` + source;
 const check = `var F2A_ROOT=${JSON.stringify(root)};var F2A_CASE='boundary-check';\n` + source;
-const targets = await (await fetch('http://127.0.0.1:8621/json')).json();
+const targets = await (await fetch('http://127.0.0.1:7368/json')).json();
 const target = targets.find(t => t.title === 'F2A');
 if (!target) throw new Error('F2A panel is not running');
 const socket = new WebSocket(target.webSocketDebuggerUrl);

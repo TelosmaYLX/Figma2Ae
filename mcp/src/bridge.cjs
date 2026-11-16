@@ -5,7 +5,7 @@ let selectedSession = null;
 
 async function request(route, body) {
   await new Promise((resolve, reject) => ensureRelay(error => error ? reject(error) : resolve()));
-  const response = await fetch('http://127.0.0.1:' + (process.env.F2A_MCP_PORT || 7869) + route, body === undefined ? {} : {
+  const response = await fetch('http://127.0.0.1:' + (process.env.F2A_MCP_PORT || 7367) + route, body === undefined ? {} : {
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
   });
   const result = await response.json();

@@ -46,7 +46,7 @@ function ui(packet, behavior='success') {
         await new Promise(resolve=>setImmediate(resolve));
         return behavior==='open-error'?{ok:false,json:async()=>({error:'Explorer failure'})}:{ok:true,json:async()=>({ok:true})};
       }
-      assert.equal(url,'http://127.0.0.1:7868/export');
+      assert.equal(url,'http://127.0.0.1:7366/export');
       assert.equal(elements['export-aep'].disabled,true,'Button stays locked while the server writes');
       assert.equal(elements['raster-scale'].disabled,true,'Keep the selected scale fixed until export completes');
       assert.equal(elements['native-image-masks'].disabled,true);

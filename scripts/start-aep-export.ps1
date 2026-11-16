@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 function Test-AepService {
     try {
-        $info = Invoke-RestMethod -Uri 'http://127.0.0.1:7868/health' -TimeoutSec 1
+        $info = Invoke-RestMethod -Uri 'http://127.0.0.1:7366/health' -TimeoutSec 1
         return $info.service -eq 'f2a-aep' -and $info.version -eq 3
     } catch { return $false }
 }

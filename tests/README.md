@@ -152,7 +152,7 @@ node tests/image-folder.cjs
 
 ## AE 渐变
 
-需要 AE 26，以及已打开的 F2A 面板（调试端口 8621）。测试使用内置 Node 和项目现有的渐变预设，不需要安装依赖。
+需要 AE 26，以及已打开的 F2A 面板（调试端口 7368）。测试使用内置 Node 和项目现有的渐变预设，不需要安装依赖。
 
 ```powershell
 node tests/prepare-gradients.cjs

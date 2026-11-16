@@ -51,9 +51,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\Tools\F2A\scripts\install
 - 文档关闭后，原 agent 的目标保持固定并提示断开；重开后用 `join_channel` 重新选择。
 - MCP 操作与导出互斥。命令按顺序执行，进度消息延长操作等待时间，关闭文档立即结束等待。
 
-本地中继只监听 `127.0.0.1:7869`。agent 调用工具或打开 AE 的 F2A 面板时自动启动，
+本地中继只监听 `127.0.0.1:7367`。agent 调用工具或打开 AE 的 F2A 面板时自动启动，
 没有插件连接和请求后空闲一分钟退出。Figma 插件自动重连。原 AE 导入和 AEP 导出
-继续使用 7365 / 7868。上游源码、版本和 MIT 许可见 `vendor/cursor-talk-to-figma-mcp`。
+继续使用 7365 / 7366。上游源码、版本和 MIT 许可见 `vendor/cursor-talk-to-figma-mcp`。
 
 ## 开发
 

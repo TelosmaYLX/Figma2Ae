@@ -3764,7 +3764,7 @@ var require_ws = __commonJS({
 var http = require("node:http");
 var { randomUUID } = require("node:crypto");
 var { WebSocketServer, WebSocket } = require_ws();
-function start({ port = 7869, commandTimeout = 6e4, idleTimeout = 6e4 } = {}) {
+function start({ port = 7367, commandTimeout = 6e4, idleTimeout = 6e4 } = {}) {
   const sessions = /* @__PURE__ */ new Map(), pending = /* @__PURE__ */ new Map();
   let lastActivity = Date.now();
   function reply(res, status, body) {
@@ -3868,7 +3868,7 @@ function start({ port = 7869, commandTimeout = 6e4, idleTimeout = 6e4 } = {}) {
   return { server, sockets, sessions, pending };
 }
 if (require.main === module) {
-  const { server } = start({ port: Number(process.env.F2A_MCP_PORT || 7869) });
+  const { server } = start({ port: Number(process.env.F2A_MCP_PORT || 7367) });
   server.on("error", (error) => {
     if (error.code !== "EADDRINUSE") console.error(error.message);
     process.exit(1);

@@ -7262,7 +7262,7 @@ var require_launcher = __commonJS({
     var fs = require("fs");
     var path = require("path");
     var spawn = require("child_process").spawn;
-    var PORT = Number(process.env.F2A_MCP_PORT || 7869);
+    var PORT = Number(process.env.F2A_MCP_PORT || 7367);
     function health(callback) {
       var done = false;
       function finish(error62, result) {
@@ -7357,7 +7357,7 @@ var require_bridge = __commonJS({
     var selectedSession = null;
     async function request(route, body) {
       await new Promise((resolve, reject) => ensureRelay2((error62) => error62 ? reject(error62) : resolve()));
-      const response = await fetch("http://127.0.0.1:" + (process.env.F2A_MCP_PORT || 7869) + route, body === void 0 ? {} : {
+      const response = await fetch("http://127.0.0.1:" + (process.env.F2A_MCP_PORT || 7367) + route, body === void 0 ? {} : {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
