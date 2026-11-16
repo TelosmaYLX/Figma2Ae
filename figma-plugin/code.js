@@ -636,28 +636,15 @@ async function _bakeBlendStacks(root, organize) {
     var ranges = [], isolated = mode(ctx) !== 'PASS_THROUGH';
     for (var end = 0; end < atoms.length; end++) {
       if (!atoms[end].blend) continue;
-      var needed = atoms[end].bounds, start = -1, maskedBackdrop = false;
-      if (_blendBoundary(atoms[end].node) && end > 0 && !_blendBoundary(atoms[end - 1].node) &&
-          !_subtreeFlags(atoms[end - 1].node).marked && !atoms[end - 1].blend &&
-          opaque(atoms[end - 1].node, needed)) maskedBackdrop = true;
+      var needed = atoms[end].bounds, start = -1;
       for (var back = end - 1; back >= 0; back--) {
-        if (_subtreeFlags(atoms[back].node).marked) break;
-        if (_blendBoundary(atoms[back].node)) {
-          // A mask cannot be its own external backdrop. It may only be absorbed when the
-          // immediately preceding normal atom is opaque and closes the burn/overlay stack.
-          var previous = back - 1;
-          if (previous >= 0 && !_blendBoundary(atoms[previous].node) &&
-              !_subtreeFlags(atoms[previous].node).marked && !atoms[previous].blend &&
-              opaque(atoms[previous].node, needed)) maskedBackdrop = true;
-          if (!maskedBackdrop) break;
-          continue;
-        }
+        if (_blendBoundary(atoms[back].node) || _subtreeFlags(atoms[back].node).marked) break;
         if (atoms[back].blend) needed = union(needed, atoms[back].bounds);
         if (masksClose(ctx, needed) && !atoms[back].blend && opaque(atoms[back].node, needed)) { start = back; break; }
       }
       if (start < 0 && isolated) start = 0;
       if (start < 0) continue;
-      if (!maskedBackdrop && atoms.slice(start, end + 1).some(function (a) { return _blendBoundary(a.node) || _subtreeFlags(a.node).marked || !!_maskByNode[a.node.id]; })) continue;
+      if (atoms.slice(start, end + 1).some(function (a) { return _blendBoundary(a.node) || _subtreeFlags(a.node).marked || !!_maskByNode[a.node.id]; })) continue;
       while (ranges.length && start <= ranges[ranges.length - 1].end) start = Math.min(start, ranges.pop().start);
       ranges.push({ start: start, end: end });
     }
