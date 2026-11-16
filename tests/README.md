@@ -309,6 +309,8 @@ python scripts/compare-card-brightness.py
 
 删除“可编辑图层”和“转换 Figma 蒙版”两个重复开关；两种导出目标均固定使用节点数据并处理蒙版。导出期间锁定所有设置。面板保持固定窗口高度，展开内容可滚动，不再因展开工具而改变窗口大小。
 
+“图层工具”面板位于 `--panel` 底色上，六个工具按钮改用 `--surface` 填充、`--line` 描边并补充悬停、按下及焦点状态，避免与面板同色而看起来像纯文本；同时删除底部的“作用于所选内容，可在 Figma 中撤销。”说明行。
+
 ```powershell
 node tests/direct-aep-ui.cjs
 node tests/bridge-batch.cjs

@@ -6,9 +6,10 @@
 <!-- Refactoring UI constraints (§2.1, §2.8, §3.6): import is primary; AEP export is secondary.
      Layer tools are open beneath export; common settings follow, with advanced settings collapsed.
      Keep the existing dark tokens, 8px control gaps/radii, 12px panel padding and 16px section spacing.
+     Layer-tool buttons sit on a panel, so they use the raised --surface fill and --line edge to read as buttons.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
-  :root { --bg:#1e1e1e; --panel:#2a2a2a; --accent:#a78bfa; --text:#e8e8e8; --muted:#a3a3a3; --ok:#22c55e; --err:#ef4444; }
+  :root { --bg:#1e1e1e; --panel:#2a2a2a; --surface:#383838; --surface-hover:#464646; --surface-active:#303030; --line:#4b4b4b; --line-hover:#5a5a5a; --accent:#a78bfa; --text:#e8e8e8; --muted:#a3a3a3; --ok:#22c55e; --err:#ef4444; }
   html,body { margin:0; font:12px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,sans-serif; background:var(--bg); color:var(--text); color-scheme:dark; scrollbar-width:thin; }
   .wrap { padding:14px; box-sizing:border-box; max-width:480px; margin:0 auto; }
   .status { display:flex; align-items:center; gap:8px; margin-bottom:12px; color:var(--muted); }
@@ -26,12 +27,17 @@
   .image-folder-choose svg { display:block; width:20px; height:20px; }
   .image-folder-choose:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .mark-actions { display:flex; gap:8px; margin-top:12px; }
-  .mark-actions button { flex:1; min-width:0; background:var(--panel); color:var(--text); }
+  .mark-actions button { flex:1; min-width:0; }
   details { margin-top:12px; border-radius:8px; background:var(--panel); padding:12px; }
   summary { cursor:pointer; font-weight:600; }
   .tool-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
-  .tool-actions button { background:var(--panel); color:var(--text); }
-  .mark-hint { margin-top:8px; color:var(--muted); }
+  /* Layer tools sit on a panel surface, so their buttons need a raised fill and a hairline
+     edge; panel-colored buttons read as plain text against the panel. */
+  .layer-tools button { padding:9px 10px; border:1px solid var(--line); background:var(--surface); color:var(--text); }
+  .layer-tools button:hover:not(:disabled) { background:var(--surface-hover); border-color:var(--line-hover); }
+  .layer-tools button:active:not(:disabled) { background:var(--surface-active); }
+  .layer-tools button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .mark-hint { margin-top:8px; font-size:11px; line-height:1.5; color:var(--muted); }
   .msg { margin-top:10px; min-height:16px; color:var(--muted); overflow-wrap:anywhere; }
   .msg:empty { display:none; }
   .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
@@ -83,7 +89,6 @@
       <button id="expand-groups" disabled>展开空分组</button>
       <button id="delete-hidden" disabled>清理隐藏图层</button>
     </div>
-    <div class="hint">作用于所选内容，可在 Figma 中撤销。</div>
   </details>
   <fieldset class="settings">
     <legend>图层</legend>
