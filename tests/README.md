@@ -30,11 +30,12 @@ AEP 导出先完成 Figma 采集、图片处理和临时工程生成，再弹出
 node tests/direct-aep.cjs
 node tests/direct-aep-ui.cjs
 node tests/aep-open-directory.cjs
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/aep-open-directory.ps1
 .\.venv-aep\Scripts\python.exe tests\aep-destination.py
 node tests/aep-distribution.cjs
 ```
 
-检查使用真实 Python/AEP 写入与 HTTP 服务，覆盖检查/窗口顺序、取消和失败清理、自定义中文名称、同名目录、临时素材删除后的相对引用、打开目录标识与错误，以及 UI 按钮显隐和重复点击。`aep-destination.py` 实际打开 Windows 保存窗口，自动输入中文名称并测试取消，不创建工程。Explorer 启动回归确认窗口可见；本机另通过 Shell.Application 实测中文及空格目录可见。Figma UI 由测试模拟；分发测试可通过首个参数指定分发目录。
+检查使用真实 Python/AEP 写入与 HTTP 服务，覆盖检查/窗口顺序、取消和失败清理、自定义中文名称、同名目录、临时素材删除后的相对引用、打开目录标识与错误，以及 UI 按钮显隐和重复点击。`aep-destination.py` 实际打开 Windows 保存窗口，自动输入中文名称并测试取消，不创建工程。`aep-open-directory.cjs` 检查目录参数和辅助进程；`aep-open-directory.ps1` 实测中文、空格及特殊字符目录在前台显示、从最小化恢复和重复打开复用窗口，结束后关闭测试创建的窗口。Figma UI 由测试模拟；分发测试可通过首个参数指定分发目录。
 
 ## 图片像素对齐
 

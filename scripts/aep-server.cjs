@@ -4,9 +4,11 @@ const http = require('node:http');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
-const {spawn} = require('node:child_process');
+const {execFile} = require('node:child_process');
+const {promisify} = require('node:util');
 const {randomUUID} = require('node:crypto');
 const {exportAep, chooseDestination} = require('./export-aep.cjs');
+const run = promisify(execFile);
 
 function outputName(name) {
   let base = String(name || 'Figma').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100).replace(/[. ]+$/, '') || 'Figma';
@@ -97,13 +99,10 @@ function start(options = {}) {
   return server;
 }
 
-function openDirectory(directory) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(path.join(process.env.SystemRoot, 'explorer.exe'), [directory],
-      {windowsHide:false, detached:true, stdio:'ignore'});
-    child.once('error', reject);
-    child.once('spawn', () => { child.unref(); resolve(); });
-  });
+async function openDirectory(directory) {
+  const powershell = path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe');
+  await run(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+    '-File', path.join(__dirname, 'open-aep-directory.ps1'), '-Directory', directory], {windowsHide:true, timeout:15000});
 }
 
 if (require.main === module) start();
