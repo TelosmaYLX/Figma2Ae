@@ -9,7 +9,7 @@
  *
  *   var bridge = require('./mkBridgeServer.js');
  *   var server = bridge.start({
- *     port: 8767,
+ *     port: 7365,
  *     onSvg: function (svg, meta) {
  *       var p = bridge.saveTemp(svg);
  *       // csInterface.evalScript('runSvgToShapes("' + p.replace(/\\/g,'/') + '")', cb);
@@ -73,7 +73,7 @@ function encodePong(payload) {
 
 function start(opts) {
   opts = opts || {};
-  var port = opts.port == null ? 8767 : opts.port;
+  var port = opts.port == null ? 7365 : opts.port;
   var onSvg = opts.onSvg || function () { return { ok: true }; };
   var onImages = opts.onImages || function () { return { ok: true }; };
   var imgBuf = [], imgTimer = null, explicitImageEnd = false, expectedImages = 0;
