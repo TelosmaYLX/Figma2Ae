@@ -553,6 +553,60 @@ function _nestIndependentMasks(root, organize, channels, containers) {
   }
 }
 
+// Shared masks on pass-through artwork belong to each drawing result. Keep the matte
+// inside a Normal wrapper and put the drawing's blend/opacity on that wrapper, so
+// the blend sees the backdrop outside the masked content instead of transparent pixels.
+function _distributeBlendMasks(root, channels, containers) {
+  var byId = {}, spread = {}, removed = {}, rows = [], additions = [], serial = 0;
+  function passes(c) {
+    return c.maskScope || (c.blend === 'PASS_THROUGH' && c.opacity === 1 && !c.clip && !c.blur && !(c.fx && c.fx.length));
+  }
+  for (var i = 0; i < containers.length; i++) byId[containers[i].id] = containers[i];
+  for (i = 0; i < channels.length; i++) rows = rows.concat(channels[i]);
+  rows = rows.concat(containers);
+  for (i = 0; i < rows.length; i++) {
+    var row = rows[i], mode = row.blend || 'NORMAL';
+    if (row.reference || row.maskSource || mode === 'NORMAL' || mode === 'PASS_THROUGH') continue;
+    for (var p = (row.path || []).length - 1; p >= 0; p--) {
+      var c = byId[row.path[p]];
+      if (!c || !passes(c)) break;
+      if (c.maskId) spread[c.id] = c.maskId;
+    }
+  }
+  if (!Object.keys(spread).length) return;
+  for (i = 0; i < containers.length; i++) if (spread[containers[i].id] && containers[i].maskScope) removed[containers[i].id] = true;
+  var bounds = _contentBounds(root);
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    if (row.reference || row.maskSource || removed[row.id]) continue;
+    var originalPath = row.path || [], path = [], masks = [];
+    for (p = 0; p < originalPath.length; p++) {
+      c = byId[originalPath[p]];
+      if (c && spread[c.id]) masks.push(spread[c.id]);
+      else if (c && !passes(c)) masks = [];
+      if (!removed[originalPath[p]]) path.push(originalPath[p]);
+    }
+    row.path = path;
+    // A retained pass-through group carries its mask down to its drawings.
+    if (byId[row.id] && passes(row)) { if (spread[row.id]) row.maskId = null; continue; }
+    if (!masks.length) continue;
+    if (row.maskId && masks.indexOf(row.maskId) === -1) masks.push(row.maskId);
+    var blend = row.blend || 'NORMAL', opacity = row.opacity == null ? 1 : row.opacity;
+    for (var m = 0; m < masks.length; m++) {
+      var id = root.id + '-masked-' + (++serial);
+      additions.push({id:id,sourceId:row.sourceId,name:row.name + (m ? ' 蒙版' : ' 内容'),type:'GROUP',
+        path:path.slice(),z:row.z,x:bounds.x,y:bounds.y,w:bounds.w,h:bounds.h,
+        cb:{x:bounds.x,y:bounds.y,w:bounds.w,h:bounds.h},
+        opacity:m ? 1 : opacity,blend:m ? 'NORMAL' : blend,maskId:masks[m],
+        clip:false,hidden:!!row.hidden,blur:0,fx:[]});
+      path.push(id);
+    }
+    row.path = path; row.maskId = null; row.blend = 'NORMAL'; row.opacity = 1;
+  }
+  for (i = containers.length - 1; i >= 0; i--) if (removed[containers[i].id]) containers.splice(i, 1);
+  for (i = 0; i < additions.length; i++) containers.push(additions[i]);
+}
+
 // Blend pixels depend on the paint below them. Baking only the blend layer still asks AE to
 // repeat that operation. Render the smallest closed sibling range instead, on the export copy.
 async function _bakeBlendStacks(root, organize) {
@@ -1239,6 +1293,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       }
     }
     _nestIndependentMasks(node, !!organize, [nodeShapes || [], texts, images, containers || []], containers);
+    if (containers) _distributeBlendMasks(node, [nodeShapes || [], texts, images], containers);
     if (containers) _markBlendPassThrough(containers, [nodeShapes || [], texts, images]);
 
     // Disable clipping only AFTER the container table has captured it. The root is exported
@@ -1907,7 +1962,7 @@ async function collectImages(root, rootId, organize) {
             // Was the node's OWN opacity only, so a picture inside a faded group arrived at full
             // strength. The chain fixes that, and in organize mode it stops at the container
             // because the precomp carries the group's opacity.
-            scaleMode: mode, opacity: organize && _isContainer(n) ? 1 : _opacityChain(n, organize, rootId), hidden: _isHidden(n),
+            scaleMode: mode, opacity: (organize && _isContainer(n) ? 1 : _opacityChain(n, organize, rootId)) * (f.opacity == null ? 1 : f.opacity), hidden: _isHidden(n),
             maskId: organize && _isContainer(n) ? null : (_maskByNode[n.id] || null),
             blend: organize && _isContainer(n) ? 'NORMAL' : (n.blendMode || 'NORMAL'),
             path: organize && _isContainer(n) ? _pathOf(n, rootId).concat([n.id]) : _pathOf(n, rootId), z: _zOf(n),
