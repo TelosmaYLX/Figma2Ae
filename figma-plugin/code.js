@@ -373,7 +373,7 @@ function _singleImageNeedsRaster(n) {
   // Image adjustments live on the paint, not in n.effects. They cannot be reproduced by AE's
   // original-footage route, so bake this leaf even when an independent mask preserves its siblings.
   if (!n || _isContainer(n) || n.type === 'TEXT' || _maskSourceByNode[n.id]) return false;
-  var image = false, crop = false, adjusted = false;
+  var image = false, crop = false, adjusted = false, translucent = false;
   try {
     var paints = n.fills || [];
     for (var i = 0; i < paints.length; i++) {
@@ -381,14 +381,15 @@ function _singleImageNeedsRaster(n) {
       if (p.visible === false || p.type !== 'IMAGE') continue;
       image = true;
       adjusted = adjusted || _hasImageAdjustments(p);
+      translucent = translucent || (typeof p.opacity === 'number' && p.opacity !== 1);
       // AE's centred cover-fit is NOT Figma CROP: imageTransform carries the user's crop/zoom.
       // Export just this leaf as rendered by Figma, retaining its own layer and full-resolution
       // appearance instead of silently discarding that transform.
       if (p.scaleMode === 'CROP' || p.imageTransform) crop = true;
     }
   } catch (e) { return false; }
-  if (image && adjusted) {
-    _requireRasterOption(n, 'effects', '的图片调色（曝光、对比度等）需要转为图片');
+  if (image && (adjusted || translucent)) {
+    _requireRasterOption(n, 'effects', adjusted ? '的图片调色（曝光、对比度等）或填充不透明度需要转为图片' : '的图片填充不透明度需要转为图片');
     return true;
   }
   if (_maskByNode[n.id] || _usesIndependentMask(n)) return false;
