@@ -1,5 +1,25 @@
 # AE 渐变回归
 
+## 内置 MCP
+
+F2A 内置 Cursor Talk to Figma MCP，使用方式与一次性客户端配置见
+[mcp/README.md](../mcp/README.md)。
+
+```powershell
+node tests/mcp.cjs
+node tests/mcp-start.cjs
+```
+
+检查使用独立 stdio MCP 进程、真实 HTTP/WebSocket 中继、实际 F2A UI 和内置命令，
+覆盖 45 个工具的发现、读写、单文档自动连接、多文档选择、导出互斥、错误与空值、
+超时和断线。冷启动检查在中文/空格临时目录中同时启动四个连接，确认复用同一个
+后台中继；运行目录不含 node_modules。Figma API 对象由测试模拟，不替代真实 Figma
+文档操作验收。`scripts/preview-export-ui.mjs` 检查新增连接状态的布局。
+
+已有 AE 面板可运行 `node scripts/verify-mcp-cep.mjs --reload` 检查真实 CEP 启动；
+`node scripts/verify-mcp-live.cjs` 通过独立 MCP 客户端读取实际连接的 Figma 文档和选区。
+后者只读，不创建或修改设计。报告保存在 `artifacts/mcp`。
+
 直接导出 AEP 的用法、范围和验证命令见 [scripts/aep/README.md](../scripts/aep/README.md)。
 
 ## 导出检查与打开文件夹

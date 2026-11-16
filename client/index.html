@@ -30,6 +30,11 @@
     <span class="mk-fig-dot off" id="mk-fig-dot" aria-hidden="true"></span>
     <span class="mk-fig-label" id="mk-fig-label">正在启动 SVG 桥接…</span>
   </div>
+  <!-- Secondary connection status reuses the existing bar, type and dot tokens. -->
+  <div class="mk-figbar" role="status">
+    <span class="mk-fig-dot off" id="mk-mcp-dot" aria-hidden="true"></span>
+    <span class="mk-fig-label" id="mk-mcp-label">MCP 正在启动…</span>
+  </div>
 
   <div class="mk-image-folder">
     <div class="mk-image-folder-label" id="mk-image-folder-label">图片保存位置</div>
@@ -58,6 +63,7 @@
   </div>
 
   <script src="figmaBridge.js"></script>
+  <script src="mcpBridge.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

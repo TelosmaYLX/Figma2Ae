@@ -34,9 +34,10 @@ function uiHarness(bridge, main) {
   const html = fs.readFileSync(path.join(root, 'figma-plugin/ui.html'), 'utf8'), elements = {};
   for (const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) elements[m[1]] = {checked: /\bchecked\b/.test(m[0]), disabled: /\bdisabled\b/.test(m[0])};
   elements['raster-scale'].value='1';
+  elements['text-mode'].value='editable';
   elements['native-image-masks'].value='separate';
   let socket;
-  function WebSocket() { socket = this; this.readyState = 1; this.send = text => bridge.send(JSON.parse(text)); }
+  function WebSocket(url) { if (url.endsWith('/plugin')) return; socket = this; this.readyState = 1; this.send = text => bridge.send(JSON.parse(text)); }
   const window = {};
   vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1], {
     window, WebSocket, document: {getElementById: id => elements[id]},
@@ -82,15 +83,15 @@ function uiHarness(bridge, main) {
   assert.equal(ui.elements.ship.disabled, false); assert.equal(ui.elements['mark-raster'].disabled, false);
   const textBridge = bridgeHarness(), textMain = harness(group('文字画框', [node('TEXT', '文字 A'), node('TEXT', '文字 B')]));
   const textUi = uiHarness(textBridge, textMain);
-  assert.equal(textUi.elements.rastertexts.checked, false);
-  textUi.elements.rastertexts.checked = true;
+  assert.equal(textUi.elements['text-mode'].value, 'editable');
+  textUi.elements['text-mode'].value = 'png';
   const post = textMain.figma.ui.postMessage;
   const finished = new Promise(resolve => {
     textMain.figma.ui.postMessage = m => { post(m); if (m.type === 'export-state' && !m.busy) resolve(); };
   });
   textUi.elements.ship.onclick(); await finished;
   assert.equal(textBridge.imports[0].meta.texts.length, 0);
-  assert.equal(textBridge.batches.length, 1); assert.equal(textBridge.batches[0].filter(im=>!im.reference).length, 2, 'The checkbox reaches the exporter through the actual UI message handler');
+  assert.equal(textBridge.batches.length, 1); assert.equal(textBridge.batches[0].filter(im=>!im.reference).length, 2, 'The text mode reaches the exporter through the actual UI message handler');
   const policyBridge = bridgeHarness(), policyMain = harness(node('FRAME', '选项画框', {clipsContent: true, fills: [{type: 'SOLID'}], children: [group('Group', [node('TEXT', '组文字')]), node('INSTANCE', 'Instance', {children: [node('TEXT', '实例文字')]})]}));
   const policyUi = uiHarness(policyBridge, policyMain);
   assert.equal(policyUi.elements.rasterallgroups.checked, false); assert.equal(policyUi.elements.rasterinstances.checked, false); assert.equal(policyUi.elements.enableclip.checked, true);

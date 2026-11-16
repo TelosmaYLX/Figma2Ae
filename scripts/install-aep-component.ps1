@@ -17,7 +17,7 @@ if ($aepSource -ne $aepTarget) {
             if (-not $aepProcess.WaitForExit(10000)) { throw 'Cannot stop the previous AEP export component.' }
         }
     }
-    foreach ($aepPart in @('runtime', 'scripts', 'host', 'figma-plugin', 'cep-extension', 'runtime-manifest.json', 'README.txt')) {
+    foreach ($aepPart in @('runtime', 'scripts', 'host', 'figma-plugin', 'cep-extension', 'mcp', 'runtime-manifest.json', 'README.txt')) {
         Copy-Item -LiteralPath (Join-Path $aepSource $aepPart) -Destination $aepTarget -Recurse -Force
     }
 }

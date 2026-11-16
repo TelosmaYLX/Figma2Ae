@@ -1,6 +1,8 @@
 <!-- ui.html — Figma plugin iframe. Holds the WebSocket client to the AE bridge. -->
 <!-- Only the UI iframe can do network; the main thread (code.js) exports SVG and posts it here. -->
 <!-- Plain HTML; no Tailwind or component library. Use the existing :root tokens and dark theme. -->
+<!-- MCP is a secondary status line. Reuse .status/.dot, existing text colors and 8px gaps;
+     importing remains the only primary action. No extra setup controls in the normal flow. -->
 <!-- Refactoring UI constraints (§2.1, §2.8, §3.6): import is primary; AEP export is secondary.
      Common settings are grouped by layers, text and images; advanced settings and document tools are collapsed.
      Keep the existing dark tokens, 8px control gaps/radii, 12px panel padding and 16px section spacing.
@@ -53,6 +55,7 @@
 </style>
 <div class="wrap">
   <div class="status"><span id="dot" class="dot"></span><span id="conn">正在连接 After Effects…</span></div>
+  <div class="status" role="status"><span id="mcp-dot" class="dot" aria-hidden="true"></span><span id="mcp-status">MCP 正在连接…</span></div>
   <div class="image-folder">
     <div class="image-folder-label" id="image-folder-label">图片保存位置</div>
     <div class="image-folder-row">
@@ -157,6 +160,28 @@
   var imageTasks = Promise.resolve(), processingImages = false, imageProcessingFailed = false;
   var $ = function (id) { return document.getElementById(id); };
   var toolButtons = { 'detach-instances': 'detach', 'convert-groups': 'group-to-frame', 'expand-groups': 'expand', 'delete-hidden': 'delete-hidden' };
+  var mcpSocket = null, mcpRetryTimer = null, mcpExecuting = false;
+  function mcpStatus(on, text) {
+    $('mcp-dot').className = 'dot ' + (on ? 'on' : 'off');
+    $('mcp-status').textContent = text;
+  }
+  function mcpSend(message) {
+    if (mcpSocket && mcpSocket.readyState === 1) mcpSocket.send(JSON.stringify(message));
+  }
+  function connectMcp() {
+    mcpSocket = new WebSocket('ws://127.0.0.1:7869/plugin');
+    mcpSocket.onopen = function () { parent.postMessage({pluginMessage:{type:'mcp-info'}}, '*'); };
+    mcpSocket.onmessage = function (event) {
+      var message = JSON.parse(event.data);
+      if (message.type === 'ready') { mcpStatus(true, 'MCP 已就绪'); return; }
+      if (message.type === 'command') parent.postMessage({pluginMessage:{type:'mcp-command', id:message.id, command:message.command, params:message.params}}, '*');
+    };
+    mcpSocket.onerror = function () { mcpStatus(false, 'MCP 等待 agent 连接'); };
+    mcpSocket.onclose = function () {
+      mcpStatus(false, 'MCP 等待 agent 连接');
+      if (!mcpRetryTimer) mcpRetryTimer = setTimeout(function () { mcpRetryTimer = null; connectMcp(); }, 1500);
+    };
+  }
   $('text-mode').onchange = function () {
     var hints = {editable:'细描边文字自动转为矢量。',vector:'无需本机字体，文字内容不可编辑。',png:'文字转为图片，内容不可编辑。'};
     $('text-mode-hint').textContent = hints[this.value];
@@ -170,7 +195,7 @@
     if (state) readImageFolder().catch(function (error) { say(error.message, 'err'); });
   }
   function updateButton() {
-    var busy = locatingLayer || folderBusy || exporting || aepBusy || processingImages;
+    var busy = locatingLayer || folderBusy || exporting || aepBusy || processingImages || mcpExecuting;
     $('ship').disabled = busy || !(connected && selCount > 0);
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
@@ -455,6 +480,10 @@
   window.onmessage = function (event) {
     var msg = event.data.pluginMessage;
     if (!msg) return;
+    if (msg.type === 'mcp-info') { mcpSend({type:'hello', name:msg.name, fileKey:msg.fileKey, pageId:msg.pageId, pageName:msg.pageName}); return; }
+    if (msg.type === 'mcp-result') { mcpSend({type:'result', id:msg.id, result:msg.result, error:msg.error}); return; }
+    if (msg.type === 'command_progress') { mcpSend({type:'progress', id:msg.commandId}); return; }
+    if (msg.type === 'mcp-busy') { mcpExecuting = msg.busy; updateButton(); return; }
     if (msg.type === 'image-abort') msg = {type:'error',message:'图片导出失败，已取消导出'};
     if (msg.type === 'selection') { selCount = msg.count; updateButton(); }
     if (msg.type === 'locate-result') {
@@ -534,4 +563,5 @@
   };
 
   connect();
+  connectMcp();
 </script>

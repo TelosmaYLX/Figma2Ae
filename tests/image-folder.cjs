@@ -61,7 +61,7 @@ async function check(){
     for(const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g))elements[m[1]]={disabled:/\bdisabled\b/.test(m[0]),checked:/\bchecked\b/.test(m[0])};
   elements['raster-scale'].value='1';elements['native-image-masks'].value='separate';
     const window={},context=vm.createContext({window,document:{getElementById:id=>elements[id]},setTimeout(){},
-      WebSocket:function(){socket=this;this.readyState=1;this.send=()=>{};},
+      WebSocket:function(url){if(url.endsWith('/plugin'))return;socket=this;this.readyState=1;this.send=()=>{};},
       fetch:async(url,options)=>{
         requests.push(options.method);assert.equal(url,'http://127.0.0.1:7867/image-folder');
         if(error)return{ok:false,json:async()=>({error:'目录窗口打开失败'})};

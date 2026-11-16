@@ -12,7 +12,7 @@ function panel(main){
   elements['raster-scale'].value='1';
   let socket;
   const window={},context=vm.createContext({window,document:{getElementById:id=>elements[id]},setTimeout(){},
-    WebSocket:function(){socket=this;this.readyState=1;this.send=message=>posts.push(JSON.parse(message));},
+    WebSocket:function(url){if(url.endsWith('/plugin'))return;socket=this;this.readyState=1;this.send=message=>posts.push(JSON.parse(message));},
     fetch:async()=>({ok:true,json:async()=>({ok:true,directory:null})}),
     parent:{postMessage({pluginMessage}){posts.push(pluginMessage);pending.push(main.figma.ui.onmessage(pluginMessage));}}});
   const emit=message=>window.onmessage({data:{pluginMessage:message}});
