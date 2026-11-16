@@ -43,6 +43,7 @@ node tests/aep-distribution.cjs
 
 ```powershell
 node tests/raster-pixels.cjs
+node tests/raster-backdrop.cjs
 node tests/raster-scale.cjs
 node tests/bicubic-export.cjs
 node tests/aep-layout.cjs 1
@@ -52,6 +53,8 @@ node scripts/ae-eval.mjs tests/ae-aep-layout.jsx artifacts/aep-layout-pixels-ae-
 ```
 
 像素检查使用实际导出代码与模拟 Figma 画布，覆盖 1×/2×/3×/4×、双三次输出、原变换与小数偏移、透明补边和失败清理。真实 AE 检查临时导入生成的工程，核对图片倍率、像素比例、位置和采样设置，渲染后移除测试项目项。上述检查不替代一次新的在线 Figma 导出画面对照。完整画布边界使用 Figma 的 [useAbsoluteBounds](https://developers.figma.com/docs/plugins/api/ExportSettings/#useabsolutebounds-boolean-readonly)。
+
+背景模糊和玻璃切图的补边画布放在导出副本内、源节点的前一个绘制位置，保留原有背景采样顺序；不能放到页面最上层，否则上方文字会被采样进底框。自动布局中画布使用绝对定位，不参与布局。`raster-backdrop.cjs` 覆盖叶层、包含背景模糊的整组图片、独立文字及自动布局。真实首页的 Figma 复现、修复工程和 AE 对照见 `docs/analysis/homepage-backdrop-2026-11-16.md`；`tests/ae-home-backdrop.jsx` 读取该记录的 cases.json，在 AE 中验证独立矢量文字和底框的层序、素材完整性并渲染。
 
 ## 锚点与栅格比例
 

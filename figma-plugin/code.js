@@ -932,6 +932,11 @@ function _updateRasterBounds(im, bounds) {
 // Render into a pixel-aligned canvas instead of letting Figma independently round the
 // tight PNG width/height. Keep fractional artwork inside transparent padding, so AE
 // can use the original pixel scale without stretching or filtering the tight crop again.
+function _rasterNeedsBackdrop(n) {
+  if (_isHidden(n) || n.opacity === 0) return false;
+  if ((n.effects || []).some(function (e) { return e.visible !== false && (e.type === 'BACKGROUND_BLUR' || e.type === 'GLASS'); })) return true;
+  return !!(n.children && n.children.some(_rasterNeedsBackdrop));
+}
 async function _exportRasterPng(im) {
   var n = im.rasterNode, b = n.absoluteRenderBounds || n.absoluteBoundingBox;
   var left = _rasterOrigin.x + Math.floor((b.x - _rasterOrigin.x) * _rasterScale + 0.000001) / _rasterScale;
@@ -947,6 +952,15 @@ async function _exportRasterPng(im) {
     frame.resizeWithoutConstraints(width, height); frame.x = left; frame.y = top;
     var transform = n.absoluteTransform.map(function (row) { return row.slice(); });
     var size = { width: n.width, height: n.height };
+    if (_rasterNeedsBackdrop(n)) {
+      // A page-top canvas would sample later siblings, including foreground text.
+      // Render immediately BEFORE the source so it sees the same earlier backdrop,
+      // without sampling a second copy of the source itself.
+      var parent = n.parent;
+      parent.insertChild(parent.children.indexOf(n), frame);
+      if (parent.layoutMode && parent.layoutMode !== 'NONE') frame.layoutPositioning = 'ABSOLUTE';
+      frame.relativeTransform = _matrixProduct(_inverseMatrix(parent.absoluteTransform), [[1, 0, left], [0, 1, top]]);
+    }
     var copy = n.clone(); frame.appendChild(copy);
     if ((copy.width !== size.width || copy.height !== size.height) && typeof copy.resizeWithoutConstraints === 'function')
       copy.resizeWithoutConstraints(size.width, size.height);
