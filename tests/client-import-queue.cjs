@@ -16,7 +16,7 @@ function harness({rememberFolder = true, failImages = false, shadowRenderer, nat
     return fs.writeFileSync(file, data, encoding);
   };
   const bridge = {start(opts) { callbacks = opts; }, saveTemp(svg) { const file = path.join(dir, 'source-' + (++svgId) + '.svg'); fs.writeFileSync(file, svg); return file; }};
-  const window = {MKToast(m) { messages.push(m); }, __adobe_cep__: {
+  const window = {MKReport(m) { messages.push(m); }, __adobe_cep__: {
     getSystemPath() { return root.replaceAll('\\', '/'); },
     evalScript(script, callback) {
       if (script.startsWith('runImportBatch(')) {

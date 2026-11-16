@@ -4,9 +4,10 @@
  * SVGParser and AEShapeBuilder globals). No #include here — the panel evalFiles the
  * three files in order into the one persistent ExtendScript engine.
  *
- * Exposes two globals the panel calls:
- *   runSvgToShapes(pathOrSvg)  -> status string   (called by the WebSocket bridge)
- *   figmaImportDialog()        -> status string   (manual "Import SVG…" button)
+ * Exposes the global the panel calls:
+ *   runSvgToShapes(pathOrSvg)  -> status string   (called by the WebSocket bridge through
+ *                                                  runImportBatch; the panel has no manual
+ *                                                  import button any more)
  */
 
 function _mkReadFile(file) {
@@ -213,10 +214,4 @@ function runImportImages(imagesJsonPath, folder) {
     var d = ""; try { d = AEShapeBuilder.getDiag(); } catch (ed) {}
     return "已导入 " + n + "/" + images.length + " 张图片" + (d ? " | " + d : "");
   } catch (e) { return "image error: " + e.toString(); }
-}
-
-function figmaImportDialog() {
-  var f = File.openDialog("选择 SVG 文件（可从 Figma 导出）", "*.svg");
-  if (!f) return "Cancelled.";
-  return runSvgToShapes(f.fsName);
 }

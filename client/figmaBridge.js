@@ -1,14 +1,15 @@
-/* ===== f2a — SVG Import module (client side) =====
+/* ===== f2a — Figma bridge (client side) =====
  * Runs in the panel. Starts the localhost WebSocket bridge, loads the SVG->shapes
  * ExtendScript engine into the persistent AE engine, and commits complete payloads through
- * runImportBatch(). Exposes window.MKFigma for main.js buttons. Requires Node in-panel
- * (--enable-nodejs + --mixed-context). Degrades to a preview no-op in a plain browser.
+ * runImportBatch(). Figma drives imports through the bridge routes; the panel itself exposes
+ * no buttons. Requires Node in-panel (--enable-nodejs + --mixed-context). Degrades to a
+ * preview no-op in a plain browser.
  */
 (function () {
   "use strict";
   var PORT = 7867;
   var CEP = (typeof window.__adobe_cep__ !== "undefined");
-  var MKFigma = window.MKFigma = { connected: false, manualImport: noop, selectImageFolder: noop };
+  var MKFigma = window.MKFigma = { connected: false, selectImageFolder: noop };
 
   var baseStatus = "正在启动 SVG 桥接…";   // persistent line the bar returns to
   var revertTimer = null;
@@ -30,7 +31,7 @@
   // transient message — shows, then fades back to the base connection line
   function flash(text, isErr) {
     paint(text);
-    if (window.MKToast) window.MKToast(text, isErr);
+    if (window.MKReport) window.MKReport(text, isErr);
     if (window.console) console.log("[svg-import] " + text);
     if (revertTimer) clearTimeout(revertTimer);
     revertTimer = setTimeout(function () { paint(baseStatus); }, 3500);
@@ -44,7 +45,6 @@
   }
 
   if (!CEP) {
-    MKFigma.manualImport = function () { flash("[预览] SVG 导入需要在 AE 中运行"); };
     MKFigma.selectImageFolder = function () { flash('请在 AE 中选择图片保存位置'); };
     document.addEventListener("DOMContentLoaded", function () { setBase("预览模式（请在 AE 中打开）"); });
     return;
@@ -260,15 +260,7 @@
   evalES('$.evalFile("' + host + '/aeShapeBuilder.jsx");');
   evalES('$.evalFile("' + host + '/figmaRunner.jsx"); "loaded";', function () {});
 
-  // 2) Manual import button (pick a local .svg)
-  MKFigma.manualImport = function () {
-    flash("请选择 SVG 文件…");
-    evalES("figmaImportDialog();", function (res) {
-      if (res === "Cancelled.") flash("已取消导入");
-      else flash("AE: " + res, /error/i.test(res));
-    });
-  };
-
+  // 2) Folder picker shared with the Figma plugin through the bridge routes
   function chooseImageFolder(cb, force) {
     if (folderSelecting) { cb(new Error('目录窗口已打开')); return; }
     var current = getImageFolder();

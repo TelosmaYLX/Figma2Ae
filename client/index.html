@@ -7,18 +7,14 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Import stays primary. The panel only hosts the Figma → AE action and the two bridge
-       status lines; the image folder is chosen from the Figma plugin through the bridge routes. -->
+  <!-- The panel is a bridge monitor: Figma drives the import through the localhost routes, so the
+       panel only shows the two connection lines and the live log. No tool buttons, no toast. -->
   <header class="mk-header">
     <div class="mk-brand">
       <h1 class="mk-name">F2A</h1>
       <span class="mk-ver">v1.0</span>
     </div>
   </header>
-
-  <main id="mk-main" class="mk-main"><!-- groups injected by main.js --></main>
-
-  <div class="mk-status" id="mk-status" aria-live="polite"></div>
 
   <!-- Figma bridge status (updated by figmaBridge.js) -->
   <div class="mk-figbar" id="mk-figbar">
@@ -39,17 +35,6 @@
     </div>
     <div class="mk-console-list" id="mk-log" role="log" aria-live="polite"></div>
   </section>
-
-  <!-- Popup -->
-  <div class="mk-overlay" id="mk-overlay" hidden>
-    <div class="mk-popup" role="dialog" aria-modal="true" aria-labelledby="mk-popup-title">
-      <div class="mk-popup-head">
-        <h2 id="mk-popup-title">标题</h2>
-        <button class="mk-close" id="mk-popup-close" aria-label="关闭">&times;</button>
-      </div>
-      <div class="mk-popup-body" id="mk-popup-body"></div>
-    </div>
-  </div>
 
   <!-- main.js first: it owns the live log, so the bridge modules can report from their first line. -->
   <script src="main.js"></script>

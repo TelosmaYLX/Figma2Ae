@@ -42,104 +42,17 @@ body{
 .mk-name{margin:0; font-size:15px; font-weight:700; letter-spacing:.2px; color:var(--text);}
 .mk-ver{font-size:11px; font-weight:600; color:var(--text-mute); letter-spacing:.3px; margin-left:7px;}
 
-/* ---------- Main / groups ---------- */
-.mk-main{padding:4px 14px 0; display:flex; flex-direction:column;}
-.mk-main > * + *{margin-top:16px;}
-.mk-group{display:flex; flex-direction:column;}
-.mk-group > * + *{margin-top:8px;}
-.mk-group-label{
-  display:flex; align-items:center;
-  font-size:10px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase;
-  color:var(--accent); margin:2px 2px 0;
-}
-.mk-group-label::after{content:""; flex:1; height:1px; margin-left:8px;
-  background:linear-gradient(90deg,var(--border) 0%, transparent 100%);}
-
-/* Responsive: columns follow the panel width instead of a hard 2-up split —
-   narrow panels collapse to one column (no clipped buttons), wide panels gain a third. */
-.mk-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(118px, 1fr)); grid-gap:8px; gap:8px;}
-.mk-grid > *{min-width:0;}
-.mk-grid.one{grid-template-columns:1fr;}
-
-/* ---------- Buttons ---------- */
-.mk-btn{
-  appearance:none; border:1px solid var(--border-soft); cursor:pointer;
-  background:var(--surface-2);
-  color:var(--text); text-align:left;
-  padding:9px 11px; border-radius:var(--radius);
-  font-size:12.5px; font-weight:500; letter-spacing:.2px;
-  display:flex; align-items:center;
-  transition:transform .06s ease, border-color .12s ease, background .12s ease;
-}
-.mk-btn:hover{border-color:var(--border); background:var(--surface-hi);}
-.mk-btn:active{transform:translateY(1px);}
-.mk-btn .ic{
-  width:20px; height:20px; flex:0 0 auto; border-radius:var(--radius-sm);
-  display:grid; align-items:center; justify-items:center; place-items:center; font-size:12px;
-  background:rgba(167,139,250,.09); color:var(--accent);
-}
-.mk-btn > * + *{margin-left:9px;}
-.mk-btn .lbl{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.mk-btn.has-more .chev{color:var(--text-mute); font-size:10px; flex:0 0 auto;}
-.mk-btn.has-more:hover .chev{color:var(--accent-hi);}
-
-/* primary (accent) button for the marquee action */
-.mk-btn.primary{ background:var(--surface-2); color:var(--text); border-color:var(--border-soft); }
-.mk-btn.primary .ic{ background:rgba(167,139,250,.09); color:var(--accent); }
-.mk-btn.primary:hover{ border-color:var(--border); background:var(--surface-hi); }
-
-/* ---------- Popup ---------- */
-.mk-overlay{
-  position:fixed; top:0; right:0; bottom:0; left:0; z-index:20;
-  background:rgba(10,6,18,.66); backdrop-filter:blur(3px);
-  display:flex; align-items:center; justify-content:center; padding:18px;
-  animation:mk-fade .12s ease;
-}
-.mk-overlay[hidden]{display:none;}
-@keyframes mk-fade{from{opacity:0} to{opacity:1}}
-.mk-popup{
-  width:100%; max-width:290px; max-height:86vh; overflow:auto;
-  background:var(--surface);
-  border:1px solid var(--border); border-radius:8px;
-  box-shadow:var(--shadow);
-  animation:mk-pop .14s cubic-bezier(.2,.8,.3,1);
-}
-@keyframes mk-pop{from{transform:translateY(8px) scale(.98); opacity:0} to{transform:none; opacity:1}}
-.mk-popup-head{
-  position:sticky; top:0; display:flex; align-items:center; justify-content:space-between;
-  padding:13px 14px 10px; background:linear-gradient(180deg,var(--bg-2),rgba(28,20,48,.6));
-  border-bottom:1px solid var(--border-soft);
-}
-.mk-popup-head h2{margin:0; font-size:13px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; color:var(--accent-hi);}
-.mk-close{
-  appearance:none; border:none; background:transparent; color:var(--text-mute);
-  font-size:22px; line-height:1; cursor:pointer; padding:0 2px; border-radius:6px;
-}
-.mk-close:hover{color:var(--accent-hi);}
-.mk-popup-body{padding:12px; display:grid; grid-template-columns:repeat(auto-fit, minmax(118px, 1fr)); grid-gap:8px; gap:8px;}
-.mk-popup-body > *{min-width:0;}
-.mk-popup-body.one{grid-template-columns:1fr;}
-
-/* ---------- Status toast ---------- */
-.mk-status{
-  position:fixed; left:50%; bottom:14px; transform:translateX(-50%) translateY(20px);
-  background:var(--surface-hi); border:1px solid var(--border);
-  color:var(--text); padding:7px 14px; border-radius:20px; font-size:11.5px;
-  box-shadow:var(--shadow); opacity:0; pointer-events:none;
-  transition:opacity .18s ease, transform .18s ease; z-index:30; max-width:88%;
-}
-.mk-status.show{opacity:1; transform:translateX(-50%) translateY(0);}
-.mk-status.err{border-color:var(--danger); color:#ffd9ec;}
-
 /* thin scrollbar */
 ::-webkit-scrollbar{width:9px;height:9px;}
 ::-webkit-scrollbar-thumb{background:var(--surface-hi); border-radius:9px; border:2px solid transparent; background-clip:padding-box;}
 ::-webkit-scrollbar-track{background:transparent;}
 
-/* ---------- Figma bridge status bar ---------- */
+/* ---------- Figma bridge status bar ----------
+   body is a flex column, so sibling margins do not collapse: the two bars sit 6px apart
+   (4px bottom + 2px top) instead of stacking a full 12px gap between the lines. */
 .mk-figbar{
   display:flex; align-items:center;
-  margin:6px 14px 12px; padding:7px 10px;
+  margin:2px 14px 4px; padding:7px 10px;
   background:var(--surface); border:1px solid var(--border-soft);
   border-radius:var(--radius); font-size:11px; color:var(--text-dim);
 }
@@ -150,8 +63,8 @@ body{
 .mk-fig-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* ---------- Live log ----------
-   Takes the leftover height (flex) and scrolls inside itself, so a short panel keeps the
-   action and the two status lines visible. Lines are timestamped and capped in main.js. */
+   Takes the leftover height (flex) and scrolls inside itself, so a short panel keeps both
+   status lines visible. Lines are timestamped and capped in main.js. */
 .mk-console{ display:flex; flex-direction:column; flex:1 1 auto; min-height:72px; margin:0 14px 2px; }
 .mk-console-head{
   display:flex; align-items:center; justify-content:space-between;

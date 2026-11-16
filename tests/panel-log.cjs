@@ -34,9 +34,9 @@ const check=()=>{
   assert.equal(last().className.replace('mk-log-line','').trim(),'','Neutral progress lines keep the muted colour');
   window.MKLog('AE: error on layer','err');assert.match(last().className,/err/);
 
-  window.MKToast('导入完成');
-  assert.equal(last().children[1].textContent,'导入完成','Bridge and import messages reach the log through the shared toast');
-  window.MKToast('导入失败：磁盘已满',true);assert.match(last().className,/err/);
+  window.MKReport('导入完成');
+  assert.equal(last().children[1].textContent,'导入完成','bridge messages reach the log through the report hook');
+  window.MKReport('导入失败：磁盘已满',true);assert.match(last().className,/err/);
 
   // Markup must stay literal: AE and Figma text can contain angle brackets.
   window.MKLog('<script>alert(1)</script>');
@@ -52,8 +52,13 @@ const check=()=>{
   assert.equal(list.children.length,0,'清空 empties the console');
 
   const html=fs.readFileSync(path.join(root,'client/index.html'),'utf8');
+  const css=fs.readFileSync(path.join(root,'client/style.css'),'utf8');
   assert.match(html,/id="mk-log"/);assert.match(html,/id="mk-log-clear"/);
   assert.ok(html.indexOf('src="main.js"')<html.indexOf('src="figmaBridge.js"'),'main.js loads first so bridge lines from the first tick are logged');
-  console.log('PASS: timestamped panel log, tone classes, toast hand-off, 200-line cap, literal text, clear button and script order');
+  assert.ok(!/mk-status|mk-main|mk-overlay|导入 SVG/.test(html),'no toast bubble, tool buttons or popup left in the panel');
+  assert.ok(!/\.mk-status|\.mk-main|\.mk-btn|\.mk-overlay|\.mk-popup/.test(css),'their styles go with the markup');
+  assert.equal(window.MKToast,undefined,'messages no longer surface as a bubble');
+  assert.match(css,/\.mk-figbar\{[^}]*margin:2px 14px 4px/,'the two status lines sit 6px apart');
+  console.log('PASS: timestamped panel log, tone classes, report hook, 200-line cap, literal text, clear button, script order and a toast-free panel');
 };
 check();
