@@ -11,7 +11,7 @@ function ui(packet, behavior='success') {
   assert.match(html,/<option value="separate" selected>原图 \+ 独立蒙版<\/option>/);
   elements['raster-scale'].value='1';
   elements['native-image-masks'].value='separate';
-  elements['text-mode'].value='editable';
+  elements['text-mode'].value=html.match(/<select id="text-mode"[^>]*>[\s\S]*?<option value="([^"]+)" selected/)[1];
   let finish, clock=0, healthCalls=0;
   const done=new Promise(r=>{finish=r;});
   const launches=[];
@@ -87,7 +87,7 @@ function ui(packet, behavior='success') {
   assert.equal(elements.rastertexts,undefined,'Text modes are mutually exclusive');
   for(const id of Object.values(rasterControls))assert.equal(elements[id].checked,true,id+' preserves automatic handling by default');
   if(behavior==='merged-masks')elements['native-image-masks'].value='merge';
-  if(behavior==='vector-text')elements['text-mode'].value='vector';
+  if(behavior==='editable-text')elements['text-mode'].value='editable';
   if(behavior==='png-text')elements['text-mode'].value='png';
   if(behavior==='flat'){
     elements.organize.checked=false;elements.mergeblends.checked=false;
@@ -112,7 +112,7 @@ function ui(packet, behavior='success') {
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   const packet=await fixture();
-  for(const behavior of ['success','native-masks','merged-masks','vector-text','png-text','flat','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
+  for(const behavior of ['success','native-masks','merged-masks','editable-text','png-text','flat','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
@@ -121,8 +121,8 @@ const flush=()=>new Promise(r=>setImmediate(r));
     assert.equal(h.elements['native-image-masks'].disabled,false);
     assert.equal(h.requests.some(r=>r.url.endsWith('/select-directory')),false,'The UI must not choose a folder ahead of validation');
     const selection=h.posts.find(m=>m.type==='ship-selection');
-    if(selection){assert.equal(selection.outlineTexts,behavior==='vector-text');assert.equal(selection.rasterTexts,behavior==='png-text');}
-    if(['success','native-masks','merged-masks','vector-text','png-text','flat','bicubic','cold-start','shadow','warnings','open-error'].includes(behavior)){
+    if(selection){assert.equal(selection.outlineTexts,!['editable-text','png-text'].includes(behavior));assert.equal(selection.rasterTexts,behavior==='png-text');}
+    if(['success','native-masks','merged-masks','editable-text','png-text','flat','bicubic','cold-start','shadow','warnings','open-error'].includes(behavior)){
       const request=JSON.parse(h.requests.find(r=>r.url.endsWith('/export')).options.body);
       assert.deepEqual(Object.keys(request),['packet']);
       const body=request.packet;
@@ -167,7 +167,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
       assert.equal(h.elements['locate-layer'].disabled,false);
     }
     if(behavior==='server-error')assert.equal(h.elements['locate-layer'].hidden,true,'Errors without an original layer ID have no locate action');
-    if(['success','native-masks','merged-masks','vector-text','png-text','flat','cold-start','shadow','open-error'].includes(behavior)){
+    if(['success','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','open-error'].includes(behavior)){
       assert.equal(h.elements['open-aep-folder'].hidden,false);
       h.elements['open-aep-folder'].onclick();h.elements['open-aep-folder'].onclick();
       assert.equal(h.requests.filter(r=>r.url.endsWith('/open-directory')).length,1,'Opening has its own click lock');

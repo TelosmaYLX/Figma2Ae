@@ -34,7 +34,7 @@ function uiHarness(bridge, main) {
   const html = fs.readFileSync(path.join(root, 'figma-plugin/ui.html'), 'utf8'), elements = {};
   for (const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) elements[m[1]] = {checked: /\bchecked\b/.test(m[0]), disabled: /\bdisabled\b/.test(m[0])};
   elements['raster-scale'].value='1';
-  elements['text-mode'].value='editable';
+  elements['text-mode'].value=html.match(/<select id="text-mode"[^>]*>[\s\S]*?<option value="([^"]+)" selected/)[1];
   elements['native-image-masks'].value='separate';
   let socket;
   function WebSocket(url) { if (url.endsWith('/plugin')) return; socket = this; this.readyState = 1; this.send = text => bridge.send(JSON.parse(text)); }
@@ -83,7 +83,7 @@ function uiHarness(bridge, main) {
   assert.equal(ui.elements.ship.disabled, false); assert.equal(ui.elements['mark-raster'].disabled, false);
   const textBridge = bridgeHarness(), textMain = harness(group('文字画框', [node('TEXT', '文字 A'), node('TEXT', '文字 B')]));
   const textUi = uiHarness(textBridge, textMain);
-  assert.equal(textUi.elements['text-mode'].value, 'editable');
+  assert.equal(textUi.elements['text-mode'].value, 'vector');
   textUi.elements['text-mode'].value = 'png';
   const post = textMain.figma.ui.postMessage;
   const finished = new Promise(resolve => {

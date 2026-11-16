@@ -4,7 +4,7 @@
 <!-- MCP is a secondary status line. Reuse .status/.dot, existing text colors and 8px gaps;
      importing remains the only primary action. No extra setup controls in the normal flow. -->
 <!-- Refactoring UI constraints (§2.1, §2.8, §3.6): import is primary; AEP export is secondary.
-     Common settings are grouped by layers, text and images; advanced settings and document tools are collapsed.
+     Layer tools are open beneath export; common settings follow, with advanced settings collapsed.
      Keep the existing dark tokens, 8px control gaps/radii, 12px panel padding and 16px section spacing.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
@@ -70,6 +70,21 @@
   <div id="msg" class="msg"></div>
   <button id="locate-layer" class="locate-layer" title="选中并显示出错图层" hidden>定位图层</button>
   <button type="button" id="open-aep-folder" class="open-folder" hidden>打开文件夹</button>
+  <details id="layer-tools" class="layer-tools" open>
+    <summary>图层工具</summary>
+    <div class="mark-actions">
+      <button id="mark-raster" disabled>标记为图片</button>
+      <button id="unmark-raster" disabled>取消标记</button>
+    </div>
+    <div class="mark-hint">名称以 * 开头的图层将导出为图片。</div>
+    <div class="tool-actions">
+      <button id="detach-instances" disabled>分离实例</button>
+      <button id="convert-groups" disabled>Group 转 Frame</button>
+      <button id="expand-groups" disabled>展开空分组</button>
+      <button id="delete-hidden" disabled>清理隐藏图层</button>
+    </div>
+    <div class="hint">作用于所选内容，可在 Figma 中撤销。</div>
+  </details>
   <fieldset class="settings">
     <legend>图层</legend>
     <label class="option" title="将 Figma 分组转换为 AE 预合成。"><input type="checkbox" id="organize" checked> 保留分组层级</label>
@@ -81,12 +96,12 @@
     <div class="setting-row">
       <label for="text-mode">导出方式</label>
       <select id="text-mode" aria-describedby="text-mode-hint">
-        <option value="editable" selected>可编辑文字</option>
-        <option value="vector">矢量形状（无需字体）</option>
+        <option value="editable">可编辑文字</option>
+        <option value="vector" selected>矢量形状（无需字体）</option>
         <option value="png">PNG 图片</option>
       </select>
     </div>
-    <div class="hint" id="text-mode-hint">细描边文字自动转为矢量。</div>
+    <div class="hint" id="text-mode-hint">无需本机字体，文字内容不可编辑。</div>
   </fieldset>
   <fieldset class="settings">
     <legend>图片</legend>
@@ -134,21 +149,6 @@
       <div class="advanced-label">图片处理</div>
       <label class="option" title="高倍率渲染后缩小，耗时更长；不改变 AE 图层采样。"><input type="checkbox" id="bicubic-export"> 双三次缩小（实验）</label>
     </div>
-  </details>
-  <details id="layer-tools" class="layer-tools">
-    <summary>图层工具</summary>
-    <div class="mark-actions">
-      <button id="mark-raster" disabled>标记为图片</button>
-      <button id="unmark-raster" disabled>取消标记</button>
-    </div>
-    <div class="mark-hint">名称以 * 开头的图层将导出为图片。</div>
-    <div class="tool-actions">
-      <button id="detach-instances" disabled>分离实例</button>
-      <button id="convert-groups" disabled>Group 转 Frame</button>
-      <button id="expand-groups" disabled>展开空分组</button>
-      <button id="delete-hidden" disabled>清理隐藏图层</button>
-    </div>
-    <div class="hint">作用于所选内容，可在 Figma 中撤销。</div>
   </details>
 </div>
 <script>
