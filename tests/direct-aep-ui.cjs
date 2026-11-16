@@ -12,6 +12,8 @@ function ui(packet, behavior='success') {
   elements['raster-scale'].value='1';
   elements['native-image-masks'].value='separate';
   elements['text-mode'].value=html.match(/<select id="text-mode"[^>]*>[\s\S]*?<option value="([^"]+)" selected/)[1];
+  elements['aep-version'].value=html.match(/<select id="aep-version"[^>]*>[\s\S]*?<option value="([^"]+)" selected/)[1];
+  assert.equal(elements['aep-version'].value,'26.0');
   let finish, clock=0, healthCalls=0;
   const done=new Promise(r=>{finish=r;});
   const launches=[];
@@ -26,7 +28,8 @@ function ui(packet, behavior='success') {
       if(url.endsWith('/health')){
         healthCalls++;
         if(['offline','launch-error','bridge-offline','bridge-old','missing-component'].includes(behavior)||(behavior==='cold-start'&&healthCalls<4))throw new Error('Offline');
-        return {ok:true,json:async()=>({service:'f2a-aep',version:behavior==='old-service'?2:3})};
+        return {ok:true,json:async()=>({service:'f2a-aep',version:behavior==='old-service'?2:3,
+          aeVersions:behavior==='old-version-service'?undefined:['24.0','25.0','26.0']})};
       }
       if(url.endsWith('/aep/start')){
         assert.equal(url,'http://127.0.0.1:7867/aep/start');assert.equal(options.method,'POST');
@@ -47,7 +50,7 @@ function ui(packet, behavior='success') {
       assert.equal(elements['export-aep'].disabled,true,'Button stays locked while the server writes');
       assert.equal(elements['raster-scale'].disabled,true,'Keep the selected scale fixed until export completes');
       assert.equal(elements['native-image-masks'].disabled,true);
-      for(const id of ['organize','enableclip','ignorehidden','text-mode',...Object.values(rasterControls),'mergeblends','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
+      for(const id of ['aep-version','organize','enableclip','ignorehidden','text-mode',...Object.values(rasterControls),'mergeblends','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
       assert.equal(posts.filter(m=>m.type==='ship-selection').length,1,'Collect and check Figma content before the server can choose a folder');
       assert.equal(elements['open-aep-folder'].hidden,true);
       if(behavior==='layer-error')return {ok:false,json:async()=>({error:'图层「shadow」无法导出：暂不支持该模糊或图层效果，请标记该层栅格化',nodeId:'original-shadow-id'})};
@@ -89,6 +92,8 @@ function ui(packet, behavior='success') {
   if(behavior==='merged-masks')elements['native-image-masks'].value='merge';
   if(behavior==='editable-text')elements['text-mode'].value='editable';
   if(behavior==='png-text')elements['text-mode'].value='png';
+  if(behavior==='ae24')elements['aep-version'].value='24.0';
+  if(behavior==='ae25')elements['aep-version'].value='25.0';
   if(behavior==='flat'){
     elements.organize.checked=false;elements.mergeblends.checked=false;
     for(const [index,id] of Object.values(rasterControls).entries())elements[id].checked=index%2===0;
@@ -112,7 +117,7 @@ function ui(packet, behavior='success') {
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   const packet=await fixture();
-  for(const behavior of ['success','native-masks','merged-masks','editable-text','png-text','flat','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
+  for(const behavior of ['success','ae24','ae25','native-masks','merged-masks','editable-text','png-text','flat','bicubic','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','old-version-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
@@ -122,10 +127,11 @@ const flush=()=>new Promise(r=>setImmediate(r));
     assert.equal(h.requests.some(r=>r.url.endsWith('/select-directory')),false,'The UI must not choose a folder ahead of validation');
     const selection=h.posts.find(m=>m.type==='ship-selection');
     if(selection){assert.equal(selection.outlineTexts,!['editable-text','png-text'].includes(behavior));assert.equal(selection.rasterTexts,behavior==='png-text');}
-    if(['success','native-masks','merged-masks','editable-text','png-text','flat','bicubic','cold-start','shadow','warnings','open-error'].includes(behavior)){
+    if(['success','ae24','ae25','native-masks','merged-masks','editable-text','png-text','flat','bicubic','cold-start','shadow','warnings','open-error'].includes(behavior)){
       const request=JSON.parse(h.requests.find(r=>r.url.endsWith('/export')).options.body);
       assert.deepEqual(Object.keys(request),['packet']);
       const body=request.packet;
+      assert.equal(body.aeVersion,behavior==='ae24'?'24.0':behavior==='ae25'?'25.0':'26.0');
       assert.equal(body.images.length,packet.images.length);
       assert.equal(body.images[0].data,behavior==='bicubic'?'bicubic PNG':behavior==='shadow'?'extracted shadow PNG':packet.images[0].data);
       if(behavior==='bicubic'){
@@ -138,12 +144,13 @@ const flush=()=>new Promise(r=>setImmediate(r));
       else assert.match(h.elements.msg.textContent,/已导出到 D:\\导出 位置/);
       assert.equal(h.elements.msg.textContent.includes('report.json'),false);
     }
-    if(['offline','launch-error','bridge-offline','bridge-old','missing-component','old-service'].includes(behavior)){
+    if(['offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','old-version-service'].includes(behavior)){
       assert.equal(h.posts.filter(m=>m.type==='ship-selection').length,0);
       assert.equal(h.requests.some(r=>r.url.endsWith('/export')),false);
     }
     if(behavior==='cancel')assert.equal(h.elements.msg.textContent,'已取消导出。');
     if(behavior==='old-service')assert.match(h.elements.msg.textContent,/请重启/);
+    if(behavior==='old-version-service')assert.match(h.elements.msg.textContent,/请更新 AEP 导出组件/);
     if(['cold-start','offline','launch-error','bridge-offline','bridge-old','missing-component'].includes(behavior))assert.deepEqual(h.launches,['http://127.0.0.1:7867/aep/start']);
     else assert.equal(h.launches.length,0,'A running service never needs to launch again');
     if(behavior==='offline')assert.match(h.elements.msg.textContent,/服务启动超时/);
@@ -167,7 +174,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
       assert.equal(h.elements['locate-layer'].disabled,false);
     }
     if(behavior==='server-error')assert.equal(h.elements['locate-layer'].hidden,true,'Errors without an original layer ID have no locate action');
-    if(['success','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','open-error'].includes(behavior)){
+    if(['success','ae24','ae25','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','open-error'].includes(behavior)){
       assert.equal(h.elements['open-aep-folder'].hidden,false);
       h.elements['open-aep-folder'].onclick();h.elements['open-aep-folder'].onclick();
       assert.equal(h.requests.filter(r=>r.url.endsWith('/open-directory')).length,1,'Opening has its own click lock');

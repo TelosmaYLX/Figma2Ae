@@ -5,6 +5,7 @@
      importing remains the only primary action. No extra setup controls in the normal flow. -->
 <!-- Refactoring UI constraints (§2.1, §2.8, §3.6): import is primary; AEP export is secondary.
      Layer tools are open beneath export; common settings follow, with advanced settings collapsed.
+     The compact AEP version selector shares the export action row; import and export stay adjacent.
      Keep the existing dark tokens, 8px control gaps/radii, 12px panel padding and 16px section spacing.
      Layer-tool buttons sit on a panel, so they use the raised --surface fill and --line edge to read as buttons.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
@@ -18,7 +19,10 @@
   button { width:100%; padding:10px; border:0; border-radius:8px; background:var(--accent); color:#1a1a1a;
            font-weight:600; cursor:pointer; }
   button:disabled,select:disabled { opacity:.4; cursor:not-allowed; }
-  .aep-export { margin-top:8px; background:var(--panel); color:var(--text); }
+  .aep-actions { display:flex; gap:8px; margin-top:8px; }
+  .aep-export { flex:1; width:auto; min-width:0; background:var(--panel); color:var(--text); }
+  .aep-version { flex:0 0 88px; min-width:88px; padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--text); font:inherit; cursor:pointer; }
+  .aep-version:hover:not(:disabled) { background:var(--surface-hover); border-color:var(--line-hover); }
   .image-folder { margin-bottom:12px; }
   .image-folder-label { margin-bottom:4px; color:var(--text); }
   .image-folder-row { display:flex; align-items:flex-start; gap:8px; }
@@ -72,7 +76,14 @@
     </div>
   </div>
   <button id="ship" disabled>导入到 After Effects</button>
-  <button id="export-aep" class="aep-export" disabled>导出 AEP（实验）</button>
+  <div class="aep-actions">
+    <button id="export-aep" class="aep-export" disabled>导出 AEP（实验）</button>
+    <select id="aep-version" class="aep-version" aria-label="AEP 导出版本" title="AEP 导出版本">
+      <option value="26.0" selected>26.x</option>
+      <option value="25.0">25.x</option>
+      <option value="24.0">24.x</option>
+    </select>
+  </div>
   <div id="msg" class="msg"></div>
   <button id="locate-layer" class="locate-layer" title="选中并显示出错图层" hidden>定位图层</button>
   <button type="button" id="open-aep-folder" class="open-folder" hidden>打开文件夹</button>
@@ -205,7 +216,7 @@
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
     $('open-aep-folder').disabled = busy || openingFolder;
-    var settings = ['organize','enableclip','ignorehidden','text-mode','native-image-masks','raster-scale','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends','rasterallgroups','rasterinstances','bicubic-export'];
+    var settings = ['aep-version','organize','enableclip','ignorehidden','text-mode','native-image-masks','raster-scale','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends','rasterallgroups','rasterinstances','bicubic-export'];
     for (var i = 0; i < settings.length; i++) $(settings[i]).disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
@@ -326,6 +337,7 @@
       }); });
     }).then(function (info) {
       if (info.service !== 'f2a-aep' || info.version !== 3) throw new Error('AEP 导出服务版本不匹配，请重启服务。');
+      if (!info.aeVersions || info.aeVersions.indexOf($('aep-version').value) === -1) throw new Error('请更新 AEP 导出组件后重启服务。');
     });
   }
   $('export-aep').onclick = function () {
@@ -457,6 +469,7 @@
   function finishAep() {
     if (!aepPacket) return;
     var packet = aepPacket; aepPacket = null;
+    packet.aeVersion = $('aep-version').value;
     if (packet.images.length !== packet.imageCount) {
       aepMode = aepBusy = false; updateButton();
       say('部分图片导出失败，请重试。', 'err'); return;

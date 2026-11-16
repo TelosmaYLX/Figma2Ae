@@ -37,6 +37,18 @@ node tests/aep-distribution.cjs
 
 检查使用真实 Python/AEP 写入与 HTTP 服务，覆盖检查/窗口顺序、取消和失败清理、自定义中文名称、同名目录、临时素材删除后的相对引用、打开目录标识与错误，以及 UI 按钮显隐和重复点击。`aep-destination.py` 实际打开 Windows 保存窗口，自动输入中文名称并测试取消，不创建工程。`aep-open-directory.cjs` 检查目录参数和辅助进程；`aep-open-directory.ps1` 实测中文、空格及特殊字符目录在前台显示、从最小化恢复和重复打开复用窗口，结束后关闭测试创建的窗口。Figma UI 由测试模拟；分发测试可通过首个参数指定分发目录。
 
+## AEP 目标版本
+
+“导出 AEP”右侧提供 24.x、25.x、26.x 下拉框，默认 26.x。导出过程中锁定选择，版本写入归一化数据及最终报告。组件健康检查公布支持的目标版本，旧组件缺少此能力时在采集前提示更新。
+
+```powershell
+node tests/aep-versions.cjs
+node scripts/ae-eval.mjs tests/ae-aep-versions.jsx artifacts/aep-versions/eval-result.txt
+python tests/check-aep-version-renders.py
+```
+
+第一步通过实际 HTTP/UI 回归之外的真实写入器生成三个版本的基础图层和独立图片遮罩工程，检查原始二进制格式号 95.6/96.9/97.2、应用主版本、层级、位置、透明度及 alpha/luma 遮罩。第二步在当前 AE 26 中临时导入、核对原生文字和遮罩并渲染，结束后清理导入项和恢复用户队列。第三步比较各版本的 RGBA 画面。真实首页对照与用户提供的 24.x 样本记录见 `docs/analysis/aep-target-versions-2026-11-16.md`。本机没有 AE 24/25，不能用 AE 26 的读入结果代替这两个宿主中的原生打开验收。
+
 ## 图片像素对齐
 
 小数边界的栅格内容放入对齐选区像素网格的透明画布，保留原图形变换；避免紧贴内容的 PNG 宽高取整改变比例，再在 AE 中重新采样。已对齐的内容直接导出。普通原始图片不重采样，切图倍率和预合成尺寸保持原规则；AEP 保留新建图层的默认质量与采样。

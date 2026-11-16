@@ -4,7 +4,7 @@
 
 ## 使用
 
-分发目标为 Windows x64，工程面向 AE 2026。分发包已包含 Node、Python/Tk 与导出依赖，使用者无需另装运行环境，也无需联网安装依赖。
+分发目标为 Windows x64，可导出 AE 2024（24.x）、2025（25.x）和 2026（26.x）工程，默认 26.x。在“导出 AEP”按钮右侧选择版本。分发包已包含 Node、Python/Tk 与导出依赖，使用者无需另装运行环境，也无需联网安装依赖。
 
 分发用户双击包内 `install.cmd`，组件安装到 `%LOCALAPPDATA%\F2A\AEP` 并注册当前用户的点击唤起入口。用包内 `cep-extension` 的文件更新 AE 中已有的 F2A 扩展，重新打开面板；在 Figma 中导入安装目录下的 `figma-plugin/manifest.json`。组件安装后不再依赖原解压位置。后续更新仍运行同一安装程序，它只停止并更新该安装目录内的组件进程。
 
@@ -48,6 +48,8 @@ node scripts/export-aep.cjs packet.json output-directory
 
 数据包的 `images` 各项包含原有图片元数据和 `data`（base64 图片）。`frame` 提供选区宽高，坐标保持 F2A 的画框相对坐标。CLI 直接写入指定的新输出目录，不弹目录窗口。`F2A_PYTHON` 可指定已有的 Python 环境。
 
+`packet.aeVersion` 可设为 `"24.0"`、`"25.0"` 或 `"26.0"`，省略时使用 `"26.0"`。写入器从创建项目时使用目标版本，按对应版本生成结构和文件格式；`report.json` 的 `aeVersion` 记录实际选择。此选项只影响直接导出 AEP，导入当前 AE 的通道仍使用宿主版本。
+
 ## 可行性与取舍
 
 | 方案 | 结论 |
@@ -63,6 +65,8 @@ node scripts/export-aep.cjs packet.json output-directory
 当前 Figma 桌面客户端的外部链接白名单不包含 `f2a-aep:`；直接使用 `figma.openExternal` 会在组件启动前被拒绝。原先测试替换了该宿主方法，因此没有覆盖这项限制。现在由具备 Node 进程接口的 CEP 执行 Windows 协议唤起，仍沿用 [Windows URI 协议注册方式](https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa767914(v=vs.85))；安装路径由当前设备注册表解析。
 
 服务协议版本为 3：`POST /export` 接收 `{packet}`，完成工程生成和检查后调用原生保存窗口；取消返回 `{cancelled:true}`，保存成功返回 JSON 路径、报告及 `exportId`。`POST /open-directory` 接收 `{exportId}`，只打开本服务记录的成功导出目录，不接受任意路径。旧的提前选目录接口已移除。命名使用 Python 标准库的 `asksaveasfilename`，返回目标文件夹名称，不在窗口阶段创建文件。
+
+`GET /health` 的 `aeVersions` 返回支持的工程版本。新面板在采集前核对所选版本；缺少该能力的旧组件会提示更新，避免静默写成其他版本。
 
 ## 范围
 
@@ -88,7 +92,7 @@ node scripts/export-aep.cjs packet.json output-directory
 - 模糊、未烘焙的投影/内阴影等图层效果尚未原生写入。AEP 专用采集在“模糊、阴影和特殊效果”开启时处理这些效果；直接传入未经处理的数据仍会报错。插件会先提取独立投影；直接传给 CLI、未经提取的 `shadowBase` 图片仍会报错。直接传入 CLI 的虚线也需先轮廓化。
 - 可编辑文字要求字体及字重在 AE 本机可用；缺失字体、样式不符或无法计算文字排版时直接报错。选择矢量或 PNG 方式可避免 AE 字体依赖。
 - 图片填充的复杂裁剪、组合蒙版、多区域亮度/透明度和多种效果叠加尚未做到全面视觉验证。已经识别出的不支持组合会报错；成功生成文件不代表完成了像素对照。
-- 当前固定生成 AE 26 工程；旧版 AE 和 macOS 未验证。不能承诺与 Figma 像素一致。
+- 24.x、25.x、26.x 的格式和图层结构已检查，并在 AE 26 中读入、渲染对照；本机没有 AE 24/25，尚未在这两个宿主中原生打开验收。macOS 未验证，不能承诺与 Figma 像素一致。
 - py-aep 的写入仍是实验能力，不能只依靠它回读自身生成的文件判断正确性。例如本次发现矩形内部位置在库回读时正确，而 AE 实际读成零；本分支改用图层位置，并以真实 AE 属性断言覆盖。
 
 ## 自动处理范围

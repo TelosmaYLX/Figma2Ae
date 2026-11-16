@@ -22,6 +22,8 @@ from py_aep.models.properties.shape import Shape
 from py_aep.enums import BlendingMode, MaskMode, ParagraphJustification, TrackMatteType
 from py_aep.svg.fonts import resolve_font, resolve_font_exact, resolve_postscript
 
+AE_VERSIONS = {'24.0': '24.0x0', '25.0': '25.0x0', '26.0': '26.0x67'}
+
 
 def serialize_text_colors(document):
     """Keep text color tokens within AE's decimal parser limits."""
@@ -62,7 +64,8 @@ def serialize_text_colors(document):
 class Writer:
     def __init__(self, packet: dict, output: Path):
         self.data, self.output = packet, output
-        self.app = py_aep.new('26.0x67')
+        self.ae_version = packet.get('aeVersion', '26.0')
+        self.app = py_aep.new(AE_VERSIONS[self.ae_version])
         self.project = self.app.project
         self.folder = self.project.root_folder.add_folder(packet['name'])
         self.assets = self.folder.add_folder('Assets')
@@ -614,7 +617,7 @@ def main():
     except Exception as error:
         print(json.dumps({'error': str(error), 'nodeId': getattr(error, 'node_id', None) or writer.current_item.get('sourceId')}, ensure_ascii=False), file=sys.stderr)
         sys.exit(1)
-    report = {'format': 'aep', 'writer': 'py-aep ' + py_aep.__version__, 'aeVersion': '26.0',
+    report = {'format': 'aep', 'writer': 'py-aep ' + py_aep.__version__, 'aeVersion': writer.ae_version,
               'width': packet['width'], 'height': packet['height'], 'frameRate': packet['frameRate'],
               'duration': packet['duration'], 'counts': writer.counts, 'warnings': writer.warnings,
               'writeMs': round((time.perf_counter() - started) * 1000)}

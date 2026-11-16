@@ -81,10 +81,14 @@ async function check() {
   try {
     const base='http://127.0.0.1:'+server.address().port;
     const health=await(await fetch(base+'/health')).json();assert.equal(health.service,'f2a-aep');assert.equal(health.version,3);
+    assert.deepEqual(health.aeVersions,['24.0','25.0','26.0']);
     const post=body=>fetch(base+'/export',{method:'POST',body:JSON.stringify(body)});
     const open=body=>fetch(base+'/open-directory',{method:'POST',body:JSON.stringify(body)});
     assert.equal((await fetch(base+'/select-directory',{method:'POST'})).status,404,'Do not expose an early picker endpoint');
     assert.equal((await open({directory:parent})).status,400,'Only completed export IDs can open folders');
+    const badVersion=await post({packet:{...packet,aeVersion:'23.0'}});
+    assert.equal(badVersion.status,400);assert.match((await badVersion.json()).error,/工程版本/);
+    assert.equal(pickerCalls,0,'Reject an unsupported version before asking for a destination');
     for(const kind of ['font','image','effect']){
       const invalid=JSON.parse(JSON.stringify(packet));
       if(kind==='font')invalid.texts[0].family='F2A Missing Font 137895';

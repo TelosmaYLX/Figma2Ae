@@ -7,7 +7,7 @@ const os = require('node:os');
 const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
 const {randomUUID} = require('node:crypto');
-const {exportAep, chooseDestination} = require('./export-aep.cjs');
+const {exportAep, chooseDestination, AE_VERSIONS} = require('./export-aep.cjs');
 const run = promisify(execFile);
 
 function outputName(name) {
@@ -40,7 +40,7 @@ function start(options = {}) {
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
     if (req.method === 'GET' && req.url === '/health') {
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({service: 'f2a-aep', version: 3})); return;
+      res.end(JSON.stringify({service: 'f2a-aep', version: 3, aeVersions: AE_VERSIONS})); return;
     }
     if (req.method !== 'POST' || !['/export', '/open-directory'].includes(req.url)) { res.writeHead(404); res.end(); return; }
     try {

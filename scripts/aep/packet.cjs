@@ -2,6 +2,7 @@
 
 // Share the production geometry parser; this module never loads ExtendScript or AE.
 const parser = require('../../host/figma/svgParser.js');
+const AE_VERSIONS = ['24.0', '25.0', '26.0'];
 function layerError(node, message, cause) {
   const error = new Error(message, {cause});
   error.nodeId = node.sourceId || null;
@@ -9,6 +10,8 @@ function layerError(node, message, cause) {
 }
 
 function normalize(packet) {
+  const aeVersion = packet.aeVersion ?? '26.0';
+  if (!AE_VERSIONS.includes(aeVersion)) throw new Error('请选择 AE 2024、2025 或 2026 工程版本');
   if (typeof packet.svg !== 'string' || !packet.svg.includes('<svg')) throw new Error('缺少 Figma 导出数据');
   const viewport = parser.parse(packet.svg);
   const frame = packet.frame || viewport;
@@ -47,10 +50,10 @@ function normalize(packet) {
     }
   }
   return {
-    name: packet.name || 'Figma', width, height, frameRate: 30, duration: 10,
+    name: packet.name || 'Figma', aeVersion, width, height, frameRate: 30, duration: 10,
     shapes: model.shapes, texts: packet.texts || [], images: packet.images || [],
     containers: packet.organize ? packet.containers || [] : [], effects: packet.effects || []
   };
 }
 
-module.exports = {normalize};
+module.exports = {normalize, AE_VERSIONS};
