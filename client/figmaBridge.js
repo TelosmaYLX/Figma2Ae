@@ -7,7 +7,7 @@
  */
 (function () {
   "use strict";
-  var PORT = 7867;
+  var PORT = 17867;
   var CEP = (typeof window.__adobe_cep__ !== "undefined");
   var MKFigma = window.MKFigma = { connected: false, selectImageFolder: noop };
 

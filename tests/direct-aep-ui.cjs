@@ -32,7 +32,7 @@ function ui(packet, behavior='success') {
           aeVersions:behavior==='old-version-service'?undefined:['24.0','25.0','26.0']})};
       }
       if(url.endsWith('/aep/start')){
-        assert.equal(url,'http://127.0.0.1:7867/aep/start');assert.equal(options.method,'POST');
+        assert.equal(url,'http://127.0.0.1:17867/aep/start');assert.equal(options.method,'POST');
         assert.equal(posts.filter(m=>m.type==='ship-selection').length,0);
         launches.push(url);
         if(behavior==='bridge-offline')throw new TypeError('Failed to fetch');
@@ -140,7 +140,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
     if(behavior==='cancel')assert.equal(h.elements.msg.textContent,'已取消导出。');
     if(behavior==='old-service')assert.match(h.elements.msg.textContent,/请重启/);
     if(behavior==='old-version-service')assert.match(h.elements.msg.textContent,/请更新 AEP 导出组件/);
-    if(['cold-start','offline','launch-error','bridge-offline','bridge-old','missing-component'].includes(behavior))assert.deepEqual(h.launches,['http://127.0.0.1:7867/aep/start']);
+    if(['cold-start','offline','launch-error','bridge-offline','bridge-old','missing-component'].includes(behavior))assert.deepEqual(h.launches,['http://127.0.0.1:17867/aep/start']);
     else assert.equal(h.launches.length,0,'A running service never needs to launch again');
     if(behavior==='offline')assert.match(h.elements.msg.textContent,/服务启动超时/);
     if(behavior==='launch-error'){

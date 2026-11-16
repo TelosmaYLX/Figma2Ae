@@ -7,6 +7,6 @@
   "editorType": ["figma"],
   "networkAccess": {
     "allowedDomains": ["*"],
-    "reasoning": "连接本机 F2A 的 AE 导入服务（7867）、AEP 导出服务（7868）和 MCP 服务（7869）。"
+    "reasoning": "连接本机 F2A 的 AE 导入服务（17867）、AEP 导出服务（7868）和 MCP 服务（7869）。"
   }
 }

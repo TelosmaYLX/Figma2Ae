@@ -71,7 +71,7 @@ async function check(){
     const window={},context=vm.createContext({window,document:{getElementById:id=>elements[id]},setTimeout(){},
       WebSocket:function(url){if(url.endsWith('/plugin'))return;socket=this;this.readyState=1;this.send=()=>{};},
       fetch:async(url,options)=>{
-        requests.push(options.method);assert.equal(url,'http://127.0.0.1:7867/image-folder');
+        requests.push(options.method);assert.equal(url,'http://127.0.0.1:17867/image-folder');
         if(error)return{ok:false,json:async()=>({error:'目录窗口打开失败'})};
         if(options.method==='POST')directory=cancel?null:'D:/素材 文件夹';
         return{ok:true,json:async()=>({directory})};
