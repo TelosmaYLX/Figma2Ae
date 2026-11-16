@@ -15,6 +15,10 @@ import py_aep
 from fontTools.ttLib import TTFont
 from fontTools.misc.bezierTools import calcCubicBounds
 from py_aep import ImportOptions
+from py_aep.binary.chunk import Chunk
+from py_aep.binary.misc_chunks import FipsChunk
+from py_aep.binary.scalar_chunks import AsciiChunk, S2Chunk, U1Chunk, U4Chunk
+from py_aep.binary.utils import find_by_type
 from py_aep.models import TextLayer
 from py_aep.cos import serializer as cos_serializer
 from py_aep.models.properties.gradient import Gradient, GradientAlphaStop, GradientColorStop
@@ -23,6 +27,37 @@ from py_aep.enums import BlendingMode, MaskMode, ParagraphJustification, TrackMa
 from py_aep.svg.fonts import resolve_font, resolve_font_exact, resolve_postscript
 
 AE_VERSIONS = {'24.0': '24.0x0', '25.0': '25.0x0', '26.0': '26.0x67'}
+
+
+def open_main_composition(project, comp):
+    """Save the main comp's open timeline, composition panel and active item."""
+    # Folder-level viewer state is separate from the comp's viewer pseudo-layers.
+    view = FipsChunk(
+        preview_flags=96, view_flags=15, display_flags=63, guide_flags=5,
+        pad_18=bytes.fromhex('ffff8001ffff800180ff0000ffff00ff'),
+        pad_30=bytes.fromhex('000000000000000000050100ffffffff0100000000'),
+        zoom_type=2, pad_46=b'\xff\xff', zoom=1.0, resolution_flags=1)
+    view._trailing = bytes.fromhex('000024000000000000')
+    block = [
+        U4Chunk(chunk_type='fvdv', value=3), U1Chunk(chunk_type='fiop', value=1),
+        U4Chunk(chunk_type='ftts', value=1), U1Chunk(chunk_type='foac', value=1),
+        Chunk(chunk_type='fots', data=b'\x00\x0b'),
+        Chunk(chunk_type='fott', data=b'AE Timeline'),
+        Chunk(chunk_type='fovc', data=b'\x00\x01'), U4Chunk(chunk_type='fovi'),
+        U1Chunk(chunk_type='fiac', value=1), Chunk(chunk_type='fits', data=b'\x00\x0e'),
+        AsciiChunk(chunk_type='fitt', value='AE Composition'),
+        S2Chunk(chunk_type='fivc', value=1), U4Chunk(chunk_type='fivi'),
+        S2Chunk(chunk_type='fipc', value=1), Chunk(chunk_type='fidi', data=b'\x00' * 4),
+        Chunk(chunk_type='fipl', data=b'\x00' * 2), Chunk(chunk_type='fmpl', data=b'\x00' * 2),
+        Chunk(chunk_type='fimr', data=b'\x00' * 2),
+        *[copy.deepcopy(view) for _ in range(4)], U4Chunk(chunk_type='fifl'),
+    ]
+    chunks = comp.parent_folder._children_container
+    start, end = chunks.index(comp._view_data[1]), chunks.index(comp._view_data[-1]) + 1
+    chunks[start:end] = block
+    comp._view_data = [comp._view_data[0], *block]
+    find_by_type(project._rifx.chunks, 'fcid').value = comp.id
+    project._active_item = comp
 
 
 def serialize_text_colors(document):
@@ -604,6 +639,7 @@ class Writer:
                     prop._tdb4._pad2a = 3
                 if isinstance(layer, TextLayer):
                     serialize_text_colors(layer['ADBE Text Properties']['ADBE Text Document'].value)
+        open_main_composition(self.project, self.main)
         self.project.save(str(self.output / 'project.aep'))
 
 

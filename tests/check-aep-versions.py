@@ -29,6 +29,13 @@ for case in cases:
     major = ((word >> 26) & 31) * 8 + ((word >> 19) & 7)
     assert major == int(case['aeVersion'].split('.')[0]), case
     app = py_aep.parse(case['project'])
+    main = app.project.active_item
+    assert isinstance(main, py_aep.CompItem), case['name']
+    assert main.parent_folder.name == main.name, 'The top-level composition must be active'
+    assert main._viewer and main._viewer.active and app.active_viewer is main._viewer
+    assert len(main._viewer.views) == 1
+    assert main._viewer.views[0].options._fips.zoom_type == 2
+    assert all(comp._viewer is None for comp in app.project.compositions if comp is not main)
     signature = []
     for comp in app.project.compositions:
         layers = []
