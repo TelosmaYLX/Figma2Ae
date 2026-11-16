@@ -187,77 +187,10 @@
   }
 
   // ---- Tool model. Each item: label, icon, and either .jsx (action) or .items (popup) ----
+  // This panel only carries the Figma → AE entry point. The AE motion-toolkit groups
+  // (文本/动画/转场/交互/元素/背景/绑定) are not part of this panel; host/f2a.jsx keeps
+  // the ExtendScript they called for scripts that still need it.
   var GROUPS = [
-    { label: "文本", grid: 2, items: [
-      { label: "打字效果", icon: "T", pop: "打字效果", items: [
-        { label: "彩色打字", jsx: "typewriter1();" },
-        { label: "随机字母",  jsx: "typewriter2();" },
-        { label: "打字机",      jsx: "typewriter5();" }
-      ]},
-      { label: "文本显现", icon: "↑", pop: "文本显现", items: [
-        { label: "按字符", jsx: "caCharacters();" },
-        { label: "按单词",      jsx: "caWords();" }
-      ]},
-      { label: "文本拆分", icon: "✹", pop: "文本拆分", items: [
-        { label: "拆分为字母", jsx: "explodeLetters();" },
-        { label: "拆分为单词",   jsx: "explodeWords();" },
-        { label: "拆分为行",   jsx: "explodeLines();" }
-      ]}
-    ]},
-
-    { label: "动画", grid: 2, items: [
-      { label: "UI 错落动画", icon: "\u2261", jsx: "uiStagger();" },
-      { label: "弹跳",     icon: "\u223f", jsx: "addBounce();" }
-    ]},
-
-    { label: "转场", grid: 2, items: [
-      { label: "擦除显现", icon: "\u25d0", pop: "擦除显现", items: [
-        { label: "故障擦除",   jsx: "wipeReveal1();" },
-        { label: "渐变擦除", jsx: "gradientWipe();" }
-      ]},
-      { label: "深度显现", icon: "\u25a3", pop: "深度显现", items: [
-        { label: "深度显现 1", jsx: "depthReveal(SECOND_B64);" },
-        { label: "深度显现 2", jsx: "depthReveal(SECOND2_B64);" },
-        { label: "深度显现 3", jsx: "depthReveal(SECOND3_B64);" }
-      ]}
-    ]},
-
-    { label: "交互", grid: 2, items: [
-      { label: "光标", icon: "\u2196", pop: "光标", items: [
-        { label: "光标 1", jsx: "insertCursor(CURSORS.c1);" },
-        { label: "光标 2", jsx: "insertCursor(CURSORS.c2);" },
-        { label: "光标 3", jsx: "insertCursor(CURSORS.c3);" }
-      ]},
-      { label: "邻近悬停", icon: "\u25c9", jsx: "proximityHover();" }
-    ]},
-
-    { label: "元素", grid: 2, items: [
-      { label: "数字计数器", icon: "#",        jsx: "numberCounter();" },
-      { label: "轮播",       icon: "\u25ce", jsx: "carousel();" },
-      { label: "玻璃效果",          icon: "\u25a2", jsx: "glass();" }
-    ]},
-
-    { label: "背景", grid: 1, items: [
-      { label: "渐变", icon: "\u25d1", pop: "渐变", items: [
-        { label: "渐变 1", jsx: "insertGradient('Gradient 1');" },
-        { label: "渐变 2", jsx: "insertGradient('Gradient 2');" },
-        { label: "渐变 3", jsx: "insertGradient('Gradient 4');" },
-        { label: "渐变 4", jsx: "insertGradient('Gradient 5');" },
-        { label: "渐变 5", jsx: "insertGradient('Gradient 6');" },
-        { label: "渐变 6", jsx: "insertGradient('Gradient 7');" },
-        { label: "渐变 7", jsx: "insertGradient('Gradient 8');" },
-        { label: "星形渐变", jsx: "insertGradient('Star Gradient');" }
-      ]}
-    ]},
-
-    { label: "绑定", grid: 1, items: [
-      { label: "图层绑定", icon: "\u2295", pop: "绑定到所选图层", items: [
-        { label: "空对象",       jsx: "createBound('null');" },
-        { label: "纯色层",      jsx: "createBound('solid');" },
-        { label: "调整图层", jsx: "createBound('adjustment');" }
-      ]}
-    ]},
-
     { label: "SVG 导入", grid: 1, items: [
       { label: "导入 SVG 文件", icon: "\u25c6", fn: "manualImport" }
     ]}
