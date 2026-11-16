@@ -44,6 +44,23 @@ async function check() {
   assert.equal(external.images.length,0);assert.equal(external.ship.blendStats.external,1);assert.equal(external.ship.nodes[0].blend,'SOFT_LIGHT');
   const isolated=await harness(group('isolated',[blend('isolated glow'),node('TEXT','title')],{blendMode:'NORMAL'})).run(true,false,true,false,{mergeBlends:true});
   assert.equal(isolated.images.length,1);assert.equal(isolated.ship.texts.length,1);assert.equal(isolated.ship.blendStats.external,0);
+  for (const organize of [true,false]) {
+    const border=node('BOOLEAN_OPERATION','Subtract',{...bounds(20,30,100,60),booleanOperation:'SUBTRACT',
+      fills:[{type:'SOLID',color:{r:1,g:1,b:1}}],
+      fillGeometry:[{data:'M0 0H100V60H0Z M2 2H98V58H2Z',windingRule:'EVENODD'}],
+      children:[solid('outer operand'),solid('cut-out operand',22,32,96,56)]});
+    const rectangles=['1162','1164','1165','1163'].map((suffix,i)=>blend('Rectangle '+suffix,'SOFT_LIGHT',30+i*15,40,5,5));
+    rectangles.forEach((r,i)=>{r.opacity=.4+i*.2;r.cornerRadius=0;});
+    const scene=group('bg:s:img',[border,...rectangles]),h=harness(scene);
+    const result=await h.run(true,false,organize,false,{mergeBlends:true});
+    assert.equal(result.images.length,0,'A hollow Boolean border is not a backdrop for the four blend rectangles');
+    assert.deepEqual(result.ship.nodes.map(n=>n.name),['Subtract',...rectangles.map(n=>n.name)]);
+    assert.deepEqual(result.ship.nodes.map(n=>n.blend),['NORMAL','SOFT_LIGHT','SOFT_LIGHT','SOFT_LIGHT','SOFT_LIGHT']);
+    assert.deepEqual(result.ship.nodes.map(n=>n.opacity),[1,...rectangles.map(n=>n.opacity)]);
+    assert.equal(result.ship.nodes.some(n=>/operand/.test(n.name)),false,'Boolean operands remain geometry, not artwork');
+    assert.equal(result.ship.blendStats.merged,0);assert.equal(result.ship.blendStats.external,4);
+    assert.deepEqual(rectangles.map(n=>n.blendMode),['SOFT_LIGHT','SOFT_LIGHT','SOFT_LIGHT','SOFT_LIGHT']);
+  }
   const paint=solid('paint blend');paint.fills.push({type:'SOLID',color:{r:.8,g:.2,b:.4},blendMode:'OVERLAY'});
   const p=await harness(group('root',[paint,node('TEXT','title')])).run(true,false,true,false,{mergeBlends:true});
   assert.equal(p.images.length,1);assert.equal(p.ship.texts.length,1);assert.equal(p.ship.blendStats.layers,1);

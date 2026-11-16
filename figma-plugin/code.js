@@ -621,7 +621,9 @@ async function _bakeBlendStacks(root, organize) {
   function opaque(n, bounds) {
     if (_isHidden(n) || n.opacity !== 1 || mixed(n) || effects(n)) return false;
     if (_rasterOpaqueBackdrop(n, bounds)) return true;
-    if (!n.children || n.clipsContent) return false;
+    // Boolean operands do not paint independently. An opaque operand cannot prove
+    // coverage of the Boolean result (a Subtract may only leave a hollow border).
+    if (!_isContainer(n) || !n.children || n.clipsContent) return false;
     var mask = true;
     for (var i = 0; i < n.children.length; i++) {
       var c = n.children[i];
