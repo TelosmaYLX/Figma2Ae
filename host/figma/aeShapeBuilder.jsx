@@ -420,12 +420,11 @@ var AEShapeBuilder = (function () {
         var tg = pcLayer.property("ADBE Transform Group");
         // An unclipped Figma container can draw outside its own box. With collapse disabled,
         // include that content in the precomp and cancel the changed origin in the parent.
-        var bounds = c, cb = c.cb;
-        if (!c.clip && cb && (cb.x < c.x || cb.y < c.y || cb.x + cb.w > c.x + c.w || cb.y + cb.h > c.y + c.h)) {
-          var left = Math.floor(Math.min(c.x, cb.x)), top = Math.floor(Math.min(c.y, cb.y));
-          bounds = {x:left,y:top,w:Math.ceil(Math.max(c.x+c.w,cb.x+cb.w))-left,h:Math.ceil(Math.max(c.y+c.h,cb.y+cb.h))-top};
-        }
-        var W = Math.max(4, Math.ceil(bounds.w)), H = Math.max(4, Math.ceil(bounds.h));
+        var cb = !c.clip && c.cb ? c.cb : c;
+        var left = Math.floor(Math.min(c.x, cb.x) + .000001), top = Math.floor(Math.min(c.y, cb.y) + .000001);
+        var bounds = {x:left,y:top,w:Math.ceil(Math.max(c.x+c.w,cb.x+cb.w)-.000001)-left,
+                      h:Math.ceil(Math.max(c.y+c.h,cb.y+cb.h)-.000001)-top};
+        var W = Math.max(4, bounds.w), H = Math.max(4, bounds.h);
         var dx = -bounds.x, dy = -bounds.y;
 
         // Resizing a comp does not move its layers, so the contents are shifted first and the
@@ -1322,6 +1321,16 @@ var AEShapeBuilder = (function () {
           var currentLayer = null;
           try {
           var sdata = shapes[i];
+          if (sdata.layerStroke && sdata.maskId) {
+            var maskedPaint = {}, border = sdata.layerStroke;
+            for (var paintKey in sdata) if (sdata.hasOwnProperty(paintKey)) maskedPaint[paintKey] = sdata[paintKey];
+            maskedPaint.fillOpacity = sdata.layerFillOpacity == null ? 1 : sdata.layerFillOpacity;
+            maskedPaint.fill = maskedPaint.fillOpacity ? sdata.fill : null;
+            maskedPaint.stroke = border.color; maskedPaint.strokeWidth = border.width;
+            maskedPaint.strokeOpacity = border.opacity == null ? 1 : border.opacity;
+            maskedPaint.strokeAlign = border.align || 'CENTER'; maskedPaint.layerStroke = null;
+            sdata = maskedPaint;
+          }
           if (sdata.maskSource) {
             if (!_maskDefs[sdata.maskSource]) _maskDefs[sdata.maskSource] = [];
             _maskDefs[sdata.maskSource].push(sdata);

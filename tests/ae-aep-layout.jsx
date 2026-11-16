@@ -33,9 +33,11 @@
     for(var c=0;c<model.containers.length;c++){
       var container=model.containers[c],precomp=layers[container.name];
       if(container.clip){
-        close(precomp.source.width,Math.max(4,Math.ceil(container.w)),container.name+' width');
-        close(precomp.source.height,Math.max(4,Math.ceil(container.h)),container.name+' height');
-        close(contexts[container.id].x,container.x,container.name+' clip X');close(contexts[container.id].y,container.y,container.name+' clip Y');
+        close(precomp.source.width,Math.max(4,Math.ceil(container.x+container.w)-Math.floor(container.x)),container.name+' width');
+        close(precomp.source.height,Math.max(4,Math.ceil(container.y+container.h)-Math.floor(container.y)),container.name+' height');
+        close(contexts[container.id].x,Math.floor(container.x),container.name+' clip canvas X');close(contexts[container.id].y,Math.floor(container.y),container.name+' clip canvas Y');
+        var clipMasks=precomp.property('ADBE Mask Parade');
+        if(clipMasks.numProperties!==1)throw new Error(container.name+' fractional clipping path is missing');
       }else{
         var content=container.cb||container,bounds=contexts[container.id];
         if(bounds.x>content.x+.001||bounds.y>content.y+.001||bounds.x+precomp.source.width<content.x+content.w-.001||bounds.y+precomp.source.height<content.y+content.h-.001)throw new Error(container.name+' crops visible content');

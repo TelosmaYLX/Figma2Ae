@@ -16,12 +16,13 @@
           if(layer.name==='Faded frame')definition={x:10,y:10,w:103,h:83};
           var actual = {kind: kind, name: layer.name, width: layer.source.width, height: layer.source.height,collapse:layer.collapseTransformation};
           results.push(actual);
-          close(layer.source.width, Math.max(4, Math.ceil(definition.w)), layer.name + ' width');
-          close(layer.source.height, Math.max(4, Math.ceil(definition.h)), layer.name + ' height');
+          var left=Math.floor(definition.x),top=Math.floor(definition.y);
+          close(layer.source.width, Math.max(4, Math.ceil(definition.x+definition.w)-left), layer.name + ' width');
+          close(layer.source.height, Math.max(4, Math.ceil(definition.y+definition.h)-top), layer.name + ' height');
           close(anchor[0], layer.source.width / 2, layer.name + ' anchor X');
           close(anchor[1], layer.source.height / 2, layer.name + ' anchor Y');
           var origin = {x: offset.x + position[0] - anchor[0], y: offset.y + position[1] - anchor[1]};
-          close(origin.x, definition.x, layer.name + ' original X'); close(origin.y, definition.y, layer.name + ' original Y');
+          close(origin.x, left, layer.name + ' pixel-grid X'); close(origin.y, top, layer.name + ' pixel-grid Y');
           if (layer.collapseTransformation) throw Error(layer.name + ' has collapse transformations enabled');
           walk(layer.source, origin); count++;
         } else if (layer instanceof ShapeLayer) {

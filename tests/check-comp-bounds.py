@@ -33,14 +33,16 @@ def inspect(comp, offset=(0, 0)):
             if layer.name=='Unclipped frame': expected={**expected,'x':6,'y':186,'w':111,'h':71}
             if layer.name=='Faded frame': expected={**expected,'x':10,'y':10,'w':103,'h':83}
             source = layer.source
-            assert (source.width, source.height) == (max(4, math.ceil(expected['w'])), max(4, math.ceil(expected['h'])))
+            left, top = math.floor(expected['x']), math.floor(expected['y'])
+            assert (source.width, source.height) == (max(4, math.ceil(expected['x']+expected['w'])-left),
+                                                    max(4, math.ceil(expected['y']+expected['h'])-top))
             assert not layer.collapse_transformation
             anchor, position = layer.transform.anchor_point.value, layer.transform.position.value
             close(anchor[0], source.width / 2)
             close(anchor[1], source.height / 2)
             origin = (offset[0] + position[0] - anchor[0], offset[1] + position[1] - anchor[1])
-            close(origin[0], expected['x'])
-            close(origin[1], expected['y'])
+            close(origin[0], left)
+            close(origin[1], top)
             count += 1 + inspect(source, origin)
     return count
 

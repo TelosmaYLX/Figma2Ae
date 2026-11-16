@@ -85,6 +85,29 @@ class Writer:
         return folder.add_comp(name, max(4, math.ceil(width)), max(4, math.ceil(height)),
                                1.0, self.data['duration'], self.data['frameRate'])
 
+    @staticmethod
+    def comp_bounds(item):
+        x, y, right, bottom = item['x'], item['y'], item['x'] + item['w'], item['y'] + item['h']
+        content = item.get('cb')
+        if not item.get('clip') and content:
+            x, y = min(x, content['x']), min(y, content['y'])
+            right, bottom = max(right, content['x'] + content['w']), max(bottom, content['y'] + content['h'])
+        # Every precomp uses the export pixel grid. Fractional artwork stays fractional,
+        # but entering/leaving an uncollapsed comp must not filter that artwork again.
+        left, top = math.floor(x + 1e-6), math.floor(y + 1e-6)
+        return {'x': left, 'y': top, 'w': math.ceil(right - 1e-6) - left, 'h': math.ceil(bottom - 1e-6) - top}
+
+    @staticmethod
+    def rounded_rect(x, y, width, height, radius):
+        r = max(0, min(radius, width / 2, height / 2))
+        if not r:
+            return Shape([[x, y], [x + width, y], [x + width, y + height], [x, y + height]], closed=True)
+        k = 0.5522847498 * r
+        return Shape([[x+r,y],[x+width-r,y],[x+width,y+r],[x+width,y+height-r],
+                      [x+width-r,y+height],[x+r,y+height],[x,y+height-r],[x,y+r]],
+                     [[-k,0],[0,0],[0,-k],[0,0],[k,0],[0,0],[0,k],[0,0]],
+                     [[0,0],[k,0],[0,0],[0,k],[0,0],[-k,0],[0,0],[0,-k]], closed=True)
+
     def parent(self, item):
         return next((self.contexts[key] for key in reversed(item.get('path') or [])
                      if key in self.contexts), self.contexts[None])
@@ -261,6 +284,15 @@ class Writer:
         return outer
 
     def shape(self, context, item, white=False):
+        # A Layer Style follows the already-matted alpha silhouette in AE. Figma
+        # clips the original border instead; keep that border as a path paint.
+        if item.get('layerStroke') and item.get('maskId'):
+            stroke = item['layerStroke']
+            opacity = item.get('layerFillOpacity', 1)
+            item = {**item, 'fill': item.get('fill') if opacity else None, 'fillOpacity': opacity,
+                    'stroke': stroke['color'], 'strokeWidth': stroke['width'],
+                    'strokeOpacity': stroke.get('opacity', 1), 'strokeAlign': stroke.get('align', 'CENTER'),
+                    'layerStroke': None}
         layer = context['comp'].add_shape()
         self.common(layer, item)
         # AE 26 ignores py-aep 0.19's nonzero parametric Rect/Ellipse Position.
@@ -517,14 +549,7 @@ class Writer:
         entries = []
         containers = sorted(self.data['containers'], key=lambda c: len(c.get('path') or []))
         for container in containers:
-            bounds = container
-            cb = container.get('cb')
-            if not container.get('clip') and cb and (cb['x'] < container['x'] or cb['y'] < container['y'] or
-                    cb['x'] + cb['w'] > container['x'] + container['w'] or cb['y'] + cb['h'] > container['y'] + container['h']):
-                left, top = math.floor(min(container['x'], cb['x'])), math.floor(min(container['y'], cb['y']))
-                bounds = {'x': left, 'y': top,
-                          'w': math.ceil(max(container['x'] + container['w'], cb['x'] + cb['w'])) - left,
-                          'h': math.ceil(max(container['y'] + container['h'], cb['y'] + cb['h'])) - top}
+            bounds = self.comp_bounds(container)
             self.contexts[container['id']] = {'comp': self.comp(container['name'], bounds['w'], bounds['h'], self.precomps),
                                               'x': bounds['x'], 'y': bounds['y']}
             entries.append((container.get('z', 0), 'container', container, 0))
@@ -550,12 +575,12 @@ class Writer:
                 layer.collapse_transformation = item.get('collapseForBlends', False)
                 self.transform(layer, child['x'] - context['x'], child['y'] - context['y'])
                 self.center_anchor(layer, layer.source_rect_at_time(0, False))
-                if item.get('clip') and item.get('r'):
-                    matte = self.shape(context, {'name': item['name'] + ' clip', 'subpaths': [],
-                        'prim': {'k': 'rect', 'cx': item['x'] + item['w'] / 2, 'cy': item['y'] + item['h'] / 2,
-                                 'w': item['w'], 'h': item['h'], 'r': item['r']}}, white=True)
-                    layer.set_track_matte(matte, TrackMatteType.ALPHA)
-                    self.counts['mattes'] += 1
+                if item.get('clip'):
+                    mask = layer['ADBE Mask Parade'].add_property('ADBE Mask Atom')
+                    mask.name = 'Clip content'
+                    mask.mask_mode = MaskMode.ADD
+                    mask['ADBE Mask Shape'].value = self.rounded_rect(
+                        item['x'] - child['x'], item['y'] - child['y'], item['w'], item['h'], item.get('r', 0))
                 self.counts['precomps'] += 1
             elif kind == 'shape':
                 layer = self.shape(context, item)

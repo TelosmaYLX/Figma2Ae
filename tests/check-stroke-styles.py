@@ -19,6 +19,18 @@ for item in model['shapes'] + model['texts']:
     scale = max(1, math.ceil(1 / stroke['width']))
     if item.get('maskId'):
         assert layer.track_matte_layer is not None
+        if item.get('layerStroke'):
+            def path_strokes(group):
+                for prop in group.properties:
+                    if prop.match_name == 'ADBE Vector Graphic - Stroke':
+                        yield prop
+                    if hasattr(prop, 'properties'):
+                        yield from path_strokes(prop)
+            paints = list(path_strokes(layer['ADBE Root Vectors Group']))
+            assert len(paints) == 1
+            close(paints[0]['ADBE Vector Stroke Width'].value, stroke['width'])
+            assert not layer['ADBE Layer Styles'].enabled
+            continue
     if scale > 1:
         close(layer.transform.scale.value[0], 100 / scale)
         close(layer.transform.scale.value[1], 100 / scale)

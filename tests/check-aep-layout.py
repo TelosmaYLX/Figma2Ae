@@ -40,15 +40,21 @@ for layer in layers.values():
 for item in model['containers']:
     layer=layers[item['name']];bounds=contexts[item['id']];ox,oy=origin(item)
     if item.get('clip'):
-        assert layer.source.width==max(4,math.ceil(item['w']))
-        assert layer.source.height==max(4,math.ceil(item['h']))
-        close(bounds['x'],item['x']);close(bounds['y'],item['y'])
+        assert layer.source.width==max(4,math.ceil(item['x']+item['w'])-math.floor(item['x']))
+        assert layer.source.height==max(4,math.ceil(item['y']+item['h'])-math.floor(item['y']))
+        close(bounds['x'],math.floor(item['x']));close(bounds['y'],math.floor(item['y']))
+        masks=list(layer['ADBE Mask Parade'].properties)
+        assert len(masks)==1,'Clipping must retain the original fractional frame inside the aligned canvas'
+        vertices=masks[0]['ADBE Mask Shape'].value.vertices
+        close(min(v[0] for v in vertices),item['x']-bounds['x'])
+        close(min(v[1] for v in vertices),item['y']-bounds['y'])
     else:
         content=item.get('cb') or item
         assert bounds['x']<=content['x'] and bounds['y']<=content['y']
         assert bounds['x']+layer.source.width>=content['x']+content['w']
         assert bounds['y']+layer.source.height>=content['y']+content['h']
     assert not layer.collapse_transformation
+    close(bounds['x'],round(bounds['x']));close(bounds['y'],round(bounds['y']))
     top_left=point(layer,0,0)
     close(top_left[0],bounds['x']-ox);close(top_left[1],bounds['y']-oy)
 curve=layers['Bezier shape']

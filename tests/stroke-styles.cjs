@@ -63,7 +63,7 @@ async function check(){
   const presets={[model.shapes.findIndex(s=>s.name==='Gradient fill')]:{fill:gradFile.replaceAll('\\','/')}};
   await fs.writeFile(path.join(parent,'input.json'),JSON.stringify({packet,model,presets,project:result.project}));
   execFileSync(path.resolve('.venv-aep/Scripts/python.exe'),['tests/check-stroke-styles.py',result.project,expected],{stdio:'inherit'});
-  if(thin)assert.equal(result.counts.precomps,8,'Only fractional styles get local precomps');
+  if(thin)assert.equal(result.counts.precomps,7,'Masked borders stay path paints; only the remaining fractional styles get local precomps');
   await fs.writeFile(path.join(parent,thin?'report-thin.json':'report.json'),JSON.stringify({passed:true,styles:styles.length,texts:texts.length,...result},null,2));
   console.log('PASS: solid closed borders and editable text use Layer Styles; native alignments, fill/stroke alpha, no-fill, gradients, multiple borders; real AEP generation');
 }

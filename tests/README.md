@@ -64,6 +64,10 @@ AEP 的形状按路径边界、文字按字形边界、图片及预合成按素�
 
 未裁切容器在需要时扩展为实际内容边界并补偿位置，Figma 裁剪画框仍保留原边界。`node tests/comp-bounds.cjs` 及 `tests/ae-comp-bounds.jsx` 覆盖六个嵌套预合成，包括框外内容、外描边和半透明重叠；后者同时检查直接创建与 AEP 导入。平面参考只裁切 Figma 明确开启裁剪的画框，不能把错误的预合成裁切当成正确基准。文字的连续栅格化仍保留。
 
+预合成的原点和画布边界统一对齐导出像素网格；原稿内容的小数坐标保留，进入/离开预合成的补偿避免再次采样。裁剪画框也使用对齐的画布，并以原生路径保存原有小数裁剪范围。`node tests/precomp-pixel-grid.cjs` 检查三个关闭塌陷的嵌套画框、源图片位置/比例和独立裁剪；`tests/ae-ring-pixels.jsx` 渲染真实卡面、直接导入的圆环及平面/嵌套位图，`python tests/check-precomp-pixel-grid.py --renders artifacts/owcs-ring-pixels-20261116` 要求两张位图 RGBA 逐像素一致。
+
+与同层 Figma 蒙版组合的形状描边使用路径绘制，保留描边后裁剪的顺序；未遮罩的形状及文字继续使用原有图层样式。`stroke-styles.cjs` 的普通/细描边检查同时覆盖这两种结构。2026-11-16 用户正常导出的 `pinball_game-card3` 在 AE 26 的圆环区误差由 11.1402 降至 3.2812；发光 PNG 字节完全一致，缩放保持 100%。细节见卡面分析文档。
+
 ```powershell
 node tests/raster-scale.cjs
 node tests/aep-layout.cjs 1
