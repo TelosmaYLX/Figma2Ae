@@ -16,6 +16,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\Tools\F2A\scripts\install
 保持不变；配置备份保存在 Codex 配置目录的 `backups/f2a`。后续只需打开 Figma 中的
 F2A，看到“MCP 已就绪”后即可调用工具。MCP 本身不要求启动 After Effects。
 
+DSH Desktop 使用：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\Tools\F2A\scripts\install-mcp.ps1 -Client DshDesktop
+```
+
+使用本机已有的 `dsh-skill-mcp-panel` 管理模块，更新 desktop profile 中的 `figma`
+入口并保留原条目 ID 与超时；其余 MCP 保持不变。原配置备份到 DSH 目录的
+`backups/f2a`，支持 `DSH_HOME`。DSH 在线时由现有配置监听热加载，可在“Skill / MCP”
+中检查 `figma` 的连接；连接后提供 45 个工具。
+
 其他支持 stdio 的 MCP 客户端可使用：
 
 ```json
