@@ -295,6 +295,16 @@ node scripts/ae-eval.mjs tests/ae-paragraph.jsx artifacts/export-smoke/paragraph
 
 整理工具检查通过实际 UI 按钮调用主线程处理，Figma 场景 API 使用模拟节点，覆盖旋转、镜像、缩放、嵌套分组及分组原点自动变化。AE 检查验证 Group/实例图片层、裁剪开关对应的原生遮罩数量，以及真实文字文档的行距和段落属性；PNG 渲染仍使用样例图片模拟，不等同于真实 Figma 文件的视觉验收。
 
+## 导入到 AE 的项目整理
+
+每次“导入到 After Effects”完成后，面板新建的项目项会按 AEP 写入器的结构归位：在项目根目录创建以 Figma 画框名命名的文件夹（缺省名 `F2A 导入`），内含 `Assets` 与 `Precomps`；本次导入产生的素材进 `Assets`，新建的预合成进 `Precomps`，用户自己的目标合成不移动。同名画框再次导入时复用已有文件夹，不产生 `Assets 2`、`Precomps 3`。整理发生在预合成创建之后，作为同一次 `runImportBatch` 的最后一步，失败只记录在返回状态里，不中断导入。
+
+```powershell
+node scripts/ae-eval.mjs tests/ae-import-folders.jsx artifacts/import-folders/result.json
+```
+
+检查需要已打开的 F2A 面板。脚本重新载入 `figmaRunner.jsx`，在临时合成中执行一次真实整批导入（空图层树 + 一张图片），确认根文件夹、两个子文件夹、素材与子合成的归属、目标合成未被移动和文件夹复用；结束后把新增项目项移入临时文件夹删除，恢复原活动项。结果 `passed` 必须为 `true`，并已核对项目项数量回到测试前。
+
 ## 导入撤销与重做
 
 面板收到整批图片并完成素材保存后，使用一次 `runImportBatch` 调用创建形状、文字、图片及预合成。`AEShapeBuilder.withUndo` 统一管理这次同步调用的撤销组；内部构建函数共享该组，不跨 CEP 回调保留撤销组。连续导入按队列串行执行，并在接收数据时绑定目标合成。

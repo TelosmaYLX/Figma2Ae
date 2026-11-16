@@ -444,7 +444,7 @@
                    ? saveJsonTemp(meta.containers, 'containers').replace(/\\/g, '/') : "";
         if (cp) flash("分组预合成：" + meta.containers.length + " 个组");
         else if (meta.organize) flash("没有嵌套组，将使用当前合成");
-        var job = { data: {svgPath: arg, textsPath: tp, gradMapPath: gp, effectsPath: ep,
+        var job = { data: {name: meta.name || '', svgPath: arg, textsPath: tp, gradMapPath: gp, effectsPath: ep,
                            shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp},
                     ready: !meta.imageCount, expectedImages: meta.imageCount || 0, targetReady: false, images: null };
         importQueue.push(job);

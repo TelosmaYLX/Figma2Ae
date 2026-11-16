@@ -62,6 +62,7 @@ h.finish(); assert.deepEqual(h.native.map(n => n.id), ['A', 'B', 'C']);
 assert.notEqual(h.native[0].file, h.native[1].file, 'Frozen timestamps must not overwrite queued metadata');
 assert.notEqual(h.native[0].job.nodesPath, h.native[1].job.nodesPath);
 assert.equal(h.native[0].job.compId, 101);
+assert.equal(h.native[0].job.name, 'A', 'The frame name travels to AE so the import folders carry it');
 assert.equal(JSON.parse(fs.readFileSync(h.native[2].job.imagesPath, 'utf8'))[0].name, 'C');
 h.finish();
 const canceled = harness({rememberFolder: false});

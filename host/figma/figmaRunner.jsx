@@ -110,6 +110,51 @@ function mkFigmaTargetCompId() {
   var comp = app.project ? app.project.activeItem : null;
   return comp && comp instanceof CompItem ? String(comp.id) : "0";
 }
+
+// ---- Project organization -------------------------------------------------
+// The live import mirrors the AEP writer (scripts/aep/writer.py): one folder per import,
+// with Assets/ for the footage and Precomps/ for the compositions it created. Re-importing the
+// same frame REUSES that folder instead of stacking "Assets 2", "Precomps 3" every run.
+function _mkProjectIds() {
+  var seen = {}, total = app.project ? app.project.numItems : 0;
+  for (var i = 1; i <= total; i++) seen[app.project.item(i).id] = true;
+  return seen;
+}
+function _mkChildFolder(parent, name) {
+  for (var i = 1; i <= parent.numItems; i++) {
+    var item = parent.item(i);
+    if (item instanceof FolderItem && item.name === name) return item;
+  }
+  return parent.items.addFolder(name);
+}
+function _mkOrganizeImport(before, name) {
+  // Collect first: an import that only added layers needs no folders, and empty Assets/
+  // Precomps pairs would just be clutter in the project panel.
+  var fresh = [], total = app.project.numItems, i, item;
+  for (i = 1; i <= total; i++) {
+    item = app.project.item(i);
+    if (before[item.id]) continue;
+    if (item instanceof CompItem || item instanceof FootageItem) fresh.push(item);
+  }
+  if (!fresh.length) return { name: "", moved: 0 };
+  var root = app.project.rootFolder;
+  var label = String(name == null ? "" : name).replace(/[\\\/:*?"<>|\r\n\t]+/g, "_").replace(/^\s+|\s+$/g, "");
+  if (!label) label = "F2A 导入";
+  if (label.length > 60) label = label.substr(0, 60);
+  var top = _mkChildFolder(root, label);
+  var assets = _mkChildFolder(top, "Assets");
+  var precomps = _mkChildFolder(top, "Precomps");
+  var moved = 0;
+  for (i = 0; i < fresh.length; i++) {
+    item = fresh[i];
+    try {
+      item.parentFolder = (item instanceof CompItem) ? precomps : assets;
+      moved++;
+    } catch (eMove) {}                       // read-only items keep their place; never abort the import
+  }
+  return { name: top.name, moved: moved };
+}
+
 function runImportBatch(jobPath) {
   try {
     var job = _mkReadJson(jobPath);
@@ -126,6 +171,7 @@ function runImportBatch(jobPath) {
     }
     if (!comp || !(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
     return AEShapeBuilder.withUndo("Figma -> AE", function () {
+      var before = _mkProjectIds();
       try {
         var status = runImport(job.svgPath, job.textsPath, job.gradMapPath, job.effectsPath,
                                job.shiftX || 0, job.shiftY || 0, job.nodesPath, job.containersPath,
@@ -135,7 +181,13 @@ function runImportBatch(jobPath) {
           var images = runImportImages(job.imagesPath, job.imageFolder);
           if (/^(ERROR|image error)/i.test(images)) return status + " | " + images;
         }
-        return status + (images ? " | " + images.split(" | ")[0] : "") + " | " + runOrganize();
+        var result = status + (images ? " | " + images.split(" | ")[0] : "") + " | " + runOrganize();
+        // Organize AFTER the precomps exist, so newly created compositions land in Precomps too.
+        try {
+          var placed = _mkOrganizeImport(before, job.name);
+          if (placed && placed.moved > 0) result = result + " | " + placed.moved + " 项已整理到「" + placed.name + "」";
+        } catch (eOrg) { result = result + " | 整理失败：" + eOrg; }
+        return result;
       } finally { _mkContainers = null; }
     });
   } catch (e) { return "batch error: " + e.toString(); }
