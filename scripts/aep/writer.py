@@ -595,6 +595,10 @@ class Writer:
         self.current_item = {}
         for comp in self.project.compositions:
             for layer in comp.layers:
+                # py-aep 0.19 omits this on static layer transforms. AE keeps the
+                # zero when keys are added, making even linear motion nonuniform.
+                for prop in (layer.transform.position, layer.transform.anchor_point):
+                    prop._tdb4._pad2a = 3
                 if isinstance(layer, TextLayer):
                     serialize_text_colors(layer['ADBE Text Properties']['ADBE Text Document'].value)
         self.project.save(str(self.output / 'project.aep'))

@@ -26,6 +26,8 @@ for item in sorted(model['containers'],key=lambda c:len(c.get('path') or [])):
     parent=origin(item);corner=point(layers[item['name']],0,0)
     contexts[item['id']]={'x':parent[0]+corner[0],'y':parent[1]+corner[1]}
 for layer in layers.values():
+    for prop in (layer.transform.position,layer.transform.anchor_point):
+        assert prop._tdb4._pad2a==3,(layer.name,prop.match_name,'Missing spatial interpolation metadata')
     assert layer.quality == baseline.quality
     if layer.source is not None:
         assert layer.sampling_quality == baseline.sampling_quality,layer.name

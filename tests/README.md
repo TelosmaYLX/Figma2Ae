@@ -436,3 +436,12 @@ node scripts/ae-eval.mjs tests/ae-nested-image-masks.jsx artifacts/nested-image-
 ```
 
 样例复现最下方 `image 381`、四个带 `image 378` 的组，以及独立前景图片。检查外层共享预合成、四个独立局部遮罩、隐藏内容重新显示后的归属、原图字节、局部效果溢出、相邻蒙版边界、选项关闭和未开启预合成的提示。真实 AE 26 中两条导入路径均保留一个外层遮罩和四个局部遮罩，四张图片的组内位置为 `[40,24]`；直接导入记录的六对遮罩连接全部有效（包括相邻的独立蒙版）。预合成后用新图层引用重新记录遮罩配对，避免旧引用造成“丢失”误报。报告位于 `artifacts/nested-image-masks/`。
+
+## AEP 导出后的线性位移
+
+```powershell
+node tests/aep-layout.cjs
+node scripts/ae-eval.mjs tests/ae-position-interpolation.jsx artifacts/position-jump/ae-regression-after.json
+```
+
+第一条检查真实 AEP 中所有图层的位置、锚点空间插值元数据。第二条在真实 AE 导入该工程，为形状、文字、图片、预合成及遮罩图层的位置和锚点添加横向、纵向、斜向线性关键帧，逐帧检查，再于第 29 帧插入 AE 计算的位置并重查。120 项检查全部通过，最大位置误差约 0.00714 px。修复前首项即失败：66 px / 30 帧的位移在第一帧偏差约 5.03 px。测试只导入并清理临时条目，不替换或保存当前工程。
