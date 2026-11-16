@@ -35,7 +35,13 @@
     if (revertTimer) clearTimeout(revertTimer);
     revertTimer = setTimeout(function () { paint(baseStatus); }, 3500);
   }
-  function setConn(on) { MKFigma.connected = on; setBase(on ? "桥接服务运行中 · 端口 :" + PORT : "桥接服务已离线。请重新打开面板"); }
+  // Progress lines for the panel console. main.js owns the widget, so guard the hand-off.
+  function log(text, tone) { if (window.MKLog) window.MKLog(text, tone); }
+  function setConn(on) {
+    MKFigma.connected = on;
+    setBase(on ? "桥接服务运行中 · 端口 :" + PORT : "桥接服务已离线。请重新打开面板");
+    log(on ? "Figma 桥接已连接 · 端口 " + PORT : "Figma 桥接已断开，等待重连", on ? "ok" : "err");
+  }
 
   if (!CEP) {
     MKFigma.manualImport = function () { flash("[预览] SVG 导入需要在 AE 中运行"); };
@@ -324,6 +330,8 @@
     if (!job.shadowsReady && images.some(function (image) { return !!image.shadowBase; })) {
       job.shadowsReady = true;
       var renderer = require(ext + '/client/figmaRasterEffects.js'), pending = Promise.resolve();
+      var shadowed = images.filter(function (image) { return !!image.shadowBase; }).length;
+      log("正在合成 " + shadowed + " 张投影图片…");
       images.forEach(function (image) {
         if (image.shadowBase) pending = pending.then(function () {
           return renderer.renderShadow(image.data, image.shadowBase, document, window.Image).then(function (data) {
@@ -370,6 +378,7 @@
                       cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch, hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, mergedBlend: !!im.mergedBlend, external: !!im.external });
         }
         submitImport(job, saveJsonTemp(list, 'images').replace(/\\/g, '/'), lastImageFolder);
+        log("已保存 " + list.length + " 张图片 → " + folder, "ok");
       } catch (e) {
         rememberImageFolder('');
         finishImport('图片保存失败：' + (/ENOSPC/i.test(e.message) ? '磁盘空间已满' : e.message), true);
@@ -384,7 +393,7 @@
       port: PORT,
       onGetImageFolder: getImageFolder,
       onChooseImageFolder: MKFigma.selectImageFolder,
-      onStartAep: function (callback) { require(ext + '/client/aepLauncher.js').start(callback); },
+      onStartAep: function (callback) { log("Figma 请求启动 AEP 导出组件…"); require(ext + '/client/aepLauncher.js').start(callback); },
       onStatus: function (s) { if (/listening/.test(s)) setConn(true); },
       onSvg: function (svg, meta) {
         var swept = sweepTemp();                  // reclaim earlier runs before writing new files
@@ -397,6 +406,7 @@
         }
         var p = bridge.saveTemp(svg, meta.name);
         var arg = p.replace(/\\/g, "/");
+        log("收到「" + (meta.name || "未命名") + "」：" + (meta.imageCount || 0) + " 张图片待导出");
         flash("已接收 Figma 数据，正在构建…" + (swept ? "（已清理 " + swept.mb + " MB，共 " + swept.files + " 个临时文件）" : ""));
         // Gradient TEXT fill -> bake a Gradient Overlay layer-style .ffx per text node.
         // (Gradient Ramp paints the whole layer rect; the layer style respects glyph alpha.)

@@ -38,7 +38,7 @@ async function check(){
   assert.ok(!/mk-image-folder|mk-feedback|发送反馈/.test(panelHtml),'panel markup drops the folder row and feedback link');
   assert.ok(!/\.mk-image-folder|\.mk-foot|\.mk-fb-|\.mk-lic-/.test(panelCss),'panel styles drop the removed widgets');
   const minSize=fs.readFileSync(path.join(root,'CSXS/manifest.xml'),'utf8').match(/<MinSize><Height>(\d+)<\/Height><Width>(\d+)<\/Width><\/MinSize>/);
-  assert.ok(minSize && Number(minSize[1])<=220 && Number(minSize[2])<=220,'the trimmed panel can shrink to its content');
+  assert.ok(minSize && Number(minSize[1])<=300 && Number(minSize[2])<=240,'the panel with its live log can still shrink to its content');
 
   // Actual HTTP routes invoke the same host-side setting and native picker used by the panel.
   const endpoint=harness({rememberFolder:false});

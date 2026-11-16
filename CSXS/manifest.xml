@@ -36,8 +36,8 @@
           <Type>Panel</Type>
           <Menu>F2A</Menu>
           <Geometry>
-            <Size><Height>240</Height><Width>280</Width></Size>
-            <MinSize><Height>220</Height><Width>200</Width></MinSize>
+            <Size><Height>360</Height><Width>300</Width></Size>
+            <MinSize><Height>290</Height><Width>200</Width></MinSize>
             <MaxSize><Height>2000</Height><Width>600</Width></MaxSize>
           </Geometry>
         </UI>

@@ -101,6 +101,32 @@
   overlay.addEventListener("click", function (e) { if (e.target === overlay) closePopup(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePopup(); });
 
+  // ---- Live log ------------------------------------------------------------
+  // One timestamped line per event. figmaBridge reports progress through MKToast/MKLog, so the
+  // console shows what the bridge is doing even when the Figma panel is out of sight.
+  var logList = document.getElementById("mk-log");
+  var logCap = 200;
+  function stamp(now) {
+    return ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2) + ":" + ("0" + now.getSeconds()).slice(-2);
+  }
+  function logLine(text, tone) {
+    if (!logList) return;
+    var line = document.createElement("div");
+    line.className = "mk-log-line" + (tone ? " " + tone : "");
+    var time = el("span", "mk-log-time");
+    time.textContent = stamp(new Date());
+    line.appendChild(time);
+    var body = el("span", "mk-log-text");
+    body.textContent = String(text == null ? "" : text);   // AE and Figma text stays literal
+    line.appendChild(body);
+    logList.appendChild(line);
+    while (logList.children.length > logCap) logList.removeChild(logList.firstChild);
+    logList.scrollTop = logList.scrollHeight;
+  }
+  window.MKLog = logLine;
+  var clearLog = document.getElementById("mk-log-clear");
+  if (clearLog && logList) clearLog.onclick = function () { logList.innerHTML = ""; };
+
   // ---- Toast ----
   var statusEl = document.getElementById("mk-status");
   var tmr = null;
@@ -109,10 +135,12 @@
     statusEl.className = "mk-status show" + (isErr ? " err" : "");
     if (tmr) clearTimeout(tmr);
     tmr = setTimeout(function () { statusEl.className = "mk-status"; }, isErr ? 4200 : 1800);
+    logLine(msg, isErr ? "err" : "");
   }
 
   // expose toast so the Figma bridge module can report status through the same UI
   window.MKToast = toast;
 
+  logLine("F2A 面板已加载", "ok");
   render();
 })();

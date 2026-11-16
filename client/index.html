@@ -31,6 +31,15 @@
     <span class="mk-fig-label" id="mk-mcp-label">MCP 正在启动…</span>
   </div>
 
+  <!-- Live log: every bridge, MCP and import message lands here with a timestamp. -->
+  <section class="mk-console" aria-label="运行日志">
+    <div class="mk-console-head">
+      <span>运行日志</span>
+      <button type="button" class="mk-console-clear" id="mk-log-clear" title="清空日志" aria-label="清空日志">清空</button>
+    </div>
+    <div class="mk-console-list" id="mk-log" role="log" aria-live="polite"></div>
+  </section>
+
   <!-- Popup -->
   <div class="mk-overlay" id="mk-overlay" hidden>
     <div class="mk-popup" role="dialog" aria-modal="true" aria-labelledby="mk-popup-title">
@@ -42,8 +51,9 @@
     </div>
   </div>
 
+  <!-- main.js first: it owns the live log, so the bridge modules can report from their first line. -->
+  <script src="main.js"></script>
   <script src="figmaBridge.js"></script>
   <script src="mcpBridge.js"></script>
-  <script src="main.js"></script>
 </body>
 </html>
