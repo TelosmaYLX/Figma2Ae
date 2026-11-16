@@ -7,8 +7,8 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Import stays primary. The image folder is a secondary shared setting: full, selectable,
-       wrapping path plus a 36px folder button. Reuse existing surfaces, text, radius and 8px gaps. -->
+  <!-- Import stays primary. The panel only hosts the Figma → AE action and the two bridge
+       status lines; the image folder is chosen from the Figma plugin through the bridge routes. -->
   <header class="mk-header">
     <div class="mk-brand">
       <h1 class="mk-name">F2A</h1>
@@ -29,21 +29,6 @@
   <div class="mk-figbar" role="status">
     <span class="mk-fig-dot off" id="mk-mcp-dot" aria-hidden="true"></span>
     <span class="mk-fig-label" id="mk-mcp-label">MCP 正在启动…</span>
-  </div>
-
-  <div class="mk-image-folder">
-    <div class="mk-image-folder-label" id="mk-image-folder-label">图片保存位置</div>
-    <div class="mk-image-folder-row">
-      <div class="mk-image-folder-path" id="mk-image-folder-path" role="status" aria-labelledby="mk-image-folder-label">未选择</div>
-      <button type="button" class="mk-image-folder-choose" id="mk-image-folder-choose" title="选择图片保存位置" aria-label="选择图片保存位置">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
-      </button>
-    </div>
-  </div>
-
-  <div class="mk-foot">
-    <a href="#" id="mk-feedback" class="mk-foot-link">发送反馈</a>
-    <span class="mk-foot-ver" id="mk-foot-ver">v1.0</span>
   </div>
 
   <!-- Popup -->

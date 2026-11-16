@@ -11,13 +11,13 @@ async function check(){
   let selection=directory;
   const backend=harness({nativeFolder:()=>({err:0,data:selection?[selection]:[]})});
   const old=backend.window.MKFigma.getImageFolder();
-  assert.equal(backend.elements['mk-image-folder-path'].textContent,old);
-  backend.elements['mk-image-folder-choose'].onclick();
+  let picked=null;
+  backend.window.MKFigma.selectImageFolder((error,folder)=>{picked={error,folder};});
   assert.equal(backend.folderCalls.length,1);assert.equal(backend.folderCalls[0][0],false);assert.equal(backend.folderCalls[0][1],true);
   assert.equal(backend.folderCalls[0][3],old,'Changing the folder starts in the remembered location');
   const chosen=directory.replaceAll('\\','/');
-  assert.equal(backend.storage.get('f2a.imageFolder'),chosen);assert.equal(backend.elements['mk-image-folder-path'].textContent,chosen);
-  selection=null;backend.elements['mk-image-folder-choose'].onclick();
+  assert.equal(backend.storage.get('f2a.imageFolder'),chosen);assert.equal(picked.folder,chosen);assert.equal(picked.error,null);
+  selection=null;backend.window.MKFigma.selectImageFolder(()=>{});
   assert.equal(backend.window.MKFigma.getImageFolder(),chosen,'Cancel keeps the selected directory');
   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7d0AAAAASUVORK5CYII=','base64');
   backend.start('saved folder',1);backend.callbacks.onImages([{name:'小图 test',ext:'png',data:png.toString('base64')}]);
@@ -29,8 +29,16 @@ async function check(){
   const broken=harness({rememberFolder:false,nativeFolder:()=>({err:1,data:[]})});
   broken.start('failed picker',1);broken.images('image');assert.equal(broken.native.length,0);assert.match(broken.messages.at(-1),/目录窗口打开失败/);
   fs.unlinkSync(path.join(directory,metadata.file));fs.rmdirSync(directory);assert.equal(backend.window.MKFigma.getImageFolder(),'');
-  assert.equal(backend.elements['mk-image-folder-path'].textContent,'未选择');
   assert.equal(backend.storage.has('f2a.imageFolder'),false);
+
+  // The AE panel no longer renders the folder row, the feedback link or their styles; the
+  // setting keeps working through the Figma plugin and the HTTP routes only.
+  const panelHtml=fs.readFileSync(path.join(root,'client/index.html'),'utf8');
+  const panelCss=fs.readFileSync(path.join(root,'client/style.css'),'utf8');
+  assert.ok(!/mk-image-folder|mk-feedback|发送反馈/.test(panelHtml),'panel markup drops the folder row and feedback link');
+  assert.ok(!/\.mk-image-folder|\.mk-foot|\.mk-fb-|\.mk-lic-/.test(panelCss),'panel styles drop the removed widgets');
+  const minSize=fs.readFileSync(path.join(root,'CSXS/manifest.xml'),'utf8').match(/<MinSize><Height>(\d+)<\/Height><Width>(\d+)<\/Width><\/MinSize>/);
+  assert.ok(minSize && Number(minSize[1])<=220 && Number(minSize[2])<=220,'the trimmed panel can shrink to its content');
 
   // Actual HTTP routes invoke the same host-side setting and native picker used by the panel.
   const endpoint=harness({rememberFolder:false});
@@ -85,6 +93,6 @@ async function check(){
   assert.equal(abort.posts.length,0);assert.match(abort.elements.msg.textContent,/已取消/);assert.equal(abort.elements.ship.disabled,false);
   const failed=plugin({error:true});await flush();failed.elements.ship.onclick();await flush();
   assert.equal(failed.posts.length,0);assert.match(failed.elements.msg.textContent,/目录窗口打开失败/);assert.equal(failed.elements.ship.disabled,false);
-  console.log('PASS: visible shared folder, native picker, change/cancel/error, remembered/missing directories, real image writes, HTTP routes and Figma import preflight');
+  console.log('PASS: native folder picker with no panel widget, remembered/missing directories, real image writes, HTTP routes, Figma import preflight and the trimmed panel');
 }
 check().catch(error=>{console.error(error);process.exitCode=1;});

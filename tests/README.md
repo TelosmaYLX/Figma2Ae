@@ -128,7 +128,7 @@ AEP 写入错误通过 Python → Node → HTTP → UI 保留原图层 ID。实�
 
 ## 图片保存位置
 
-Figma 插件和 AE 面板均显示“图片保存位置”，右侧文件夹按钮可重新选择。完整地址支持换行和复制，两端共用 AE 面板记住的目录。首次点击“导入到 After Effects”时，如未设置目录或原目录已失效，会先打开目录窗口；取消或选择失败时不开始导出。图片先写入所选目录，再通过该目录交给 AE 导入。
+只有 Figma 插件显示“图片保存位置”，右侧文件夹按钮可重新选择；完整地址支持换行和复制。目录仍由 AE 面板记住（`localStorage` 的 `f2a.imageFolder`），Figma 通过 HTTP 路由读取和更换，AE 面板本身不再显示这一行。首次点击“导入到 After Effects”时，如未设置目录或原目录已失效，会先打开目录窗口；取消或选择失败时不开始导出。图片先写入所选目录，再通过该目录交给 AE 导入。
 
 ```powershell
 node tests/image-folder.cjs
@@ -137,7 +137,7 @@ node tests/bridge-batch.cjs
 node tests/direct-aep-ui.cjs
 ```
 
-检查覆盖目录显示、原生 CEP 窗口调用、重选与取消、无效路径、导入期间禁止修改、真实 HTTP 接口、PNG 写入及导入数据中的路径。Figma 和 CEP 窗口 API 由测试模拟；代码更新后需重新运行 Figma 插件并重新打开 AE 的 F2A 面板。
+检查覆盖原生 CEP 窗口调用、重选与取消、无效路径、导入期间禁止修改、真实 HTTP 接口、PNG 写入及导入数据中的路径，并确认 AE 面板已移除该行与反馈入口、样式同步删除、最小窗口尺寸可按内容缩小。Figma 和 CEP 窗口 API 由测试模拟；代码更新后需重新运行 Figma 插件并重新打开 AE 的 F2A 面板。
 
 ## AE 渐变
 

@@ -9,8 +9,6 @@
   var PORT = 7867;
   var CEP = (typeof window.__adobe_cep__ !== "undefined");
   var MKFigma = window.MKFigma = { connected: false, manualImport: noop, selectImageFolder: noop };
-  var folderButton = document.getElementById('mk-image-folder-choose');
-  if (folderButton) folderButton.onclick = function () { MKFigma.selectImageFolder(); };
 
   var baseStatus = "正在启动 SVG 桥接…";   // persistent line the bar returns to
   var revertTimer = null;
@@ -97,23 +95,16 @@
   var lastImageFolder = "";       // remembered across imports and panel restarts
   try { lastImageFolder = localStorage.getItem("f2a.imageFolder") || ""; } catch (eLs) {}
   var folderSelecting = false;
-  function paintImageFolder() {
-    var label = document.getElementById('mk-image-folder-path');
-    if (label) { label.textContent = lastImageFolder || '未选择'; label.title = lastImageFolder; }
-    if (folderButton) folderButton.disabled = folderSelecting || importing || !!(importQueue && importQueue.length);
-  }
   function rememberImageFolder(folder) {
     lastImageFolder = folder;
     if (folder) localStorage.setItem('f2a.imageFolder', folder);
     else localStorage.removeItem('f2a.imageFolder');
-    paintImageFolder();
   }
   function getImageFolder() {
     if (lastImageFolder) {
       try { if (!require('fs').statSync(lastImageFolder).isDirectory()) rememberImageFolder(''); }
       catch (error) { rememberImageFolder(''); }
     }
-    paintImageFolder();
     return lastImageFolder;
   }
   MKFigma.getImageFolder = getImageFolder;
@@ -276,7 +267,7 @@
     if (folderSelecting) { cb(new Error('目录窗口已打开')); return; }
     var current = getImageFolder();
     if (current && !force) { cb(null, current); return; }
-    folderSelecting = true; paintImageFolder();
+    folderSelecting = true;
     function selected(error, folder) {
       folderSelecting = false;
       if (!error && folder) {
@@ -285,7 +276,7 @@
           rememberImageFolder(folder.replace(/\\/g, '/'));
         } catch (failure) { error = failure; }
       }
-      paintImageFolder(); cb(error, error || !folder ? null : lastImageFolder);
+      cb(error, error || !folder ? null : lastImageFolder);
     }
     try {
       if (window.cep && window.cep.fs && window.cep.fs.showOpenDialogEx) {
@@ -314,7 +305,6 @@
   function finishImport(message, failed) {
     flash(message, failed);
     importQueue.shift(); importing = false; pumpImport();
-    paintImageFolder();
   }
   function submitImport(job, imagesPath, folder) {
     var data = job.data;
@@ -328,7 +318,7 @@
   }
   function pumpImport() {
     if (importing || !importQueue.length || !importQueue[0].ready || !importQueue[0].targetReady) return;
-    importing = true; paintImageFolder();
+    importing = true;
     var job = importQueue[0], images = job.images || [];
     if (!job.data.compId) { finishImport('请先打开一个合成', true); return; }
     if (!job.shadowsReady && images.some(function (image) { return !!image.shadowBase; })) {
@@ -456,7 +446,6 @@
                            shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp},
                     ready: !meta.imageCount, expectedImages: meta.imageCount || 0, targetReady: false, images: null };
         importQueue.push(job);
-        paintImageFolder();
         // Bind the target before the PNG wait or folder dialog can change the active viewer.
         evalES('mkFigmaTargetCompId()', function (id) {
           job.data.compId = parseInt(id, 10) || 0; job.targetReady = true; pumpImport();
@@ -470,14 +459,14 @@
       onAbort: function (message) {
         for (var i = 0; i < importQueue.length; i++) {
           if (importQueue[i].ready) continue;
-          importQueue.splice(i, 1); flash(message, true); pumpImport(); paintImageFolder(); return;
+          importQueue.splice(i, 1); flash(message, true); pumpImport(); return;
         }
       },
       onImages: function (images) {
         for (var i = 0; i < importQueue.length; i++) {
           if (importQueue[i].ready) continue;
           if (images.length !== importQueue[i].expectedImages) {
-            importQueue.splice(i, 1); flash('图片数据不完整，已取消导入', true); pumpImport(); paintImageFolder();
+            importQueue.splice(i, 1); flash('图片数据不完整，已取消导入', true); pumpImport();
             return {ok: false, error: '图片数据不完整'};
           }
           importQueue[i].images = images; importQueue[i].ready = true;
