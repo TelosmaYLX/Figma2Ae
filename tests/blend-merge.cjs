@@ -57,6 +57,15 @@ async function check() {
   const cross=await harness(group('root',[solid('base'),group('ending',[blend('light'),solid('editable front')]),node('TEXT','top')])).run(true,false,true,false,{mergeBlends:true});
   assert.ok(cross.ship.containers.find(c=>c.name==='ending').z>cross.images[0].z,'Remaining cross-group foreground must stay above merged PNG');
   const roundedMask=solid('mask');roundedMask.isMask=true;roundedMask.cornerRadius=8;
+  const burnMask=solid('burn matte');burnMask.isMask=true;
+  const burn=blend('linear burn image','LINEAR_BURN');burn.fills=[{type:'IMAGE',imageHash:'burn',scaleMode:'FILL'}];
+  const maskedBurn=group('masked burn',[burnMask,burn,solid('burn union')]);
+  const burnRoot=group('burn card',[solid('opaque blue base'),maskedBurn,node('TEXT','outside label',{...bounds(250,30,80,20)})]);
+  const burnHarness=harness(burnRoot);burnHarness.figma.getImageByHash=()=>({getBytesAsync:async()=>Buffer.from([0x89,0x50,0,0]),getSizeAsync:async()=>({width:100,height:60})});
+  const burned=await burnHarness.run(true,false,true,false,{mergeBlends:true,nativeImageMasks:true});
+  assert.equal(burned.images.filter(im=>im.mergedBlend).length,1,'A masked burn must merge with its independent backdrop');
+  assert.equal(burned.images[0].sourceId,burnRoot.id,'Bake the complete paint scope, not the isolated mask');
+  assert.equal(burned.ship.texts.length,1,'Unrelated text outside the paint scope stays editable');
   const closedBackground=group('closed background',[roundedMask,solid('base'),blend('pattern')]);
   const rounded=await harness(group('root',[closedBackground,blend('glow','LINEAR_DODGE',35,45,20,20),node('TEXT','top')])).run(true,false,true,false,{mergeBlends:true});
   assert.equal(rounded.images.length,0);assert.ok(rounded.ship.blendStats.external>0,'A mask boundary must not absorb unrelated siblings');
@@ -80,6 +89,6 @@ async function check() {
   assert.match(failed.messages.find(m=>m.type==='error').message,/blend render failed/);
   assert.deepEqual(failScene.children.map(c=>[c.opacity,c.blendMode]),[[1,'NORMAL'],[1,'SOFT_LIGHT']]);
   assert.equal(Object.keys(failed.context._blendMerged).length,0,'Failed export clears blend decisions');
-  console.log('PASS: minimal closed blend ranges, Figma frame paints, nested pass-through groups, editable/disjoint/affected text, external backdrops, isolated and paint blends, growing ranges, group effects and option off');
+  console.log('PASS: minimal closed blend ranges, masked burn backdrops, Figma frame paints, nested pass-through groups, editable/disjoint/affected text, external backdrops, isolated and paint blends, growing ranges, group effects and option off');
 }
 check().catch(e=>{console.error(e);process.exitCode=1;});
