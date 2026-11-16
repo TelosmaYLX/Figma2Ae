@@ -166,10 +166,6 @@
       <label class="option"><input type="checkbox" id="rasterinstances"> 组件实例</label>
       <div class="hint">转为图片后，内部内容不可单独编辑。</div>
     </div>
-    <div class="advanced-group">
-      <div class="advanced-label">图片处理</div>
-      <label class="option" title="高倍率渲染后缩小，耗时更长；不改变 AE 图层采样。"><input type="checkbox" id="bicubic-export"> 双三次缩小（实验）</label>
-    </div>
   </details>
 </div>
 <script>
@@ -221,7 +217,7 @@
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
     $('open-aep-folder').disabled = busy || openingFolder;
-    var settings = ['aep-version','organize','enableclip','ignorehidden','text-mode','native-image-masks','raster-scale','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends','rasterallgroups','rasterinstances','bicubic-export'];
+    var settings = ['aep-version','organize','enableclip','ignorehidden','text-mode','native-image-masks','raster-scale','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends','rasterallgroups','rasterinstances'];
     for (var i = 0; i < settings.length; i++) $(settings[i]).disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
@@ -302,7 +298,7 @@
     exporting = true; updateButton();
     blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', target: direct ? 'aep' : 'ae', useNodes: true, organize: organize, rasterScale: Number($('raster-scale').value), bicubicExport: $('bicubic-export').checked, nativeImageMasks: $('native-image-masks').value === 'separate', ignoreHidden: $('ignorehidden').checked, convertMasks: true, rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked, masks: $('raster-masks').checked, booleans: $('raster-booleans').checked}, mergeBlends: $('mergeblends').checked, outlineTexts: $('text-mode').value === 'vector', rasterTexts: $('text-mode').value === 'png', rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'ship-selection', target: direct ? 'aep' : 'ae', useNodes: true, organize: organize, rasterScale: Number($('raster-scale').value), nativeImageMasks: $('native-image-masks').value === 'separate', ignoreHidden: $('ignorehidden').checked, convertMasks: true, rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked, masks: $('raster-masks').checked, booleans: $('raster-booleans').checked}, mergeBlends: $('mergeblends').checked, outlineTexts: $('text-mode').value === 'vector', rasterTexts: $('text-mode').value === 'png', rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
   }
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;
