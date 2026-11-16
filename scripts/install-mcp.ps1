@@ -1,8 +1,9 @@
 param(
-    [ValidatePattern('^[a-zA-Z0-9_-]+$')][string]$Name = 'figma',
+    [ValidatePattern('^[a-zA-Z0-9_-]+$')][string]$Name = 'f2a',
     [ValidateSet('Codex', 'DshDesktop')][string]$Client = 'Codex'
 )
 $ErrorActionPreference = 'Stop'
+if ($Name -eq 'figma') { throw 'Use f2a for F2A. The existing figma MCP must be kept separate.' }
 $mcpRoot = Split-Path -Parent $PSScriptRoot
 $mcpNode = Join-Path $mcpRoot 'runtime\node\node.exe'
 if (-not (Test-Path -LiteralPath $mcpNode)) { $mcpNode = (Get-Command node -ErrorAction Stop).Source }

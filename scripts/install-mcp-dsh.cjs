@@ -6,7 +6,8 @@ const os = require('node:os');
 const {pathToFileURL} = require('node:url');
 const assert = require('node:assert/strict');
 
-async function install(name = 'figma', command = process.execPath) {
+async function install(name = 'f2a', command = process.execPath) {
+  if (name.toLowerCase() === 'figma') throw new Error('Use f2a for F2A. The existing figma MCP must be kept separate.');
   const root = path.resolve(__dirname,'..');
   const configuredHome = process.env.DSH_HOME || path.join(os.homedir(),'.dsh');
   const home = path.resolve(configuredHome.replace(/^~(?=$|[\\/])/,os.homedir()));
