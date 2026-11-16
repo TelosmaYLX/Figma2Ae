@@ -186,6 +186,16 @@ node tests/client-import-queue.cjs
 
 检查包含裁剪与多蒙版边界、父样式隔离、异常还原、原图不变、原生组遮罩不重复、图片/路径/字体/效果失败的具体错误，以及桥接取消失败批次后继续下一次导入。AEP 检查生成真实二进制文件，但 Figma API/PNG 渲染仍使用模拟对象；没有将这些检查表述为新的在线 Figma 或 AE 画面对照。
 
+图片填充的曝光、对比度、饱和度、白平衡、着色、高光、阴影任一非零时，图片本身由 Figma 渲染为 PNG，以保留调色和填充不透明度；独立蒙版不与图片合并。七项均为默认值或缺省时仍读取原始图片。该规则使用“模糊、阴影和特殊效果”权限，关闭后会定位到需要转图的图片。
+
+```powershell
+node tests/image-adjustments.cjs
+node tests/raster-permissions.cjs
+node tests/native-image-masks.cjs
+```
+
+`image-adjustments.cjs` 覆盖七项参数、默认原图、带渐变独立蒙版的调色图片和权限错误；不将模拟 PNG 渲染表述为真实 Figma/AE 画面对照。
+
 性能报告位于 `artifacts/export-speed/report.json`。对比的是仓库 HEAD 与当前代码的属性读取次数、SVG/字体调用次数和数据尺寸，不代表真实 Figma 文件到 AE 的总耗时。
 
 ```powershell

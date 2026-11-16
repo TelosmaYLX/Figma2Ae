@@ -359,22 +359,39 @@ function _usesIndependentMask(n) {
   }
   return false;
 }
+var _imageAdjustmentNames = ['exposure', 'contrast', 'saturation', 'temperature', 'tint', 'highlights', 'shadows'];
+function _hasImageAdjustments(paint) {
+  var filters = paint && paint.filters;
+  if (!filters) return false;
+  for (var i = 0; i < _imageAdjustmentNames.length; i++) {
+    var value = filters[_imageAdjustmentNames[i]];
+    if (typeof value === 'number' && isFinite(value) && value !== 0) return true;
+  }
+  return false;
+}
 function _singleImageNeedsRaster(n) {
-  if (!n || _isContainer(n) || n.type === 'TEXT' || _maskSourceByNode[n.id] || _maskByNode[n.id]) return false;
-  if (_usesIndependentMask(n)) return false;
-  var image = false, crop = false;
+  // Image adjustments live on the paint, not in n.effects. They cannot be reproduced by AE's
+  // original-footage route, so bake this leaf even when an independent mask preserves its siblings.
+  if (!n || _isContainer(n) || n.type === 'TEXT' || _maskSourceByNode[n.id]) return false;
+  var image = false, crop = false, adjusted = false;
   try {
     var paints = n.fills || [];
     for (var i = 0; i < paints.length; i++) {
       var p = paints[i];
       if (p.visible === false || p.type !== 'IMAGE') continue;
       image = true;
+      adjusted = adjusted || _hasImageAdjustments(p);
       // AE's centred cover-fit is NOT Figma CROP: imageTransform carries the user's crop/zoom.
       // Export just this leaf as rendered by Figma, retaining its own layer and full-resolution
       // appearance instead of silently discarding that transform.
       if (p.scaleMode === 'CROP' || p.imageTransform) crop = true;
     }
   } catch (e) { return false; }
+  if (image && adjusted) {
+    _requireRasterOption(n, 'effects', '的图片调色（曝光、对比度等）需要转为图片');
+    return true;
+  }
+  if (_maskByNode[n.id] || _usesIndependentMask(n)) return false;
   if (image && crop) _requireRasterOption(n, 'imageCrops', '的自定义图片裁剪需要固定为 PNG');
   var effect = _rasterOptions.effects && (n.effects || []).some(function (e) { return e.visible !== false; });
   return image && (crop || effect);
