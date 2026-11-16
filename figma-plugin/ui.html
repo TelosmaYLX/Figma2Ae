@@ -25,6 +25,9 @@
   .aep-export { flex:1; width:auto; min-width:0; background:var(--panel); color:var(--text); }
   .aep-version { flex:0 0 88px; min-width:88px; padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--text); font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; }
   .aep-version:hover:not(:disabled) { background:var(--surface); border-color:var(--line-hover); }
+  /* The global focus ring is accent purple; on this narrow control it reads as a selected box,
+     so the version selector shows focus by fill and edge instead. */
+  .aep-version:focus-visible { outline:none; background:var(--surface); border-color:var(--line-hover); }
   .image-folder { margin-bottom:12px; }
   .image-folder-label { margin-bottom:4px; color:var(--text); }
   .image-folder-row { display:flex; align-items:flex-start; gap:8px; }
