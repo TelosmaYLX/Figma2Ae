@@ -1,10 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import {spawn} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 const output = path.resolve('artifacts/export-options');
 await fs.mkdir(output, {recursive:true});
-const profile = path.join(output, 'edge-ui-' + Date.now());
+// A Chromium profile is a few hundred throwaway files; keep it out of artifacts and remove it.
+const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'f2a-preview-'));
 const child = spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', [
   '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
   '--remote-debugging-port=0', '--remote-allow-origins=*', '--user-data-dir=' + profile, 'about:blank'
@@ -50,4 +52,10 @@ try {
   }
   await fs.writeFile(path.join(output, 'ui-metrics.json'), JSON.stringify(metrics, null, 2));
   console.log(JSON.stringify(metrics));
-} finally { socket?.close(); child.kill(); }
+} finally {
+  socket?.close(); child.kill();
+  for (let i = 0; i < 20; i++) {                 // let the headless browser release its profile
+    try { await fs.rm(profile, {recursive: true, force: true}); break; }
+    catch { await new Promise(r => setTimeout(r, 150)); }
+  }
+}

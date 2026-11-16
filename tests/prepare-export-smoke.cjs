@@ -2,7 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {node, group, harness} = require('./export-options.cjs');
 const root = path.join(__dirname, '..'), output = path.join(root, 'artifacts/export-smoke');
-const png = fs.readFileSync(path.join(root, 'SampleProject/pinball_game_container.png'));
+// A synthetic 1×1 PNG: the harness only needs bytes for the raster exports, and the Figma API is mocked.
+const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7d0AAAAASUVORK5CYII=', 'base64');
 (async () => {
   const rect = node('RECTANGLE', 'Editable shape', {fills: [{type: 'SOLID', color: {r: 1, g: 0.6, b: 0}}], fillGeometry: [{data: 'M 0 0 L 100 0 L 100 60 L 0 60 Z', windingRule: 'NONZERO'}], cornerRadius: 0});
   const card = group('*Raster card', [node('TEXT', 'Baked title')]);

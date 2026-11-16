@@ -386,7 +386,15 @@
       onGetImageFolder: getImageFolder,
       onChooseImageFolder: MKFigma.selectImageFolder,
       onStartAep: function (callback) { log("Figma 请求启动 AEP 导出组件…"); require(ext + '/client/aepLauncher.js').start(callback); },
-      onStatus: function (s) { if (/listening/.test(s)) setConn(true); },
+      onStatus: function (s) {
+        if (/listening/.test(s)) { setConn(true); return; }
+        // A stale panel context can still hold the port; say so instead of waiting forever.
+        if (/^error:/.test(s)) {
+          var reason = /EADDRINUSE/.test(s) ? '端口 ' + PORT + ' 已被占用，请关闭重复的 F2A 面板或重启 AE' : s.replace(/^error:\s*/, '');
+          setBase('桥接服务启动失败：' + reason);
+          log('桥接服务启动失败：' + reason, 'err');
+        }
+      },
       onSvg: function (svg, meta) {
         var swept = sweepTemp();                  // reclaim earlier runs before writing new files
         // Multi-region vectors (a cursor with a white body and black outline) only render right

@@ -217,6 +217,10 @@ function start(opts) {
     }
   }
 
+  // A port held by a stale panel context must surface instead of leaving the bar at "starting".
+  server.on('error', function (e) {
+    onStatus('error: ' + (e && e.code ? e.code : (e && e.message) || e));
+  });
   server.listen(port, '127.0.0.1', function () { onStatus('listening on ' + port); });
   return server;
 }

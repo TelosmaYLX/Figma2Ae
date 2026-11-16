@@ -159,7 +159,7 @@ node tests/prepare-gradients.cjs
 node scripts/ae-eval.mjs tests/ae-gradients.jsx artifacts/gradient-test/report.json
 ```
 
-数据来自 SampleProject 的 `pinball_game_container`（Figma 节点 `1793:131401`），只保留本次故障涉及的七个渐变形状、三个文字和祖先容器。
+数据取自历史样例工程中的 `pinball_game_container`（Figma 节点 `1793:131401`），已提取为 `tests/fixtures/pinball-gradients.json`，只保留本次故障涉及的七个渐变形状、三个文字和祖先容器；运行测试不再需要样例工程。
 
 测试在独立文件夹中创建临时合成，检查：
 
@@ -179,18 +179,7 @@ node scripts/ae-eval.mjs tests/ae-punctuation.jsx artifacts/fidelity/punctuation
 
 导出检查覆盖已渲染 PNG 不重复旋转、原始位图保留旋转、柔光分层顺序、保留原遮罩、文字描边，以及导出失败后还原 Figma 属性。AE 检查使用真实副标题，验证普通文字和富文本的标点宽度，同时保留其他字符的字偶距，并检查图层样式中的外侧文字描边。
 
-本地 SVG 的光效对照可通过以下命令复现：
-
-```powershell
-python scripts/extract-light-passes.py
-node scripts/render-svg-passes.mjs
-python scripts/prepare-light-replay.py
-node scripts/ae-eval.mjs scripts/replay-ae.jsx artifacts/fidelity/final-report.json final
-```
-
-光效对照从原 SVG 提取普通纹理和两层柔光，不使用参考 PNG 裁图替代素材。该检查验证 AE 的实际合成；Figma 端导出状态和分层行为另由 `export-fidelity.cjs` 验证。
-
-完整样例的前后渲染、对照图和本地回放数据位于 `artifacts/fidelity/`；它们不进入 Git。`scripts/replay-ae.jsx` 可以回放该目录的数据，`scripts/compare-fidelity.py` 可以重新生成对照图。
+光效对照的历史渲染与对照图位于 `artifacts/fidelity/`，不进入 Git；当时从原 SVG 提取普通纹理和两层柔光的提取、回放脚本依赖样例工程，已随该工程一并移除。当前由 `export-fidelity.cjs` 验证 Figma 端导出状态与分层行为。
 
 ## 图层样式描边
 
@@ -220,7 +209,6 @@ node tests/outlined-dashes.cjs
 ```powershell
 node tests/export-options.cjs
 node tests/bridge-batch.cjs
-node tests/benchmark-export.cjs
 ```
 
 检查覆盖多选标记、重复点击、取消标记、嵌套边界、直接选择已标记根节点、关闭自动栅格化、文字自动栅格化开关、父组去重、旧 SVG 模式、重复导出、边界缓存隔离，以及慢图片等待完整批次、失败图片取消整批导入。UI、主线程和桥接使用实际源码，Figma API 由测试场景模拟。

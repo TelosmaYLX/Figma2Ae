@@ -40,9 +40,11 @@ async function check(){
     assert.equal(failed.status,400);assert.match((await failed.json()).error,/Component denied/);
   }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
   const bundle=fs.mkdtempSync(path.join(__dirname,'../artifacts/aep-panel-package-'));
-  await require('../scripts/package-aep-service.cjs').copyCepExtension(bundle);
-  assert.equal(fs.readFileSync(path.join(bundle,'cep-extension/client/aepLauncher.js'),'utf8'),source);
-  for(const file of ['client/index.html','client/mkBridgeServer.js','host/figma/figmaRunner.jsx','CSXS/manifest.xml','.debug'])assert.ok(fs.existsSync(path.join(bundle,'cep-extension',file)),file+' must be distributed with the launcher');
+  try {
+    await require('../scripts/package-aep-service.cjs').copyCepExtension(bundle);
+    assert.equal(fs.readFileSync(path.join(bundle,'cep-extension/client/aepLauncher.js'),'utf8'),source);
+    for(const file of ['client/index.html','client/mkBridgeServer.js','host/figma/figmaRunner.jsx','CSXS/manifest.xml','.debug'])assert.ok(fs.existsSync(path.join(bundle,'cep-extension',file)),file+' must be distributed with the launcher');
+  } finally { fs.rmSync(bundle,{recursive:true,force:true}); }   // the package copy is 100+ MB; never leave it in artifacts
   console.log('PASS: native fixed URI launch, hidden process, per-user registry, missing component, host errors and real AE bridge HTTP route');
 }
 check().catch(error=>{console.error(error);process.exitCode=1;});

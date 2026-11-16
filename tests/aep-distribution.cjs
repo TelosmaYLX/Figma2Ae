@@ -88,7 +88,10 @@ async function check() {
     await run(python,[path.join(root,'tests/check-outlined-dashes.py'),outlinedResult.project],{env,windowsHide:true});
     await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult,nestedResult,instanceResult,styleResult:styleResults[0],thinStyleResult:styleResults[1],outlinedResult},null,2));
     console.log('PASS: relocated Windows package, no Node/Python on PATH, isolated Python/Tcl, bundled HTTP service and real AEP folder');
-    console.log(testRoot);
-  } finally {child.kill();}
+    console.log(process.env.F2A_KEEP_DISTRIBUTION ? 'kept package copy: ' + testRoot : 'removed the 170 MB package copy (set F2A_KEEP_DISTRIBUTION=1 to keep it)');
+  } finally {
+    child.kill();
+    if (!process.env.F2A_KEEP_DISTRIBUTION) await fs.rm(testRoot, {recursive: true, force: true});
+  }
 }
 check().catch(error=>{console.error(error);process.exitCode=1;});
