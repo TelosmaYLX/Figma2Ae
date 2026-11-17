@@ -41,7 +41,7 @@ set_locked({ nodeIds: [backupId], locked: true })
 ## 2. 基准采图与像素对比（硬门禁必备）
 
 ### 首选（完整 F2A MCP）：
-- `save_screenshots`：将完整 `PNG`（`scale: 1`，必要时另存 `scale: 2`）直接写入本地校验目录（无视觉模型分辨率缩放失真，最适合逐像素比对）。`outDir` 用**相对工作目录**的路径，不要写死本机绝对路径：
+- `save_screenshots`：将完整 `PNG`（`scale: 1`，必要时另存 `scale: 2`）直接写入本地校验目录（无视觉模型分辨率缩放失真，最适合逐像素比对）。`outDir` 不要写死本机绝对路径；同时注意**相对的 `outDir` 是相对 MCP server 进程的工作目录**，可能与你的 shell 目录不同，因此**以返回的 `saved[].path` 绝对路径为准**去跑后续比对：
   ```json
   {
     "nodeIds": ["123:456"],
@@ -59,6 +59,8 @@ set_locked({ nodeIds: [backupId], locked: true })
 ```powershell
 python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.png" --diff "<dir>/diff.png"
 ```
+其中 `<SKILL_DIR>` 指 skill 根目录（本手册同级 `SKILL.md` 所在目录），执行前替换为实际路径；`python` 环境需装好 `numpy` 与 `Pillow`。
+
 只有当 `passed == true` 且 `max_abs_diff == 0` 时，才允许认定视觉无变化。
 
 ---
@@ -68,7 +70,7 @@ python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.p
 | 目标 | 首选工具 | 降级工具（基础版） | 说明 |
 | --- | --- | --- | --- |
 | 获取整棵树结构、布局、填充、描边、效果、混合模式 | `get_design_context` | `get_node_info` / `get_nodes_info` | 大画框先传 `detail: "compact"` 或拿 `sectionPlan`，再分段读 `detail: "full"` |
-| 按名称/类型快速定位垃圾命名、隐藏层、实例、TEXT | `search_nodes` | `scan_nodes_by_types` + `scan_text_nodes` | `search_nodes` 为子串匹配并返 `{id, name, type, depth, parentId, visible, locked}`；查 `*` 标记时务必再按 `name.startsWith('*')` 过滤，避免误抓 `账号脱敏` 这类中间带星号的文本 |
+| 按名称/类型快速定位垃圾命名、隐藏层、实例、TEXT | `search_nodes` | `scan_nodes_by_types` + `scan_text_nodes` | `search_nodes` 为子串匹配并返 `{id, name, type, depth, parentId, visible, locked}`；查 `*` 标记时务必再按 `name.startsWith('*')` 过滤，避免误抓 `sam*ple@163.com` 这类中间带星号的文本 |
 | 检查缺失字体或字体列表 | `get_fonts` | `get_node_info` | 排查可编辑文字导出风险 |
 | 读取精确矢量网络（检查多 region、路径） | `get_vector` | `get_node_info` | 排查复杂矢量或镂空布尔 |
 

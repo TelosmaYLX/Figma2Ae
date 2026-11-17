@@ -21,7 +21,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
 
 ## 开始前：检查参考资料与工具环境
 
-开始整理前，按需阅读以下随附文档（位于本 Skill 目录）：
+开始整理前，按需阅读以下随附文档（位于本 Skill 目录）。**本文中的 `<SKILL_DIR>` 一律指本 `SKILL.md` 所在目录**（即 skill 根目录，含 `scripts/`、`references/`），执行命令前替换成实际路径：
 - **F2A AEP 兼容性与合并规则**：[`references/f2a-aep-compatibility.md`](references/f2a-aep-compatibility.md) —— 详述 F2A 采集与 `writer.py` 的原生支持清单、自动处理边界、常见失真陷阱（如容器效果吞并子层、多图填充丢图、裁剪圆角降级、混合模式跨蒙版隔离等）。
 - **F2A MCP 工具调用手册**：[`references/mcp-tool-playbook.md`](references/mcp-tool-playbook.md) —— 详述 F2A MCP 的读图、搜索、批量重命名、拆组/成组、Z 序、分离实例、`batch` 以及工具降级映射。
 
@@ -53,7 +53,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
    - 把 `backupId` 记录到全程上下文，**直到 Step 6 才允许删除**。
 
 2. **基准采图 `before.png`**
-   - 使用 `save_screenshots`（`nodeIds: [rootId], format: "PNG", scale: 1`，高精细稿可同时存 `scale: 2`）保存到临时校验目录（工作目录下的相对路径，例如 `artifacts/tidy-verify/<nodeId-clean>/before.png`）；若无 `save_screenshots`，则用 `export_node_as_image` 导出并落盘保存为 `before.png`。
+   - 使用 `save_screenshots`（`nodeIds: [rootId]`、`format: "PNG"`、`scale: 1`，高精细稿可同时存 `scale: 2`，`outDir: "artifacts/tidy-verify/<nodeId-clean>"`）保存基准图。**注意：`outDir` 的相对路径是相对 MCP server 进程的工作目录，未必等于你的 shell 目录**，所以一律以返回的 `saved[].path`（绝对路径）为准，把它作为本次的 `<dir>/before.png` 记录（需要时把保存出的 `<nodeId>.png` 重命名）；若无 `save_screenshots`，则用 `export_node_as_image` 导出并落盘保存为 `before.png`。
 
 3. **查看设计稿**
    - 可同时调用 `get_screenshot` 直观查看设计稿视觉，结合图层树判断哪些是前景交互/动效主体、哪些是背景/氛围光效/纹理。
@@ -174,7 +174,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
 ### Step 5：强制像素级一致性验证
 
 1. **导出整理后图像**：
-   - 使用与 Step 1 对应的根节点 ID（若原 `rootId` 本身就是 `INSTANCE` 并在阶段 1 被分离，则使用其返回的 `newId`）、相同的 `format: "PNG"` 和 `scale`，调用 `save_screenshots` 保存到 `after.png`（或 `export_node_as_image`）。
+   - 使用与 Step 1 对应的根节点 ID（若原 `rootId` 本身就是 `INSTANCE` 并在阶段 1 被分离，则使用其返回的 `newId`）、相同的 `format: "PNG"` 和 `scale`、相同的 `outDir`，调用 `save_screenshots` 保存到 `before.png` 同目录下的 `after.png`（同样以返回的 `saved[].path` 为准；或 `export_node_as_image`）。
 2. **运行像素对比硬门禁**：
    ```powershell
    python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.png" --diff "<dir>/diff.png"
@@ -182,7 +182,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
    - 通过标准：`same_size == true` 且 `max_abs_diff == 0`（RGBA 四个通道零偏差）。
    - 若失败（退出码非 0）：
      1. 查看脚本输出的 `changed_pixels`、`max_abs_diff`、`changed_bbox`；
-     2. 用 `read_image` 检查 `diff.png` 定位出错区域；
+     2. 用当前环境可用的看图工具检查 `diff.png` 定位出错区域（DSH 下为 `read_image`；其他 runtime 用对应的图片读取/预览能力，或直接把图片文件交给模型查看）；
      3. 立即排查并修复（撤销错改的裁剪/透明组/Z 序/Auto Layout 位置），**必须重新跑通 `max_abs_diff == 0` 才能结束**。
 3. **门禁通过后才进入 Step 6**；报告要素（下述 3.1–3.5）在 Step 6 清理完成后与清理结果一起输出。
    3.1 **视觉一致性校验**：`before.png` vs `after.png` 尺寸、像素总差（`max_abs_diff = 0`）、`changed_pixels = 0`。
