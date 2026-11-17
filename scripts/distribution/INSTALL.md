@@ -32,25 +32,59 @@ python --version   # >= 3.11
 
 ## 1. 安装 F2A
 
-### 方案 A（推荐，一键）
+### 1.1 先选安装位置
+
+CEP 扩展有两个合法位置，二选一：
+
+| 级别 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| **系统级（所有用户）** | `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A` | 需管理员 | 系统级 CEP 扩展目录，与 Colorista、Motion tools 等第三方面板同处，AE 启动时统一扫描 |
+| 用户级（当前用户） | `%APPDATA%\Adobe\CEP\extensions\F2A` | 普通用户 | `install.cmd` 不带参数时的默认位置 |
+
+> ⚠️ **写权限前置提醒**：F2A 会在**自己所在的扩展目录内**创建 `.venv-aep`（Python 依赖）和 `artifacts\aep-service\`（AEP 服务日志）。装到 `Program Files` 时，安装、修复依赖、以及 AE 面板首次拉起 AEP 服务都需要管理员权限。若希望之后以普通用户日常使用，装完请授一次写权限（管理员 PowerShell 执行一次即可）：
+>
+> ```powershell
+> icacls "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A" /grant "$env:USERNAME:(OI)(CI)M" /T
+> ```
+>
+> 装到用户级目录则没有这个限制。
+
+### 1.2 系统级安装（`C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A`）
+
+关闭 After Effects，用**管理员 PowerShell**执行：
+
+```powershell
+cd "<解压目录>\F2A"
+.\install.cmd -InstallDirectory "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"
+```
+
+等价于直接调用脚本（参数相同）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "<解压目录>\F2A\scripts\install-f2a.ps1" `
+  -InstallDirectory "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"
+```
+
+安装过程会：按 `package-manifest.json` 把文件复制到目标目录（已在目标目录内时只补依赖）→ 在目标目录建 `.venv-aep` 并安装 `scripts\aep\requirements.txt`（**需要联网**）→ 为 CSXS.9–12 开启 CEP 调试模式 → 注册当前用户的 `f2a-aep` 唤起入口。
+
+### 1.3 用户级安装（默认，无需管理员）
 
 1. 关闭 After Effects。
 2. 双击 `F2A\install.cmd`，等待输出 `Installation complete`。
 
-它会自动完成：复制文件到 `%APPDATA%\Adobe\CEP\extensions\F2A`；在安装目录内建 `.venv-aep` 并按 `scripts\aep\requirements.txt` 安装 AEP 依赖（**需要联网**）；为 CSXS.9–12 开启 CEP 调试模式；注册当前用户的 `f2a-aep` 唤起入口。
+装到 `%APPDATA%\Adobe\CEP\extensions\F2A`，其余行为与上面一致。
 
-### 方案 B（手动放进 CEP 目录）
+### 1.4 手动安装（任意位置）
 
-适合需要自定义安装位置、或想弄清楚每一步的情况。
+适合要自定义路径、或想逐项确认的情况。
 
 1. 关闭 After Effects。
-2. 把 `F2A\` 里的**全部内容**复制到 `%APPDATA%\Adobe\CEP\extensions\F2A`，确保该目录下**直接**有 `CSXS\manifest.xml`（不要多套一层 `F2A\F2A\`）：
+2. 把 `F2A\` 里的**全部内容**复制到目标目录（下面以系统级为例），确保该目录下**直接**有 `CSXS\manifest.xml`，不要多套一层 `F2A\F2A\`：
 
    ```powershell
-   $src = "<解压目录>\F2A"
-   $dst = "$env:APPDATA\Adobe\CEP\extensions\F2A"
+   $dst = "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"   # 或 "$env:APPDATA\Adobe\CEP\extensions\F2A"
    New-Item -ItemType Directory -Path $dst -Force | Out-Null
-   Copy-Item "$src\*" $dst -Recurse -Force
+   Copy-Item "<解压目录>\F2A\*" $dst -Recurse -Force
    ```
 
 3. 开启 CEP 调试模式（不开的话 AE 的「扩展」菜单里不会出现 F2A）：
@@ -63,30 +97,31 @@ python --version   # >= 3.11
    }
    ```
 
-4. 准备 AEP 导出的 Python 环境（建在安装目录内，脚本按这个位置查找）：
+4. 准备 AEP 导出的 Python 环境（必须建在安装目录内，脚本按这个位置查找）：
 
    ```powershell
-   $f2a = "$env:APPDATA\Adobe\CEP\extensions\F2A"
-   python -m venv "$f2a\.venv-aep"
-   & "$f2a\.venv-aep\Scripts\python.exe" -m pip install --disable-pip-version-check -r "$f2a\scripts\aep\requirements.txt"
-   & "$f2a\.venv-aep\Scripts\python.exe" -c "import py_aep, tkinter, uharfbuzz"
+   python -m venv "$dst\.venv-aep"
+   & "$dst\.venv-aep\Scripts\python.exe" -m pip install --disable-pip-version-check -r "$dst\scripts\aep\requirements.txt"
+   & "$dst\.venv-aep\Scripts\python.exe" -c "import py_aep, tkinter, uharfbuzz"
    ```
 
 5. 注册 AEP 唤起入口（AE 面板第一次点「导出 AEP」时靠它拉起本地服务）：
 
    ```powershell
-   powershell -ExecutionPolicy Bypass -File "$env:APPDATA\Adobe\CEP\extensions\F2A\scripts\install-aep-launcher.ps1"
+   powershell -ExecutionPolicy Bypass -File "$dst\scripts\install-aep-launcher.ps1"
    ```
 
 ---
 
 ## 2. 在 Figma 导入插件
 
-Figma 桌面版 → 菜单 `Plugins` → `Development` → `Import plugin from manifest…` → 选择：
+Figma 桌面版 → 菜单 `Plugins` → `Development` → `Import plugin from manifest…` → 选择安装目录下的：
 
 ```
-%APPDATA%\Adobe\CEP\extensions\F2A\figma-plugin\manifest.json
+<F2A 安装目录>\figma-plugin\manifest.json
 ```
+
+例如系统级安装时是 `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A\figma-plugin\manifest.json`。
 
 导入后运行一次，面板状态显示已连接即正常。
 
@@ -102,20 +137,27 @@ Figma 桌面版 → 菜单 `Plugins` → `Development` → `Import plugin from m
 
 ## 4. 接入 MCP（让 AI 能读写 Figma / 触发导出）
 
-MCP 是一个 stdio 服务，入口固定为已安装目录下的 `mcp\server.cjs`，**无需** `npm install`（依赖已打包进 `server.cjs`）。
+MCP 是一个 stdio 服务，入口固定为**安装目录**下的 `mcp\server.cjs`，**无需** `npm install`（依赖已打包进 `server.cjs`）。
+
+先设一个变量，避免路径写错（按你的实际安装位置改）：
+
+```powershell
+$f2a = "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"
+# 用户级安装则用：$f2a = "$env:APPDATA\Adobe\CEP\extensions\F2A"
+```
 
 ### Codex
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "$env:APPDATA\Adobe\CEP\extensions\F2A\scripts\install-mcp.ps1"
+powershell -ExecutionPolicy Bypass -File "$f2a\scripts\install-mcp.ps1"
 ```
 
-脚本会先备份 `~\.codex\config.toml`，再执行 `codex mcp add f2a -- node <安装目录>\mcp\server.cjs`，并补上 `startup_timeout_sec = 60` / `tool_timeout_sec = 120`。
+脚本会先备份 `~\.codex\config.toml`，再执行 `codex mcp add f2a -- node "$f2a\mcp\server.cjs"`，并补上 `startup_timeout_sec = 60` / `tool_timeout_sec = 120`。
 
 ### DSH Desktop
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "$env:APPDATA\Adobe\CEP\extensions\F2A\scripts\install-mcp.ps1" -Client DshDesktop
+powershell -ExecutionPolicy Bypass -File "$f2a\scripts\install-mcp.ps1" -Client DshDesktop
 ```
 
 要求 DSH 的 desktop profile 里已安装 `dsh-skill-mcp-panel`；脚本会备份并改写 `~\.dsh\profiles\desktop\cordis.patch.yml`。
@@ -185,7 +227,8 @@ python -c "import numpy, PIL; print('ok')"
 
 | 现象 | 原因 / 处理 |
 | --- | --- |
-| AE「扩展」菜单里没有 F2A | 没开 PlayerDebugMode（见 1-B-3）；或没重启 AE；或 CEP 目录多套了一层（应直接是 `...\extensions\F2A\CSXS\manifest.xml`） |
+| AE「扩展」菜单里没有 F2A | 没开 PlayerDebugMode（见 1.4-3）；或没重启 AE；或 CEP 目录多套了一层（应直接是 `...\extensions\F2A\CSXS\manifest.xml`）；确认装的是 AE 会扫描的目录（系统级 `Program Files (x86)\Common Files\Adobe\CEP\extensions` 或用户级 `%APPDATA%\Adobe\CEP\extensions`） |
+| 装到 `Program Files` 后 pip 报「拒绝访问」/ 服务启动失败 | 该目录需管理员写权限：用管理员 PowerShell 装，或按 1.1 的 `icacls` 授一次写权限 |
 | 面板提示找不到 AEP 服务 | `.venv-aep` 依赖没装好；点一次面板「导出 AEP」会自动拉起服务，也可手动 `powershell -File "<安装目录>\scripts\start-aep-export.ps1"`，日志在 `<安装目录>\artifacts\aep-service\` |
 | `install.cmd` 报 Node/Python 版本不符 | 需要 **x64** 的 Node 20+ 与 Python 3.11+（含 pip/venv/Tcl-Tk），装完重开终端再跑 |
 | MCP 连上了但工具调用超时 | 把该 MCP 的启动/调用超时调到 60s / 120s（脚本已自动写入 Codex 配置） |

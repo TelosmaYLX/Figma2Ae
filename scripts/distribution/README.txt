@@ -18,9 +18,13 @@ F2A（Windows x64）
 4. 重启 After Effects，在“窗口 → 扩展”中打开 F2A。
 5. 在 Figma 中运行 F2A，选中画框后导入 AE 或导出 AEP。
 
-默认安装位置：%APPDATA%\Adobe\CEP\extensions\F2A
+安装位置（二选一）：
+- 系统级：C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A（需管理员运行）
+- 用户级：%APPDATA%\Adobe\CEP\extensions\F2A（install.cmd 不带参数时的默认值）
 安装程序会安装固定版本的 Python 依赖、启用 CEP 扩展调试模式，
 并为当前用户注册 f2a-aep 启动入口。不会自动配置 MCP 客户端。
+装到 Program Files 时，安装、修复依赖和首次拉起 AEP 服务都需要管理员权限；
+日常以普通用户使用请给该目录授一次写权限（见 INSTALL.md）。
 如提示环境不存在，安装对应环境并重启相关应用，再运行 install.cmd。
 导出可编辑文字时，目标设备仍需安装原设计使用的字体。
 
@@ -30,11 +34,11 @@ F2A（Windows x64）
 command：node
 args：填写安装目录下 mcp\server.cjs 的完整路径。
 
-Codex CLI 已安装时，可在 PowerShell 中运行：
-& "$env:APPDATA\Adobe\CEP\extensions\F2A\scripts\install-mcp.ps1"
+Codex CLI 已安装时，在 PowerShell 中运行（<安装目录> 换成实际路径）：
+& "<安装目录>\scripts\install-mcp.ps1"
 
 DSH Desktop 用户可运行：
-& "$env:APPDATA\Adobe\CEP\extensions\F2A\scripts\install-mcp.ps1" -Client DshDesktop
+& "<安装目录>\scripts\install-mcp.ps1" -Client DshDesktop
 
 重新连接 MCP，打开 Figma 中的 F2A，等待“MCP 已就绪”。
 MCP 已打包，无需 npm install。
