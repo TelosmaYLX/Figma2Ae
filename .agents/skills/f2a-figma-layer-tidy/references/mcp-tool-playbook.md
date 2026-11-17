@@ -8,7 +8,33 @@ F2A 内置了上游 Talk-to-Figma 工具、F2A 自研批量图层整理工具（
 
 1. `get_f2a_status`：查看当前打开并连接 MCP 中继的 Figma 文档。
 2. `join_channel`：仅当同时打开多个文档时，按会话 ID、fileKey 或唯一文档名选定目标。
-3. `get_selection`：获取用户当前选中的节点列表。所有破坏性整理只围绕用户指定或选中的根节点子树开展，不跨出目标范围乱改其它画板。
+3. `get_selection`：获取当前选中的节点列表。已有选区就锁定它；**没有选区时自行读取当前页，选唯一或面积最大的顶层可见画框作为目标并在回复中说明，不要停下来问用户**。所有破坏性整理只围绕该根节点子树开展，不跨出目标范围乱改其它画板。
+
+---
+
+## 1.5 整画框备份（动手前必做，Step 6 才删）
+
+**目的**：给整次整理留一个可一键还原的隐藏副本，避免误操作无法回退。
+
+```text
+# 1) 复制整个画框，偏移到原稿右侧 200px，避免重叠
+clone_node({ nodeId: rootId, x: root.x + root.width + 200, y: root.y })  -> backupId
+
+# 2) 改名（不得以 * 开头，否则会被 F2A 当作强制合图标记）
+batch_rename_nodes([{ nodeId: backupId, name: "_备份_" + 原名 + "_" + yyyyMMdd-HHmmss }])
+
+# 3) 隐藏 + 锁定
+set_visible({ nodeIds: [backupId], visible: false })
+set_locked({ nodeIds: [backupId], locked: true })
+```
+
+关键约束：
+
+- **`backupId` 必须全程保留**，只有 Step 5 像素门禁 `max_abs_diff == 0` 通过后才能在 Step 6 删除。
+- 备份是**页面级兄弟节点**，不在 `rootId` 的导出范围内，因此不会污染 `before.png` / `after.png`。
+- 备份存在期间，**所有扫描/搜索都必须带 `root: rootId`**；禁止整页 `search_nodes` 或整页清理，否则可能把备份算进范围或被隐藏层清理规则误删。
+- 回退方式：`set_locked(false)` + `set_visible(true)` 把备份还原为可见画框，即可与整理后的画框对照或整稿替换。
+- 降级环境没有 `clone_node` 时，用 `create_frame` + `set_parent` 手动搬入，但仍必须完成“复制 + `_备份_` 改名 + 隐藏 + 锁定”四件事。
 
 ---
 
@@ -72,7 +98,7 @@ python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.p
 6. **`set_clips_content`（开关裁剪）**：
    - 新建 `FRAME` 默认 `clipsContent: true`。作为逻辑容器使用时关闭；原本用来裁剪溢出内容（且确实有内容超出边界）的 `FRAME` 严禁关闭。
 7. **`batch_rename_nodes`（批量改名）**：
-   - 传 `renames: [{nodeId, name}]`，一次性清理所有自动命名及添加经确认的 `*` 前缀。
+   - 传 `renames: [{nodeId, name}]`，一次性清理所有自动命名，并按 Step 3 决策树自行判定的 `*` 前缀。
 8. **`set_visible` / `set_locked`**：
    - 批量设置显隐或锁定静态底图。
 9. **`batch`（顺序批处理）**：
@@ -84,3 +110,14 @@ python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.p
 - `outline_stroke`：仅在散点/复杂笔刷描边无法被 F2A 自动轮廓化时使用；执行后注意原节点仍保留，确认描边轮廓视觉一致后再决定删除原描边或原节点。
 - `flatten_nodes`：不可逆，会丢失文字编辑性与布尔结构，**绝不用于可动层或带渐变/多色/特效的层**，仅限纯静态单色碎矢量合并，且必须通过像素对比。
 - `set_layout_props` / `set_mask` / `set_fills` / `set_effects` / `delete_nodes`：用于抽离容器背景（如把容器的 `GLASS` / `BACKGROUND_BLUR` 移到新建独立底层 `*bg` 矩形上，再清空容器自身的 `fills` 和 `effects`）。
+
+---
+
+## 5. 收尾清理（Step 6，门禁通过后才执行）
+
+1. **删备份**：`delete_nodes({ nodeIds: [backupId] })`，随后 `search_nodes({ name: "_备份_" })` 确认无残留。
+2. **复查**：再导 `after-clean.png` 与 `after.png` 比对，必须仍为 `max_abs_diff == 0`。
+3. **清临时文件**：删除 `artifacts/tidy-verify/<nodeId-clean>/` 整个目录（`before.png`、`after.png`、`after-clean.png`、阶段快照、`diff.png`），用 `Test-Path` 确认已不存在。
+4. **复原临时状态**：本次为比对而临时加过的锁/显隐/临时画框一并复原或删除。
+
+> 校验未通过时**不要**执行本节任何一步，保留备份以便回退。
