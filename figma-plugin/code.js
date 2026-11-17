@@ -5751,6 +5751,7 @@ Processing annotation ${i + 1}/${annotations.length}:`,
     set_locked: setLocked,
     set_clips_content: setClipsContent,
     search_nodes: searchNodes,
+    detach_instances: detachInstances,
     batch: batchCommand
   };
   var F2A_BATCH_COMMANDS = {
@@ -5791,7 +5792,8 @@ Processing annotation ${i + 1}/${annotations.length}:`,
     batch_rename_nodes: true,
     set_visible: true,
     set_locked: true,
-    set_clips_content: true
+    set_clips_content: true,
+    detach_instances: true
   };
   function f2aIds(params, field) {
     var key = field || "nodeIds";
@@ -6053,6 +6055,37 @@ Processing annotation ${i + 1}/${annotations.length}:`,
       }
     }
     return { ok: true, rootId: root.id, rootName: root.name, count: matches.length, visited, truncated, limit, nodes: matches };
+  }
+  async function detachInstances(params) {
+    var ids = f2aIds(params);
+    var recursive = params.recursive !== false;
+    var resolved = await f2aResolve(ids);
+    var detached = [], skipped = [], count = 0;
+    function walk(node, depth) {
+      if (depth > 64) {
+        skipped.push({ id: node.id, name: node.name, reason: "nesting deeper than 64 levels" });
+        return;
+      }
+      var current = node;
+      if (current.type === "INSTANCE") {
+        var oldId = current.id;
+        var oldName = current.name;
+        try {
+          current = current.detachInstance();
+        } catch (error) {
+          skipped.push({ id: oldId, name: oldName, reason: error && error.message ? error.message : String(error) });
+          return;
+        }
+        count++;
+        detached.push({ nodeId: oldId, newId: current.id, name: current.name, type: current.type });
+      }
+      if (!recursive) return;
+      var children = current.children ? current.children.slice() : [];
+      for (var i = 0; i < children.length; i++) walk(children[i], depth + 1);
+    }
+    for (var n = 0; n < resolved.nodes.length; n++) walk(resolved.nodes[n], 0);
+    for (var m = 0; m < resolved.missing.length; m++) skipped.push({ id: resolved.missing[m], reason: "not found" });
+    return { ok: true, recursive, count, detached, skipped };
   }
   function f2aSubstitute(value, created) {
     if (typeof value === "string") {

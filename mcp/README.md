@@ -25,7 +25,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\Tools\F2A\scripts\install
 使用本机已有的 `dsh-skill-mcp-panel` 管理模块，在 desktop profile 中单独添加 `f2a`
 入口；已有 `figma` 和其他 MCP 保持不变。原配置备份到 DSH 目录的
 `backups/f2a`，支持 `DSH_HOME`。DSH 在线时由现有配置监听热加载，可在“Skill / MCP”
-中检查 `f2a` 的连接；连接后提供 55 个工具。需要 F2A 时，请 agent 使用 `f2a` 服务。
+中检查 `f2a` 的连接；连接后提供 56 个工具。需要 F2A 时，请 agent 使用 `f2a` 服务。
 
 其他支持 stdio 的 MCP 客户端可使用：
 
@@ -53,7 +53,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\Tools\F2A\scripts\install
 
 ## 图层整理
 
-上游工具只能逐节点改名、逐节点改父子关系，做不了整页整理。F2A 另外提供 10 个工具，
+上游工具只能逐节点改名、逐节点改父子关系，做不了整页整理。F2A 另外提供 11 个工具，
 实现在 `src/layer-commands.js`（随插件打包）和 `src/layer-tools.ts`（MCP 侧）：
 
 - `search_nodes`：按名称片段和/或类型在整页或子树里找图层，返回 id、深度和父级，
@@ -64,6 +64,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\Tools\F2A\scripts\install
 - `reorder_nodes`：改层内叠放顺序；`reparent_nodes`：批量移入新父级，默认保持画布位置。
 - `set_visible` / `set_locked`：显隐与锁定，批量生效，可逆。
 - `set_clips_content`：开关 Frame 的裁剪。新建 Frame 默认裁剪，当分组容器用时要关掉。
+- `detach_instances`：把组件实例分离成普通 Frame，面板「图层工具 → 分离实例」的 MCP 版本。
+  实例内部图层在分离前不能改名、锁定或移出，所以整理组件副本内部前先分离；递归默认开，
+  分离后实例 id 和整棵子树的 id 都会变，用返回的 `newId`。实例套实例时先分离外层，
+  直接分离内层会作为错误返回。
 - `batch`：一次调用顺序执行多条写命令，`"$N"` 表示第 N 条命令创建的节点 id。
 
 `batch` 没有回滚：Figma 插件 API 没有事务，失败时已生效的命令保持生效，返回值里

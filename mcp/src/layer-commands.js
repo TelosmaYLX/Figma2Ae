@@ -23,6 +23,7 @@ var F2A_LAYER_COMMANDS = {
   set_locked: setLocked,
   set_clips_content: setClipsContent,
   search_nodes: searchNodes,
+  detach_instances: detachInstances,
   batch: batchCommand
 };
 
@@ -40,7 +41,8 @@ var F2A_BATCH_COMMANDS = {
   set_instance_overrides: true, create_connections: true, set_default_connector: true,
   set_focus: true, set_selections: true,
   group_nodes: true, ungroup_nodes: true, reorder_nodes: true, reparent_nodes: true,
-  batch_rename_nodes: true, set_visible: true, set_locked: true, set_clips_content: true
+  batch_rename_nodes: true, set_visible: true, set_locked: true, set_clips_content: true,
+  detach_instances: true
 };
 
 function f2aIds(params, field) {
@@ -313,6 +315,42 @@ async function searchNodes(params) {
     }
   }
   return { ok: true, rootId: root.id, rootName: root.name, count: matches.length, visited: visited, truncated: truncated, limit: limit, nodes: matches };
+}
+
+// Detach instances: the panel already offers this as 分离实例, and the MCP needs it for the same
+// reason. An instance's interior cannot be renamed, locked, reparented or ungrouped, so a tidy-up
+// that has to touch the inside of a component copy starts here. detachInstance() swaps the instance
+// for a frame in place, so every id in the subtree changes - the result returns both ids.
+async function detachInstances(params) {
+  var ids = f2aIds(params);
+  var recursive = params.recursive !== false;
+  var resolved = await f2aResolve(ids);
+  var detached = [], skipped = [], count = 0;
+  function walk(node, depth) {
+    if (depth > 64) {
+      skipped.push({ id: node.id, name: node.name, reason: 'nesting deeper than 64 levels' });
+      return;
+    }
+    var current = node;
+    if (current.type === 'INSTANCE') {
+      var oldId = current.id;
+      var oldName = current.name;
+      try {
+        current = current.detachInstance();
+      } catch (error) {
+        skipped.push({ id: oldId, name: oldName, reason: error && error.message ? error.message : String(error) });
+        return;
+      }
+      count++;
+      detached.push({ nodeId: oldId, newId: current.id, name: current.name, type: current.type });
+    }
+    if (!recursive) return;
+    var children = current.children ? current.children.slice() : [];
+    for (var i = 0; i < children.length; i++) walk(children[i], depth + 1);
+  }
+  for (var n = 0; n < resolved.nodes.length; n++) walk(resolved.nodes[n], 0);
+  for (var m = 0; m < resolved.missing.length; m++) skipped.push({ id: resolved.missing[m], reason: 'not found' });
+  return { ok: true, recursive: recursive, count: count, detached: detached, skipped: skipped };
 }
 
 // "$0" in any argument means "the node id op 0 created". Without it a batch cannot build a

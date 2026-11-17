@@ -36943,6 +36943,21 @@ function registerLayerTools(server2, send) {
     }
   );
   server2.tool(
+    "detach_instances",
+    "Detach component instances into editable frames, in place. This is the step before any layer tidy-up that has to touch the inside of a component copy: an instance keeps its interior read-only (no renames, locks, reparenting or ungrouping inside), and detaching turns it into a normal frame that keeps the current overrides. The instance id is replaced by a new frame id and every child id changes, so use the returned ids rather than the ones passed in. An instance that lives inside another instance cannot be detached on its own; detach the outer one first (recursive, the default, does that for the whole subtree). Returns JSON {ok, recursive, count, detached:[{nodeId, newId, name, type}], skipped}.",
+    {
+      nodeIds: nodeIds("Instance ids to detach"),
+      recursive: external_exports.boolean().optional().describe("Also detach instances nested inside the given nodes (default true)")
+    },
+    async ({ nodeIds: nodeIds2, recursive: recursive2 }) => {
+      try {
+        return layerJson(await send("detach_instances", { nodeIds: nodeIds2, recursive: recursive2 }));
+      } catch (error62) {
+        return failed("detach_instances", error62);
+      }
+    }
+  );
+  server2.tool(
     "batch",
     'Run several write commands in one call, in order. Each op is {tool, params} where tool is any write command (create_frame, move_node, rename_node, reparent_nodes, set_visible, set_layout_mode, ...). An id argument of "$N" means "the node id op N created (0-based)", so one call can create a frame, fill it, and name it. There is NO rollback: Figma has no transaction for plugins, so ops already applied stay applied and the result lists every op with its own result, plus failedIndex and rolledBack:false on failure. Ops are not validated upfront \u2014 a bad op fails when it runs. Returns JSON {ok, applied, total, results, failedIndex?, error?}.',
     {

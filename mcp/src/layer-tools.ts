@@ -1,4 +1,4 @@
-﻿// F2A layer-organisation tools.
+// F2A layer-organisation tools.
 //
 // Registered by the generated server entry (scripts/build-mcp.cjs) beside the upstream tools, which
 // stay untouched in vendor/. The commands themselves live in the embedded plugin block
@@ -172,6 +172,22 @@ export function registerLayerTools(server: LooseServer, send: SendCommand): void
         return layerJson(await send('search_nodes', {name, type, root: searchRoot, limit}));
       } catch (error) {
         return failed('search_nodes', error);
+      }
+    }
+  );
+
+  server.tool(
+    'detach_instances',
+    'Detach component instances into editable frames, in place. This is the step before any layer tidy-up that has to touch the inside of a component copy: an instance keeps its interior read-only (no renames, locks, reparenting or ungrouping inside), and detaching turns it into a normal frame that keeps the current overrides. The instance id is replaced by a new frame id and every child id changes, so use the returned ids rather than the ones passed in. An instance that lives inside another instance cannot be detached on its own; detach the outer one first (recursive, the default, does that for the whole subtree). Returns JSON {ok, recursive, count, detached:[{nodeId, newId, name, type}], skipped}.',
+    {
+      nodeIds: nodeIds('Instance ids to detach'),
+      recursive: z.boolean().optional().describe('Also detach instances nested inside the given nodes (default true)')
+    },
+    async ({nodeIds, recursive}: any) => {
+      try {
+        return layerJson(await send('detach_instances', {nodeIds, recursive}));
+      } catch (error) {
+        return failed('detach_instances', error);
       }
     }
   );

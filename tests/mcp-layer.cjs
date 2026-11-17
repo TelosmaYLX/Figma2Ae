@@ -15,6 +15,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../figma-plugin/code.js'), 'utf8');
 let sequence = 0;
 let autoNames = 0;
+let trackNode = null;
 
 const identity = () => [[1, 0, 0], [0, 1, 0]];
 
@@ -77,6 +78,22 @@ class FakeNode {
     this.parent = null;
     this.removed = true;
   }
+  // Figma's detachInstance() swaps the instance for a frame in place, keeps the position and hands
+  // the children over; the instance id disappears and the frame gets a new one.
+  detachInstance() {
+    if (this.type !== 'INSTANCE') throw new Error('Only instances can be detached');
+    if (this.parent && this.parent.type === 'INSTANCE') throw new Error('Cannot detach an instance inside an instance');
+    const frame = new FakeNode('FRAME', this.name, {x: this.x, y: this.y, width: this.width, height: this.height});
+    const parent = this.parent;
+    if (parent) {
+      const at = parent.children.indexOf(this);
+      parent.insertChild(at, frame);
+      for (const child of this.children.slice()) frame.appendChild(child);
+      this.remove();
+    }
+    if (trackNode) trackNode(frame);
+    return frame;
+  }
 }
 
 class FakePage extends FakeNode {
@@ -92,6 +109,7 @@ function harness() {
     nodes.set(node.id, node);
     return node;
   };
+  trackNode = track;
   page.appendChild = function (child) {
     FakeNode.prototype.appendChild.call(this, child);
     track(child);
@@ -286,6 +304,50 @@ async function check() {
   assert.equal(limited.truncated, true);
   await assert.rejects(f.execute('search_nodes', {}), /Pass name, type or both/);
 
+  // --- detach_instances --------------------------------------------------------------------
+  const shell = add('FRAME', 'shell', null, 3000, 0);
+  const copy = add('INSTANCE', '按钮/实例', shell, 10, 10);
+  const innerText = add('TEXT', '文案', copy, 2, 2);
+  const nested = add('INSTANCE', '嵌套实例', copy, 4, 4);
+  const single = add('INSTANCE', '单独实例', shell, 40, 40);
+  const detached = await f.execute('detach_instances', {nodeIds: [shell.id]});
+  // The walk descends through the whole subtree: the outer instance, the instance inside it, and
+  // the sibling instance each become frames.
+  assert.equal(detached.count, 3);
+  assert.equal(detached.recursive, true);
+  assert.equal(detached.detached[0].nodeId, copy.id);
+  assert.equal(detached.detached[0].type, 'FRAME');
+  assert.notEqual(detached.detached[0].newId, copy.id);
+  const copyFrame = f.nodes.get(detached.detached[0].newId);
+  assert.equal(copyFrame.type, 'FRAME');
+  assert.equal(copyFrame.parent, shell);
+  // Position and children survive the swap, so nothing moves on canvas.
+  assert.equal(copyFrame.x, 10);
+  assert.equal(innerText.parent, copyFrame);
+  assert.equal(innerText.x, 2);
+  // The detach is counted for the nested instance too, so a nested tree needs one call.
+  assert.equal(detached.detached.filter(entry => entry.nodeId === nested.id).length, 1);
+  assert.deepEqual(hostIds(detached.skipped), []);
+
+  // recursive:false detaches only the ids that were passed.
+  const solo = add('INSTANCE', '外层实例', shell, 60, 60);
+  const soloInside = add('INSTANCE', '内层实例', solo, 1, 1);
+  const once = await f.execute('detach_instances', {nodeIds: [solo.id], recursive: false});
+  assert.equal(once.count, 1);
+  assert.equal(f.nodes.get(once.detached[0].newId).type, 'FRAME');
+  assert.equal(soloInside.type, 'INSTANCE');
+  // An instance inside another instance needs the outer one detached first; that is reported.
+  const outerA = add('INSTANCE', '外层 A', shell, 90, 90);
+  const insideA = add('INSTANCE', '内层 A', outerA, 1, 1);
+  const refusedDetach = await f.execute('detach_instances', {nodeIds: [insideA.id], recursive: false});
+  assert.equal(refusedDetach.count, 0);
+  assert.match(refusedDetach.skipped[0].reason, /inside an instance/);
+  // A stale id is skipped while the rest of the list still detaches.
+  const stray = add('INSTANCE', '散落实例', shell, 120, 120);
+  const partialDetach = await f.execute('detach_instances', {nodeIds: [stray.id, 'missing:5']});
+  assert.equal(partialDetach.count, 1);
+  assert.equal(partialDetach.skipped[0].id, 'missing:5');
+
   // --- batch ------------------------------------------------------------------------------
   const built = await f.execute('batch', {ops: [
     {tool: 'create_frame', params: {x: 0, y: 0, width: 200, height: 200, name: '整理容器'}},
@@ -330,7 +392,7 @@ async function check() {
   assert.equal(selection.selectionCount, 0);
   await assert.rejects(f.execute('not_a_command'), /Unknown command/);
 
-  console.log('PASS: 10 layer commands; group/ungroup, z-order, reparent with preserved position, bulk rename, visibility, lock, clip content, name/type search and sequential batch (with $N refs, stop-on-error, no-rollback reporting)');
+  console.log('PASS: 11 layer commands; group/ungroup, z-order, reparent with preserved position, bulk rename, visibility, lock, clip content, name/type search, recursive instance detach and sequential batch (with $N refs, stop-on-error, no-rollback reporting)');
 }
 
 check().catch(error => {

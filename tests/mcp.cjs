@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -97,7 +97,7 @@ async function check() {
     const tools=(await client.call('tools/list')).tools;
     assert.ok(tools.length>=50);assert.ok(tools.some(tool=>tool.name==='get_f2a_status'));
     // F2A's own layer-organisation tools must be advertised beside the upstream set.
-    for(const name of ['group_nodes','ungroup_nodes','reorder_nodes','reparent_nodes','batch_rename_nodes','set_visible','set_locked','set_clips_content','search_nodes','batch']){
+    for(const name of ['group_nodes','ungroup_nodes','reorder_nodes','reparent_nodes','batch_rename_nodes','set_visible','set_locked','set_clips_content','search_nodes','detach_instances','batch']){
       assert.ok(tools.some(tool=>tool.name===name),'missing tool '+name);
     }
     assert.deepEqual(JSON.parse(result(await client.tool('get_f2a_status'))),{sessions:[]});
