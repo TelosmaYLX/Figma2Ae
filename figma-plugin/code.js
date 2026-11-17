@@ -150,6 +150,14 @@ function _inverseMatrix(m) {
   if (!det) throw new Error('无法处理零缩放的图层');
   return [[d / det, -b / det, (b * y - d * x) / det], [-c / det, a / det, (c * x - a * y) / det]];
 }
+// In Figma, GROUP / BOOLEAN_OPERATION nodes do not define a local coordinate origin;
+// a child's relativeTransform is relative to the nearest non-group ancestor (or the page).
+function _relativeTransformForParent(parent, absTransform) {
+  var origin = parent;
+  while (origin && (origin.type === 'GROUP' || origin.type === 'BOOLEAN_OPERATION')) origin = origin.parent;
+  if (!origin || origin.type === 'PAGE' || !origin.absoluteTransform) return absTransform;
+  return _matrixProduct(_inverseMatrix(origin.absoluteTransform), absTransform);
+}
 function _groupToFrame(n) {
   var parent = n.parent, index = parent.children.indexOf(n), children = n.children.slice();
   var transform = n.absoluteTransform, inverse = _inverseMatrix(transform), local = [];
@@ -959,7 +967,7 @@ async function _exportRasterPng(im) {
       var parent = n.parent;
       parent.insertChild(parent.children.indexOf(n), frame);
       if (parent.layoutMode && parent.layoutMode !== 'NONE') frame.layoutPositioning = 'ABSOLUTE';
-      frame.relativeTransform = _matrixProduct(_inverseMatrix(parent.absoluteTransform), [[1, 0, left], [0, 1, top]]);
+      frame.relativeTransform = _relativeTransformForParent(parent, [[1, 0, left], [0, 1, top]]);
     }
     var copy = n.clone(); frame.appendChild(copy);
     if ((copy.width !== size.width || copy.height !== size.height) && typeof copy.resizeWithoutConstraints === 'function')
@@ -1601,7 +1609,7 @@ function _isolatedExportCopy(n, root) {
   var transform = n.absoluteTransform.map(function (row) { return row.slice(); }), copy = n.clone();
   root.parent.appendChild(copy);
   if ((copy.width !== n.width || copy.height !== n.height) && typeof copy.resizeWithoutConstraints === 'function') copy.resizeWithoutConstraints(n.width, n.height);
-  copy.relativeTransform = _matrixProduct(_inverseMatrix(root.parent.absoluteTransform), transform);
+  copy.relativeTransform = _relativeTransformForParent(root.parent, transform);
   return copy;
 }
 
