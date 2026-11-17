@@ -6,7 +6,8 @@ commit [`031df6a01e103c7adcc01e63d6d8aab0990001e8`](https://github.com/awdr74100
 This directory contains the 273 upstream TypeScript files needed by F2A's imported tool schemas,
 Figma handlers and filesystem export helpers, including their type dependencies. The source is
 unchanged, with LF line endings. `UPSTREAM.json` records the source paths and SHA-256 hashes.
-The original MIT notice is in `LICENSE` and is included in both shipped bundles/notices.
+The original MIT notice is in `LICENSE` and `mcp/THIRD_PARTY_LICENSES.txt`. The generated Figma
+script omits comment headers to avoid the sandbox's source-text rejection.
 
 F2A-specific integration lives in `mcp/src/figwright-*.ts` and `scripts/build-mcp.cjs`.
 `figwright-catalog.ts` selects 109 tools; `figwright-commands.ts` wires their plugin handlers.

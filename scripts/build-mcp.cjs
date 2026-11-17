@@ -55,7 +55,9 @@ server.connect(new StdioServerTransport()).catch(error => {console.error(error);
   // F2A layer commands are appended inside the same closure so they share `figma`, `handleCommand`
   // and the queue, and so upstream vendor/plugin.js stays unmodified.
   const layerCommands = await fs.readFile(path.join(mcp,'src/layer-commands.js'),'utf8');
-  const api = await esbuild.build({absWorkingDir:root, bundle:true, write:false, format:'iife', globalName:'F2AMCPBundle', target:'es2020', legalComments:'inline', metafile:true, alias:sharedAlias,
+  // The Figma sandbox scans comments for dynamic module syntax before parsing. Strip ordinary
+  // dependency comments through esbuild's lexer. Licenses ship as separate files.
+  const api = await esbuild.build({absWorkingDir:root, bundle:true, write:false, format:'iife', globalName:'F2AMCPBundle', target:'es2020', minifyWhitespace:true, legalComments:'none', metafile:true, alias:sharedAlias,
     stdin:{contents:`
 import '../vendor/figwright/packages/plugin/src/shims.ts';
 import {createFigwrightCommands, figwrightWrites, resumeHostYield} from './figwright-commands.ts';
@@ -70,9 +72,8 @@ export const commands = Object.keys(figwrightCommands);
 `, loader:'ts', resolveDir:path.join(mcp,'src'), sourcefile:'f2a-plugin.ts'}});
   const pluginFile = path.join(root,'figma-plugin/code.js');
   const current = await fs.readFile(pluginFile,'utf8');
-  const upstreamLicense = await fs.readFile(path.join(vendor,'LICENSE'),'utf8');
   const figwrightLicense = await fs.readFile(path.join(figwright,'LICENSE'),'utf8');
-  await fs.writeFile(pluginFile, current.split(marker)[0].trimEnd() + '\n\n' + marker + '\n/*\n' + upstreamLicense.trim() + '\n\nFigwright\n' + figwrightLicense.trim() + '\n*/\n' + api.outputFiles[0].text + '\nvar F2AMCP = {execute:F2AMCPBundle.execute, resume:F2AMCPBundle.resume, isWrite:F2AMCPBundle.isWrite, commands:F2AMCPBundle.commands};\n');
+  await fs.writeFile(pluginFile, current.split(marker)[0].trimEnd() + '\n\n' + marker + '\n' + api.outputFiles[0].text + '\nvar F2AMCP = {execute:F2AMCPBundle.execute, resume:F2AMCPBundle.resume, isWrite:F2AMCPBundle.isWrite, commands:F2AMCPBundle.commands};\n');
 
   const packageDirs = new Set();
   for (const input of [...Object.keys(built.metafile.inputs), ...Object.keys(relay.metafile.inputs), ...Object.keys(api.metafile.inputs)]) {

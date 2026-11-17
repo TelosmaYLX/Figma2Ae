@@ -14,6 +14,13 @@ const quiet = {log() {},info() {},debug() {},warn() {},error() {}};
 
 async function connectPlugin(port, name, configure = () => {}) {
   const source = await fs.readFile(path.join(root,'figma-plugin/code.js'),'utf8');
+  // Figma's sandbox scans source text before parsing, including comments. A dependency comment
+  // mentioning a dynamic module load can reject the whole plugin even when the bundle has none.
+  const rejectedImport = /\bimport\s*(?:\(|\/[/*]|<!--|-->)/.exec(source);
+  if (rejectedImport) {
+    const line = source.slice(0,rejectedImport.index).split('\n').length;
+    throw new SyntaxError('Figma startup: possible import expression rejected around line '+line);
+  }
   const html = await fs.readFile(path.join(root,'figma-plugin/ui.html'),'utf8');
   const nodes = new Map();
   let nextId = 0, mcpSocket, lastSocket;
