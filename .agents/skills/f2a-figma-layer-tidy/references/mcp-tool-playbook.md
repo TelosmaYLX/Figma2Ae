@@ -42,7 +42,7 @@ python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.p
 | 目标 | 首选工具 | 降级工具（基础版） | 说明 |
 | --- | --- | --- | --- |
 | 获取整棵树结构、布局、填充、描边、效果、混合模式 | `get_design_context` | `get_node_info` / `get_nodes_info` | 大画框先传 `detail: "compact"` 或拿 `sectionPlan`，再分段读 `detail: "full"` |
-| 按名称/类型快速定位垃圾命名、隐藏层、实例、TEXT | `search_nodes` | `scan_nodes_by_types` + `scan_text_nodes` | `search_nodes` 返回 `{id, name, type, depth, parentId, visible, locked}`，省大量 token |
+| 按名称/类型快速定位垃圾命名、隐藏层、实例、TEXT | `search_nodes` | `scan_nodes_by_types` + `scan_text_nodes` | `search_nodes` 为子串匹配并返 `{id, name, type, depth, parentId, visible, locked}`；查 `*` 标记时务必再按 `name.startsWith('*')` 过滤，避免误抓 `z***9@163.com` |
 | 检查缺失字体或字体列表 | `get_fonts` | `get_node_info` | 排查可编辑文字导出风险 |
 | 读取精确矢量网络（检查多 region、路径） | `get_vector` | `get_node_info` | 排查复杂矢量或镂空布尔 |
 
@@ -58,6 +58,7 @@ python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.p
    - **降级方案**：若当前环境无 `detach_instances`，可调用 `detach_instance` 逐个由外向内分离。
 2. **`ungroup_nodes`（解散组）**：
    - 仅用于安全可展开的 `GROUP`（非实例、无裁剪、无特效、无混合隔离、非 Auto Layout、无蒙版边界冲突）。子层会被提升到原父级并保持视觉坐标。
+   - **返回值去重**：一次性传入多层嵌套组（如由内向外依次解包 3 层空组）时，`affected` 会按每次解包重复列出晋升的子节点 ID；统计影响图层数或继续处理前必须先去重。
 3. **`reparent_nodes`（批量改父级）**：
    - 始终默认 `keepPosition: true`（保持画布绝对坐标不变）。
    - 支持传 `index` 精确控制新父级内的 Z 序位置。
