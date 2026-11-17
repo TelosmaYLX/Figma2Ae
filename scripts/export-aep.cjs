@@ -10,17 +10,9 @@ const root = path.resolve(__dirname, '..');
 const run = promisify(execFile);
 
 function pythonPath(options = {}) {
-  // An explicit choice wins, then the bundled runtime, then the environment the
-  // installer created, then whatever Python the PATH offers. The last fallback
-  // keeps a package without runtimes usable when the recipient installed the AEP
-  // dependencies into their own Python.
-  const overridden = options.python || process.env.F2A_PYTHON;
-  if (overridden) return overridden;
   const bundled = path.join(root, 'runtime/python/python.exe');
-  if (existsSync(bundled)) return bundled;
-  const environment = path.join(root, '.venv-aep', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-  if (existsSync(environment)) return environment;
-  return process.platform === 'win32' ? 'python.exe' : 'python';
+  return options.python || process.env.F2A_PYTHON || (existsSync(bundled) ? bundled : path.join(root, '.venv-aep',
+    process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'));
 }
 
 async function chooseDestination(options = {}) {

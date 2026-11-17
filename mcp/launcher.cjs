@@ -32,12 +32,6 @@ function nodePath() {
   // A distributed CEP extension lives next to its component's runtime directory.
   bundled = path.join(__dirname, '../../runtime/node/node.exe');
   if (fs.existsSync(bundled)) return bundled;
-  // A package without a bundled runtime records the Node it found at install time,
-  // because CEP's own Node cannot be reused to start the relay.
-  try {
-    var configured = JSON.parse(fs.readFileSync(path.join(__dirname, 'runtime.json'), 'utf8')).node;
-    if (configured && fs.existsSync(configured)) return configured;
-  } catch (error) {}
   if (/node(?:\.exe)?$/i.test(process.execPath)) return process.execPath;
   return process.platform === 'win32' ? 'node.exe' : 'node';
 }
