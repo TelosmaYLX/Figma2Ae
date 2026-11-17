@@ -1,6 +1,6 @@
 ---
 name: f2a-figma-layer-tidy
-description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figma 图层整理技能。使用 F2A MCP 工具对选中画框或页面做非破坏性结构梳理、冗余套娃展开、语义化命名、可动画层最大化保留、复杂不可导效果最小化合并（`*` 标记或局部隔离）；动手前自动复制整画框为隐藏备份、全程自主决策不打断提问、整理后强制执行像素级零差异校验，通过后再删除备份并清理临时文件。触发场景：整理 Figma 图层准备导出 AE/AEP、优化 F2A 导出结构、清理冗余分组/自动命名、排查特效/混合模式/蒙版合并范围、图层整理前后的视觉一致性校验。"
+description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figma 图层整理技能。使用 F2A MCP 工具对选中画框做非破坏性结构梳理、冗余套娃展开、语义化命名、可动画层最大化保留、复杂不可导效果最小化合并（`*` 标记或局部隔离）；动手前自动复制整画框为隐藏备份、结构性决策自主判断（仅在目标未选中时引导用户选择）、整理后强制执行像素级零差异校验，通过后再删除备份并清理临时文件。触发场景：整理 Figma 图层准备导出 AE/AEP、优化 F2A 导出结构、清理冗余分组/自动命名、排查特效/混合模式/蒙版合并范围、图层整理前后的视觉一致性校验。"
 ---
 
 # F2A Figma 图层整理（面向 AEP 导出与动效师工作流）
@@ -16,6 +16,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
 3. **仅在最小必要范围内合并复杂效果**：对于无法原生写入 `.aep` 的复杂效果（如 `GLASS`、`BACKGROUND_BLUR`、`INNER_SHADOW`、`LAYER_BLUR`、特殊渐变/图案、多层静态混合叠加纹理等），优先将其隔离在**最小叶子或最小静态局部组**并添加 `*` 前缀（F2A 栅格化标记），避免连带吞噬上方的可动文字或前景元素。
 4. **绝不凭猜测改动视觉参数，但结构性决策自行判断**：不擅自修改颜色、透明度、混合模式、效果参数、字体字号、绝对坐标或实际起裁剪作用的 `clipsContent`。合并（`*`）、`flatten_nodes`、拆出背景、删除隐藏层、清理屏外块等**结构性决策由你按 Step 3 决策树自行判断并直接执行，不要逐项询问用户**；判断不确定时选更保守的一侧（保留分层、不合并），把取舍理由写进最终报告即可。**实例（`INSTANCE`）在整理阶段默认自动全部分离**（由外向内递归分离为普通 Frame）。
 5. **备份先行、收尾清理**：动手前必须先用 `clone_node` 复制**整个目标画框**，改名为 `_备份_<原名>_<时间戳>` 并 `set_visible(false)` + `set_locked(true)` 隐藏锁定；**只有 Step 5 像素门禁通过后**才允许在 Step 6 删除该备份，并同步清理 `artifacts/tidy-verify/` 下本次产出的全部临时 PNG 与 diff 文件。
+6. **隐私与脱敏（贯穿全程）**：不得把本机绝对路径、用户名、邮箱/账号、机器名、内部项目代号或个人标识写进本 Skill 文档、脚本、示例或提交到仓库。路径一律写成**相对工作目录**的形式（如 `artifacts/tidy-verify/<nodeId-clean>/`）；举例统一用泛化名称（`装饰1`、`图层A`、`账号脱敏文本`）。整理过程中读到的真实账号、邮箱、订单号、内部文案等，只在当前会话的回复里说明，**不要固化成文档内容**。
 
 ---
 
@@ -28,7 +29,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
 ### 第 0 步：确认文档连接与 MCP 能力
 
 1. 调用 `get_f2a_status`（若多个 Figma 文档打开，用 `join_channel` 选中目标文档）。
-2. 调用 `get_selection` 确认目标根节点：已有选区就用选区（多选时取其共同顶层祖先）；**没有选区时自行读取当前页，选定唯一或面积最大的顶层可见画框作为目标，在回复里说明所选对象即可，不要停下来问用户**。
+2. 调用 `get_selection` 确认目标根节点：已有选区就用选区（多选时取其共同顶层祖先）；**若用户未选中，先引导用户选中目标画框再继续**——说明需要选中哪个层级的画框（要导出 AEP 的那个顶层画框或弹窗 Frame），等待期间只做只读准备（读文档结构、列候选画框并报给用户确认），**不要自行猜测目标就动手改造**。
 3. 确认当前会话可用的 `f2a` MCP 工具集：
    - **完整版工具**：具备 `get_design_context`、`search_nodes`、`save_screenshots`、`get_screenshot`、`batch_rename_nodes`、`group_nodes`、`ungroup_nodes`、`reorder_nodes`、`reparent_nodes`、`set_clips_content`、`set_visible`、`set_locked`、`detach_instances`、`batch`、`flatten_nodes`、`outline_stroke` 等。
    - **基础版降级**：若当前客户端未重载到扩展工具，可降级使用 `get_node_info`、`scan_nodes_by_types`、`export_node_as_image`、`rename_node`、`set_parent`、`create_frame` 等（详见 [`references/mcp-tool-playbook.md`](references/mcp-tool-playbook.md)）。
@@ -53,7 +54,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
    - 把 `backupId` 记录到全程上下文，**直到 Step 6 才允许删除**。
 
 2. **基准采图 `before.png`**
-   - 使用 `save_screenshots`（`nodeIds: [rootId], format: "PNG", scale: 1`，高精细稿可同时存 `scale: 2`）保存到临时校验目录（例如 `D:\Tools\F2A\artifacts\tidy-verify\<nodeId-clean>\before.png`）；若无 `save_screenshots`，则用 `export_node_as_image` 导出并落盘保存为 `before.png`。
+   - 使用 `save_screenshots`（`nodeIds: [rootId], format: "PNG", scale: 1`，高精细稿可同时存 `scale: 2`）保存到临时校验目录（工作目录下的相对路径，例如 `artifacts/tidy-verify/<nodeId-clean>/before.png`）；若无 `save_screenshots`，则用 `export_node_as_image` 导出并落盘保存为 `before.png`。
 
 3. **查看设计稿**
    - 可同时调用 `get_screenshot` 直观查看设计稿视觉，结合图层树判断哪些是前景交互/动效主体、哪些是背景/氛围光效/纹理。
@@ -74,7 +75,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
    - 注意：F2A 会**自动跳过「纯文字透明容器」**（无裁剪、无填充/描边/效果、透明度 100%、无混合隔离、仅含文字），这类包裹无需为了减 Precomp 而强行拆掉；但包含图形/图片/多组嵌套的冗余空容器应当清理。
 2. **垃圾命名与危险 `*` 前缀**：
    - 统计 `Frame 123456`、`Group 8`、`Rectangle 12`、`Vector 3`、`image 64` 等自动生成名称。
-   - **高危检查**：排查名称以 `*` 开头的图层——在 F2A 中 `*` 会强制整层转成单张 PNG 并丢弃所有内部子层！确认哪些 `*` 是有意合图，哪些是误标。注意：`search_nodes(name: "*")` 是子串匹配（会误命中 `z***9@163.com` 等含 `*` 文本），排查时必须二次过滤 `name.startsWith('*')`。
+   - **高危检查**：排查名称以 `*` 开头的图层——在 F2A 中 `*` 会强制整层转成单张 PNG 并丢弃所有内部子层！确认哪些 `*` 是有意合图，哪些是误标。注意：`search_nodes(name: "*")` 是子串匹配（会误命中 `账号脱敏` 这类中间带星号的文本），排查时必须二次过滤 `name.startsWith('*')`。
 3. **实例（`INSTANCE`）统计**：
    - 实例内部只读，无法改名、拆组、调序或编辑内部蒙版/特效。整理阶段会**自动将目标范围内的全部实例由外向内递归分离为普通 Frame**（再进入后续层级精简与命名），诊断时先统计全部 `INSTANCE` 数量与嵌套情况即可。
    - **整页背景实例警报**：弹窗/浮层稿常直接嵌入整张长页面的组件实例作暗色背景；分离后会带入大量 `visible: false` 图层以及完全在当前画框裁剪区域之外的屏外区块（F2A 导 `.aep` 不会跳过子容器内被裁掉的屏外节点，仍会切图和建层）。**自行判断处理，不要停下来问用户**：若这些屏外/隐藏块在当前视口内完全不可见，直接删除（删后必须过像素门禁）；若删除会改变画面或存在滚动展示的可能，则把整块背景收口为 `*背景_xxx` 合图。取舍理由写进最终报告。
