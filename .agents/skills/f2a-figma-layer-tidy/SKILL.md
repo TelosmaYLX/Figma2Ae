@@ -1,0 +1,185 @@
+---
+name: f2a-figma-layer-tidy
+description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figma 图层整理技能。使用 F2A MCP 工具对选中画框或页面做非破坏性结构梳理、冗余套娃展开、语义化命名、可动画层最大化保留、复杂不可导效果最小化合并（`*` 标记或局部隔离），并强制执行整理前后的像素级图像零差异校验。触发场景：整理 Figma 图层准备导出 AE/AEP、优化 F2A 导出结构、清理冗余分组/自动命名、排查特效/混合模式/蒙版合并范围、图层整理前后的视觉一致性校验。"
+---
+
+# F2A Figma 图层整理（面向 AEP 导出与动效师工作流）
+
+> **核心原则**：最大化保留可动画图层与可编辑属性，仅对 AE/AEP 无法原生还原的复杂效果做**最小范围合并**；**整理前后设计稿的渲染画面必须像素级完全一致**，绝不允许改变视觉表现。
+
+---
+
+## 硬约束（不可违反）
+
+1. **视觉零偏差硬门禁**：整理前必须导出基准 PNG（`before.png`），整理后必须以同一节点 ID 和相同倍率导出结果 PNG（`after.png`），并用 [`scripts/compare_pixels.py`](scripts/compare_pixels.py) 校验尺寸完全一致且 RGBA 逐像素最大差 `max_abs_diff == 0`。任何尺寸变化或像素差异都必须立即回退/修复，未通过校验禁止宣布完成。
+2. **保留图层优先，最小化合并**：凡是 F2A `.aep` 可原生导出或动效师需要独立做关键帧动画的元素（独立卡片、按钮、图标、文字、角色部件、背景元素、独立 `DROP_SHADOW` 层等），**禁止合并**。
+3. **仅在最小必要范围内合并复杂效果**：对于无法原生写入 `.aep` 的复杂效果（如 `GLASS`、`BACKGROUND_BLUR`、`INNER_SHADOW`、`LAYER_BLUR`、特殊渐变/图案、多层静态混合叠加纹理等），优先将其隔离在**最小叶子或最小静态局部组**并添加 `*` 前缀（F2A 栅格化标记），避免连带吞噬上方的可动文字或前景元素。
+4. **绝不凭猜测删改或改动视觉参数**：不擅自修改颜色、透明度、混合模式、效果参数、字体字号、绝对坐标或实际起裁剪作用的 `clipsContent`；涉及合并（`*` 或 `flatten_nodes`）、拆出背景、分离实例或删除隐藏图层等结构性决策，先做诊断报告与确认（除非用户明确要求直接全自动整理）。
+
+---
+
+## 开始前：检查参考资料与工具环境
+
+开始整理前，按需阅读以下随附文档（位于本 Skill 目录）：
+- **F2A AEP 兼容性与合并规则**：[`references/f2a-aep-compatibility.md`](references/f2a-aep-compatibility.md) —— 详述 F2A 采集与 `writer.py` 的原生支持清单、自动处理边界、常见失真陷阱（如容器效果吞并子层、多图填充丢图、裁剪圆角降级、混合模式跨蒙版隔离等）。
+- **F2A MCP 工具调用手册**：[`references/mcp-tool-playbook.md`](references/mcp-tool-playbook.md) —— 详述 F2A MCP 的读图、搜索、批量重命名、拆组/成组、Z 序、分离实例、`batch` 以及工具降级映射。
+
+### 第 0 步：确认文档连接与 MCP 能力
+
+1. 调用 `get_f2a_status`（若多个 Figma 文档打开，用 `join_channel` 选中目标文档）。
+2. 调用 `get_selection` 确认目标根节点（若用户未选中，引导选中或读取目标页面/画框 ID）。
+3. 确认当前会话可用的 `f2a` MCP 工具集：
+   - **完整版工具**：具备 `get_design_context`、`search_nodes`、`save_screenshots`、`get_screenshot`、`batch_rename_nodes`、`group_nodes`、`ungroup_nodes`、`reorder_nodes`、`reparent_nodes`、`set_clips_content`、`set_visible`、`set_locked`、`detach_instances`、`batch`、`flatten_nodes`、`outline_stroke` 等。
+   - **基础版降级**：若当前客户端未重载到扩展工具，可降级使用 `get_node_info`、`scan_nodes_by_types`、`export_node_as_image`、`rename_node`、`set_parent`、`create_frame` 等（详见 [`references/mcp-tool-playbook.md`](references/mcp-tool-playbook.md)）。
+
+---
+
+## 标准五步工作流
+
+### Step 1：基准采图与留底（硬门禁起点）
+
+在执行**任何**写操作之前：
+1. 记录目标根节点的 `rootId`、名称、精确尺寸（`width × height`）与画布位置（`x, y`）。
+2. 使用 `save_screenshots`（`nodeIds: [rootId], format: "PNG", scale: 1`，高精细稿可同时存 `scale: 2`）保存到临时校验目录（例如 `D:\Tools\F2A\artifacts\tidy-verify\<nodeId-clean>\before.png`）；若无 `save_screenshots`，则用 `export_node_as_image` 导出并落盘保存为 `before.png`。
+3. 可同时调用 `get_screenshot` 直观查看设计稿视觉，结合图层树判断哪些是前景交互/动效主体、哪些是背景/氛围光效/纹理。
+4. **安全回退准备**：F2A MCP 每次写操作后都会执行 `figma.commitUndo()`，但 `batch` 在中途失败时**不会自动回滚**（`rolledBack: false`）。对包含大量破坏性结构调整（分离实例、拆组、移动父级）的复杂页面，建议先记住关键结构，必要时提示用户先复制一页或用 `clone_node` 留出参考副本（验证通过后再清理临时副本）。
+
+---
+
+### Step 2：全局只读诊断与动效结构分析
+
+优先用 `get_design_context`（大图先用 `detail: "compact"` 或 `sectionPlan`，再逐段拉 `detail: "full"`）配合 `search_nodes` 扫描全树，梳理以下 6 类信息：
+
+1. **动效单元与层级深度**：
+   - 识别可独立做动画的逻辑模块（如 `BG`、`Header`、`Card`、`Icon`、`CTA_Button`、`Badge`、`FX`）。
+   - 检查是否存在 **4 层以上的冗余套娃容器**（每多一个容器，F2A `organize: true` 就会多一个 AE Precomp，显著降低动效师操作效率）。
+   - 注意：F2A 会**自动跳过「纯文字透明容器」**（无裁剪、无填充/描边/效果、透明度 100%、无混合隔离、仅含文字），这类包裹无需为了减 Precomp 而强行拆掉；但包含图形/图片/多组嵌套的冗余空容器应当清理。
+2. **垃圾命名与危险 `*` 前缀**：
+   - 统计 `Frame 123456`、`Group 8`、`Rectangle 12`、`Vector 3`、`image 64` 等自动生成名称。
+   - **高危检查**：排查名称以 `*` 开头的图层——在 F2A 中 `*` 会强制整层转成单张 PNG 并丢弃所有内部子层！确认哪些 `*` 是有意合图，哪些是误标。
+3. **实例（`INSTANCE`）分布**：
+   - 实例内部只读，无法改名/拆组/调序。识别哪些实例需要拆分内部做局部动画（需由外向内分离），哪些只需整体运动（可保留实例或仅重命名实例本身）。
+4. **隐藏图层（`visible: false`）与空节点**：
+   - 区分“废弃草稿/空容器”与“可能用于切换状态的隐藏图层”。默认绝不武断删除有内容的状态层。
+5. **Auto Layout 与裁剪（`clipsContent`）陷阱**：
+   - 标记所有开启了 Auto Layout（`layoutMode !== 'NONE'`）的容器：内部增删、重排 Z 序或提取元素前必须注意绝对位置与重排风险。
+   - 标记所有 `clipsContent: true` 的 `FRAME`：判断它是否真的在裁剪溢出内容（看子节点边界是否超出该 Frame）。无溢出且无裁剪意图的 Frame 可关掉 `clipsContent` 或转为 `GROUP` 以防误切阴影；有真实溢出的 Frame 严禁关闭裁剪。
+   - 检查「开启裁剪 + 四角圆角不一致（mixed radii）」的 Frame：F2A AEP 写入器对 Frame 裁剪只读取 `topLeftRadius`，若四角圆角不同需特别记录提醒或改用独立圆角遮罩层。
+6. **AEP 导出兼容性与合并判定（核心决策）**：
+   依据 [`references/f2a-aep-compatibility.md`](references/f2a-aep-compatibility.md) 对照检查每一层的 `fills`、`strokes`、`effects`、`blendMode`、`isMask`、`type`：
+   - **可原生保留** vs **建议拆出背景** vs **建议局部标 `*` 合并**。
+
+---
+
+### Step 3：制定整理方案（保留 vs 合并决策树）
+
+向用户汇报诊断摘要（或按授权直接进入执行）时，必须明确按以下三层策略规划：
+
+#### 策略 A：坚决保留原生可编辑层（不合并）
+以下内容 F2A 可高保真写入 `.aep`，动效师也常需单独调整，**保留原样**（只做命名与清晰分组）：
+- 基础形状（`RECTANGLE`、`ELLIPSE`、`VECTOR`、`STAR`、`POLYGON`、`LINE`）
+- 纯色、线性渐变（`GRADIENT_LINEAR`）、径向渐变（`GRADIENT_RADIAL`）
+- 常规纯色描边（含 Inside/Center/Outside）；虚线或 `< 1px` 细描边（F2A 导出时会自动在副本轮廓化，无需破坏原稿）
+- 普通 `TEXT`（含富文本、段落属性、渐变文字；若后续选“可编辑文字”导出，需用 `get_fonts` 或 `hasMissingFont` 检查字体是否缺失）
+- 带有 `fillGeometry` 的 `BOOLEAN_OPERATION`（仅静态矢量，无需在原稿打散）
+- 普通 `FIT`/`FILL` `IMAGE` 填充（无调色滤镜、非多图叠在同一节点内）
+- 仅含 `DROP_SHADOW` 的图层/文字（F2A 默认会自动单独提取投影 PNG `*_投影`，前景依然保持矢量/可编辑）
+- 纯色填充、无描边无复杂效果的常规 Alpha/Luma 矢量蒙版（F2A 原生转 AE Track Matte）
+
+#### 策略 B：拆分隔离（保留前景可动，只合背景效果）
+当**容器本身**挂了以下属性，且内部包含**需要动画的子图层**（如文字、按钮图标、主体元素）时：
+- 容器有 `BACKGROUND_BLUR`、`GLASS`、`LAYER_BLUR`、`INNER_SHADOW`、`NOISE`、`TEXTURE`、`SHADER`；
+- 容器自身填充了 `GRADIENT_ANGULAR`、`GRADIENT_DIAMOND`、`PATTERN`、`VIDEO` 等。
+
+**做法**：
+- 若当前容器直接带着这些样式会导致 F2A 把整个容器或组内文字连带栅格化，**将容器的背景绘制抽离成底层独立矩形节点（保持完全相同的坐标/圆角/填充/效果），仅给该底板节点加 `*` 前缀**（例如 `*bg_glass`），原容器保留为纯粹的分组容器（`fills: [], effects: []`），前景文字与图标即可 100% 保留为独立 AE 图层！
+- 注意：`BACKGROUND_BLUR` / `GLASS` 在同父级中的**层序位置**决定它采样哪些背景，抽离后必须位于原位置紧邻其原先子节点之下，并用像素对比确认 0 误差。
+
+#### 策略 C：推荐局部合并 / 标记 `*`（复杂且无法原生导 AEP 的情况）
+当满足以下条件，且经评估合并**不会阻碍动效师的预期动画**时，推荐收敛为一个局部组并加 `*` 前缀（或给该单层加 `*`）：
+1. **复杂效果无法写入 AEP**：`INNER_SHADOW`、`LAYER_BLUR`、`BACKGROUND_BLUR`、`GLASS`、`NOISE`、`TEXTURE`、`SHADER`，或带曝光/对比度/饱和度等调色滤镜的图片。
+2. **特殊渐变与填充**：`GRADIENT_ANGULAR`（角度渐变）、`GRADIENT_DIAMOND`（菱形渐变）、`PATTERN`、`VIDEO`。
+3. **同一节点多重冲突填充**：单节点同时叠了多张 `IMAGE` 填充（F2A `collectImages` 只取第一张可见 `IMAGE`！若一个形状里叠了 2 张图，必须拆成两个独立重叠节点，或将该静态合图节点标 `*`）。
+4. **纯静态的多层混合模式堆栈**：由多个 `COLOR_BURN`、`LINEAR_BURN`、`SOFT_LIGHT`、`HARD_LIGHT`、`OVERLAY` 等叠加而成的静态纹理/光影底纹。将这几层纯装饰纹理归入同一局部组（如 `*tex_card_grain`），可避免跨遮罩/8-bpc 混合色偏，且大幅减少 AE 图层数。
+5. **复杂共享渐变/效果蒙版下的重叠混合层**：当一个半透明渐变蒙版或效果蒙版下有多个彼此重叠的静态纹理层时，AE 逐层应用蒙版会导致半透明区域 alpha 累积偏差，归组标 `*` 可保证 100% 还原原稿。
+6. **无动画价值的超碎静态矢量群**：例如纯静态装饰花纹/复杂纹理/插画背景由几十上百个零碎 `VECTOR` 组成且只需整体运动，可归组标 `*`（若确属纯同色平涂且无特效/渐变/混合模式，才考虑 `flatten_nodes`）。
+7. **路径文字（`TEXT_PATH`）**或**含多图/倾斜 `CROP` 变换的图片**（倾斜裁剪无法用 AE 简单缩放+旋转表达，标 `*` 固定裁剪结果）。
+
+> **沟通习惯**：如果遇到“某个带模糊/混合模式的组，既不能原生导出、又疑似包含未来可能想动的元素”，**不要自作主张强行标 `*` 或强行拆散**，应在方案中明确列出两个选项给用户/动效师拍板：
+> - 方案 1（保视觉保性能）：整组标 `*`，AE 中作为单张高清 PNG 整体运动；
+> - 方案 2（保分层可动）：说明拆分代价（例如拆出 `*背景` + 保留前景文字），确认视觉可等效后再执行。
+
+---
+
+### Step 4：安全执行整理（分阶段、可验证、防错乱）
+
+严格按以下顺序分批执行，每阶段可使用 `batch`（注意记住 `batch` 无自动回滚，重要节点先留底）并注意 Auto Layout 限制：
+
+1. **阶段 1：分离必须编辑内部的实例（若需要）**
+   - 仅对需要改内部结构/命名/局部合并的 `INSTANCE` 调用 `detach_instances`（由外向内）。
+   - 用返回的 `detached: [{nodeId, newId}]` 更新本地 ID 映射表，**切勿继续使用旧 ID**！
+2. **阶段 2：清理明显无效的空容器与（经确认的）废弃隐藏层**
+   - 先用 `search_nodes` 核查 `visible: false` 与空容器。
+   - **安全展开冗余嵌套（完全等价 `code.js` 的 `_canExpand` 条件）**：
+     只有当容器同时满足以下条件时才可 `ungroup_nodes` 或 `reparent_nodes` 提级后删空壳：
+     - 类型为 `GROUP` 或 `FRAME`（非实例、非布尔）
+     - `clipsContent === false`
+     - `fills` / `strokes` / `effects` 均无可见项
+     - `opacity === 1` 且 `blendMode === 'PASS_THROUGH'`
+     - 自身与父级均非 Auto Layout（`layoutMode === 'NONE'`）
+     - 自身不是蒙版，且内部和直接兄弟中无蒙版干扰作用域
+     - **先 `reparent_nodes(..., keepPosition: true)` 并保持原始 Z 序位置，再删除空壳**；若为 `GROUP`，可直接 `ungroup_nodes`。
+3. **阶段 3：语义化重构分组与裁剪修正**
+   - 将平铺过散且属于同一动画单元的兄弟图层用 `group_nodes` 收口到清晰模块组（如 `card_header`、`icon_badge`）。
+   - **组 vs 画框**：
+     - 纯逻辑分组容器优先用 `GROUP`（不裁剪溢出与阴影）；
+     - 若原容器是 `FRAME` 且无填充/描边/裁剪需求（内部完全不超出边界），可关闭 `clipsContent`；**凡有内容超出边界且原本被裁剪的 `FRAME`，绝对保留 `clipsContent: true`**！
+   - 对非 Auto Layout 父级下需要微调叠放秩序的层，用 `reorder_nodes` 整理为直觉的底→顶序列（**注意：严禁改变任何有像素重叠区域的层之间的相对前后关系**！只有互不重叠、或纯移动进对应逻辑组的层才调整树序，否则视觉会变化）。
+4. **阶段 4：拆分复杂效果背景 & 添加 `*` 合并标记**
+   - 执行经确认的“保前合后”背景拆分或局部组 `*` 标记。
+   - **检查同节点多张 `IMAGE` 填充**：若发现单节点有 ≥2 个可见 `IMAGE` 填充，复制拆分为独立图层分别保留单张图（按原始堆叠顺序），或按方案标 `*`。
+5. **阶段 5：动效师规范批量命名（`batch_rename_nodes`）**
+   - 清理所有 `Frame xxx`、`Group xxx`、`Rectangle xxx`、`Vector xxx`、`image xxx`。
+   - 命名风格与原稿语言/团队习惯保持一致，推荐简洁的 `模块_角色[_序号]`（如 `card_bg`、`card_border`、`icon_star`、`title_main`、`*fx_glow_bg`、`*tex_overlay`）。
+   - **最后检查一遍所有名字**：确保没有任何**未打算合并**的图层以 `*` 开头！
+   - 可对纯静态参考背景层用 `set_locked` 锁定防误触（可选，锁定不影响 F2A 导出）。
+
+---
+
+### Step 5：强制像素级一致性验证与交付报告
+
+1. **导出整理后图像**：
+   - 使用与 Step 1 完全相同的 `rootId`、`format: "PNG"` 和 `scale`，调用 `save_screenshots` 保存到 `after.png`（或 `export_node_as_image`）。
+2. **运行像素对比硬门禁**：
+   ```powershell
+   python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.png" --diff "<dir>/diff.png"
+   ```
+   - 通过标准：`same_size == true` 且 `max_abs_diff == 0`（RGBA 四个通道零偏差）。
+   - 若失败（退出码非 0）：
+     1. 查看脚本输出的 `changed_pixels`、`max_abs_diff`、`changed_bbox`；
+     2. 用 `read_image` 检查 `diff.png` 定位出错区域；
+     3. 立即排查并修复（撤销错改的裁剪/透明组/Z 序/Auto Layout 位置），**必须重新跑通 `max_abs_diff == 0` 才能结束**。
+3. **输出整理交付报告**：
+   必须包含以下结构化信息：
+   - **视觉一致性校验**：`before.png` vs `after.png` 尺寸、像素总差（`max_abs_diff = 0`）。
+   - **图层与预合成结构对比**：整理前 vs 整理后（总节点数、容器/预期 AE Precomp 数、展开的冗余套娃数、分离的实例数、重命名数）。
+   - **保留的可动画/可编辑资产**：矢量形状、文字层、独立图片层、原生遮罩清单。
+   - **建议/已合并的 `*` 项清单**：每个标 `*` 图层的名称、节点 ID、合并原因（对应哪条 AEP 限制），以及合并后如何保持了周围图层可动。
+   - **推荐 F2A AEP 导出面板参数**：
+     - 「保留分组层级」：开启（与整理好的 Precomp 层级一一对应）
+     - 「保留画框裁剪」：开启
+     - 「忽略隐藏图层」：开启
+     - 「文字导出方式」：若动效师无需改字或本机缺字体，推荐「矢量形状（无需字体）」；若需在 AE 内改文案或做文字动画器，且已验证字体齐全，选「可编辑文字」
+     - 「图片蒙版」：默认「原图 + 独立蒙版」
+     - 「高级选项 → 允许自动转为图片」5 项及「合并混合模式与底图」：默认全部开启
+
+---
+
+## 常见误区自检清单（提交前必核）
+
+- [ ] 是否存在非合并意图的图层名以 `*` 开头？（会导致整个图层被栅格化）
+- [ ] 是否误展开了 `opacity < 1`、`blendMode !== 'PASS_THROUGH'`、带 `effects`、或 `clipsContent: true` 的容器？
+- [ ] 是否在 Auto Layout 容器内直接 `ungroup`/`reorder` 而导致子图层漂移？
+- [ ] 是否给需要单独动效的文字/图标加了 `*` 或把它们留在了带 `LAYER_BLUR`/`INNER_SHADOW` 的父组内？
+- [ ] 是否存在单节点多个可见 `IMAGE` 填充未处理？（F2A 只读取第一张）
+- [ ] `compare_pixels.py` 是否明确返回 `passed: true` 且 `max_abs_diff == 0`？
