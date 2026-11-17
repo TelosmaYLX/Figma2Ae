@@ -1,5 +1,22 @@
 # AE 渐变回归
 
+## 不含运行环境的分发包
+
+```powershell
+node scripts/package-dist.cjs
+node tests/package-dist.cjs
+```
+
+压缩包输出到 `dist/F2A-Windows-x64.zip`，只按明确的文件清单收集运行文件，
+保留第三方许可证，不包含 Node、Python、虚拟环境、账号配置、开发记录或测试素材。
+安装说明在包内 `README.txt`；用户自行安装 Node.js 20+、Python 3.11+（64 位，含 Tcl/Tk），
+再运行 `install.cmd`。安装时联网安装固定版本的 Python 依赖，不自动修改 MCP 客户端配置。
+
+检查会实际解压 ZIP 到中文及空格路径，校验文件清单、哈希及隐私扫描，创建全新的
+Python 虚拟环境并安装依赖，通过包内 HTTP 服务生成真实 AEP，再启动无 `node_modules`
+的 MCP 服务并枚举工具。安装脚本只做 Windows PowerShell 语法检查，不写入本机注册表；
+没有执行第二台设备安装或真实 Figma/AE 界面验收。
+
 ## 内置 MCP
 
 F2A 内置 Cursor Talk to Figma MCP 和 Figwright 工具，使用方式与一次性客户端配置见
