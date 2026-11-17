@@ -2,19 +2,25 @@
 
 ## 内置 MCP
 
-F2A 内置 Cursor Talk to Figma MCP，使用方式与一次性客户端配置见
+F2A 内置 Cursor Talk to Figma MCP 和 Figwright 工具，使用方式与一次性客户端配置见
 [mcp/README.md](../mcp/README.md)。
 
 ```powershell
 node tests/mcp.cjs
 node tests/mcp-start.cjs
+node tests/mcp-figwright.cjs
 ```
 
 检查使用独立 stdio MCP 进程、真实 HTTP/WebSocket 中继、实际 F2A UI 和内置命令，
-覆盖 56 个工具的发现（含 11 个图层整理工具）、读写、单文档自动连接、多文档选择、
+覆盖 165 个工具的发现（含 11 个图层整理工具）、读写、单文档自动连接、多文档选择、
 导出互斥、错误与空值、超时和断线。冷启动检查在中文/空格临时目录中同时启动四个
 连接，确认复用同一个后台中继；运行目录不含 node_modules。Figma API 对象由测试模拟，
 不替代真实 Figma 文档操作验收。`scripts/preview-export-ui.mjs` 检查新增连接状态的布局。
+
+`mcp-figwright.cjs` 在相同链路上检查移植的 109 个工具：完整设计上下文、渐变/效果/布局、
+样式、变量与绑定、混合批处理与撤销、矢量路径、本地图片、原始素材去重保存、截图、
+PDF/视频字节落盘，以及协作遍历通过实际 iframe 的消息往返。Figma 编码器由测试替身代替。
+同时检查上游源码清单的 SHA-256，保证适配没有改写 vendored 源码。
 
 ## MCP 图层整理工具
 

@@ -2,10 +2,10 @@
   "name": "f2a-mcp",
   "version": "1.0.0",
   "private": true,
-  "description": "F2A's integrated Talk to Figma MCP bridge",
+  "description": "F2A MCP with Talk to Figma and Figwright tools",
   "scripts": {
     "build": "node ../scripts/build-mcp.cjs",
-    "test": "node ../tests/mcp.cjs && node ../tests/mcp-start.cjs"
+    "test": "node ../tests/mcp.cjs && node ../tests/mcp-start.cjs && node ../tests/mcp-layer.cjs && node ../tests/mcp-figwright.cjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

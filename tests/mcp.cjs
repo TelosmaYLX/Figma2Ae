@@ -12,7 +12,7 @@ const {start} = require('../mcp/relay.cjs');
 const root = path.resolve(__dirname,'..');
 const quiet = {log() {},info() {},debug() {},warn() {},error() {}};
 
-async function connectPlugin(port, name) {
+async function connectPlugin(port, name, configure = () => {}) {
   const source = await fs.readFile(path.join(root,'figma-plugin/code.js'),'utf8');
   const html = await fs.readFile(path.join(root,'figma-plugin/ui.html'),'utf8');
   const nodes = new Map();
@@ -29,6 +29,7 @@ async function connectPlugin(port, name) {
       nodes.set(node.id,node); return node;
     }
   };
+  configure({figma, nodes, page});
   const elements = {};
   for (const match of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) elements[match[1]] = {checked:/\bchecked\b/.test(match[0]), disabled:/\bdisabled\b/.test(match[0])};
   elements['raster-scale'].value='1'; elements['text-mode'].value='editable'; elements['native-image-masks'].value='separate';
@@ -160,4 +161,5 @@ async function check() {
   }
 }
 
-check().catch(error=>{console.error(error);process.exitCode=1;});
+if (require.main === module) check().catch(error=>{console.error(error);process.exitCode=1;});
+module.exports = {connectPlugin, mcpClient, result};

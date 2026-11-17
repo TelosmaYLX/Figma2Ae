@@ -16,4 +16,5 @@
 
 # Keep upstream source and generated prompt text byte-for-byte, including whitespace.
 mcp/vendor/** whitespace=-blank-at-eol,-blank-at-eof
+mcp/vendor/figwright/** text eol=lf
 mcp/server.cjs whitespace=-blank-at-eol,-blank-at-eof

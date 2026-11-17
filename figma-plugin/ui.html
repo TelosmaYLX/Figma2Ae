@@ -499,6 +499,10 @@
   window.onmessage = function (event) {
     var msg = event.data.pluginMessage;
     if (!msg) return;
+    if (msg.tag === '@figwright/yield' && msg.kind === 'yield-request') {
+      parent.postMessage({pluginMessage:{tag:msg.tag, kind:'yield-resume', id:msg.id, background:document.hidden === true}}, '*');
+      return;
+    }
     if (msg.type === 'mcp-info') { mcpSend({type:'hello', name:msg.name, fileKey:msg.fileKey, pageId:msg.pageId, pageName:msg.pageName}); return; }
     if (msg.type === 'mcp-result') { mcpSend({type:'result', id:msg.id, result:msg.result, error:msg.error}); return; }
     if (msg.type === 'command_progress') { mcpSend({type:'progress', id:msg.commandId}); return; }

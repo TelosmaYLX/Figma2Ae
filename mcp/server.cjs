@@ -2983,7 +2983,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve.call(this, root, ref);
+      let _sch = resolve6.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3010,7 +3010,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve(root, ref) {
+    function resolve6(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3874,7 +3874,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve(baseURI, relativeURI, options) {
+    function resolve6(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -4265,7 +4265,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve,
+      resolve: resolve6,
       resolveComponent,
       equal,
       serialize,
@@ -7356,7 +7356,7 @@ var require_bridge = __commonJS({
     var { ensureRelay: ensureRelay2 } = require_launcher();
     var selectedSession = null;
     async function request(route, body) {
-      await new Promise((resolve, reject) => ensureRelay2((error62) => error62 ? reject(error62) : resolve()));
+      await new Promise((resolve6, reject) => ensureRelay2((error62) => error62 ? reject(error62) : resolve6()));
       const response = await fetch("http://127.0.0.1:" + (process.env.F2A_MCP_PORT || 7367) + route, body === void 0 ? {} : {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -16090,7 +16090,7 @@ var recursive = /* @__PURE__ */ new WeakMap();
 var NONE = 0;
 var ASSUMED = 1;
 var PROVEN = 2;
-function isRecursive(inst, stack, resolve) {
+function isRecursive(inst, stack, resolve6) {
   const cached2 = recursive.get(inst);
   if (cached2 !== void 0)
     return cached2 ? PROVEN : NONE;
@@ -16100,7 +16100,7 @@ function isRecursive(inst, stack, resolve) {
   let result = NONE;
   const check2 = (child) => {
     if (result !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve);
+      const answer = isRecursive(child, stack, resolve6);
       if (answer > result)
         result = answer;
     }
@@ -16111,7 +16111,7 @@ function isRecursive(inst, stack, resolve) {
       const desc = Object.getOwnPropertyDescriptor(sh, key);
       if (spread && !desc.enumerable)
         continue;
-      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve) : NONE;
+      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve6) : NONE;
       if (child > answer)
         answer = child;
     }
@@ -16175,7 +16175,7 @@ function isRecursive(inst, stack, resolve) {
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
-      const inner = def._cachedInner ?? (resolve ? inst._zod.innerType : void 0);
+      const inner = def._cachedInner ?? (resolve6 ? inst._zod.innerType : void 0);
       merge2(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
@@ -26670,13 +26670,13 @@ function initializeContext(params) {
     external: params?.external ?? void 0
   };
 }
-function handleUnrepresentable(schema, ctx, json2, params, message) {
+function handleUnrepresentable(schema, ctx, json3, params, message) {
   const result = typeof ctx.unrepresentable === "function" ? ctx.unrepresentable({ zodSchema: schema, path: params.path, message }) : ctx.unrepresentable;
   if (result === "any")
     return false;
   if (result === void 0 || result === "throw")
     throw new Error(message);
-  Object.assign(json2, result);
+  Object.assign(json3, result);
   return true;
 }
 function processSchema(schema, ctx, _params = { path: [], schemaPath: [] }) {
@@ -26901,9 +26901,9 @@ function foldObjects(members2) {
   } else {
     const constraints = [];
     for (const object3 of objects) {
-      const constraint = undeclaredConstraint(object3);
-      if (constraint && !constraints.some((seen) => JSON.stringify(seen) === JSON.stringify(constraint)))
-        constraints.push(constraint);
+      const constraint2 = undeclaredConstraint(object3);
+      if (constraint2 && !constraints.some((seen) => JSON.stringify(seen) === JSON.stringify(constraint2)))
+        constraints.push(constraint2);
     }
     if (constraints.length === 1)
       folded.additionalProperties = constraints[0];
@@ -26912,12 +26912,12 @@ function foldObjects(members2) {
   }
   return folded;
 }
-function foldIntersection(json2) {
-  const allOf = json2.allOf;
+function foldIntersection(json3) {
+  const allOf = json3.allOf;
   if (!Array.isArray(allOf) || allOf.length < 2)
     return;
   for (const key of FOLDABLE_KEYS)
-    if (key in json2)
+    if (key in json3)
       return;
   const unions = allOf.filter((m) => UNION_KEYS.some((k) => Array.isArray(m[k])));
   let folded = null;
@@ -26936,8 +26936,8 @@ function foldIntersection(json2) {
   }
   if (!folded)
     return;
-  delete json2.allOf;
-  assignProps(json2, folded);
+  delete json3.allOf;
+  assignProps(json3, folded);
 }
 function finalize(ctx, schema) {
   const root = ctx.seen.get(schema);
@@ -27019,20 +27019,20 @@ function finalize(ctx, schema) {
     if (ctx.intersections.length) {
       const carriers = /* @__PURE__ */ new Map();
       for (const seen of ctx.seen.values()) {
-        for (const json2 of [seen.schema, seen.def]) {
-          const allOf = json2?.allOf;
+        for (const json3 of [seen.schema, seen.def]) {
+          const allOf = json3?.allOf;
           if (!Array.isArray(allOf))
             continue;
           const existing = carriers.get(allOf);
           if (existing)
-            existing.push(json2);
+            existing.push(json3);
           else
-            carriers.set(allOf, [json2]);
+            carriers.set(allOf, [json3]);
         }
       }
       for (const allOf of ctx.intersections) {
-        for (const json2 of carriers.get(allOf) ?? [])
-          foldIntersection(json2);
+        for (const json3 of carriers.get(allOf) ?? [])
+          foldIntersection(json3);
       }
     }
   }
@@ -27267,29 +27267,29 @@ var exactPatterns = /* @__PURE__ */ new Map([
 ]);
 var exactPattern = (p) => exactPatterns.get(p) ?? p;
 var stringProcessor = (schema, ctx, _json, _params) => {
-  const json2 = _json;
-  json2.type = "string";
+  const json3 = _json;
+  json3.type = "string";
   const { minimum, maximum, format, patterns, contentEncoding, laxFormat } = aggregateChecks(schema);
   if (typeof minimum === "number")
-    json2.minLength = minimum;
+    json3.minLength = minimum;
   if (typeof maximum === "number")
-    json2.maxLength = maximum;
+    json3.maxLength = maximum;
   if (format) {
-    json2.format = formatMap[format] ?? format;
-    if (json2.format === "")
-      delete json2.format;
+    json3.format = formatMap[format] ?? format;
+    if (json3.format === "")
+      delete json3.format;
     if (format === "time" || laxFormat) {
-      delete json2.format;
+      delete json3.format;
     }
   }
   if (contentEncoding)
-    json2.contentEncoding = contentEncoding;
+    json3.contentEncoding = contentEncoding;
   if (patterns && patterns.size > 0) {
     const patternList = [...patterns].map(exactPattern);
     if (patternList.length === 1)
-      json2.pattern = patternList[0].source;
+      json3.pattern = patternList[0].source;
     else if (patternList.length > 1) {
-      json2.allOf = [
+      json3.allOf = [
         ...patternList.map((regex) => ({
           ...ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0" ? { type: "string" } : {},
           pattern: regex.source
@@ -27299,31 +27299,31 @@ var stringProcessor = (schema, ctx, _json, _params) => {
   }
 };
 var numberProcessor = (schema, ctx, _json, params) => {
-  const json2 = _json;
+  const json3 = _json;
   const { minimum, maximum, multipleOf, exclusiveMaximum, exclusiveMinimum, isInt } = aggregateChecks(schema);
-  json2.type = isInt ? "integer" : "number";
+  json3.type = isInt ? "integer" : "number";
   const exMin = typeof exclusiveMinimum === "number" && exclusiveMinimum >= (minimum ?? Number.NEGATIVE_INFINITY);
   const exMax = typeof exclusiveMaximum === "number" && exclusiveMaximum <= (maximum ?? Number.POSITIVE_INFINITY);
   const legacy = ctx.target === "draft-04" || ctx.target === "openapi-3.0";
   if (exMin) {
     if (legacy) {
-      json2.minimum = exclusiveMinimum;
-      json2.exclusiveMinimum = true;
+      json3.minimum = exclusiveMinimum;
+      json3.exclusiveMinimum = true;
     } else {
-      json2.exclusiveMinimum = exclusiveMinimum;
+      json3.exclusiveMinimum = exclusiveMinimum;
     }
   } else if (typeof minimum === "number") {
-    json2.minimum = minimum;
+    json3.minimum = minimum;
   }
   if (exMax) {
     if (legacy) {
-      json2.maximum = exclusiveMaximum;
-      json2.exclusiveMaximum = true;
+      json3.maximum = exclusiveMaximum;
+      json3.exclusiveMaximum = true;
     } else {
-      json2.exclusiveMaximum = exclusiveMaximum;
+      json3.exclusiveMaximum = exclusiveMaximum;
     }
   } else if (typeof maximum === "number") {
-    json2.maximum = maximum;
+    json3.maximum = maximum;
   }
   if (multipleOf) {
     const divisors = /* @__PURE__ */ new Set();
@@ -27331,75 +27331,75 @@ var numberProcessor = (schema, ctx, _json, params) => {
       if (Number.isFinite(divisor) && divisor !== 0)
         divisors.add(Math.abs(divisor));
       else
-        handleUnrepresentable(schema, ctx, json2, params, `A multipleOf divisor of ${divisor} cannot be represented in JSON Schema`);
+        handleUnrepresentable(schema, ctx, json3, params, `A multipleOf divisor of ${divisor} cannot be represented in JSON Schema`);
     }
     const [first, ...rest] = divisors;
     if (first !== void 0)
-      json2.multipleOf = first;
+      json3.multipleOf = first;
     if (rest.length)
-      json2.allOf = [...json2.allOf ?? [], ...rest.map((m) => ({ multipleOf: m }))];
+      json3.allOf = [...json3.allOf ?? [], ...rest.map((m) => ({ multipleOf: m }))];
   }
 };
-var booleanProcessor = (_schema, _ctx, json2, _params) => {
-  json2.type = "boolean";
+var booleanProcessor = (_schema, _ctx, json3, _params) => {
+  json3.type = "boolean";
 };
-var bigintProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "BigInt cannot be represented in JSON Schema");
+var bigintProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "BigInt cannot be represented in JSON Schema");
 };
-var symbolProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "Symbols cannot be represented in JSON Schema");
+var symbolProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "Symbols cannot be represented in JSON Schema");
 };
-var nullProcessor = (_schema, ctx, json2, _params) => {
+var nullProcessor = (_schema, ctx, json3, _params) => {
   if (ctx.target === "openapi-3.0") {
-    json2.type = "string";
-    json2.nullable = true;
-    json2.enum = [null];
+    json3.type = "string";
+    json3.nullable = true;
+    json3.enum = [null];
   } else {
-    json2.type = "null";
+    json3.type = "null";
   }
 };
-var undefinedProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "Undefined cannot be represented in JSON Schema");
+var undefinedProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "Undefined cannot be represented in JSON Schema");
 };
-var voidProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "Void cannot be represented in JSON Schema");
+var voidProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "Void cannot be represented in JSON Schema");
 };
-var neverProcessor = (_schema, _ctx, json2, _params) => {
-  json2.not = {};
+var neverProcessor = (_schema, _ctx, json3, _params) => {
+  json3.not = {};
 };
 var anyProcessor = (_schema, _ctx, _json, _params) => {
 };
 var unknownProcessor = (_schema, _ctx, _json, _params) => {
 };
-var dateProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "Date cannot be represented in JSON Schema");
+var dateProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "Date cannot be represented in JSON Schema");
 };
-var enumProcessor = (schema, _ctx, json2, _params) => {
+var enumProcessor = (schema, _ctx, json3, _params) => {
   const def = schema._zod.def;
   const values = getEnumValues(def.entries);
   if (values.length === 0) {
-    json2.not = {};
+    json3.not = {};
     return;
   }
   if (values.every((v) => typeof v === "number"))
-    json2.type = "number";
+    json3.type = "number";
   if (values.every((v) => typeof v === "string"))
-    json2.type = "string";
-  json2.enum = values;
+    json3.type = "string";
+  json3.enum = values;
 };
-var literalProcessor = (schema, ctx, json2, params) => {
+var literalProcessor = (schema, ctx, json3, params) => {
   const def = schema._zod.def;
   if (def.values.length === 0) {
-    json2.not = {};
+    json3.not = {};
     return;
   }
   const vals = [];
   for (const val of def.values) {
     if (val === void 0) {
-      if (handleUnrepresentable(schema, ctx, json2, params, "Literal `undefined` cannot be represented in JSON Schema"))
+      if (handleUnrepresentable(schema, ctx, json3, params, "Literal `undefined` cannot be represented in JSON Schema"))
         return;
     } else if (typeof val === "bigint") {
-      if (handleUnrepresentable(schema, ctx, json2, params, "BigInt literals cannot be represented in JSON Schema"))
+      if (handleUnrepresentable(schema, ctx, json3, params, "BigInt literals cannot be represented in JSON Schema"))
         return;
       vals.push(Number(val));
     } else {
@@ -27409,37 +27409,37 @@ var literalProcessor = (schema, ctx, json2, params) => {
   if (vals.length === 0) {
   } else if (vals.length === 1) {
     const val = vals[0];
-    json2.type = val === null ? "null" : typeof val;
+    json3.type = val === null ? "null" : typeof val;
     if (ctx.target === "draft-04" || ctx.target === "openapi-3.0") {
-      json2.enum = [val];
+      json3.enum = [val];
     } else {
-      json2.const = val;
+      json3.const = val;
     }
   } else {
     if (vals.every((v) => typeof v === "number"))
-      json2.type = "number";
+      json3.type = "number";
     if (vals.every((v) => typeof v === "string"))
-      json2.type = "string";
+      json3.type = "string";
     if (vals.every((v) => typeof v === "boolean"))
-      json2.type = "boolean";
+      json3.type = "boolean";
     if (vals.every((v) => v === null))
-      json2.type = "null";
-    json2.enum = vals;
+      json3.type = "null";
+    json3.enum = vals;
   }
 };
-var nanProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "NaN cannot be represented in JSON Schema");
+var nanProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "NaN cannot be represented in JSON Schema");
 };
-var templateLiteralProcessor = (schema, _ctx, json2, _params) => {
-  const _json = json2;
+var templateLiteralProcessor = (schema, _ctx, json3, _params) => {
+  const _json = json3;
   const pattern = schema._zod.pattern;
   if (!pattern)
     throw new Error("Pattern not found in template literal");
   _json.type = "string";
   _json.pattern = pattern.source;
 };
-var fileProcessor = (schema, _ctx, json2, _params) => {
-  const _json = json2;
+var fileProcessor = (schema, _ctx, json3, _params) => {
+  const _json = json3;
   _json.type = "string";
   _json.format = "binary";
   _json.contentEncoding = "binary";
@@ -27457,34 +27457,34 @@ var fileProcessor = (schema, _ctx, json2, _params) => {
   else
     _json.anyOf = mime.map((m) => ({ contentMediaType: m }));
 };
-var successProcessor = (_schema, _ctx, json2, _params) => {
-  json2.type = "boolean";
+var successProcessor = (_schema, _ctx, json3, _params) => {
+  json3.type = "boolean";
 };
-var customProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "Custom types cannot be represented in JSON Schema");
+var customProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "Custom types cannot be represented in JSON Schema");
 };
-var functionProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "Function types cannot be represented in JSON Schema");
+var functionProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "Function types cannot be represented in JSON Schema");
 };
-var transformProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "Transforms cannot be represented in JSON Schema");
+var transformProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "Transforms cannot be represented in JSON Schema");
 };
-var mapProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "Map cannot be represented in JSON Schema");
+var mapProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "Map cannot be represented in JSON Schema");
 };
-var setProcessor = (schema, ctx, json2, params) => {
-  handleUnrepresentable(schema, ctx, json2, params, "Set cannot be represented in JSON Schema");
+var setProcessor = (schema, ctx, json3, params) => {
+  handleUnrepresentable(schema, ctx, json3, params, "Set cannot be represented in JSON Schema");
 };
 var arrayProcessor = (schema, ctx, _json, params) => {
-  const json2 = _json;
+  const json3 = _json;
   const def = schema._zod.def;
   const { minimum, maximum } = aggregateChecks(schema);
   if (typeof minimum === "number")
-    json2.minItems = minimum;
+    json3.minItems = minimum;
   if (typeof maximum === "number")
-    json2.maxItems = maximum;
-  json2.type = "array";
-  json2.items = processSchema(def.element, ctx, {
+    json3.maxItems = maximum;
+  json3.type = "array";
+  json3.items = processSchema(def.element, ctx, {
     ...params,
     path: [...params.path, "items"]
   });
@@ -27500,17 +27500,17 @@ function inputOptin(schema) {
   return schema._zod.optin;
 }
 var objectProcessor = (schema, ctx, _json, params) => {
-  const json2 = _json;
+  const json3 = _json;
   const def = schema._zod.def;
   const shape = def.shape;
   const symbolKeys = Object.getOwnPropertySymbols(shape);
-  if (symbolKeys.length && handleUnrepresentable(schema, ctx, json2, params, "Symbol keys cannot be represented in JSON Schema")) {
+  if (symbolKeys.length && handleUnrepresentable(schema, ctx, json3, params, "Symbol keys cannot be represented in JSON Schema")) {
     return;
   }
-  json2.type = "object";
-  json2.properties = {};
+  json3.type = "object";
+  json3.properties = {};
   for (const key in shape) {
-    assignProp(json2.properties, key, processSchema(shape[key], ctx, {
+    assignProp(json3.properties, key, processSchema(shape[key], ctx, {
       ...params,
       path: [...params.path, "properties", key]
     }));
@@ -27523,21 +27523,21 @@ var objectProcessor = (schema, ctx, _json, params) => {
     }
   }
   if (requiredKeys.length > 0) {
-    json2.required = requiredKeys;
+    json3.required = requiredKeys;
   }
   if (def.catchall?._zod.def.type === "never") {
-    json2.additionalProperties = false;
+    json3.additionalProperties = false;
   } else if (!def.catchall) {
     if (ctx.io === "output")
-      json2.additionalProperties = false;
+      json3.additionalProperties = false;
   } else if (def.catchall) {
-    json2.additionalProperties = processSchema(def.catchall, ctx, {
+    json3.additionalProperties = processSchema(def.catchall, ctx, {
       ...params,
       path: [...params.path, "additionalProperties"]
     });
   }
 };
-var unionProcessor = (schema, ctx, json2, params) => {
+var unionProcessor = (schema, ctx, json3, params) => {
   const def = schema._zod.def;
   const isExclusive = def.inclusive === false;
   const options = def.options.map((x, i) => processSchema(x, ctx, {
@@ -27545,12 +27545,12 @@ var unionProcessor = (schema, ctx, json2, params) => {
     path: [...params.path, isExclusive ? "oneOf" : "anyOf", i]
   }));
   if (isExclusive) {
-    json2.oneOf = options;
+    json3.oneOf = options;
   } else {
-    json2.anyOf = options;
+    json3.anyOf = options;
   }
 };
-var intersectionProcessor = (schema, ctx, json2, params) => {
+var intersectionProcessor = (schema, ctx, json3, params) => {
   const def = schema._zod.def;
   const a = processSchema(def.left, ctx, {
     ...params,
@@ -27565,13 +27565,13 @@ var intersectionProcessor = (schema, ctx, json2, params) => {
     ...isSimpleIntersection(a) ? a.allOf : [a],
     ...isSimpleIntersection(b) ? b.allOf : [b]
   ];
-  json2.allOf = allOf;
+  json3.allOf = allOf;
   ctx.intersections.push(allOf);
 };
 var tupleProcessor = (schema, ctx, _json, params) => {
-  const json2 = _json;
+  const json3 = _json;
   const def = schema._zod.def;
-  json2.type = "array";
+  json3.type = "array";
   const prefixPath = ctx.target === "draft-2020-12" ? "prefixItems" : "items";
   const restPath = ctx.target === "draft-2020-12" ? "items" : ctx.target === "openapi-3.0" ? "items" : "additionalItems";
   const prefixItems = def.items.map((x, i) => processSchema(x, ctx, {
@@ -27593,70 +27593,70 @@ var tupleProcessor = (schema, ctx, _json, params) => {
   const maxItems = def.items.length;
   const isClosed = !def.rest;
   if (ctx.target === "draft-2020-12") {
-    json2.prefixItems = prefixItems;
+    json3.prefixItems = prefixItems;
     if (isClosed) {
-      json2.items = false;
+      json3.items = false;
     } else if (rest) {
-      json2.items = rest;
+      json3.items = rest;
     }
     if (minItems > 0)
-      json2.minItems = minItems;
+      json3.minItems = minItems;
     if (isClosed)
-      json2.maxItems = maxItems;
+      json3.maxItems = maxItems;
   } else if (ctx.target === "openapi-3.0") {
-    json2.items = {
+    json3.items = {
       anyOf: prefixItems
     };
     if (rest) {
-      json2.items.anyOf.push(rest);
+      json3.items.anyOf.push(rest);
     }
     if (minItems > 0)
-      json2.minItems = minItems;
+      json3.minItems = minItems;
     if (isClosed)
-      json2.maxItems = maxItems;
+      json3.maxItems = maxItems;
   } else {
-    json2.items = prefixItems;
+    json3.items = prefixItems;
     if (isClosed) {
-      json2.additionalItems = false;
+      json3.additionalItems = false;
     } else if (rest) {
-      json2.additionalItems = rest;
+      json3.additionalItems = rest;
     }
     if (minItems > 0)
-      json2.minItems = minItems;
+      json3.minItems = minItems;
     if (isClosed)
-      json2.maxItems = maxItems;
+      json3.maxItems = maxItems;
   }
   const { minimum, maximum } = aggregateChecks(schema);
   if (typeof minimum === "number")
-    json2.minItems = minimum;
+    json3.minItems = minimum;
   if (typeof maximum === "number")
-    json2.maxItems = maximum;
+    json3.maxItems = maximum;
 };
-function stringifyKeyNames(bySchema, json2, visited) {
-  if (json2.$ref) {
-    if (visited.has(json2))
-      return json2;
-    visited.add(json2);
-    const def = bySchema.get(json2)?.def;
+function stringifyKeyNames(bySchema, json3, visited) {
+  if (json3.$ref) {
+    if (visited.has(json3))
+      return json3;
+    visited.add(json3);
+    const def = bySchema.get(json3)?.def;
     if (!def)
-      return json2;
+      return json3;
     const inlined = stringifyKeyNames(bySchema, def, visited);
-    return inlined === def ? json2 : inlined;
+    return inlined === def ? json3 : inlined;
   }
   for (const keyword of ["anyOf", "oneOf"]) {
-    const branches = json2[keyword];
+    const branches = json3[keyword];
     if (!Array.isArray(branches))
       continue;
     const mapped = branches.map((branch) => stringifyKeyNames(bySchema, branch, visited));
     if (mapped.some((branch, i) => branch !== branches[i]))
-      json2 = { ...json2, [keyword]: mapped };
+      json3 = { ...json3, [keyword]: mapped };
   }
-  const types = Array.isArray(json2.type) ? json2.type : [json2.type];
+  const types = Array.isArray(json3.type) ? json3.type : [json3.type];
   const numericType = !types.includes("string") && types.some((t) => t === "number" || t === "integer");
-  const values = json2.enum ?? (json2.const !== void 0 ? [json2.const] : void 0);
+  const values = json3.enum ?? (json3.const !== void 0 ? [json3.const] : void 0);
   if (!numericType && !values?.some((v) => typeof v === "number"))
-    return json2;
-  const { minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf, format, id, ...rest } = json2;
+    return json3;
+  const { minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf, format, id, ...rest } = json3;
   if (rest.enum)
     rest.enum = rest.enum.map((v) => typeof v === "number" ? String(v) : v);
   else if (typeof rest.const === "number")
@@ -27696,9 +27696,9 @@ function rewriteKeyNames(ctx) {
   }
 }
 var recordProcessor = (schema, ctx, _json, params) => {
-  const json2 = _json;
+  const json3 = _json;
   const def = schema._zod.def;
-  json2.type = "object";
+  json3.type = "object";
   const keyType = def.keyType;
   const patterns = aggregateChecks(keyType).patterns;
   if (def.mode === "loose" && patterns && patterns.size > 0) {
@@ -27706,13 +27706,13 @@ var recordProcessor = (schema, ctx, _json, params) => {
       ...params,
       path: [...params.path, "patternProperties", "*"]
     });
-    json2.patternProperties = {};
+    json3.patternProperties = {};
     for (const pattern of patterns) {
-      assignProp(json2.patternProperties, exactPattern(pattern).source, valueSchema);
+      assignProp(json3.patternProperties, exactPattern(pattern).source, valueSchema);
     }
   } else {
     if (ctx.target === "draft-07" || ctx.target === "draft-2020-12") {
-      json2.propertyNames = processSchema(def.keyType, ctx, {
+      json3.propertyNames = processSchema(def.keyType, ctx, {
         ...params,
         path: [...params.path, "propertyNames"]
       });
@@ -27724,7 +27724,7 @@ var recordProcessor = (schema, ctx, _json, params) => {
       }
       pending.push(schema);
     }
-    json2.additionalProperties = processSchema(def.valueType, ctx, {
+    json3.additionalProperties = processSchema(def.valueType, ctx, {
       ...params,
       path: [...params.path, "additionalProperties"]
     });
@@ -27734,19 +27734,19 @@ var recordProcessor = (schema, ctx, _json, params) => {
   if (keyValues && !def.partial && !omittableOnInput) {
     const validKeyValues = [...keyValues].filter((v) => typeof v === "string" || typeof v === "number");
     if (validKeyValues.length > 0) {
-      json2.required = validKeyValues.map(String);
+      json3.required = validKeyValues.map(String);
     }
   }
 };
-var nullableProcessor = (schema, ctx, json2, params) => {
+var nullableProcessor = (schema, ctx, json3, params) => {
   const def = schema._zod.def;
   const inner = processSchema(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   if (ctx.target === "openapi-3.0") {
     seen.ref = def.innerType;
-    json2.nullable = true;
+    json3.nullable = true;
   } else {
-    json2.anyOf = [inner, { type: "null" }];
+    json3.anyOf = [inner, { type: "null" }];
   }
 };
 var nonoptionalProcessor = (schema, ctx, _json, params) => {
@@ -27756,7 +27756,7 @@ var nonoptionalProcessor = (schema, ctx, _json, params) => {
   seen.ref = def.innerType;
 };
 var UNREPRESENTABLE_DEFAULT = /* @__PURE__ */ Symbol();
-function serializeDefaultValue(value, schema, ctx, json2, params) {
+function serializeDefaultValue(value, schema, ctx, json3, params) {
   let unrepresentable = false;
   const serialized = JSON.stringify(value, (_, val) => {
     if (typeof val !== "bigint")
@@ -27766,30 +27766,30 @@ function serializeDefaultValue(value, schema, ctx, json2, params) {
   });
   if (!unrepresentable)
     return JSON.parse(serialized);
-  handleUnrepresentable(schema, ctx, json2, params, "BigInt defaults cannot be represented in JSON Schema");
+  handleUnrepresentable(schema, ctx, json3, params, "BigInt defaults cannot be represented in JSON Schema");
   return UNREPRESENTABLE_DEFAULT;
 }
-var defaultProcessor = (schema, ctx, json2, params) => {
+var defaultProcessor = (schema, ctx, json3, params) => {
   const def = schema._zod.def;
   processSchema(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = def.innerType;
-  const value = serializeDefaultValue(def.defaultValue, schema, ctx, json2, params);
+  const value = serializeDefaultValue(def.defaultValue, schema, ctx, json3, params);
   if (value !== UNREPRESENTABLE_DEFAULT)
-    json2.default = value;
+    json3.default = value;
 };
-var prefaultProcessor = (schema, ctx, json2, params) => {
+var prefaultProcessor = (schema, ctx, json3, params) => {
   const def = schema._zod.def;
   processSchema(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = def.innerType;
   if (ctx.io !== "input")
     return;
-  const value = serializeDefaultValue(def.defaultValue, schema, ctx, json2, params);
+  const value = serializeDefaultValue(def.defaultValue, schema, ctx, json3, params);
   if (value !== UNREPRESENTABLE_DEFAULT)
-    json2._prefault = value;
+    json3._prefault = value;
 };
-var catchProcessor = (schema, ctx, json2, params) => {
+var catchProcessor = (schema, ctx, json3, params) => {
   const def = schema._zod.def;
   processSchema(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
@@ -27798,10 +27798,10 @@ var catchProcessor = (schema, ctx, json2, params) => {
   try {
     catchValue = def.catchValue(void 0);
   } catch {
-    handleUnrepresentable(schema, ctx, json2, params, "Dynamic catch values are not supported in JSON Schema");
+    handleUnrepresentable(schema, ctx, json3, params, "Dynamic catch values are not supported in JSON Schema");
     return;
   }
-  json2.default = catchValue;
+  json3.default = catchValue;
 };
 var pipeProcessor = (schema, ctx, _json, params) => {
   const def = schema._zod.def;
@@ -27811,12 +27811,12 @@ var pipeProcessor = (schema, ctx, _json, params) => {
   const seen = ctx.seen.get(schema);
   seen.ref = innerType;
 };
-var readonlyProcessor = (schema, ctx, json2, params) => {
+var readonlyProcessor = (schema, ctx, json3, params) => {
   const def = schema._zod.def;
   processSchema(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = def.innerType;
-  json2.readOnly = true;
+  json3.readOnly = true;
 };
 var promiseProcessor = (schema, ctx, _json, params) => {
   const def = schema._zod.def;
@@ -29102,7 +29102,7 @@ var _ZodString = /* @__PURE__ */ $constructor(
   (inst, def) => {
     $ZodString.init(inst, def);
     ZodType2.init(inst, def);
-    inst._zod.processJSONSchema = (ctx, json2, params) => stringProcessor(inst, ctx, json2, params);
+    inst._zod.processJSONSchema = (ctx, json3, params) => stringProcessor(inst, ctx, json3, params);
   },
   /* @__PURE__ */ util_exports.derived({
     format: (inst) => aggregateChecks(inst).format ?? null,
@@ -29461,7 +29461,7 @@ var ZodNumber2 = /* @__PURE__ */ $constructor(
   (inst, def) => {
     $ZodNumber.init(inst, def);
     ZodType2.init(inst, def);
-    inst._zod.processJSONSchema = (ctx, json2, params) => numberProcessor(inst, ctx, json2, params);
+    inst._zod.processJSONSchema = (ctx, json3, params) => numberProcessor(inst, ctx, json3, params);
     inst.isFinite = true;
   },
   /* @__PURE__ */ util_exports.derived({
@@ -29551,7 +29551,7 @@ function uint32(params) {
 var ZodBoolean2 = /* @__PURE__ */ $constructor("ZodBoolean", (inst, def) => {
   $ZodBoolean.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => booleanProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => booleanProcessor(inst, ctx, json3, params);
 });
 function boolean2(params) {
   return _boolean(ZodBoolean2, params);
@@ -29561,7 +29561,7 @@ var ZodBigInt2 = /* @__PURE__ */ $constructor(
   (inst, def) => {
     $ZodBigInt.init(inst, def);
     ZodType2.init(inst, def);
-    inst._zod.processJSONSchema = (ctx, json2, params) => bigintProcessor(inst, ctx, json2, params);
+    inst._zod.processJSONSchema = (ctx, json3, params) => bigintProcessor(inst, ctx, json3, params);
   },
   /* @__PURE__ */ util_exports.derived({
     minValue: (inst) => aggregateChecks(inst).minimum ?? null,
@@ -29619,7 +29619,7 @@ function uint64(params) {
 var ZodSymbol2 = /* @__PURE__ */ $constructor("ZodSymbol", (inst, def) => {
   $ZodSymbol.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => symbolProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => symbolProcessor(inst, ctx, json3, params);
 });
 function symbol(params) {
   return _symbol(ZodSymbol2, params);
@@ -29627,7 +29627,7 @@ function symbol(params) {
 var ZodUndefined2 = /* @__PURE__ */ $constructor("ZodUndefined", (inst, def) => {
   $ZodUndefined.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => undefinedProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => undefinedProcessor(inst, ctx, json3, params);
 });
 function _undefined3(params) {
   return _undefined2(ZodUndefined2, params);
@@ -29635,7 +29635,7 @@ function _undefined3(params) {
 var ZodNull2 = /* @__PURE__ */ $constructor("ZodNull", (inst, def) => {
   $ZodNull.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => nullProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => nullProcessor(inst, ctx, json3, params);
 });
 function _null3(params) {
   return _null2(ZodNull2, params);
@@ -29643,7 +29643,7 @@ function _null3(params) {
 var ZodAny2 = /* @__PURE__ */ $constructor("ZodAny", (inst, def) => {
   $ZodAny.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => anyProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => anyProcessor(inst, ctx, json3, params);
 });
 function any() {
   return _any(ZodAny2);
@@ -29651,7 +29651,7 @@ function any() {
 var ZodUnknown2 = /* @__PURE__ */ $constructor("ZodUnknown", (inst, def) => {
   $ZodUnknown.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => unknownProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => unknownProcessor(inst, ctx, json3, params);
 });
 function unknown() {
   return _unknown(ZodUnknown2);
@@ -29659,7 +29659,7 @@ function unknown() {
 var ZodNever2 = /* @__PURE__ */ $constructor("ZodNever", (inst, def) => {
   $ZodNever.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => neverProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => neverProcessor(inst, ctx, json3, params);
 });
 function never(params) {
   return _never(ZodNever2, params);
@@ -29667,7 +29667,7 @@ function never(params) {
 var ZodVoid2 = /* @__PURE__ */ $constructor("ZodVoid", (inst, def) => {
   $ZodVoid.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => voidProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => voidProcessor(inst, ctx, json3, params);
 });
 function _void2(params) {
   return _void(ZodVoid2, params);
@@ -29677,7 +29677,7 @@ var ZodDate2 = /* @__PURE__ */ $constructor(
   (inst, def) => {
     $ZodDate.init(inst, def);
     ZodType2.init(inst, def);
-    inst._zod.processJSONSchema = (ctx, json2, params) => dateProcessor(inst, ctx, json2, params);
+    inst._zod.processJSONSchema = (ctx, json3, params) => dateProcessor(inst, ctx, json3, params);
     inst.min = (value, params) => inst.check(_gte(value, params));
     inst.max = (value, params) => inst.check(_lte(value, params));
   },
@@ -29699,7 +29699,7 @@ var ZodArray2 = /* @__PURE__ */ $constructor("ZodArray", (inst, def) => {
   _ensureDefaultMemoizer();
   $ZodArray.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => arrayProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => arrayProcessor(inst, ctx, json3, params);
   inst.element = def.element;
 }, {
   min(n, params) {
@@ -29729,7 +29729,7 @@ var ZodObject2 = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
   _ensureDefaultMemoizer();
   $ZodObjectJIT.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => objectProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => objectProcessor(inst, ctx, json3, params);
   util_exports.installLazyProp(inst, "shape", (self) => self._zod.def.shape, false);
 }, {
   keyof() {
@@ -29802,7 +29802,7 @@ function looseObject(shape, params) {
 var ZodUnion2 = /* @__PURE__ */ $constructor("ZodUnion", (inst, def) => {
   $ZodUnion.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => unionProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => unionProcessor(inst, ctx, json3, params);
   inst.options = def.options;
 });
 function union(options, params) {
@@ -29815,7 +29815,7 @@ function union(options, params) {
 var ZodXor = /* @__PURE__ */ $constructor("ZodXor", (inst, def) => {
   ZodUnion2.init(inst, def);
   $ZodXor.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => unionProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => unionProcessor(inst, ctx, json3, params);
   inst.options = def.options;
 });
 function xor(options, params) {
@@ -29841,7 +29841,7 @@ function discriminatedUnion(discriminator, options, params) {
 var ZodIntersection2 = /* @__PURE__ */ $constructor("ZodIntersection", (inst, def) => {
   $ZodIntersection.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => intersectionProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => intersectionProcessor(inst, ctx, json3, params);
 });
 function intersection(left, right) {
   return new ZodIntersection2({
@@ -29854,7 +29854,7 @@ var ZodTuple2 = /* @__PURE__ */ $constructor("ZodTuple", (inst, def) => {
   _ensureDefaultMemoizer();
   $ZodTuple.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => tupleProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => tupleProcessor(inst, ctx, json3, params);
 }, {
   rest(rest) {
     return this.clone({
@@ -29887,7 +29887,7 @@ var ZodRecord2 = /* @__PURE__ */ $constructor("ZodRecord", (inst, def) => {
   _ensureDefaultMemoizer();
   $ZodRecord.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => recordProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => recordProcessor(inst, ctx, json3, params);
   inst.keyType = def.keyType;
   inst.valueType = def.valueType;
 });
@@ -29929,7 +29929,7 @@ var ZodMap2 = /* @__PURE__ */ $constructor("ZodMap", (inst, def) => {
   _ensureDefaultMemoizer();
   $ZodMap.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => mapProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => mapProcessor(inst, ctx, json3, params);
   inst.keyType = def.keyType;
   inst.valueType = def.valueType;
   inst.min = (...args) => inst.check(_minSize(...args));
@@ -29949,7 +29949,7 @@ var ZodSet2 = /* @__PURE__ */ $constructor("ZodSet", (inst, def) => {
   _ensureDefaultMemoizer();
   $ZodSet.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => setProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => setProcessor(inst, ctx, json3, params);
   inst.min = (...args) => inst.check(_minSize(...args));
   inst.nonempty = (params) => inst.check(_minSize(1, params));
   inst.max = (...args) => inst.check(_maxSize(...args));
@@ -29965,7 +29965,7 @@ function set(valueType, params) {
 var ZodEnum2 = /* @__PURE__ */ $constructor("ZodEnum", (inst, def) => {
   $ZodEnum.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => enumProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => enumProcessor(inst, ctx, json3, params);
   inst.enum = def.entries;
   inst.options = [...inst._zod.values];
   const keys = new Set(Object.keys(def.entries));
@@ -30018,7 +30018,7 @@ function nativeEnum(entries, params) {
 var ZodLiteral2 = /* @__PURE__ */ $constructor("ZodLiteral", (inst, def) => {
   $ZodLiteral.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => literalProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => literalProcessor(inst, ctx, json3, params);
   inst.values = new Set(def.values);
   Object.defineProperty(inst, "value", {
     get() {
@@ -30039,7 +30039,7 @@ function literal(value, params) {
 var ZodFile = /* @__PURE__ */ $constructor("ZodFile", (inst, def) => {
   $ZodFile.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => fileProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => fileProcessor(inst, ctx, json3, params);
   inst.min = (size, params) => inst.check(_minSize(size, params));
   inst.max = (size, params) => inst.check(_maxSize(size, params));
   inst.mime = (types, params) => inst.check(_mime(Array.isArray(types) ? types : [types], params));
@@ -30051,7 +30051,7 @@ var ZodTransform = /* @__PURE__ */ $constructor("ZodTransform", (inst, def) => {
   _ensureDefaultMemoizer();
   $ZodTransform.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => transformProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => transformProcessor(inst, ctx, json3, params);
   inst._zod.parse = (payload, _ctx) => {
     if (_ctx.direction === "backward") {
       throw new $ZodEncodeError(inst.constructor.name);
@@ -30090,7 +30090,7 @@ function transform(fn) {
 var ZodOptional2 = /* @__PURE__ */ $constructor("ZodOptional", (inst, def) => {
   $ZodOptional.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => optionalProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => optionalProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.innerType;
 });
 function optional(innerType) {
@@ -30102,7 +30102,7 @@ function optional(innerType) {
 var ZodExactOptional = /* @__PURE__ */ $constructor("ZodExactOptional", (inst, def) => {
   $ZodExactOptional.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => optionalProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => optionalProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.innerType;
 });
 function exactOptional(innerType) {
@@ -30114,7 +30114,7 @@ function exactOptional(innerType) {
 var ZodNullable2 = /* @__PURE__ */ $constructor("ZodNullable", (inst, def) => {
   $ZodNullable.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => nullableProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => nullableProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.innerType;
 });
 function nullable(innerType) {
@@ -30129,7 +30129,7 @@ function nullish2(innerType) {
 var ZodDefault2 = /* @__PURE__ */ $constructor("ZodDefault", (inst, def) => {
   $ZodDefault.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => defaultProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => defaultProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.innerType;
   inst.removeDefault = inst.unwrap;
 });
@@ -30145,7 +30145,7 @@ function _default2(innerType, defaultValue) {
 var ZodPrefault = /* @__PURE__ */ $constructor("ZodPrefault", (inst, def) => {
   $ZodPrefault.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => prefaultProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => prefaultProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.innerType;
 });
 function prefault(innerType, defaultValue) {
@@ -30160,7 +30160,7 @@ function prefault(innerType, defaultValue) {
 var ZodNonOptional = /* @__PURE__ */ $constructor("ZodNonOptional", (inst, def) => {
   $ZodNonOptional.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => nonoptionalProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => nonoptionalProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.innerType;
 });
 function nonoptional(innerType, params) {
@@ -30173,7 +30173,7 @@ function nonoptional(innerType, params) {
 var ZodSuccess = /* @__PURE__ */ $constructor("ZodSuccess", (inst, def) => {
   $ZodSuccess.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => successProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => successProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.innerType;
 });
 function success(innerType) {
@@ -30185,7 +30185,7 @@ function success(innerType) {
 var ZodCatch2 = /* @__PURE__ */ $constructor("ZodCatch", (inst, def) => {
   $ZodCatch.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => catchProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => catchProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.innerType;
   inst.removeCatch = inst.unwrap;
 });
@@ -30199,7 +30199,7 @@ function _catch2(innerType, catchValue) {
 var ZodNaN2 = /* @__PURE__ */ $constructor("ZodNaN", (inst, def) => {
   $ZodNaN.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => nanProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => nanProcessor(inst, ctx, json3, params);
 });
 function nan(params) {
   return _nan(ZodNaN2, params);
@@ -30207,7 +30207,7 @@ function nan(params) {
 var ZodPipe = /* @__PURE__ */ $constructor("ZodPipe", (inst, def) => {
   $ZodPipe.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => pipeProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => pipeProcessor(inst, ctx, json3, params);
   inst.in = def.in;
   inst.out = def.out;
 });
@@ -30249,7 +30249,7 @@ var ZodPreprocess = /* @__PURE__ */ $constructor("ZodPreprocess", (inst, def) =>
 var ZodReadonly2 = /* @__PURE__ */ $constructor("ZodReadonly", (inst, def) => {
   $ZodReadonly.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => readonlyProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => readonlyProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.innerType;
 });
 function readonly(innerType) {
@@ -30261,7 +30261,7 @@ function readonly(innerType) {
 var ZodTemplateLiteral = /* @__PURE__ */ $constructor("ZodTemplateLiteral", (inst, def) => {
   $ZodTemplateLiteral.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => templateLiteralProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => templateLiteralProcessor(inst, ctx, json3, params);
 });
 function templateLiteral(parts, params) {
   return new ZodTemplateLiteral({
@@ -30273,7 +30273,7 @@ function templateLiteral(parts, params) {
 var ZodLazy2 = /* @__PURE__ */ $constructor("ZodLazy", (inst, def) => {
   $ZodLazy.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => lazyProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => lazyProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.getter();
 });
 function lazy(getter) {
@@ -30285,7 +30285,7 @@ function lazy(getter) {
 var ZodPromise2 = /* @__PURE__ */ $constructor("ZodPromise", (inst, def) => {
   $ZodPromise.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => promiseProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => promiseProcessor(inst, ctx, json3, params);
   inst.unwrap = () => inst._zod.def.innerType;
 });
 function promise(innerType) {
@@ -30297,7 +30297,7 @@ function promise(innerType) {
 var ZodFunction2 = /* @__PURE__ */ $constructor("ZodFunction", (inst, def) => {
   $ZodFunction.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => functionProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => functionProcessor(inst, ctx, json3, params);
 });
 function _function(params) {
   return new ZodFunction2({
@@ -30309,7 +30309,7 @@ function _function(params) {
 var ZodCustom = /* @__PURE__ */ $constructor("ZodCustom", (inst, def) => {
   $ZodCustom.init(inst, def);
   ZodType2.init(inst, def);
-  inst._zod.processJSONSchema = (ctx, json2, params) => customProcessor(inst, ctx, json2, params);
+  inst._zod.processJSONSchema = (ctx, json3, params) => customProcessor(inst, ctx, json3, params);
 });
 function check(fn) {
   const ch = new $ZodCheck({
@@ -31322,15 +31322,15 @@ var JSONRPCResultResponseSchema = object2({
 }).strict();
 var isJSONRPCResultResponse = (value) => JSONRPCResultResponseSchema.safeParse(value).success;
 var ErrorCode;
-(function(ErrorCode2) {
-  ErrorCode2[ErrorCode2["ConnectionClosed"] = -32e3] = "ConnectionClosed";
-  ErrorCode2[ErrorCode2["RequestTimeout"] = -32001] = "RequestTimeout";
-  ErrorCode2[ErrorCode2["ParseError"] = -32700] = "ParseError";
-  ErrorCode2[ErrorCode2["InvalidRequest"] = -32600] = "InvalidRequest";
-  ErrorCode2[ErrorCode2["MethodNotFound"] = -32601] = "MethodNotFound";
-  ErrorCode2[ErrorCode2["InvalidParams"] = -32602] = "InvalidParams";
-  ErrorCode2[ErrorCode2["InternalError"] = -32603] = "InternalError";
-  ErrorCode2[ErrorCode2["UrlElicitationRequired"] = -32042] = "UrlElicitationRequired";
+(function(ErrorCode3) {
+  ErrorCode3[ErrorCode3["ConnectionClosed"] = -32e3] = "ConnectionClosed";
+  ErrorCode3[ErrorCode3["RequestTimeout"] = -32001] = "RequestTimeout";
+  ErrorCode3[ErrorCode3["ParseError"] = -32700] = "ParseError";
+  ErrorCode3[ErrorCode3["InvalidRequest"] = -32600] = "InvalidRequest";
+  ErrorCode3[ErrorCode3["MethodNotFound"] = -32601] = "MethodNotFound";
+  ErrorCode3[ErrorCode3["InvalidParams"] = -32602] = "InvalidParams";
+  ErrorCode3[ErrorCode3["InternalError"] = -32603] = "InternalError";
+  ErrorCode3[ErrorCode3["UrlElicitationRequired"] = -32042] = "UrlElicitationRequired";
 })(ErrorCode || (ErrorCode = {}));
 var JSONRPCErrorResponseSchema = object2({
   jsonrpc: literal(JSONRPC_VERSION),
@@ -34613,7 +34613,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error62) {
@@ -34630,7 +34630,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve6, reject) => {
       const earlyReject = (error62) => {
         reject(error62);
       };
@@ -34708,7 +34708,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve(parseResult.data);
+            resolve6(parseResult.data);
           }
         } catch (error62) {
           reject(error62);
@@ -34970,12 +34970,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve6, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve, interval);
+      const timeoutId = setTimeout(resolve6, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -36115,7 +36115,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -36445,12 +36445,12 @@ var McpServer = class {
     }
     return registeredPrompt;
   }
-  _createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, execution, _meta, handler) {
+  _createRegisteredTool(name, title, description, inputSchema5, outputSchema, annotations, execution, _meta, handler) {
     validateAndWarnToolName(name);
     const registeredTool = {
       title,
       description,
-      inputSchema: getZodSchemaObject(inputSchema),
+      inputSchema: getZodSchemaObject(inputSchema5),
       outputSchema: getZodSchemaObject(outputSchema),
       annotations,
       execution,
@@ -36501,7 +36501,7 @@ var McpServer = class {
       throw new Error(`Tool ${name} is already registered`);
     }
     let description;
-    let inputSchema;
+    let inputSchema5;
     let outputSchema;
     let annotations;
     if (typeof rest[0] === "string") {
@@ -36510,7 +36510,7 @@ var McpServer = class {
     if (rest.length > 1) {
       const firstArg = rest[0];
       if (isZodRawShapeCompat(firstArg)) {
-        inputSchema = rest.shift();
+        inputSchema5 = rest.shift();
         if (rest.length > 1 && typeof rest[0] === "object" && rest[0] !== null && !isZodRawShapeCompat(rest[0])) {
           annotations = rest.shift();
         }
@@ -36522,7 +36522,7 @@ var McpServer = class {
       }
     }
     const callback = rest[0];
-    return this._createRegisteredTool(name, void 0, description, inputSchema, outputSchema, annotations, { taskSupport: "forbidden" }, void 0, callback);
+    return this._createRegisteredTool(name, void 0, description, inputSchema5, outputSchema, annotations, { taskSupport: "forbidden" }, void 0, callback);
   }
   /**
    * Registers a tool with a config object and callback.
@@ -36531,8 +36531,8 @@ var McpServer = class {
     if (this._registeredTools[name]) {
       throw new Error(`Tool ${name} is already registered`);
     }
-    const { title, description, inputSchema, outputSchema, annotations, _meta } = config2;
-    return this._createRegisteredTool(name, title, description, inputSchema, outputSchema, annotations, { taskSupport: "forbidden" }, _meta, cb);
+    const { title, description, inputSchema: inputSchema5, outputSchema, annotations, _meta } = config2;
+    return this._createRegisteredTool(name, title, description, inputSchema5, outputSchema, annotations, { taskSupport: "forbidden" }, _meta, cb);
   }
   prompt(name, ...rest) {
     if (this._registeredPrompts[name]) {
@@ -36779,19 +36779,19 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve) => {
-      const json2 = serializeMessage(message);
-      if (this._stdout.write(json2)) {
-        resolve();
+    return new Promise((resolve6) => {
+      const json3 = serializeMessage(message);
+      if (this._stdout.write(json3)) {
+        resolve6();
       } else {
-        this._stdout.once("drain", resolve);
+        this._stdout.once("drain", resolve6);
       }
     });
   }
 };
 
 // mcp/f2a-server.ts
-var import_promises = require("node:fs/promises");
+var import_promises6 = require("node:fs/promises");
 var import_bridge = __toESM(require_bridge());
 var import_launcher = __toESM(require_launcher());
 
@@ -36806,7 +36806,7 @@ function failed(tool, error62) {
   return { isError: true, content: [{ type: "text", text: `${tool}: ${describeError(error62)}` }] };
 }
 var nodeIds = (what) => external_exports.array(external_exports.string()).min(1).describe(what);
-function registerLayerTools(server2, send) {
+function registerLayerTools(server2, send2) {
   server2.tool(
     "group_nodes",
     "Group nodes that share one parent into a new GROUP and return its id. A group is the layer wrapper that does not clip: unlike a frame it has no clip content, so shadows and overflowing children stay visible. Every id must already be a sibling \u2014 move layers in first with reparent_nodes. Groups cannot be created inside an auto-layout frame; wrap those layers in a frame instead. Returns JSON {ok, nodeId, name, type, parentId, index, grouped, skipped}.",
@@ -36816,7 +36816,7 @@ function registerLayerTools(server2, send) {
     },
     async ({ nodeIds: nodeIds2, name }) => {
       try {
-        return layerJson(await send("group_nodes", { nodeIds: nodeIds2, name }));
+        return layerJson(await send2("group_nodes", { nodeIds: nodeIds2, name }));
       } catch (error62) {
         return failed("group_nodes", error62);
       }
@@ -36828,7 +36828,7 @@ function registerLayerTools(server2, send) {
     { nodeIds: nodeIds("Group ids to ungroup") },
     async ({ nodeIds: nodeIds2 }) => {
       try {
-        return layerJson(await send("ungroup_nodes", { nodeIds: nodeIds2 }));
+        return layerJson(await send2("ungroup_nodes", { nodeIds: nodeIds2 }));
       } catch (error62) {
         return failed("ungroup_nodes", error62);
       }
@@ -36843,7 +36843,7 @@ function registerLayerTools(server2, send) {
     },
     async ({ nodeIds: nodeIds2, index }) => {
       try {
-        return layerJson(await send("reorder_nodes", { nodeIds: nodeIds2, index }));
+        return layerJson(await send2("reorder_nodes", { nodeIds: nodeIds2, index }));
       } catch (error62) {
         return failed("reorder_nodes", error62);
       }
@@ -36860,7 +36860,7 @@ function registerLayerTools(server2, send) {
     },
     async ({ nodeIds: nodeIds2, newParentId, index, keepPosition }) => {
       try {
-        return layerJson(await send("reparent_nodes", { nodeIds: nodeIds2, newParentId, index, keepPosition }));
+        return layerJson(await send2("reparent_nodes", { nodeIds: nodeIds2, newParentId, index, keepPosition }));
       } catch (error62) {
         return failed("reparent_nodes", error62);
       }
@@ -36874,7 +36874,7 @@ function registerLayerTools(server2, send) {
     },
     async ({ renames }) => {
       try {
-        return layerJson(await send("batch_rename_nodes", { renames }));
+        return layerJson(await send2("batch_rename_nodes", { renames }));
       } catch (error62) {
         return failed("batch_rename_nodes", error62);
       }
@@ -36889,7 +36889,7 @@ function registerLayerTools(server2, send) {
     },
     async ({ nodeIds: nodeIds2, visible }) => {
       try {
-        return layerJson(await send("set_visible", { nodeIds: nodeIds2, visible }));
+        return layerJson(await send2("set_visible", { nodeIds: nodeIds2, visible }));
       } catch (error62) {
         return failed("set_visible", error62);
       }
@@ -36904,7 +36904,7 @@ function registerLayerTools(server2, send) {
     },
     async ({ nodeIds: nodeIds2, locked }) => {
       try {
-        return layerJson(await send("set_locked", { nodeIds: nodeIds2, locked }));
+        return layerJson(await send2("set_locked", { nodeIds: nodeIds2, locked }));
       } catch (error62) {
         return failed("set_locked", error62);
       }
@@ -36919,7 +36919,7 @@ function registerLayerTools(server2, send) {
     },
     async ({ nodeId, clipsContent }) => {
       try {
-        return layerJson(await send("set_clips_content", { nodeId, clipsContent }));
+        return layerJson(await send2("set_clips_content", { nodeId, clipsContent }));
       } catch (error62) {
         return failed("set_clips_content", error62);
       }
@@ -36936,7 +36936,7 @@ function registerLayerTools(server2, send) {
     },
     async ({ name, type, root: searchRoot, limit }) => {
       try {
-        return layerJson(await send("search_nodes", { name, type, root: searchRoot, limit }));
+        return layerJson(await send2("search_nodes", { name, type, root: searchRoot, limit }));
       } catch (error62) {
         return failed("search_nodes", error62);
       }
@@ -36951,7 +36951,7 @@ function registerLayerTools(server2, send) {
     },
     async ({ nodeIds: nodeIds2, recursive: recursive2 }) => {
       try {
-        return layerJson(await send("detach_instances", { nodeIds: nodeIds2, recursive: recursive2 }));
+        return layerJson(await send2("detach_instances", { nodeIds: nodeIds2, recursive: recursive2 }));
       } catch (error62) {
         return failed("detach_instances", error62);
       }
@@ -36966,12 +36966,4192 @@ function registerLayerTools(server2, send) {
     },
     async ({ ops, stopOnError }) => {
       try {
-        return layerJson(await send("batch", { ops, stopOnError }));
+        return layerJson(await send2("batch", { ops, stopOnError }));
       } catch (error62) {
         return failed("batch", error62);
       }
     }
   );
+}
+
+// mcp/vendor/figwright/packages/mcp/src/tools/add-component-property.ts
+var ADD_COMPONENT_PROPERTY_TOOL_NAME = "add_component_property";
+var addComponentPropertyTool = {
+  name: ADD_COMPONENT_PROPERTY_TOOL_NAME,
+  description: "Declare a component property on a component (or its variant set): BOOLEAN (show/hide a layer), TEXT (editable text), or INSTANCE_SWAP (swappable nested instance). The property starts inert \u2014 attach it to a layer with bind_component_property (BOOLEAN\u2192visible, TEXT\u2192characters, INSTANCE_SWAP\u2192mainComponent) for it to do anything. defaultValue must match the type (boolean / string / the default component's node id \u2014 not its key); preferredValues (INSTANCE_SWAP only, by component key) pre-populates the swap menu. VARIANT properties come from combine_as_variants, not here. Returns { ok, componentId, propertyId, name } \u2014 pass propertyId to bind / edit / delete / set_instance_properties.",
+  inputSchema: external_exports.object({
+    componentId: external_exports.string().describe("Component or component-set id (a variant resolves to its set)"),
+    name: external_exports.string().describe('Property name, e.g. "Show Icon"'),
+    type: external_exports.enum(["BOOLEAN", "TEXT", "INSTANCE_SWAP"]).describe("Property type"),
+    defaultValue: external_exports.union([external_exports.boolean(), external_exports.string()]).describe(
+      `Default: boolean (BOOLEAN), string (TEXT), or the component's node id (INSTANCE_SWAP, e.g. "12:34" \u2014 a component key is refused; a library component's id is the mainComponent id of an instance of it)`
+    ),
+    preferredValues: external_exports.array(external_exports.object({ type: external_exports.enum(["COMPONENT", "COMPONENT_SET"]), key: external_exports.string() })).describe("INSTANCE_SWAP only: components/sets offered in the swap menu").optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/add-page.ts
+var ADD_PAGE_TOOL_NAME = "add_page";
+var addPageTool = {
+  name: ADD_PAGE_TOOL_NAME,
+  description: "Create a new page (optionally named). Returns { ok, nodeId, name, type }.",
+  inputSchema: external_exports.object({
+    name: external_exports.string().optional().describe("Optional page name")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/add-variable-mode.ts
+var ADD_VARIABLE_MODE_TOOL_NAME = "add_variable_mode";
+var addVariableModeTool = {
+  name: ADD_VARIABLE_MODE_TOOL_NAME,
+  description: `Add a mode (e.g. "Dark") to a variable collection. Returns { ok, modeId, name }. Mode count is gated by the file's Figma plan (Starter allows 1 per collection) \u2014 when the plan blocks a new mode this fails with guidance: fall back to a paired collection (e.g. "Color/Dark") holding the same variable names with that theme's values.`,
+  inputSchema: external_exports.object({
+    collectionId: external_exports.string().describe("Variable collection id"),
+    name: external_exports.string().describe('Mode name, e.g. "Dark"')
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/align-nodes.ts
+var ALIGN_NODES_TOOL_NAME = "align_nodes";
+var edge = external_exports.enum(["MIN", "CENTER", "MAX"]);
+var alignNodesTool = {
+  name: ALIGN_NODES_TOOL_NAME,
+  description: `Align nodes to their parent's bounds or to each other, and/or space them evenly \u2014 Figma's align / distribute toolbar. horizontal: MIN = left edge, CENTER, MAX = right edge; vertical: MIN = top, CENTER, MAX = bottom; either may be omitted to leave that axis alone. relativeTo PARENT (default) aligns each node within its own parent frame \u2014 the way to "centre this in its container" without computing x/y; SELECTION aligns the nodes to the bounding box they form together (line up a row on a shared top, or on a shared centre). distribute HORIZONTAL / VERTICAL keeps the outermost two nodes where they are and spaces the rest so the gaps between neighbours are equal (needs 3+ nodes; it cannot be combined with alignment on the same axis). Measures what each node covers, so a rotated node is centred by what you see; PARENT measures in the parent's own axes (left in a rotated frame is that frame's left edge), SELECTION and distribute on the canvas. Refused, before anything moves: an in-flow child of an auto-layout frame \u2014 the layout owns its position, so centre it with the parent's primaryAxisAlignItems / counterAxisAlignItems or its own layoutAlign (set_auto_layout / set_layout_props), or set layoutPositioning ABSOLUTE first; a layer inside an instance (align the instance, or edit its main component); a node whose ancestor is in the same call (moving the ancestor already carries it). A repeated id is moved once. Returns { ok, affected }.`,
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).min(1).describe("Nodes to align / distribute"),
+    horizontal: edge.optional().describe("Horizontal alignment: MIN (left), CENTER or MAX (right)"),
+    vertical: edge.optional().describe("Vertical alignment: MIN (top), CENTER or MAX (bottom)"),
+    relativeTo: external_exports.enum(["PARENT", "SELECTION"]).optional().describe(
+      "PARENT (default): each node within its own parent's bounds. SELECTION: to the bounding box of all the given nodes"
+    ),
+    distribute: external_exports.enum(["HORIZONTAL", "VERTICAL"]).optional().describe("Equalise the gaps between nodes along this axis; needs 3+ nodes")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/shared/src/components.ts
+var SerializedComponentInfoSchema = external_exports.object({
+  id: external_exports.string(),
+  name: external_exports.string(),
+  key: external_exports.string(),
+  description: external_exports.string(),
+  parentId: external_exports.string().nullable(),
+  /** Variant assignments for a component inside a set, e.g. { Size: "Large", State: "Hover" }. */
+  variantProperties: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  /**
+   * Figma's reason for withholding `variantProperties` when this variant's set has errors
+   * ("Component set for node has existing errors"). Omitted when they read.
+   */
+  componentSetError: external_exports.string().optional()
+});
+var SerializedComponentSetInfoSchema = external_exports.object({
+  id: external_exports.string(),
+  name: external_exports.string(),
+  key: external_exports.string(),
+  description: external_exports.string(),
+  /** Available values per variant axis, e.g. { Size: { values: ["Small", "Large"] } }. */
+  variantGroupProperties: external_exports.record(external_exports.string(), external_exports.object({ values: external_exports.array(external_exports.string()) })).optional(),
+  /**
+   * Figma's reason for withholding `variantGroupProperties` when this set has errors ("Component
+   * set has existing errors"). Omitted when they read.
+   */
+  componentSetError: external_exports.string().optional(),
+  componentIds: external_exports.array(external_exports.string())
+});
+var GetLocalComponentsResultSchema = external_exports.object({
+  components: external_exports.array(SerializedComponentInfoSchema),
+  componentSets: external_exports.array(SerializedComponentSetInfoSchema)
+});
+var ComponentPropertyApiEntrySchema = external_exports.object({
+  type: external_exports.enum(["BOOLEAN", "TEXT", "INSTANCE_SWAP", "VARIANT", "SLOT"]),
+  defaultValue: external_exports.union([external_exports.string(), external_exports.boolean()]),
+  /** VARIANT only: the allowed values for this axis, e.g. ["sm", "md", "lg"]. */
+  variantOptions: external_exports.array(external_exports.string()).optional(),
+  /** INSTANCE_SWAP only: suggested swap targets as published component/set keys. */
+  preferredValues: external_exports.array(external_exports.object({ type: external_exports.enum(["COMPONENT", "COMPONENT_SET"]), key: external_exports.string() })).optional(),
+  description: external_exports.string().optional()
+});
+var GetComponentApiResultSchema = external_exports.object({
+  /** The resolved component / component set id (an instance resolves to its main component / set). */
+  id: external_exports.string(),
+  name: external_exports.string(),
+  type: external_exports.string(),
+  /** Property name (verbatim, ready to pass to set_instance_properties) → its definition. */
+  properties: external_exports.record(external_exports.string(), ComponentPropertyApiEntrySchema)
+});
+
+// mcp/vendor/figwright/packages/shared/src/serialized-node.ts
+var MIXED = "mixed";
+var DisplayP3MarkerSchema = external_exports.literal("DISPLAY_P3");
+var SerializedColorSchema = external_exports.object({
+  r: external_exports.number(),
+  g: external_exports.number(),
+  b: external_exports.number()
+});
+var SerializedRGBASchema = external_exports.object({
+  r: external_exports.number(),
+  g: external_exports.number(),
+  b: external_exports.number(),
+  a: external_exports.number()
+});
+var SerializedBindingsSchema = external_exports.record(external_exports.string(), external_exports.string());
+var SerializedVariableAliasSchema = external_exports.object({
+  type: external_exports.literal("VARIABLE_ALIAS"),
+  id: external_exports.string()
+});
+var ShaderColorSchema = external_exports.union([
+  external_exports.strictObject({ r: external_exports.number(), g: external_exports.number(), b: external_exports.number(), a: external_exports.number().optional() }),
+  SerializedVariableAliasSchema
+]);
+var SerializedShaderValueSchema = external_exports.union([
+  external_exports.boolean(),
+  external_exports.string(),
+  external_exports.number(),
+  SerializedVariableAliasSchema,
+  external_exports.strictObject({ r: external_exports.number(), g: external_exports.number(), b: external_exports.number(), a: external_exports.number().optional() }),
+  external_exports.strictObject({ x: external_exports.number(), y: external_exports.number() }),
+  external_exports.strictObject({ x: external_exports.number(), y: external_exports.number(), x2: external_exports.number(), y2: external_exports.number() }),
+  external_exports.strictObject({ x: external_exports.number(), y: external_exports.number(), radius: external_exports.number() }),
+  external_exports.strictObject({ x: external_exports.number(), y: external_exports.number(), radius: external_exports.number(), angle: external_exports.number() }),
+  external_exports.strictObject({ x: external_exports.number(), y: external_exports.number(), color: ShaderColorSchema }),
+  external_exports.strictObject({
+    stops: external_exports.array(external_exports.strictObject({ position: external_exports.number(), color: ShaderColorSchema }))
+  })
+]);
+var SerializedShaderPropertySchema = external_exports.object({
+  id: external_exports.string(),
+  /**
+   * The parameter's identifier as the shader declares it — not necessarily the label Figma's panel
+   * shows (measured: `warp` is shown as "Flow", `rotationSpeed` as "Speed"). A dropdown parameter
+   * arrives as its NUMBER index, with no option labels.
+   */
+  name: external_exports.string().optional(),
+  /**
+   * BOOLEAN / TEXT / NUMBER / COLOR / POINT / LINE / CIRCLE / … — passed through as Figma reports
+   * it.
+   */
+  type: external_exports.string().optional(),
+  value: SerializedShaderValueSchema,
+  description: external_exports.string().optional()
+});
+var SolidPaintSchema = external_exports.object({
+  type: external_exports.literal("SOLID"),
+  visible: external_exports.boolean(),
+  opacity: external_exports.number(),
+  color: SerializedColorSchema,
+  /** `{ color: variableId }` when the designer bound the paint's colour to a variable. */
+  boundVariables: SerializedBindingsSchema.optional()
+});
+var SerializedColorStopSchema = external_exports.object({
+  position: external_exports.number(),
+  color: SerializedRGBASchema,
+  /** `{ color: variableId }` — a gradient stop binds its colour independently of its siblings. */
+  boundVariables: SerializedBindingsSchema.optional()
+});
+var GradientPaintSchema = external_exports.object({
+  type: external_exports.enum(["GRADIENT_LINEAR", "GRADIENT_RADIAL", "GRADIENT_ANGULAR", "GRADIENT_DIAMOND"]),
+  visible: external_exports.boolean(),
+  opacity: external_exports.number(),
+  gradientStops: external_exports.array(SerializedColorStopSchema),
+  gradientTransform: external_exports.array(external_exports.array(external_exports.number())),
+  /**
+   * The ready-to-emit CSS angle in degrees for `linear-gradient(<deg>, …)`, derived from
+   * `gradientTransform` AND the owning node's aspect ratio — the same matrix is a different angle
+   * on a differently shaped node, so it cannot be read off the matrix alone.
+   *
+   * Present only on `GRADIENT_LINEAR` paints serialized as part of a node. Absent on a paint style
+   * (a style belongs to no node, so it has no aspect ratio and no derivable angle) and on the
+   * radial / angular / diamond types, whose CSS mapping is a centre and radii rather than an
+   * angle.
+   */
+  cssAngle: external_exports.number().optional()
+});
+var OtherPaintSchema = external_exports.object({
+  type: external_exports.enum(["IMAGE", "VIDEO"]),
+  visible: external_exports.boolean(),
+  opacity: external_exports.number(),
+  scaleMode: external_exports.enum(["FILL", "FIT", "CROP", "TILE"]).optional(),
+  /**
+   * CROP only: the 2×3 matrix mapping the layer's 0–1 box into the image's 0–1 space — which part
+   * of the image shows. Without it a crop is indistinguishable from a centred cover.
+   */
+  imageTransform: external_exports.array(external_exports.array(external_exports.number())).optional(),
+  /**
+   * CROP only: the CSS transform that reproduces the crop on an `<img>` filling an overflow-hidden
+   * box from its top-left (`transform-origin: 0 0`). Absent when the matrix cannot be inverted, or
+   * when it rotates the image and the owner's size (which the rotation depends on) is unknown.
+   */
+  cssTransform: external_exports.string().optional(),
+  /**
+   * True when the fill carries non-zero image adjustments (exposure / contrast / saturation /
+   * temperature / tint / highlights / shadows). The original bytes (save_image_fills) do NOT
+   * include them, so an adjusted image must ship as the composited render (get_screenshot), or the
+   * colour grading is silently lost. Omitted when untouched.
+   */
+  filtersApplied: external_exports.boolean().optional()
+});
+var PatternPaintSchema = external_exports.object({
+  type: external_exports.literal("PATTERN"),
+  visible: external_exports.boolean(),
+  opacity: external_exports.number(),
+  sourceNodeId: external_exports.string(),
+  tileType: external_exports.enum(["RECTANGULAR", "HORIZONTAL_HEXAGONAL", "VERTICAL_HEXAGONAL"]),
+  scalingFactor: external_exports.number(),
+  spacing: external_exports.object({ x: external_exports.number(), y: external_exports.number() }).optional(),
+  horizontalAlignment: external_exports.enum(["START", "CENTER", "END"]).optional(),
+  verticalAlignment: external_exports.enum(["START", "CENTER", "END"]).optional()
+});
+var ShaderPaintSchema = external_exports.object({
+  type: external_exports.literal("SHADER"),
+  visible: external_exports.boolean(),
+  opacity: external_exports.number(),
+  /** The shader's id — the same one `listAvailableShaders` / `importShaderById` use. */
+  shaderId: external_exports.string(),
+  /** Its property values, in the order Figma reports them; omitted when there are none. */
+  shaderProperties: external_exports.array(SerializedShaderPropertySchema).optional()
+});
+var SerializedPaintSchema = external_exports.discriminatedUnion("type", [
+  SolidPaintSchema,
+  GradientPaintSchema,
+  OtherPaintSchema,
+  PatternPaintSchema,
+  ShaderPaintSchema
+]);
+var SerializedFontNameSchema = external_exports.object({
+  family: external_exports.string(),
+  style: external_exports.string(),
+  /**
+   * Variable-font axis values keyed by OpenType axis tag — `{ wght: 650, slnt: -5 }`, the same
+   * shape as CSS `font-variation-settings`. Figma reports every axis the family defines, not just
+   * the ones overridden, so a static family carries none and the field is absent. Two runs sharing
+   * a family + style but disagreeing here are genuinely different type: this is the dimension that
+   * makes them distinguishable.
+   */
+  variationSettings: external_exports.record(external_exports.string(), external_exports.number()).optional()
+});
+var SerializedEffectSchema = external_exports.object({
+  type: external_exports.string(),
+  visible: external_exports.boolean(),
+  radius: external_exports.number().optional(),
+  color: SerializedRGBASchema.optional(),
+  offset: external_exports.object({ x: external_exports.number(), y: external_exports.number() }).optional(),
+  spread: external_exports.number().optional(),
+  /**
+   * Per-field bindings on this shadow — Figma allows `color`, `radius`, `spread`, `offsetX` and
+   * `offsetY`. Present only when at least one is bound.
+   */
+  boundVariables: SerializedBindingsSchema.optional(),
+  /** SHADER effects only — see the SHADER paint; the same two fields, with the same meaning. */
+  shaderId: external_exports.string().optional(),
+  shaderProperties: external_exports.array(SerializedShaderPropertySchema).optional(),
+  /**
+   * NOISE effects only. MONOTONE grains in `color`; DUOTONE in `color` and `secondaryColor`;
+   * MULTITONE has no colour setting, so it carries no `color` — only `opacity`.
+   */
+  noiseType: external_exports.enum(["MONOTONE", "DUOTONE", "MULTITONE"]).optional(),
+  /** NOISE only: grain size on each axis, the panel's Noise size X / Y. */
+  noiseSizeVector: external_exports.object({ x: external_exports.number(), y: external_exports.number() }).optional(),
+  /**
+   * NOISE only: grain density, 0–1 for the panel's 0–100%. A value above 1 can only come from a
+   * number variable bound to it, and renders as a solid tint of the grain colour.
+   */
+  density: external_exports.number().optional(),
+  /** DUOTONE noise only: the second grain colour. */
+  secondaryColor: SerializedRGBASchema.optional(),
+  /** MULTITONE noise only: the grains' opacity, 0–1. */
+  opacity: external_exports.number().optional(),
+  /**
+   * DROP_SHADOW only, present only when true: the shadow also shows through the node's translucent
+   * areas. A plain CSS `box-shadow` draws only outside the box (measured identical to Figma's
+   * `false`); this needs the shadow as a box underneath the node instead.
+   */
+  showShadowBehindNode: external_exports.literal(true).optional(),
+  /** Shadows only, present only when not NORMAL: the blend mode the shadow is composited with. */
+  blendMode: external_exports.string().optional(),
+  /**
+   * TEXTURE only: whether the roughened edges stay inside the node's shape. Its grain is
+   * `noiseSizeVector` and its displacement `radius`.
+   */
+  clipToShape: external_exports.boolean().optional(),
+  /**
+   * GLASS only, as its panel shows them: Light intensity (0–1) and angle (degrees), Refraction,
+   * Dispersion and Splay (0–1), Depth (≥ 1). Its Frost is `radius`.
+   */
+  lightIntensity: external_exports.number().optional(),
+  lightAngle: external_exports.number().optional(),
+  refraction: external_exports.number().optional(),
+  depth: external_exports.number().optional(),
+  dispersion: external_exports.number().optional(),
+  splay: external_exports.number().optional(),
+  /**
+   * LAYER_BLUR / BACKGROUND_BLUR, present only for a progressive blur: the blur ramps from
+   * `startRadius` at `startOffset` to `radius` at `endOffset`, offsets in fractions of the node. A
+   * normal blur carries none of these.
+   */
+  blurType: external_exports.literal("PROGRESSIVE").optional(),
+  startRadius: external_exports.number().optional(),
+  startOffset: external_exports.object({ x: external_exports.number(), y: external_exports.number() }).optional(),
+  endOffset: external_exports.object({ x: external_exports.number(), y: external_exports.number() }).optional(),
+  /**
+   * A progressive blur's ready-to-emit CSS, bottom layer first, each a declaration list — derived
+   * from the node's size, so absent on an effect style. BACKGROUND_BLUR: overlay boxes covering the
+   * node, stacked in this order over its background. LAYER_BLUR: the first styles the node's
+   * content, every later one a copy of that content stacked over it. Read-only: writing ignores
+   * it.
+   */
+  cssLayers: external_exports.array(external_exports.string()).optional(),
+  /**
+   * BACKGROUND_BLUR on a node, present only as `false`: Figma draws nothing for it, because the
+   * node has no visible fill with any opacity (none, hidden, or fully transparent — measured; one
+   * at 1% blurs the whole shape). A CSS backdrop-filter would still blur, so emit none.
+   */
+  drawn: external_exports.literal(false).optional()
+});
+var SerializedAnnotationSchema = external_exports.object({
+  label: external_exports.string().optional(),
+  labelMarkdown: external_exports.string().optional(),
+  categoryId: external_exports.string().optional(),
+  /** The annotation's pinned property names, e.g. ["fills", "cornerRadius"]. */
+  properties: external_exports.array(external_exports.string()).optional()
+});
+var SerializedLayoutGridSchema = external_exports.object({
+  pattern: external_exports.string(),
+  visible: external_exports.boolean(),
+  sectionSize: external_exports.number().optional(),
+  count: external_exports.number().optional(),
+  gutterSize: external_exports.number().optional(),
+  alignment: external_exports.string().optional(),
+  offset: external_exports.number().optional(),
+  /** Per-field bindings — Figma allows `sectionSize`, `count`, `offset` and `gutterSize`. */
+  boundVariables: SerializedBindingsSchema.optional()
+});
+var SerializedGridTrackSchema = external_exports.object({
+  type: external_exports.string(),
+  // FLEX | FIXED
+  value: external_exports.number()
+});
+var SerializedAutoLayoutSchema = external_exports.object({
+  mode: external_exports.enum(["HORIZONTAL", "VERTICAL", "GRID"]),
+  paddingTop: external_exports.number(),
+  paddingRight: external_exports.number(),
+  paddingBottom: external_exports.number(),
+  paddingLeft: external_exports.number(),
+  // HORIZONTAL / VERTICAL only
+  itemSpacing: external_exports.number().optional(),
+  primaryAxisAlignItems: external_exports.string().optional(),
+  counterAxisAlignItems: external_exports.string().optional(),
+  layoutWrap: external_exports.string().optional(),
+  // WRAP only: gap between wrapped tracks (cross-axis: rows of a horizontal wrap, columns of a
+  // vertical one) + how those tracks distribute. Without these a wrapping flex (tag cloud / chip
+  // group / gallery) keeps its primary `itemSpacing` but loses the track gap entirely → codegen
+  // guesses it. Omitted unless layoutWrap is WRAP and the value is non-default; the spacing is also
+  // omitted under SPACE_BETWEEN, where Figma ignores it.
+  counterAxisSpacing: external_exports.number().optional(),
+  counterAxisAlignContent: external_exports.string().optional(),
+  /**
+   * True when later siblings paint UNDER earlier ones (Figma's canvas order reversed) — the stacked
+   * avatars / overlapping cards pattern (usually with negative itemSpacing). CSS paints later DOM
+   * elements on top, so codegen must reverse z-index (or reverse the DOM + flex-direction), or the
+   * stack overlaps the wrong way. Omitted when false (the default painting order).
+   */
+  itemReverseZIndex: external_exports.boolean().optional(),
+  /**
+   * True when strokes take up layout space (Figma's default excludes them): every gap/padding
+   * around a bordered child effectively grows by the stroke weight — the CSS analogue of a border
+   * inside box-sizing. Omitted when false (the default).
+   */
+  strokesIncludedInLayout: external_exports.boolean().optional(),
+  // GRID only
+  gridRowCount: external_exports.number().optional(),
+  gridColumnCount: external_exports.number().optional(),
+  // Present only when non-default: absent = MANUAL placement / a fixed row count.
+  gridItemsPositioning: external_exports.enum(["MANUAL", "ROW_AUTO_FLOW"]).optional(),
+  gridAutoTracks: external_exports.enum(["NONE", "ROWS"]).optional(),
+  gridRowGap: external_exports.number().optional(),
+  gridColumnGap: external_exports.number().optional(),
+  gridRowSizes: external_exports.array(SerializedGridTrackSchema).optional(),
+  gridColumnSizes: external_exports.array(SerializedGridTrackSchema).optional(),
+  /**
+   * True when gridRowSizes / gridColumnSizes were left out: Figma's plugin runtime spends callback
+   * ids on every grid track it hands out and never returns them, and this plugin session has run
+   * out (after about 4,400 track reads). Counts, gaps and modes are still exact; reopening the
+   * Figwright plugin restores the sizes. Never treat the missing sizes as equal tracks.
+   */
+  gridTrackSizesUnavailable: external_exports.literal(true).optional()
+});
+var SerializedGridChildSchema = external_exports.object({
+  rowAnchorIndex: external_exports.number().optional(),
+  columnAnchorIndex: external_exports.number().optional(),
+  rowSpan: external_exports.number().optional(),
+  columnSpan: external_exports.number().optional(),
+  horizontalAlign: external_exports.string().optional(),
+  verticalAlign: external_exports.string().optional()
+});
+var SerializedConstraintsSchema = external_exports.object({
+  horizontal: external_exports.string(),
+  vertical: external_exports.string()
+});
+var SerializedLineHeightSchema = external_exports.object({
+  unit: external_exports.string(),
+  value: external_exports.number().optional()
+});
+var SerializedLetterSpacingSchema = external_exports.object({
+  unit: external_exports.string(),
+  value: external_exports.number()
+});
+var SerializedStyleIdsSchema = external_exports.object({
+  fill: external_exports.string().optional(),
+  stroke: external_exports.string().optional(),
+  effect: external_exports.string().optional(),
+  grid: external_exports.string().optional(),
+  text: external_exports.string().optional()
+});
+var SerializedComponentPropertySchema = external_exports.object({
+  type: external_exports.string(),
+  value: external_exports.union([external_exports.string(), external_exports.boolean()])
+});
+var SerializedMainComponentSchema = external_exports.object({
+  id: external_exports.string(),
+  name: external_exports.string(),
+  key: external_exports.string(),
+  // When the main component is a variant (child of a COMPONENT_SET), `name` is the variant signature
+  // ("Size=Large, State=Hover") — useless for reuse. These carry the owning set's identity so a
+  // consumer can group/name by the set ("Button") without a doc-wide scan. Absent for standalone
+  // components (no set parent).
+  componentSetId: external_exports.string().optional(),
+  componentSetName: external_exports.string().optional()
+});
+var SerializedHyperlinkSchema = external_exports.object({
+  type: external_exports.string(),
+  value: external_exports.string()
+});
+var SerializedTextSegmentSchema = external_exports.object({
+  characters: external_exports.string(),
+  start: external_exports.number(),
+  end: external_exports.number(),
+  fontName: SerializedFontNameSchema,
+  fontSize: external_exports.number(),
+  fills: external_exports.array(SerializedPaintSchema),
+  textDecoration: external_exports.string(),
+  textCase: external_exports.string(),
+  lineHeight: external_exports.union([SerializedLineHeightSchema, external_exports.literal(MIXED)]).optional(),
+  letterSpacing: external_exports.union([SerializedLetterSpacingSchema, external_exports.literal(MIXED)]).optional(),
+  hyperlink: SerializedHyperlinkSchema.optional(),
+  listOptions: external_exports.string().optional(),
+  indentation: external_exports.number().optional(),
+  // Paragraph-level wrap balancing (AUTO | BALANCE | PRETTY). Per-run because a node whose
+  // paragraphs disagree reports `mixed` at node level, and the runs are the only place the real
+  // per-paragraph values survive. Omitted at the AUTO default so an ordinary run stays lean.
+  textWrapStyle: external_exports.string().optional(),
+  // Per-run design-system bindings: a run may link a shared text style (`text`) / fill style
+  // (`fill`) or bind variables (a colour token on `fills`, a size token on `fontSize`). A mixed TEXT
+  // node's node-level fills are `mixed`, so this is the only place a run's token binding survives —
+  // without it an inline link bound to Primary/500 + Body/Bold collapses to a bare hex.
+  styleIds: SerializedStyleIdsSchema.optional(),
+  boundVariables: external_exports.record(external_exports.string(), external_exports.array(external_exports.string())).optional()
+});
+var SerializedTransformModifierSchema = external_exports.object({
+  type: external_exports.string(),
+  repeatType: external_exports.enum(["LINEAR", "RADIAL"]).optional(),
+  axis: external_exports.enum(["HORIZONTAL", "VERTICAL"]).optional(),
+  unitType: external_exports.enum(["RELATIVE", "PIXELS"]).optional(),
+  offset: external_exports.number().optional(),
+  count: external_exports.number().optional()
+});
+var SerializedComplexStrokeSchema = external_exports.object({
+  type: external_exports.enum(["BRUSH", "DYNAMIC"]),
+  brushType: external_exports.enum(["STRETCH", "SCATTER"]).optional(),
+  brushName: external_exports.string().optional(),
+  direction: external_exports.enum(["FORWARD", "BACKWARD"]).optional(),
+  gap: external_exports.number().optional(),
+  wiggle: external_exports.number().optional(),
+  sizeJitter: external_exports.number().optional(),
+  angularJitter: external_exports.number().optional(),
+  rotation: external_exports.number().optional(),
+  frequency: external_exports.number().optional(),
+  smoothen: external_exports.number().optional()
+});
+var SerializedVariableWidthStrokeSchema = external_exports.object({
+  widthProfile: external_exports.string(),
+  variableWidthPoints: external_exports.array(external_exports.object({ position: external_exports.number(), width: external_exports.number() }))
+});
+var SerializedTextPathStartSchema = external_exports.object({
+  segment: external_exports.number(),
+  position: external_exports.number()
+});
+var SerializedBoundsSchema = external_exports.object({
+  x: external_exports.number(),
+  y: external_exports.number(),
+  width: external_exports.number(),
+  height: external_exports.number()
+});
+var SerializedNodeSchema = external_exports.lazy(
+  () => external_exports.object({
+    id: external_exports.string(),
+    name: external_exports.string(),
+    type: external_exports.string(),
+    visible: external_exports.boolean(),
+    locked: external_exports.boolean(),
+    parentId: external_exports.string().nullable(),
+    x: external_exports.number(),
+    y: external_exports.number(),
+    width: external_exports.number(),
+    height: external_exports.number(),
+    rotation: external_exports.number().optional(),
+    flipped: external_exports.boolean().optional(),
+    cssTransform: external_exports.string().optional(),
+    boundingBox: SerializedBoundsSchema.optional(),
+    opacity: external_exports.number().optional(),
+    cornerRadius: external_exports.union([external_exports.number(), external_exports.literal(MIXED)]).optional(),
+    cornerSmoothing: external_exports.number().min(0).max(1).optional(),
+    cornerRadii: external_exports.object({
+      topLeft: external_exports.number(),
+      topRight: external_exports.number(),
+      bottomRight: external_exports.number(),
+      bottomLeft: external_exports.number()
+    }).optional(),
+    blendMode: external_exports.string().optional(),
+    isMask: external_exports.boolean().optional(),
+    maskType: external_exports.string().optional(),
+    arcData: external_exports.object({
+      startingAngle: external_exports.number(),
+      endingAngle: external_exports.number(),
+      innerRadius: external_exports.number()
+    }).optional(),
+    fills: external_exports.union([external_exports.array(SerializedPaintSchema), external_exports.literal(MIXED)]).optional(),
+    strokes: external_exports.array(SerializedPaintSchema).optional(),
+    strokeWeight: external_exports.union([external_exports.number(), external_exports.literal(MIXED)]).optional(),
+    strokeWeights: external_exports.object({
+      top: external_exports.number(),
+      right: external_exports.number(),
+      bottom: external_exports.number(),
+      left: external_exports.number()
+    }).optional(),
+    strokeAlign: external_exports.string().optional(),
+    dashPattern: external_exports.array(external_exports.number()).optional(),
+    strokeCap: external_exports.string().optional(),
+    strokeJoin: external_exports.string().optional(),
+    complexStrokeProperties: SerializedComplexStrokeSchema.optional(),
+    variableWidthStrokeProperties: SerializedVariableWidthStrokeSchema.optional(),
+    renderBounds: SerializedBoundsSchema.optional(),
+    effects: external_exports.array(SerializedEffectSchema).optional(),
+    layout: SerializedAutoLayoutSchema.optional(),
+    layoutSizingHorizontal: external_exports.string().optional(),
+    layoutSizingVertical: external_exports.string().optional(),
+    layoutGrow: external_exports.number().optional(),
+    layoutAlign: external_exports.string().optional(),
+    layoutPositioning: external_exports.string().optional(),
+    minWidth: external_exports.number().optional(),
+    maxWidth: external_exports.number().optional(),
+    minHeight: external_exports.number().optional(),
+    maxHeight: external_exports.number().optional(),
+    gridChild: SerializedGridChildSchema.optional(),
+    constraints: SerializedConstraintsSchema.optional(),
+    clipsContent: external_exports.boolean().optional(),
+    layoutGrids: external_exports.array(SerializedLayoutGridSchema).optional(),
+    overflowDirection: external_exports.string().optional(),
+    numberOfFixedChildren: external_exports.number().optional(),
+    targetAspectRatio: external_exports.object({ x: external_exports.number(), y: external_exports.number() }).optional(),
+    annotations: external_exports.array(SerializedAnnotationSchema).optional(),
+    styleIds: SerializedStyleIdsSchema.optional(),
+    boundVariables: external_exports.record(external_exports.string(), external_exports.array(external_exports.string())).optional(),
+    explicitVariableModes: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+    componentProperties: external_exports.record(external_exports.string(), SerializedComponentPropertySchema).optional(),
+    componentSetError: external_exports.string().optional(),
+    mainComponent: SerializedMainComponentSchema.optional(),
+    componentPropertyReferences: external_exports.object({
+      visible: external_exports.string().optional(),
+      characters: external_exports.string().optional(),
+      mainComponent: external_exports.string().optional()
+    }).optional(),
+    characters: external_exports.string().optional(),
+    fontSize: external_exports.union([external_exports.number(), external_exports.literal(MIXED)]).optional(),
+    fontName: external_exports.union([SerializedFontNameSchema, external_exports.literal(MIXED)]).optional(),
+    textAlignHorizontal: external_exports.string().optional(),
+    textAlignVertical: external_exports.string().optional(),
+    lineHeight: external_exports.union([SerializedLineHeightSchema, external_exports.literal(MIXED)]).optional(),
+    letterSpacing: external_exports.union([SerializedLetterSpacingSchema, external_exports.literal(MIXED)]).optional(),
+    textCase: external_exports.union([external_exports.string(), external_exports.literal(MIXED)]).optional(),
+    textDecoration: external_exports.union([external_exports.string(), external_exports.literal(MIXED)]).optional(),
+    textAutoResize: external_exports.string().optional(),
+    textTruncation: external_exports.string().optional(),
+    maxLines: external_exports.number().nullable().optional(),
+    paragraphSpacing: external_exports.number().optional(),
+    paragraphIndent: external_exports.number().optional(),
+    textWrapStyle: external_exports.string().optional(),
+    hyperlink: SerializedHyperlinkSchema.optional(),
+    segments: external_exports.array(SerializedTextSegmentSchema).optional(),
+    textPathStartData: SerializedTextPathStartSchema.optional(),
+    transformModifiers: external_exports.array(SerializedTransformModifierSchema).optional(),
+    repeatTransforms: external_exports.array(external_exports.string()).optional(),
+    children: external_exports.array(SerializedNodeSchema).optional()
+  })
+);
+var GetSelectionResultSchema = external_exports.object({
+  pageId: external_exports.string(),
+  pageName: external_exports.string(),
+  nodes: external_exports.array(SerializedNodeSchema)
+});
+var GetDocumentResultSchema = external_exports.object({
+  pageId: external_exports.string(),
+  pageName: external_exports.string(),
+  children: external_exports.array(SerializedNodeSchema)
+});
+var PageRefSchema = external_exports.object({
+  id: external_exports.string(),
+  name: external_exports.string()
+});
+var GetNodeResultSchema = external_exports.object({
+  node: SerializedNodeSchema.nullable()
+});
+var GetNodesInfoResultSchema = external_exports.object({
+  nodes: external_exports.array(SerializedNodeSchema.nullable())
+});
+var GetMetadataResultSchema = external_exports.object({
+  fileName: external_exports.string(),
+  currentPage: PageRefSchema,
+  pages: external_exports.array(PageRefSchema),
+  /**
+   * `figma.editorType` — which editor the connected file is open in. Reported here because this is
+   * the call an agent already makes to orient itself, and the editor decides which half of the
+   * toolset is even available: FigJam has no components/variables/styles, and Dev Mode rejects
+   * every write. Previously it was reachable only through `ping`, a health check nothing calls on
+   * the way into a task.
+   */
+  editorType: external_exports.string(),
+  /**
+   * `figma.root.documentColorProfile` — the space every colour in the file is stored in: `SRGB`,
+   * `DISPLAY_P3`, or `LEGACY` (a file from before colour management, whose colours read as sRGB).
+   * In a `DISPLAY_P3` file a colour's r/g/b and hex are P3 channels, so CSS needs `color(display-p3
+   * …)` for them, and a colour written from code names `space: 'SRGB'`. Absent where the editor
+   * does not report one.
+   */
+  colorProfile: external_exports.string().optional(),
+  /** `figma.mode` — `default` for a normal run, `inspect` inside Dev Mode's Inspect panel. */
+  mode: external_exports.string()
+});
+var FlowStartingPointSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  name: external_exports.string()
+});
+var GetPagesResultSchema = external_exports.object({
+  pages: external_exports.array(
+    PageRefSchema.extend({
+      /**
+       * `PageNode.flowStartingPoints`, in Figma's order; the first is the flow Presentation view
+       * opens by default. Readable without loading the page, so listing it costs get_pages nothing
+       * under `documentAccess: "dynamic-page"`.
+       */
+      flows: external_exports.array(FlowStartingPointSchema)
+    })
+  )
+});
+var NodeListResultSchema = external_exports.object({
+  note: external_exports.string().optional(),
+  matchCount: external_exports.number().int().nonnegative().optional(),
+  nodes: external_exports.array(SerializedNodeSchema)
+});
+
+// mcp/vendor/figwright/packages/shared/src/design-context.ts
+var DETAIL_LEVELS = ["minimal", "compact", "full"];
+var DesignContextNodeSchema = external_exports.lazy(
+  () => external_exports.object({
+    id: external_exports.string(),
+    name: external_exports.string(),
+    type: external_exports.string(),
+    visible: external_exports.boolean().optional(),
+    x: external_exports.number().optional(),
+    y: external_exports.number().optional(),
+    width: external_exports.number().optional(),
+    height: external_exports.number().optional(),
+    rotation: external_exports.number().optional(),
+    flipped: external_exports.boolean().optional(),
+    cssTransform: external_exports.string().optional(),
+    boundingBox: SerializedBoundsSchema.optional(),
+    opacity: external_exports.number().optional(),
+    cornerRadius: external_exports.union([external_exports.number(), external_exports.literal(MIXED)]).optional(),
+    cornerSmoothing: external_exports.number().min(0).max(1).optional(),
+    cornerRadii: external_exports.object({
+      topLeft: external_exports.number(),
+      topRight: external_exports.number(),
+      bottomRight: external_exports.number(),
+      bottomLeft: external_exports.number()
+    }).optional(),
+    blendMode: external_exports.string().optional(),
+    isMask: external_exports.boolean().optional(),
+    maskType: external_exports.string().optional(),
+    arcData: external_exports.object({
+      startingAngle: external_exports.number(),
+      endingAngle: external_exports.number(),
+      innerRadius: external_exports.number()
+    }).optional(),
+    fills: external_exports.union([external_exports.array(SerializedPaintSchema), external_exports.literal(MIXED)]).optional(),
+    strokes: external_exports.array(SerializedPaintSchema).optional(),
+    strokeWeight: external_exports.union([external_exports.number(), external_exports.literal(MIXED)]).optional(),
+    strokeWeights: external_exports.object({ top: external_exports.number(), right: external_exports.number(), bottom: external_exports.number(), left: external_exports.number() }).optional(),
+    strokeAlign: external_exports.string().optional(),
+    dashPattern: external_exports.array(external_exports.number()).optional(),
+    strokeCap: external_exports.string().optional(),
+    strokeJoin: external_exports.string().optional(),
+    complexStrokeProperties: SerializedComplexStrokeSchema.optional(),
+    variableWidthStrokeProperties: SerializedVariableWidthStrokeSchema.optional(),
+    renderBounds: SerializedBoundsSchema.optional(),
+    effects: external_exports.array(SerializedEffectSchema).optional(),
+    layout: SerializedAutoLayoutSchema.optional(),
+    layoutSizingHorizontal: external_exports.string().optional(),
+    layoutSizingVertical: external_exports.string().optional(),
+    layoutGrow: external_exports.number().optional(),
+    layoutAlign: external_exports.string().optional(),
+    layoutPositioning: external_exports.string().optional(),
+    minWidth: external_exports.number().optional(),
+    maxWidth: external_exports.number().optional(),
+    minHeight: external_exports.number().optional(),
+    maxHeight: external_exports.number().optional(),
+    gridChild: SerializedGridChildSchema.optional(),
+    constraints: SerializedConstraintsSchema.optional(),
+    clipsContent: external_exports.boolean().optional(),
+    layoutGrids: external_exports.array(SerializedLayoutGridSchema).optional(),
+    overflowDirection: external_exports.string().optional(),
+    numberOfFixedChildren: external_exports.number().optional(),
+    targetAspectRatio: external_exports.object({ x: external_exports.number(), y: external_exports.number() }).optional(),
+    annotations: external_exports.array(SerializedAnnotationSchema).optional(),
+    characters: external_exports.string().optional(),
+    fontSize: external_exports.union([external_exports.number(), external_exports.literal(MIXED)]).optional(),
+    fontName: external_exports.union([SerializedFontNameSchema, external_exports.literal(MIXED)]).optional(),
+    lineHeight: external_exports.union([SerializedLineHeightSchema, external_exports.literal(MIXED)]).optional(),
+    letterSpacing: external_exports.union([SerializedLetterSpacingSchema, external_exports.literal(MIXED)]).optional(),
+    textCase: external_exports.union([external_exports.string(), external_exports.literal(MIXED)]).optional(),
+    textDecoration: external_exports.union([external_exports.string(), external_exports.literal(MIXED)]).optional(),
+    paragraphSpacing: external_exports.number().optional(),
+    paragraphIndent: external_exports.number().optional(),
+    textWrapStyle: external_exports.string().optional(),
+    textAlignHorizontal: external_exports.string().optional(),
+    textAlignVertical: external_exports.string().optional(),
+    textTruncation: external_exports.string().optional(),
+    maxLines: external_exports.number().nullable().optional(),
+    textAutoResize: external_exports.string().optional(),
+    hyperlink: SerializedHyperlinkSchema.optional(),
+    // Simplified paints are opaque here (hex lives in `color`), mirroring globalVars' z.unknown().
+    segments: external_exports.array(
+      external_exports.object({
+        characters: external_exports.string(),
+        start: external_exports.number(),
+        end: external_exports.number(),
+        fontName: SerializedFontNameSchema,
+        fontSize: external_exports.number(),
+        fills: external_exports.array(external_exports.unknown()),
+        textDecoration: external_exports.string(),
+        textCase: external_exports.string(),
+        lineHeight: external_exports.union([SerializedLineHeightSchema, external_exports.literal(MIXED)]).optional(),
+        letterSpacing: external_exports.union([SerializedLetterSpacingSchema, external_exports.literal(MIXED)]).optional(),
+        hyperlink: SerializedHyperlinkSchema.optional(),
+        listOptions: external_exports.string().optional(),
+        indentation: external_exports.number().optional(),
+        textWrapStyle: external_exports.string().optional(),
+        styleIds: SerializedStyleIdsSchema.optional(),
+        boundVariables: external_exports.record(external_exports.string(), external_exports.array(external_exports.string())).optional()
+      })
+    ).optional(),
+    textPathStartData: SerializedTextPathStartSchema.optional(),
+    transformModifiers: external_exports.array(SerializedTransformModifierSchema).optional(),
+    repeatTransforms: external_exports.array(external_exports.string()).optional(),
+    styleIds: SerializedStyleIdsSchema.optional(),
+    boundVariables: external_exports.record(external_exports.string(), external_exports.array(external_exports.string())).optional(),
+    variableModes: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+    componentProperties: external_exports.record(external_exports.string(), SerializedComponentPropertySchema).optional(),
+    componentSetError: external_exports.string().optional(),
+    componentPropertyReferences: external_exports.object({
+      visible: external_exports.string().optional(),
+      characters: external_exports.string().optional(),
+      mainComponent: external_exports.string().optional()
+    }).optional(),
+    motion: external_exports.object({
+      animationStyles: external_exports.array(external_exports.string()).optional(),
+      animatedProperties: external_exports.array(external_exports.string()).optional(),
+      timelineDuration: external_exports.number().optional()
+    }).optional(),
+    mainComponent: SerializedMainComponentSchema.optional(),
+    mainComponentId: external_exports.string().optional(),
+    fill: external_exports.string().optional(),
+    stroke: external_exports.string().optional(),
+    effect: external_exports.string().optional(),
+    textStyle: external_exports.string().optional(),
+    deduped: external_exports.boolean().optional(),
+    textOverrides: external_exports.array(external_exports.object({ name: external_exports.string(), characters: external_exports.string() })).optional(),
+    // Visual fields are opaque here (simplified paints carry hex in `color`), mirroring segments /
+    // globalVars' z.unknown().
+    propertyOverrides: external_exports.array(
+      external_exports.object({
+        name: external_exports.string(),
+        visible: external_exports.boolean().optional(),
+        opacity: external_exports.number().optional(),
+        cornerRadius: external_exports.number().optional(),
+        cornerRadii: external_exports.unknown().optional(),
+        cornerSmoothing: external_exports.number().optional(),
+        fills: external_exports.array(external_exports.unknown()).optional(),
+        strokes: external_exports.array(external_exports.unknown()).optional(),
+        strokeWeight: external_exports.number().optional(),
+        strokeAlign: external_exports.string().optional(),
+        effects: external_exports.array(external_exports.unknown()).optional(),
+        blendMode: external_exports.string().optional(),
+        variableModes: external_exports.record(external_exports.string(), external_exports.string()).optional()
+      })
+    ).optional(),
+    truncated: external_exports.boolean().optional(),
+    children: external_exports.array(DesignContextNodeSchema).optional()
+  })
+);
+var ResolvedTokenSchema = external_exports.object({
+  name: external_exports.string(),
+  type: external_exports.string(),
+  codeSyntax: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var GlobalVarsSchema = external_exports.object({
+  styles: external_exports.record(external_exports.string(), external_exports.unknown())
+});
+var DesignContextMetricsSchema = external_exports.object({
+  nodeCount: external_exports.number(),
+  maxDepth: external_exports.number(),
+  styleCount: external_exports.number(),
+  tokenCount: external_exports.number(),
+  inlineSizeKb: external_exports.number(),
+  dedupedSizeKb: external_exports.number()
+});
+var LAYOUT_FIELDS = [
+  // Auto-layout / grid: the container's own flex or grid system.
+  "layout",
+  "layoutGrids",
+  // How this node sizes and places itself inside its parent's layout.
+  "layoutSizingHorizontal",
+  "layoutSizingVertical",
+  "layoutGrow",
+  "layoutAlign",
+  "layoutPositioning",
+  "gridChild",
+  "minWidth",
+  "maxWidth",
+  "minHeight",
+  "maxHeight",
+  "targetAspectRatio",
+  // Placement of a child of a NON-auto-layout frame: the resize anchor, not just x/y.
+  "constraints",
+  // Clipping / scrolling / sticky children — overflow behaviour is layout, not paint.
+  "clipsContent",
+  "overflowDirection",
+  "numberOfFixedChildren",
+  // How many times a repeat group draws its content, and where — without them a 12-tick dial
+  // reads as one tick, so the element count itself would be wrong, not just its look.
+  "transformModifiers",
+  "repeatTransforms",
+  // The box a Draw stroke or a text path actually paints into: where an exported asset goes.
+  "renderBounds",
+  // Which way the box faces: a mirrored element drawn unmirrored, or a turned one placed by its
+  // bounding box, is in the wrong place and the wrong shape.
+  "flipped",
+  "cssTransform",
+  "boundingBox"
+];
+var CONTENT_FIELDS = [
+  "characters",
+  "textAutoResize",
+  "textAlignHorizontal",
+  "textAlignVertical",
+  "textTruncation",
+  "maxLines",
+  "textOverrides",
+  // Which variant an instance renders — an INSTANCE without its props is not buildable.
+  "componentProperties",
+  // Why an instance carries no props, when its component set has errors: kept wherever the props
+  // would have been, or a downgrade would make the missing props look like none.
+  "componentSetError",
+  // The mirror of the above on the definition side: which property drives a sublayer. A downgrade
+  // still generates component structure, and without this the generated component has no props at
+  // all — a prop-driven string becomes a literal and a BOOLEAN-gated layer becomes unconditional.
+  // That is a structural contract, not appearance, so it rides with layout rather than being shed.
+  "componentPropertyReferences",
+  // The designer's Dev Mode notes: explicit instructions that outrank inference, so dropping them
+  // while keeping geometry would be backwards.
+  "annotations"
+];
+var LAYOUT_TIER_FIELDS = [
+  ...LAYOUT_FIELDS,
+  ...CONTENT_FIELDS
+];
+var DesignContextSectionSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  name: external_exports.string(),
+  type: external_exports.string(),
+  /** Direct children of the section (0 = a leaf). */
+  childCount: external_exports.number(),
+  /** Total nodes in the section's subtree — the size signal for splitting further. */
+  nodes: external_exports.number()
+});
+var DesignContextSectionPlanSchema = external_exports.object({
+  /** Which net fired: the plugin's pre-serialization node count, or the mcp payload-size net. */
+  reason: external_exports.enum(["node-count", "payload-size"]),
+  /** Nodes the full call would have serialized (node-count reason). */
+  totalNodes: external_exports.number().optional(),
+  /** Serialized size in chars of the payload that was withheld (payload-size reason). */
+  payloadChars: external_exports.number().optional(),
+  sections: external_exports.array(DesignContextSectionSchema),
+  /** How many sections were dropped when the plan itself had to be capped (very wide flat trees). */
+  sectionsOmitted: external_exports.number().optional()
+});
+var ProjectTokenMatchSchema = external_exports.object({
+  /**
+   * The reference codegen should emit: a utility base on a project whose framework generates one, a
+   * SCSS `$variable`, else var(--name).
+   */
+  ref: external_exports.string(),
+  /** Custom property name without the leading `--`. */
+  name: external_exports.string(),
+  /**
+   * Present only for a SCSS variable: the repo-relative file declaring it. The ref does not resolve
+   * on its own — the consuming file must `@use` this file, and how that import is written decides
+   * the ref's final form (`@use '…' as *` keeps `$name`; a plain `@use './tokens'` makes it
+   * `tokens.$name`). Emitting the ref without the import is a compile error.
+   */
+  from: external_exports.string().optional()
+});
+var ProjectTokenAnnotationSchema = external_exports.union([
+  ProjectTokenMatchSchema.extend({ matchedBy: external_exports.tuple([external_exports.literal("value")]) }),
+  external_exports.object({
+    matchedBy: external_exports.tuple([external_exports.literal("value")]),
+    candidates: external_exports.array(ProjectTokenMatchSchema)
+  })
+]);
+var GetDesignContextResultSchema = external_exports.object({
+  nodes: external_exports.array(DesignContextNodeSchema),
+  /**
+   * Server-side guidance attached only when the call shape risks a known failure mode — currently a
+   * selection of several top-level frames spanning different width buckets (a breakpoint set),
+   * which is what tempts a caller to size one breakpoint by eye off another. Surfaced on the result
+   * so even a caller that bypassed the figma-codegen skill gets the don't-merge-breakpoints rule.
+   * Omitted when there's nothing to warn about.
+   */
+  hint: external_exports.string().optional(),
+  /**
+   * Set when the requested tree was too large to return whole (see the budget constants above):
+   * `nodes` then holds only the roots' identity (minimal projection) and `sections` lists the
+   * subtrees to ground individually — call get_design_context per section nodeId at full detail.
+   */
+  sectionPlan: DesignContextSectionPlanSchema.optional(),
+  /**
+   * One-line, deterministic guidance attached by the mcp layer: on a below-full detail it points
+   * codegen callers at detail 'full'; on a section plan it spells out the per-section next step.
+   */
+  note: external_exports.string().optional(),
+  /** Deduplicated style table; nodes carry `fill` / `textStyle` refs into it. Full detail only. */
+  globalVars: GlobalVarsSchema.optional(),
+  /** Id → token, for variable ids referenced by any node's `boundVariables`. Omitted when empty. */
+  variables: external_exports.record(external_exports.string(), ResolvedTokenSchema).optional(),
+  /** Id → token, for shared-style ids referenced by any node's `styleIds`. Omitted when empty. */
+  styles: external_exports.record(external_exports.string(), ResolvedTokenSchema).optional(),
+  /**
+   * Raw color → project design token(s) with that exact value (the value-reverse join), keyed by
+   * the color string exactly as it appears in this payload — so a caller about to emit a raw hex
+   * can look it up verbatim. Attached by the mcp layer on public full-detail results when the
+   * project's CSS defines matching tokens; omitted when empty. Value-equality evidence only: prefer
+   * a semantically fitting entry (or keep the raw value) over blind use, and let a bound Figma
+   * variable win over a raw-value match.
+   */
+  projectTokens: external_exports.record(external_exports.string(), ProjectTokenAnnotationSchema).optional(),
+  /** Simplification metrics; full detail only. */
+  metrics: DesignContextMetricsSchema.optional(),
+  /** See {@link DisplayP3MarkerSchema}; the first key when present. */
+  colorProfile: DisplayP3MarkerSchema.optional()
+});
+
+// mcp/vendor/figwright/packages/shared/src/envelope.ts
+var baseFields = {
+  // Accept any version here rather than a strict literal: a peer on a different protocol must still be
+  // able to *decode* our messages (and we theirs) so a mismatch surfaces as a clear error at the
+  // $hello handshake instead of a cryptic envelope-decode failure. Compatibility is gated once, in the
+  // relay's hello handler — not per-envelope. We still stamp our own PROTOCOL_VERSION via create*.
+  v: external_exports.string(),
+  id: external_exports.string(),
+  ts: external_exports.number(),
+  sessionId: external_exports.string()
+};
+var RequestEnvelopeSchema = external_exports.object({
+  ...baseFields,
+  kind: external_exports.literal("req"),
+  method: external_exports.string(),
+  params: external_exports.unknown().optional()
+});
+var ResponseEnvelopeSchema = external_exports.object({
+  ...baseFields,
+  kind: external_exports.literal("res"),
+  result: external_exports.unknown().optional()
+});
+var ErrorEnvelopeSchema = external_exports.object({
+  ...baseFields,
+  kind: external_exports.literal("err"),
+  error: external_exports.object({
+    code: external_exports.string(),
+    message: external_exports.string(),
+    data: external_exports.unknown().optional()
+  })
+});
+var EventEnvelopeSchema = external_exports.object({
+  ...baseFields,
+  kind: external_exports.literal("evt"),
+  method: external_exports.string(),
+  params: external_exports.unknown().optional()
+});
+var EnvelopeSchema = external_exports.discriminatedUnion("kind", [
+  RequestEnvelopeSchema,
+  ResponseEnvelopeSchema,
+  ErrorEnvelopeSchema,
+  EventEnvelopeSchema
+]);
+var HelloParamsSchema = external_exports.object({
+  clientType: external_exports.enum(["plugin"]),
+  clientVersion: external_exports.string(),
+  // String, not a literal: a version-mismatched plugin must still parse so the relay can reject it
+  // with a clear ProtocolMismatch message (see relay.handleHello), not a generic schema-parse failure.
+  protocolVersion: external_exports.string()
+});
+var HelloResultSchema = external_exports.object({
+  serverVersion: external_exports.string(),
+  protocolVersion: external_exports.string(),
+  sessionResumed: external_exports.boolean(),
+  // Set when this plugin predates the server: it is served anyway, but its results are unreliable.
+  // A plugin old enough to lack this field ignores it (the client casts rather than parses), which
+  // is the point — it costs nothing to send and lets any plugin new enough say so in its panel.
+  skewNotice: external_exports.string().optional(),
+  /**
+   * This server reads `ActivityParams.foreground`, so the plugin may report its file identity from
+   * a background tab without that being taken as a claim on routing.
+   *
+   * Negotiated here rather than inferred from `serverVersion` for two reasons. A version comparison
+   * would need a constant naming the release this shipped in, which does not exist yet while it is
+   * being written — both halves of a dev tree report the previous version, so the plugin would take
+   * the compatibility path against the very server that understands it, and the new path would go
+   * untested by hand. And it is the wrong question: what matters is whether this peer acts on the
+   * field, which is exactly what it can say for itself.
+   *
+   * Absent means an older server, which ignores unknown params. Against one, a background tab must
+   * go back to staying silent: that server reads any activity event as a routing claim, so
+   * announcing identity from a hidden tab would let a background file steal the agent — the bug the
+   * visibility gate was added to fix.
+   */
+  foregroundFlag: external_exports.boolean().optional()
+});
+var ActivityParamsSchema = external_exports.object({
+  fileName: external_exports.string(),
+  pageId: external_exports.string(),
+  pageName: external_exports.string(),
+  /**
+   * Whether this plugin's tab was in the foreground when the event fired — the routing signal.
+   *
+   * Optional because a plugin that predates it never sends one, and such a plugin only ever emitted
+   * from a visible tab: absent therefore means the same thing as true, which is what the leader
+   * treats it as. `document.visibilityState` is the only reliable source for it; window `focus`
+   * fires on every open tab at once and was measured stealing routing to background files.
+   */
+  foreground: external_exports.boolean().optional()
+});
+
+// mcp/vendor/figwright/packages/shared/src/queries.ts
+var FileInfoSchema = external_exports.object({
+  fileKey: external_exports.string().nullable(),
+  fileName: external_exports.string(),
+  currentPage: PageRefSchema
+});
+var ListFilesResultSchema = external_exports.object({ files: external_exports.array(FileInfoSchema) });
+var SCREENSHOT_FORMATS = ["PNG", "JPG", "SVG"];
+var ExportBytesSchema = external_exports.custom((value) => value instanceof Uint8Array).optional();
+var ScreenshotImageSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  format: external_exports.string(),
+  base64: external_exports.string().nullable(),
+  empty: external_exports.boolean().optional(),
+  recovered: external_exports.boolean().optional(),
+  /**
+   * Raster export size (px) + the effective export scale — the anchor for mapping raster px back to
+   * design px, essential when the scale was auto-fitted (omitted `scale` fits the long edge to a
+   * legible window) or the node was recovered at intrinsic bounds. Computed from bounds × scale
+   * (±1px of Figma's own rounding). Absent for SVG and when the node's bounds are unknown.
+   */
+  width: external_exports.number().optional(),
+  height: external_exports.number().optional(),
+  scale: external_exports.number().optional(),
+  bytes: ExportBytesSchema
+});
+var GetScreenshotResultSchema = external_exports.object({ images: external_exports.array(ScreenshotImageSchema) });
+var SavedScreenshotSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  format: external_exports.string(),
+  path: external_exports.string().nullable(),
+  empty: external_exports.boolean().optional(),
+  recovered: external_exports.boolean().optional()
+});
+var SaveScreenshotsResultSchema = external_exports.object({ saved: external_exports.array(SavedScreenshotSchema) });
+var PdfExportSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  base64: external_exports.string().nullable(),
+  empty: external_exports.boolean().optional(),
+  bytes: ExportBytesSchema
+});
+var ExportPdfResultSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  path: external_exports.string().nullable(),
+  empty: external_exports.boolean().optional()
+});
+var VIDEO_FORMATS = ["MP4", "GIF", "WEBM"];
+var VIDEO_EXPORT_MISS_REASONS = [
+  "not-found",
+  "no-top-level-frame",
+  "wrong-editor",
+  "failed"
+];
+var VideoExportSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  format: external_exports.enum(VIDEO_FORMATS),
+  base64: external_exports.string().nullable(),
+  reason: external_exports.enum(VIDEO_EXPORT_MISS_REASONS).optional(),
+  /** Figma's own rejection message, present when reason is `failed`. */
+  error: external_exports.string().optional(),
+  bytes: ExportBytesSchema
+});
+var ExportVideoResultSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  format: external_exports.enum(VIDEO_FORMATS),
+  path: external_exports.string().nullable(),
+  reason: external_exports.enum(VIDEO_EXPORT_MISS_REASONS).optional(),
+  error: external_exports.string().optional()
+});
+var ImageFillBytesSchema = external_exports.object({
+  index: external_exports.number(),
+  imageHash: external_exports.string().nullable(),
+  base64: external_exports.string().nullable(),
+  width: external_exports.number().optional(),
+  height: external_exports.number().optional(),
+  scaleMode: external_exports.string().optional(),
+  bytes: ExportBytesSchema
+});
+var NodeImageFillsSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  images: external_exports.array(ImageFillBytesSchema),
+  mixed: external_exports.boolean().optional()
+});
+var ImageFillsResultSchema = external_exports.object({ nodes: external_exports.array(NodeImageFillsSchema) });
+var SavedImageFillSchema = external_exports.object({
+  index: external_exports.number(),
+  imageHash: external_exports.string().nullable(),
+  format: external_exports.string().optional(),
+  path: external_exports.string().nullable(),
+  width: external_exports.number().optional(),
+  height: external_exports.number().optional(),
+  scaleMode: external_exports.string().optional()
+});
+var SavedNodeImageFillsSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  images: external_exports.array(SavedImageFillSchema),
+  mixed: external_exports.boolean().optional()
+});
+var SaveImageFillsResultSchema = external_exports.object({ nodes: external_exports.array(SavedNodeImageFillsSchema) });
+var GetViewportResultSchema = external_exports.object({
+  center: external_exports.object({ x: external_exports.number(), y: external_exports.number() }),
+  zoom: external_exports.number(),
+  bounds: external_exports.object({ x: external_exports.number(), y: external_exports.number(), width: external_exports.number(), height: external_exports.number() })
+});
+var FontUsageSchema = external_exports.object({
+  fontName: SerializedFontNameSchema,
+  count: external_exports.number()
+});
+var GetFontsResultSchema = external_exports.object({
+  fonts: external_exports.array(FontUsageSchema),
+  variationAxes: external_exports.record(external_exports.string(), external_exports.array(external_exports.string())).optional()
+});
+var NodeAnnotationsSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  nodeName: external_exports.string(),
+  annotations: external_exports.array(SerializedAnnotationSchema)
+});
+var GetAnnotationsResultSchema = external_exports.object({
+  annotations: external_exports.array(NodeAnnotationsSchema)
+});
+var SerializedTriggerSchema = external_exports.looseObject({
+  type: external_exports.string(),
+  timeout: external_exports.number().optional(),
+  delay: external_exports.number().optional(),
+  // Marks a legacy hover trigger. Read-only in practice: setReactionsAsync refuses a trigger
+  // carrying it as an unrecognized key, and Figma does not put it on an ordinary MOUSE_ENTER it
+  // hands back — so it is described for what a read may contain, not offered as one to author.
+  deprecatedVersion: external_exports.boolean().optional(),
+  device: external_exports.string().optional(),
+  keyCodes: external_exports.array(external_exports.number()).optional(),
+  mediaHitTime: external_exports.number().optional()
+});
+var SerializedEasingSchema = external_exports.looseObject({
+  type: external_exports.string(),
+  easingFunctionCubicBezier: external_exports.looseObject({
+    x1: external_exports.number().optional(),
+    y1: external_exports.number().optional(),
+    x2: external_exports.number().optional(),
+    y2: external_exports.number().optional()
+  }).optional(),
+  easingFunctionSpring: external_exports.looseObject({
+    mass: external_exports.number().optional(),
+    stiffness: external_exports.number().optional(),
+    damping: external_exports.number().optional(),
+    initialVelocity: external_exports.number().optional()
+  }).optional()
+});
+var SerializedTransitionSchema = external_exports.looseObject({
+  type: external_exports.string(),
+  duration: external_exports.number().optional(),
+  easing: SerializedEasingSchema.optional(),
+  direction: external_exports.string().optional(),
+  matchLayers: external_exports.boolean().optional()
+});
+var SerializedVariableDataSchema = external_exports.looseObject({
+  type: external_exports.string().optional(),
+  resolvedType: external_exports.string().optional(),
+  value: external_exports.union([external_exports.boolean(), external_exports.number(), external_exports.string(), external_exports.looseObject({})]).optional()
+});
+var SerializedActionSchema = external_exports.looseObject({
+  type: external_exports.string(),
+  // NODE
+  destinationId: external_exports.string().nullable().optional(),
+  navigation: external_exports.string().optional(),
+  transition: SerializedTransitionSchema.nullable().optional(),
+  /**
+   * Where an overlay opens relative to its default position. Figma only honours it when the
+   * destination frame's own `overlayPositionType` is MANUAL — and that property is readonly on
+   * FramePrototypingMixin, so no plugin can set it; it is chosen on the overlay frame in Figma.
+   */
+  overlayRelativePosition: external_exports.looseObject({ x: external_exports.number().optional(), y: external_exports.number().optional() }).optional(),
+  preserveScrollPosition: external_exports.boolean().optional(),
+  resetVideoPosition: external_exports.boolean().optional(),
+  resetScrollPosition: external_exports.boolean().optional(),
+  resetInteractiveComponents: external_exports.boolean().optional(),
+  // URL
+  url: external_exports.string().optional(),
+  openInNewTab: external_exports.boolean().optional(),
+  // UPDATE_MEDIA_RUNTIME
+  mediaAction: external_exports.string().optional(),
+  amountToSkip: external_exports.number().optional(),
+  newTimestamp: external_exports.number().optional(),
+  // SET_VARIABLE / SET_VARIABLE_MODE
+  variableId: external_exports.string().nullable().optional(),
+  variableValue: SerializedVariableDataSchema.optional(),
+  variableCollectionId: external_exports.string().nullable().optional(),
+  variableModeId: external_exports.string().nullable().optional(),
+  /**
+   * CONDITIONAL's blocks: a condition and the actions to run when it holds.
+   *
+   * Those nested actions are described one level deep and left open, rather than pointed back at
+   * this schema. A self-reference would be published to MCP clients as a JSON Schema `$ref`, which
+   * this server has never emitted, and buying a fuller description of a rarely-written action with
+   * a new shape of client-compatibility risk is a bad trade. Looseness carries the rest.
+   */
+  conditionalBlocks: external_exports.array(
+    external_exports.looseObject({
+      condition: SerializedVariableDataSchema.optional(),
+      actions: external_exports.array(external_exports.looseObject({ type: external_exports.string().optional() })).optional()
+    })
+  ).optional()
+});
+var SerializedReactionSchema = external_exports.looseObject({
+  trigger: SerializedTriggerSchema.nullable(),
+  actions: external_exports.array(SerializedActionSchema)
+});
+var GetReactionsResultSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  reactions: external_exports.array(SerializedReactionSchema)
+});
+var MotionStyleSchema = external_exports.object({
+  styleId: external_exports.string(),
+  name: external_exports.string(),
+  description: external_exports.string().optional(),
+  props: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var GetMotionStylesResultSchema = external_exports.object({ styles: external_exports.array(MotionStyleSchema) });
+var TimelineSchema = external_exports.looseObject({ id: external_exports.string(), duration: external_exports.number() });
+var NodeMotionSchema = external_exports.object({
+  animationStyles: external_exports.array(external_exports.unknown()),
+  animations: external_exports.record(external_exports.string(), external_exports.unknown()),
+  manualKeyframeTracks: external_exports.record(external_exports.string(), external_exports.unknown()),
+  timelines: external_exports.array(TimelineSchema)
+});
+var GetNodeMotionResultSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  motion: NodeMotionSchema.nullable(),
+  /**
+   * The Motion timeline playhead, in seconds — editor-wide state, not a property of this node,
+   * hence a sibling of `motion` rather than a field inside it. Absent in FigJam, in an editor whose
+   * plugin API does not expose Motion, or when no Motion timeline is active — so Dev Mode reads it
+   * too when its plugin API carries Motion (not yet seen live). Useful as the `timelinePosition`
+   * for a keyframe the user means to land "here".
+   */
+  playheadPosition: external_exports.number().optional()
+});
+var MotionContextNodeSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  parentId: external_exports.string().nullable(),
+  name: external_exports.string(),
+  type: external_exports.string(),
+  motion: NodeMotionSchema
+});
+var MotionDiagnosticSchema = external_exports.object({
+  nodeId: external_exports.string(),
+  code: external_exports.enum(["read-error", "node-over-budget"]),
+  message: external_exports.string()
+});
+var MotionCoverageSchema = external_exports.object({
+  status: external_exports.enum(["complete", "partial"]),
+  visitedNodes: external_exports.number(),
+  animatedNodes: external_exports.number(),
+  reasons: external_exports.array(external_exports.enum(["node-limit", "payload-limit", "read-error"])).optional(),
+  /** Roots of the subtrees this call did not read — disjoint, each a nodeId to call again with. */
+  pendingNodeIds: external_exports.array(external_exports.string()).optional(),
+  pendingOmitted: external_exports.number().optional()
+});
+var GetMotionContextResultSchema = external_exports.object({
+  rootNodeId: external_exports.string(),
+  coverage: MotionCoverageSchema,
+  diagnostics: external_exports.array(MotionDiagnosticSchema).optional(),
+  diagnosticsOmitted: external_exports.number().optional(),
+  nodes: external_exports.array(MotionContextNodeSchema)
+});
+
+// mcp/vendor/figwright/packages/shared/src/result-budget.ts
+var CLIENT_MESSAGE_LIMIT_BYTES = 10 * 1024 * 1024;
+var TOOL_RESULT_LIMIT_BYTES = CLIENT_MESSAGE_LIMIT_BYTES - 16 * 1024;
+var NODE_LIST_BUDGET_BYTES = TOOL_RESULT_LIMIT_BYTES - 4 * 1024;
+
+// mcp/vendor/figwright/packages/shared/src/rpc.ts
+var RpcRequestSchema = external_exports.object({
+  requestId: external_exports.string(),
+  toolName: external_exports.string(),
+  args: external_exports.unknown().optional(),
+  // Pins this call to a specific plugin session on the leader. A follower running a multi-call tool
+  // (e.g. component_map) resolves the active session once, then sends every sub-call with the same
+  // sessionId so they can't drift to different plugins mid-flight. Absent = route to most-active.
+  sessionId: external_exports.string().optional(),
+  /**
+   * The caller's build stamp — the same value /ping advertises and /abdicate compares, so this
+   * envelope orders its two ends the way the election already orders them.
+   *
+   * It exists so the leader knows whether its own tool schemas are authoritative for this call.
+   * Servers on either side of a release can talk to each other: the newest build normally wins the
+   * port, but an older leader that is continuously busy keeps it, and then a newer follower's
+   * arguments would be checked against schemas that predate them. A caller declaring a strictly
+   * newer build has already validated against better ones.
+   *
+   * Absent means 0 — an unbundled process, or something that is not a Figwright follower at all.
+   * Both are the oldest thing in the room by that rule, which is the safe direction: their
+   * arguments are the ones worth checking.
+   */
+  buildId: external_exports.number().optional()
+});
+var RpcOkResponseSchema = external_exports.object({
+  kind: external_exports.literal("ok"),
+  requestId: external_exports.string(),
+  result: external_exports.unknown(),
+  // Set by the leader when the plugin that served this call is older than the server. Only the
+  // leader holds the relay, so a follower has no other way to learn it — and the warning has to
+  // reach whoever is actually calling tools, whichever role their process ended up in.
+  notice: external_exports.string().optional()
+});
+var RpcErrResponseSchema = external_exports.object({
+  kind: external_exports.literal("err"),
+  requestId: external_exports.string(),
+  code: external_exports.string(),
+  message: external_exports.string()
+});
+var RpcResponseSchema = external_exports.discriminatedUnion("kind", [
+  RpcOkResponseSchema,
+  RpcErrResponseSchema
+]);
+
+// mcp/vendor/figwright/packages/shared/src/styles.ts
+var styleBase = {
+  id: external_exports.string(),
+  name: external_exports.string(),
+  key: external_exports.string(),
+  description: external_exports.string()
+};
+var SerializedPaintStyleSchema = external_exports.object({
+  ...styleBase,
+  paints: external_exports.array(SerializedPaintSchema)
+});
+var SerializedTextStyleSchema = external_exports.object({
+  ...styleBase,
+  fontName: SerializedFontNameSchema,
+  fontSize: external_exports.number(),
+  lineHeight: SerializedLineHeightSchema,
+  letterSpacing: SerializedLetterSpacingSchema,
+  // AUTO | BALANCE | PRETTY — a text style carries its own wrap balancing, so a style named
+  // "Heading/H1" can mean `text-wrap: balance` for every node bound to it.
+  textWrapStyle: external_exports.string(),
+  /**
+   * `field` → variable id for the typography fields Figma lets a text style bind (fontSize,
+   * lineHeight, letterSpacing, fontFamily, fontStyle, fontWeight, paragraphSpacing,
+   * paragraphIndent). Unlike a paint or effect style — whose bindings sit on the individual paint /
+   * effect — a text style's values are scalars, so this is the only place its bindings exist.
+   */
+  boundVariables: SerializedBindingsSchema.optional()
+});
+var SerializedEffectStyleSchema = external_exports.object({
+  ...styleBase,
+  effects: external_exports.array(SerializedEffectSchema)
+});
+var SerializedGridStyleSchema = external_exports.object({
+  ...styleBase,
+  grids: external_exports.array(SerializedLayoutGridSchema)
+});
+var GetStylesResultSchema = external_exports.object({
+  /**
+   * Set, and first, only when some variable names could not be resolved because Figma's plugin
+   * runtime ran out of callback ids this plugin session — not because the variables are gone. Bound
+   * values are then missing from `variables`; the plugin must be reopened to read them.
+   */
+  hint: external_exports.string().optional(),
+  /** See {@link DisplayP3MarkerSchema}: every colour below is P3 when present. */
+  colorProfile: DisplayP3MarkerSchema.optional(),
+  paints: external_exports.array(SerializedPaintStyleSchema),
+  texts: external_exports.array(SerializedTextStyleSchema),
+  effects: external_exports.array(SerializedEffectStyleSchema),
+  grids: external_exports.array(SerializedGridStyleSchema),
+  /**
+   * Id → token, for every variable id referenced by a `boundVariables` anywhere in this result —
+   * the same id→name table get_design_context returns. Without it a binding is an opaque
+   * `VariableID:5:12`; with it the consumer reads the token name (and any declared codeSyntax)
+   * without a second round-trip. Names are NOT inlined into the bindings themselves: variable names
+   * collide across collections (a local and a library `primary`), so the id stays the key. Omitted
+   * when nothing in the document is bound.
+   */
+  variables: external_exports.record(external_exports.string(), ResolvedTokenSchema).optional()
+});
+
+// mcp/vendor/figwright/packages/shared/src/variables.ts
+var SerializedVariableColorSchema = SerializedRGBASchema.extend({
+  hex: external_exports.string().optional()
+});
+var SerializedVariableComposedColorSchema = external_exports.object({
+  color: external_exports.union([SerializedVariableColorSchema, SerializedVariableAliasSchema]),
+  opacity: external_exports.union([external_exports.number(), SerializedVariableAliasSchema])
+});
+var SerializedEasingBezierSchema = external_exports.object({
+  x1: external_exports.number(),
+  y1: external_exports.number(),
+  x2: external_exports.number(),
+  y2: external_exports.number()
+});
+var SerializedEasingSpringSchema = external_exports.object({ bounce: external_exports.number() });
+var SerializedMotionEasingSchema = external_exports.object({
+  type: external_exports.string(),
+  easingFunctionCubicBezier: SerializedEasingBezierSchema.optional(),
+  easingFunctionSpring: SerializedEasingSpringSchema.optional()
+});
+var SerializedVariableValueSchema = external_exports.union([
+  external_exports.boolean(),
+  external_exports.number(),
+  external_exports.string(),
+  SerializedVariableColorSchema,
+  SerializedVariableComposedColorSchema,
+  SerializedVariableAliasSchema,
+  SerializedMotionEasingSchema
+]);
+var SerializedVariableCollectionSchema = external_exports.object({
+  id: external_exports.string(),
+  name: external_exports.string(),
+  key: external_exports.string(),
+  defaultModeId: external_exports.string(),
+  modes: external_exports.array(external_exports.object({ modeId: external_exports.string(), name: external_exports.string() })),
+  variableIds: external_exports.array(external_exports.string())
+});
+var SerializedVariableSchema = external_exports.object({
+  id: external_exports.string(),
+  name: external_exports.string(),
+  key: external_exports.string(),
+  resolvedType: external_exports.string(),
+  collectionId: external_exports.string(),
+  valuesByMode: external_exports.record(external_exports.string(), SerializedVariableValueSchema),
+  /**
+   * Designer-declared code-side name per platform (WEB / ANDROID / iOS → e.g. `--color-primary`) —
+   * authoritative naming intent that skips the heuristic Figma-name → code-token join when present.
+   * Omitted when the variable declares none.
+   */
+  codeSyntax: external_exports.record(external_exports.string(), external_exports.string()).optional(),
+  /**
+   * Where Figma offers this variable in its picker (`ALL_FILLS`, `CORNER_RADIUS`, `GAP`, …) — the
+   * designer's own statement of what the token is _for_, which a name-based join can only guess at
+   * (a `size/4` scoped to CORNER_RADIUS is not the same token as one scoped to GAP).
+   *
+   * Omitted when it is Figma's default `['ALL_SCOPES']`: that is what every untouched variable
+   * carries, so emitting it would cost payload on every variable in the file and mean nothing.
+   * Presence therefore signals a deliberate narrowing.
+   *
+   * Plain strings rather than an enum, for the same reason as the easing `type` above: this file is
+   * a hand-written mirror with no compile-time coupling to the typings (1.139 added COLOR_OPACITY),
+   * and a narrow enum here would silently reject a scope a future release adds.
+   */
+  scopes: external_exports.array(external_exports.string()).optional()
+});
+var GetVariableDefsResultSchema = external_exports.object({
+  /** See {@link DisplayP3MarkerSchema}: every COLOR value below is P3 when present. */
+  colorProfile: DisplayP3MarkerSchema.optional(),
+  collections: external_exports.array(SerializedVariableCollectionSchema),
+  variables: external_exports.array(SerializedVariableSchema)
+});
+
+// mcp/vendor/figwright/packages/shared/src/writes.ts
+var MutateResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  nodeId: external_exports.string()
+});
+var TextPropertiesResultSchema = MutateResultSchema.extend({
+  width: external_exports.number(),
+  height: external_exports.number(),
+  /**
+   * Why the box is not what the call asked for: a min / max bound held its size, or Figma did not
+   * apply the mode or line clamp. Absent when it is.
+   */
+  adjusted: external_exports.string().optional()
+});
+var LayoutPropsResultSchema = MutateResultSchema.extend({
+  adjusted: external_exports.string().optional()
+});
+var ApplyAnimationStyleResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  nodeId: external_exports.string(),
+  appliedStyleId: external_exports.string()
+});
+var CreateResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  nodeId: external_exports.string(),
+  name: external_exports.string(),
+  type: external_exports.string()
+});
+var CreateTextResultSchema = CreateResultSchema.extend({
+  width: external_exports.number(),
+  height: external_exports.number(),
+  /** What did not land as asked — set_text_properties' `adjusted`. Absent when everything did. */
+  adjusted: external_exports.string().optional()
+});
+var ImageFillResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  nodeId: external_exports.string(),
+  index: external_exports.number(),
+  imageHash: external_exports.string(),
+  width: external_exports.number(),
+  height: external_exports.number()
+});
+var BatchNodeResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  affected: external_exports.array(external_exports.string())
+});
+var ResizeNodesResultSchema = BatchNodeResultSchema.extend({
+  adjusted: external_exports.array(
+    external_exports.object({
+      nodeId: external_exports.string(),
+      width: external_exports.number(),
+      height: external_exports.number(),
+      reason: external_exports.string()
+    })
+  ).optional(),
+  /**
+   * Texts that reached their size but lost a maxLines line clamp on the way: a new height makes a
+   * fixed box, which shows no line count. Absent when none did.
+   */
+  cleared: external_exports.array(external_exports.object({ nodeId: external_exports.string(), reason: external_exports.string() })).optional()
+});
+var StyleResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  styleId: external_exports.string(),
+  name: external_exports.string()
+});
+var CollectionResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  collectionId: external_exports.string(),
+  defaultModeId: external_exports.string(),
+  name: external_exports.string()
+});
+var DeleteCollectionResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  collectionId: external_exports.string(),
+  name: external_exports.string()
+});
+var ModeResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  modeId: external_exports.string(),
+  name: external_exports.string()
+});
+var UpdateCollectionResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  collectionId: external_exports.string(),
+  name: external_exports.string(),
+  modes: external_exports.array(external_exports.object({ modeId: external_exports.string(), name: external_exports.string() }))
+});
+var DeleteModeResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  collectionId: external_exports.string(),
+  modeId: external_exports.string(),
+  name: external_exports.string()
+});
+var UpdateFlowsResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  pageId: external_exports.string(),
+  flows: external_exports.array(FlowStartingPointSchema)
+});
+var VariableResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  variableId: external_exports.string(),
+  name: external_exports.string(),
+  /** The per-platform declarations now in effect (set_variable_code_syntax echoes them back). */
+  codeSyntax: external_exports.record(external_exports.string(), external_exports.string()).optional()
+});
+var VariableModeResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  nodeId: external_exports.string(),
+  collectionId: external_exports.string(),
+  collectionName: external_exports.string(),
+  modeId: external_exports.string().nullable(),
+  modeName: external_exports.string().nullable()
+});
+var ComponentPropertyResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  componentId: external_exports.string(),
+  propertyId: external_exports.string(),
+  name: external_exports.string()
+});
+var BatchOpSchema = external_exports.object({
+  tool: external_exports.string(),
+  params: external_exports.unknown().optional()
+});
+var BatchResultSchema = external_exports.object({
+  ok: external_exports.literal(true),
+  results: external_exports.array(external_exports.unknown())
+});
+
+// mcp/vendor/figwright/packages/mcp/src/tools/motion-schemas.ts
+var rgba = external_exports.object({
+  r: external_exports.number().min(0).max(1),
+  g: external_exports.number().min(0).max(1),
+  b: external_exports.number().min(0).max(1),
+  a: external_exports.number().min(0).max(1)
+}).describe(
+  "Color as RGBA channels 0\u20131, in the document's colour space (a keyframe colour takes no `space`)"
+);
+var MOTION_EASING_TYPES = [
+  "EASE_IN",
+  "EASE_OUT",
+  "EASE_IN_AND_OUT",
+  "LINEAR",
+  "EASE_IN_BACK",
+  "EASE_OUT_BACK",
+  "EASE_IN_AND_OUT_BACK",
+  "CUSTOM_CUBIC_BEZIER",
+  "GENTLE",
+  "QUICK",
+  "BOUNCY",
+  "SLOW",
+  "CUSTOM_SPRING",
+  "HOLD"
+];
+var CUSTOM_EASING_PARAMS = {
+  CUSTOM_CUBIC_BEZIER: ["easingFunctionCubicBezier", "{ x1, y1, x2, y2 }"],
+  CUSTOM_SPRING: ["easingFunctionSpring", "{ bounce } (0\u20131)"]
+};
+var requireCustomEasingParams = (easing, ctx) => {
+  if (easing.type !== "CUSTOM_CUBIC_BEZIER" && easing.type !== "CUSTOM_SPRING") return;
+  const [param, shape] = CUSTOM_EASING_PARAMS[easing.type];
+  if (easing[param] === void 0) {
+    ctx.addIssue({
+      code: "custom",
+      path: [param],
+      message: `${easing.type} needs ${param}: ${shape}`
+    });
+  }
+};
+var easingParams = {
+  easingFunctionCubicBezier: external_exports.object({ x1: external_exports.number(), y1: external_exports.number(), x2: external_exports.number(), y2: external_exports.number() }).describe('Bezier control points; required for type "CUSTOM_CUBIC_BEZIER"').optional(),
+  easingFunctionSpring: external_exports.object({ bounce: external_exports.number().min(0).max(1) }).describe('Normalized bounce 0\u20131; required for type "CUSTOM_SPRING"').optional()
+};
+var motionEasingSchema = external_exports.object({ type: external_exports.enum(MOTION_EASING_TYPES), ...easingParams }).superRefine(requireCustomEasingParams).describe(
+  "Motion easing: a named preset, or CUSTOM_CUBIC_BEZIER / CUSTOM_SPRING with its parameters"
+);
+var variableEasingSchema = external_exports.looseObject({ type: external_exports.enum(MOTION_EASING_TYPES), ...easingParams }).superRefine(requireCustomEasingParams);
+var keyframeValueSchema = external_exports.discriminatedUnion("type", [
+  external_exports.object({ type: external_exports.literal("FLOAT"), value: external_exports.number() }),
+  external_exports.object({ type: external_exports.literal("COLOR"), value: rgba }),
+  external_exports.object({ type: external_exports.literal("TEXT_DATA"), value: external_exports.string() }),
+  external_exports.object({ type: external_exports.literal("VECTOR"), value: external_exports.object({ x: external_exports.number(), y: external_exports.number() }) }),
+  external_exports.object({ type: external_exports.literal("BOOL"), value: external_exports.boolean() }),
+  external_exports.object({
+    type: external_exports.literal("CIRCLE"),
+    value: external_exports.object({ x: external_exports.number(), y: external_exports.number(), radius: external_exports.number() })
+  }),
+  external_exports.object({
+    type: external_exports.literal("LINE"),
+    value: external_exports.object({ x: external_exports.number(), y: external_exports.number(), x2: external_exports.number(), y2: external_exports.number() })
+  }),
+  external_exports.object({
+    type: external_exports.literal("CIRCLE_POINT"),
+    value: external_exports.object({ x: external_exports.number(), y: external_exports.number(), radius: external_exports.number(), angle: external_exports.number() })
+  }),
+  external_exports.object({
+    type: external_exports.literal("COLOR_POINT"),
+    value: external_exports.object({ x: external_exports.number(), y: external_exports.number(), color: rgba })
+  })
+]).describe(
+  "A keyframe value tagged by its animated field type (FLOAT for translate/scale/opacity, \u2026)"
+);
+var motionAliasSchema = SerializedVariableAliasSchema.describe(
+  "Bind to a variable: an EASING variable for an easing, a TIMING variable (seconds) for a delay / duration prop"
+);
+var manualKeyframeInputSchema = external_exports.object({
+  id: external_exports.string().optional(),
+  timelinePosition: external_exports.number().describe("Keyframe position on the timeline, in seconds"),
+  easing: external_exports.union([motionAliasSchema, motionEasingSchema]).describe(
+    'Easing of the segment arriving at this keyframe: a literal easing, or an EASING variable alias { type: "VARIABLE_ALIAS", id }'
+  ).optional(),
+  value: keyframeValueSchema
+});
+var manualKeyframeTrackInputSchema = external_exports.object({
+  id: external_exports.string().optional(),
+  baseValue: keyframeValueSchema.describe("The value before the first keyframe").optional(),
+  keyframes: external_exports.array(manualKeyframeInputSchema).min(1).describe("Keyframes in timeline order")
+});
+var KEYFRAME_PROPERTY_FIELDS = [
+  "CORNER_RADIUS",
+  "STROKE_WEIGHT",
+  "STACK_SPACING",
+  "STACK_PADDING_LEFT",
+  "STACK_PADDING_TOP",
+  "STACK_PADDING_RIGHT",
+  "STACK_PADDING_BOTTOM",
+  "WIDTH",
+  "HEIGHT",
+  "RECTANGLE_TOP_LEFT_CORNER_RADIUS",
+  "RECTANGLE_TOP_RIGHT_CORNER_RADIUS",
+  "RECTANGLE_BOTTOM_LEFT_CORNER_RADIUS",
+  "RECTANGLE_BOTTOM_RIGHT_CORNER_RADIUS",
+  "BORDER_TOP_WEIGHT",
+  "BORDER_BOTTOM_WEIGHT",
+  "BORDER_LEFT_WEIGHT",
+  "BORDER_RIGHT_WEIGHT",
+  "STACK_COUNTER_SPACING",
+  "OPACITY",
+  "GRID_ROW_GAP",
+  "GRID_COLUMN_GAP",
+  "TRANSLATION_X",
+  "TRANSLATION_Y",
+  "TRANSLATION_XY",
+  "ROTATION",
+  "SCALE_X",
+  "SCALE_Y",
+  "SCALE_XY",
+  "PATH_TRIM_START",
+  "PATH_TRIM_END"
+];
+var EFFECT_KEYFRAME_FIELDS = [
+  "OFFSET_X",
+  "OFFSET_Y",
+  "RADIUS",
+  "SPREAD",
+  "COLOR",
+  "REFRACTION_RADIUS",
+  "SPECULAR_ANGLE",
+  "SPECULAR_INTENSITY",
+  "CHROMATIC_ABERRATION",
+  "SPLAY",
+  "REFRACTION_INTENSITY",
+  "START_RADIUS",
+  "NOISE_SIZE_X",
+  "NOISE_SIZE_Y",
+  "DENSITY",
+  "EFFECT_OPACITY",
+  "SECONDARY_COLOR"
+];
+var keyframeFieldSchema = external_exports.discriminatedUnion("type", [
+  external_exports.object({ type: external_exports.literal("PROPERTY"), name: external_exports.enum(KEYFRAME_PROPERTY_FIELDS) }),
+  external_exports.object({
+    type: external_exports.literal("INDEXED_ITEM"),
+    collection: external_exports.enum(["fills", "strokes", "effects"]),
+    index: external_exports.number().int().min(0),
+    field: external_exports.enum(EFFECT_KEYFRAME_FIELDS).describe('Effect sub-field to animate; only when collection is "effects"').optional(),
+    propertyId: external_exports.string().describe("Animate a bound component-property on the paint/effect instead of a field").optional()
+  })
+]).describe(
+  "Which field a keyframe track drives: a node PROPERTY or an INDEXED_ITEM in fills/strokes/effects"
+);
+var animationStyleConfigSchema = external_exports.object({
+  duration: external_exports.number().positive().describe("Duration in seconds").optional(),
+  timelineOffset: external_exports.number().describe("Start offset in seconds; use index * step for staggered entrances").optional(),
+  props: external_exports.record(
+    external_exports.string(),
+    external_exports.union([external_exports.string(), external_exports.number(), external_exports.boolean(), motionAliasSchema, motionEasingSchema])
+  ).describe(
+    'Preset-specific props (e.g. direction, distance, easing, delay, duration) keyed by prop name. Any prop may be a variable alias { type: "VARIABLE_ALIAS", id }: easing takes an EASING variable, delay / duration a TIMING variable (seconds)'
+  ).optional()
+});
+var videoExportConstraintSchema = external_exports.union([
+  external_exports.object({
+    type: external_exports.literal("SCALE"),
+    value: external_exports.union([
+      external_exports.literal(0.5),
+      external_exports.literal(0.75),
+      external_exports.literal(1),
+      external_exports.literal(1.5),
+      external_exports.literal(2),
+      external_exports.literal(3),
+      external_exports.literal(4)
+    ])
+  }),
+  external_exports.object({ type: external_exports.literal("WIDTH"), value: external_exports.number().positive() }),
+  external_exports.object({ type: external_exports.literal("HEIGHT"), value: external_exports.number().positive() })
+]).describe("Output size: a SCALE multiplier (0.5/0.75/1/1.5/2/3/4) or a fixed WIDTH/HEIGHT in px");
+
+// mcp/vendor/figwright/packages/mcp/src/tools/apply-animation-style.ts
+var APPLY_ANIMATION_STYLE_TOOL_NAME = "apply_animation_style";
+var applyAnimationStyleTool = {
+  name: APPLY_ANIMATION_STYLE_TOOL_NAME,
+  description: "Apply a Figma Motion animation-style preset to a node (get styleIds from get_motion_styles). config tunes it: duration (seconds), timelineOffset (seconds \u2014 the lever for staggered entrances: give each node index * step), and preset-specific props. Returns { ok, nodeId, appliedStyleId } \u2014 keep appliedStyleId to remove exactly this instance later. To stagger a whole row in one atomic, undoable call, drive N apply_animation_style ops through `batch` with increasing timelineOffset. Motion is a Figma-Design-only beta feature.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id to animate"),
+    styleId: external_exports.string().describe("A styleId from get_motion_styles"),
+    config: animationStyleConfigSchema.describe("Optional tuning: duration, timelineOffset (for stagger), preset props").optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/apply-manual-keyframe-track.ts
+var APPLY_MANUAL_KEYFRAME_TRACK_TOOL_NAME = "apply_manual_keyframe_track";
+var applyManualKeyframeTrackTool = {
+  name: APPLY_MANUAL_KEYFRAME_TRACK_TOOL_NAME,
+  description: "Set a hand-authored Figma Motion keyframe track on a node for one field \u2014 e.g. TRANSLATION_X, OPACITY, ROTATION, SCALE_XY, or an indexed fills / strokes / effects item. `field` selects what to animate; `track` carries an optional baseValue plus keyframes (each with timelinePosition in seconds, a typed value, and optional easing). Replaces any existing track on that field. Returns { ok, nodeId }. Motion is a Figma-Design-only beta feature.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id to keyframe"),
+    field: keyframeFieldSchema,
+    track: manualKeyframeTrackInputSchema.describe("baseValue + keyframes for this field")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/apply-style-to-node.ts
+var APPLY_STYLE_TO_NODE_TOOL_NAME = "apply_style_to_node";
+var applyStyleToNodeTool = {
+  name: APPLY_STYLE_TO_NODE_TOOL_NAME,
+  description: "Bind a shared style to a node. `field` selects which slot the style applies to: fill / stroke / effect / grid / text. Use a style id already available in this file (including get_node or get_design_context styleIds); for a library style, call import_style with its key in the target file and apply the returned styleId, not the key or a source-file id. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node to apply the style to"),
+    styleId: external_exports.string().describe("Style id to bind"),
+    field: external_exports.enum(["fill", "stroke", "effect", "grid", "text"])
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/bind-component-property.ts
+var BIND_COMPONENT_PROPERTY_TOOL_NAME = "bind_component_property";
+var bindComponentPropertyTool = {
+  name: BIND_COMPONENT_PROPERTY_TOOL_NAME,
+  description: `Attach a declared component property (from add_component_property) to a sublayer field so it drives that layer: field "visible" for a BOOLEAN, "characters" for a TEXT (the node must be a TEXT node), "mainComponent" for an INSTANCE_SWAP (the node must be an INSTANCE). The same property can be bound to several layers (call once per layer). Pass propertyId: null to remove the binding on that field. The property's type must match the field and it must exist on the containing component. Returns { ok, nodeId }.`,
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Sublayer inside the component to bind on"),
+    field: external_exports.enum(["visible", "characters", "mainComponent"]).describe("Which layer field the property drives"),
+    propertyId: external_exports.string().nullable().describe("Property id (name#id) to bind, or null to unbind this field")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/bind-variable-to-node.ts
+var BIND_VARIABLE_TO_NODE_TOOL_NAME = "bind_variable_to_node";
+var bindVariableToNodeTool = {
+  name: BIND_VARIABLE_TO_NODE_TOOL_NAME,
+  description: "Bind a variable to a node field (e.g. width, height, characters, itemSpacing, topLeftRadius, or cornerRadius to bind all four corners at once), or unbind by passing variableId: null. The variable's resolvedType must match the field's type. To bind a fill or stroke color use bind_variable_to_paint instead; get local variable ids from get_variable_defs. For a library variable, call import_variable with its key in the target file and bind the returned variableId (not the key or a source-file id). Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node to bind on"),
+    field: external_exports.string().describe('Bindable field name, e.g. "width"'),
+    variableId: external_exports.string().nullable().describe("Variable id to bind, or null to remove the binding on this field")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/bind-variable-to-paint.ts
+var BIND_VARIABLE_TO_PAINT_TOOL_NAME = "bind_variable_to_paint";
+var bindVariableToPaintTool = {
+  name: BIND_VARIABLE_TO_PAINT_TOOL_NAME,
+  description: "Bind a COLOR variable to a SOLID fill or stroke paint (the design-token way to colour a node) \u2014 or unbind by passing variableId: null. Figma stores fill/stroke colour bindings on the paint, not the node, so this is separate from bind_variable_to_node (which covers scalar fields like width / padding / radius). target is fills (default) or strokes; index selects which paint (default 0). The paint at that index must be SOLID. Binding replaces the paint's opacity with the variable's alpha, so a 50% fill bound to an opaque variable ends up opaque; for a translucent token, bind a variable whose value carries that alpha. For a library variable, call import_variable with its key in the target file and bind the returned variableId. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node whose fill/stroke paint to bind"),
+    target: external_exports.enum(["fills", "strokes"]).optional().describe("Which paint list to bind on (default fills)"),
+    index: external_exports.number().int().min(0).optional().describe("Index of the paint within the list (default 0)"),
+    variableId: external_exports.string().nullable().describe("COLOR variable id to bind, or null to remove the binding")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/boolean-nodes.ts
+var BOOLEAN_NODES_TOOL_NAME = "boolean_nodes";
+var booleanNodesTool = {
+  name: BOOLEAN_NODES_TOOL_NAME,
+  description: "Combine shapes into one editable boolean group: UNION merges them, SUBTRACT cuts the upper layers out of the lowest one (a ring from a circle and a smaller circle; the order is the layer stacking, not the order of nodeIds), INTERSECT keeps only the overlap, EXCLUDE keeps everything except the overlap. Like Figma\u2019s own Boolean command, the result takes the fill and effects (or the fill / effect style) of the topmost operand \u2014 of the lowest for SUBTRACT \u2014 and no stroke; set_strokes on the result if it needs one. The operands stay inside the result as its children, so it can still be unpicked; use flatten_nodes to bake it into one vector. The nodes must share a parent, and the result takes their place there. Needs at least 2 distinct nodes. Not allowed inside a batch. Returns { ok, nodeId, name, type }.",
+  inputSchema: external_exports.object({
+    operation: external_exports.enum(["UNION", "SUBTRACT", "INTERSECT", "EXCLUDE"]),
+    nodeIds: external_exports.array(external_exports.string()).min(2).describe("Shapes to combine (2 or more, one parent)"),
+    name: external_exports.string().optional().describe("Name for the resulting layer")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/combine-as-variants.ts
+var COMBINE_AS_VARIANTS_TOOL_NAME = "combine_as_variants";
+var combineAsVariantsTool = {
+  name: COMBINE_AS_VARIANTS_TOOL_NAME,
+  description: `Combine two or more existing COMPONENT nodes into a single COMPONENT_SET (a variant set). Name each component with Figma variant syntax (e.g. "Size=Small", "Size=Large") beforehand so the set derives its properties. The components are reparented into the new set under parentId (default: the first component's current parent). Returns { ok, nodeId, name, type }.`,
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).min(2).describe("Component node ids to combine (all must be COMPONENT nodes; at least 2)"),
+    parentId: external_exports.string().optional().describe("Parent to place the set under (default: the first component's parent)"),
+    name: external_exports.string().optional().describe("Optional name for the resulting component set")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-component.ts
+var CREATE_COMPONENT_TOOL_NAME = "create_component";
+var createComponentTool = {
+  name: CREATE_COMPONENT_TOOL_NAME,
+  description: "Create a reusable main component. Pass fromNodeId to convert an existing node into a component (e.g. a frame of vectors from import_svg, or a built layout) \u2014 it keeps the node's position and parent unless parentId is given; omit fromNodeId to create an empty component to build into. Then create_instance the result to reuse it. Optionally sized / named / positioned and placed under a parent (default: current page). Returns { ok, nodeId, name, type }.",
+  inputSchema: external_exports.object({
+    fromNodeId: external_exports.string().optional().describe("Convert this existing node into a component (default: create an empty component)"),
+    parentId: external_exports.string().optional().describe("Parent node id (default: current page)"),
+    name: external_exports.string().optional(),
+    x: external_exports.number().optional(),
+    y: external_exports.number().optional(),
+    width: external_exports.number().min(0).optional().describe("Width in px; alone, the height stays at 100 (or that of the node converted)"),
+    height: external_exports.number().min(0).optional().describe("Height in px; alone, the width stays at 100 (or that of the node converted)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/binding-schema.ts
+var boundVariablesSchema = external_exports.record(external_exports.string(), external_exports.string()).describe(
+  'Variable bindings for this object as { field: variableId }, e.g. { "color": "VariableID:5:12" } \u2014 round-trips what get_node / get_styles report. The bound field then tracks the variable instead of the literal next to it. Omit to leave the value unbound: writing without it CLEARS any binding the object had.'
+);
+var textStyleBindingsSchema = external_exports.record(external_exports.string(), external_exports.union([external_exports.string(), external_exports.null()])).describe(
+  "Typography bindings as { field: variableId }: fontSize / lineHeight / letterSpacing / paragraphSpacing / paragraphIndent take a FLOAT variable, fontFamily / fontStyle a STRING one, fontWeight a FLOAT. Pass null for a field to unbind it; omit a field to leave it as it is. A bound field wins over a literal passed for the same field in this call."
+);
+
+// mcp/vendor/figwright/packages/mcp/src/tools/color-space-schema.ts
+var colorSpaceSchema = external_exports.enum(["SRGB", "DISPLAY_P3"]).describe(
+  `The space r/g/b are in. Omit for the document's own space, which is what reads report, so a colour read from Figma writes back unchanged. A colour from code (CSS hex / rgb(), a design token) is sRGB: pass "SRGB" so a Display P3 file shows the same colour as the code instead of a more saturated one.`
+);
+
+// mcp/vendor/figwright/packages/mcp/src/tools/effect-schema.ts
+var rgba2 = external_exports.object({
+  r: external_exports.number(),
+  g: external_exports.number(),
+  b: external_exports.number(),
+  a: external_exports.number(),
+  space: colorSpaceSchema.optional()
+});
+var effectItemSchema = external_exports.object({
+  type: external_exports.enum(["DROP_SHADOW", "INNER_SHADOW", "LAYER_BLUR", "BACKGROUND_BLUR"]),
+  visible: external_exports.boolean(),
+  radius: external_exports.number().describe(
+    "Figma's radius, not a CSS length: a CSS blur(\u03C3) is radius \u03C3 \xF7 0.43, and a box-shadow blur B is radius B \xF7 0.85 (measured)."
+  ).optional(),
+  color: rgba2.describe("Shadow color (RGBA 0\u20131). Required for shadows.").optional(),
+  offset: external_exports.object({ x: external_exports.number(), y: external_exports.number() }).describe("Shadow offset in px. Required for shadows.").optional(),
+  spread: external_exports.number().optional(),
+  showShadowBehindNode: external_exports.boolean().describe(
+    "DROP_SHADOW only: also draw the shadow through the node's translucent areas. Omit for false, which is what a CSS box-shadow draws; a shadow read from Figma carries it only when true."
+  ).optional(),
+  blendMode: external_exports.string().describe(
+    'Shadows only: the blend mode the shadow is composited with, e.g. "MULTIPLY". Omit for NORMAL.'
+  ).optional(),
+  boundVariables: boundVariablesSchema.describe(
+    "Bindable fields: color (COLOR variable) and radius / spread / offsetX / offsetY (FLOAT)."
+  ).optional()
+}).loose();
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-effect-style.ts
+var CREATE_EFFECT_STYLE_TOOL_NAME = "create_effect_style";
+var createEffectStyleTool = {
+  name: CREATE_EFFECT_STYLE_TOOL_NAME,
+  description: "Create a local effect style. Shadows (DROP_SHADOW / INNER_SHADOW) need color + offset; blurs (LAYER_BLUR / BACKGROUND_BLUR) need radius. Returns { ok, styleId, name }.",
+  inputSchema: external_exports.object({
+    name: external_exports.string().describe('Style name, e.g. "Elevation/Card"'),
+    effects: external_exports.array(effectItemSchema),
+    description: external_exports.string().optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/paint-schema.ts
+var rgb = external_exports.object({
+  r: external_exports.number(),
+  g: external_exports.number(),
+  b: external_exports.number(),
+  space: colorSpaceSchema.optional()
+});
+var rgba3 = external_exports.object({
+  r: external_exports.number(),
+  g: external_exports.number(),
+  b: external_exports.number(),
+  a: external_exports.number(),
+  space: colorSpaceSchema.optional()
+});
+var paintItemSchema = external_exports.object({
+  type: external_exports.enum([
+    "SOLID",
+    "GRADIENT_LINEAR",
+    "GRADIENT_RADIAL",
+    "GRADIENT_ANGULAR",
+    "GRADIENT_DIAMOND"
+  ]),
+  color: rgb.describe("SOLID color (r/g/b in 0\u20131)").optional(),
+  gradientStops: external_exports.array(
+    external_exports.object({
+      position: external_exports.number(),
+      color: rgba3,
+      // A stop binds its colour independently of its siblings, so the binding rides here.
+      boundVariables: boundVariablesSchema.optional()
+    })
+  ).describe("Gradient stops (position 0\u20131 + RGBA color); required for gradient types").optional(),
+  gradientTransform: external_exports.array(external_exports.array(external_exports.number())).describe("2\xD73 affine matrix (two rows of three) positioning the gradient").optional(),
+  opacity: external_exports.number().optional(),
+  visible: external_exports.boolean().optional(),
+  // The opacity rule is Figma's, measured on every tool that takes this schema (set_fills,
+  // set_strokes, set_text_range, create_paint_style, update_paint_style): a bound paint's opacity
+  // is replaced by the variable's alpha when written, even when given explicitly.
+  boundVariables: boundVariablesSchema.describe(
+    'SOLID only: { "color": variableId } binds the paint colour to a COLOR variable, whose alpha then replaces opacity.'
+  ).optional()
+}).loose();
+var fillPaintItemSchema = paintItemSchema.extend({
+  type: external_exports.enum([
+    "SOLID",
+    "GRADIENT_LINEAR",
+    "GRADIENT_RADIAL",
+    "GRADIENT_ANGULAR",
+    "GRADIENT_DIAMOND",
+    "PATTERN"
+  ]),
+  sourceNodeId: external_exports.string().describe("PATTERN: the node whose artwork is tiled (any layer in the file)").optional(),
+  tileType: external_exports.enum(["RECTANGULAR", "HORIZONTAL_HEXAGONAL", "VERTICAL_HEXAGONAL"]).describe("PATTERN: a plain grid, or rows / columns offset by half a tile").optional(),
+  scalingFactor: external_exports.number().positive().describe("PATTERN: the tile\u2019s size as a multiple of the source node\u2019s (default 1)").optional(),
+  spacing: external_exports.object({ x: external_exports.number(), y: external_exports.number() }).describe("PATTERN: the gap between tiles as a fraction of the tile\u2019s size (default 0, 0)").optional(),
+  horizontalAlignment: external_exports.enum(["START", "CENTER", "END"]).describe("PATTERN: where the tiling is anchored horizontally (default START)").optional(),
+  verticalAlignment: external_exports.enum(["START", "CENTER", "END"]).describe("PATTERN: where the tiling is anchored vertically (default START)").optional()
+}).loose();
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-auto-layout.ts
+var SET_AUTO_LAYOUT_TOOL_NAME = "set_auto_layout";
+var setAutoLayoutTool = {
+  name: SET_AUTO_LAYOUT_TOOL_NAME,
+  description: "Configure a frame's auto layout. layoutMode NONE disables it; HORIZONTAL/VERTICAL enable flex (padding / itemSpacing / alignment / wrap, plus counterAxisSpacing / counterAxisAlignContent for the wrapped cross axis \u2014 the CSS row-gap (column-gap when VERTICAL) / align-content \u2014 and itemReverseZIndex / strokesIncludedInLayout for paint order and stroke-in-layout); GRID enables CSS-Grid-style layout (padding / gridRowCount / gridColumnCount / gridRowGap / gridColumnGap, plus gridItemsPositioning / gridAutoTracks for children that flow into cells by order and rows that grow with them). Setting GRID on a frame that is already a grid keeps its tracks and placements. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string(),
+    layoutMode: external_exports.enum(["NONE", "HORIZONTAL", "VERTICAL", "GRID"]),
+    paddingTop: external_exports.number().optional(),
+    paddingRight: external_exports.number().optional(),
+    paddingBottom: external_exports.number().optional(),
+    paddingLeft: external_exports.number().optional(),
+    // HORIZONTAL / VERTICAL
+    itemSpacing: external_exports.number().optional(),
+    primaryAxisAlignItems: external_exports.enum(["MIN", "CENTER", "MAX", "SPACE_BETWEEN", "SPACE_EVENLY", "SPACE_AROUND"]).optional().describe(
+      "Main-axis distribution (CSS justify-content). MIN / CENTER / MAX pack the children; the SPACE_* values spread them \u2014 SPACE_BETWEEN puts the extra space only between children (first and last flush with the edges), SPACE_EVENLY makes every gap equal including the two edge gaps, SPACE_AROUND gives each child equal space on both sides so the edge gaps are half the gaps between children"
+    ),
+    counterAxisAlignItems: external_exports.enum(["MIN", "CENTER", "MAX", "BASELINE"]).optional(),
+    layoutWrap: external_exports.enum(["NO_WRAP", "WRAP"]).optional(),
+    counterAxisSpacing: external_exports.number().min(0).optional().describe(
+      "Cross-axis gap between wrapped tracks (px): rows of a HORIZONTAL wrap (CSS row-gap), columns of a VERTICAL one (CSS column-gap). Requires layoutWrap WRAP (settable in the same call); ignored under counterAxisAlignContent SPACE_BETWEEN"
+    ),
+    counterAxisAlignContent: external_exports.enum(["AUTO", "SPACE_BETWEEN"]).optional().describe(
+      "How wrapped tracks distribute along the cross axis: AUTO packs them at counterAxisSpacing, SPACE_BETWEEN spreads them (align-content). Requires layoutWrap WRAP"
+    ),
+    itemReverseZIndex: external_exports.boolean().optional().describe(
+      "Paint later siblings UNDER earlier ones (reversed canvas order) \u2014 the stacked-avatars / overlapping-cards pattern, usually with negative itemSpacing. HORIZONTAL/VERTICAL only"
+    ),
+    strokesIncludedInLayout: external_exports.boolean().optional().describe(
+      "Make strokes take up layout space (gaps/padding grow by the stroke weight); Figma defaults to excluding them. HORIZONTAL/VERTICAL only"
+    ),
+    // GRID
+    gridRowCount: external_exports.number().int().positive().optional(),
+    gridColumnCount: external_exports.number().int().positive().optional(),
+    gridRowGap: external_exports.number().optional(),
+    gridColumnGap: external_exports.number().optional(),
+    gridItemsPositioning: external_exports.enum(["MANUAL", "ROW_AUTO_FLOW"]).optional().describe(
+      "How children take cells: MANUAL (the default) pins each child to its own cell; ROW_AUTO_FLOW places them by layer order, left to right then top to bottom (CSS grid-auto-flow: row) \u2014 a list rendered from data. GRID only"
+    ),
+    gridAutoTracks: external_exports.enum(["NONE", "ROWS"]).optional().describe(
+      "NONE (the default) keeps gridRowCount; ROWS adds and removes rows as children come and go (CSS grid-auto-rows), and Figma then owns the row count, so gridRowCount is refused unless this call sets NONE. GRID only"
+    )
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/font-name-schema.ts
+var fontNameSchema = external_exports.object({
+  family: external_exports.string().describe('Font family, e.g. "Inter"'),
+  style: external_exports.string().optional().describe(
+    'Named instance, e.g. "Bold". Omit to let Figma pick the one closest to variationSettings'
+  ),
+  variationSettings: external_exports.record(external_exports.string(), external_exports.number()).optional().describe(
+    'Variable-font axis values by OpenType tag, e.g. { "wght": 650, "slnt": -5 } \u2014 the same shape as CSS font-variation-settings. Only for a variable family; get_fonts reports which tags each family accepts under variationAxes, and setting a tag the family does not define throws. An omitted axis keeps the named instance default.'
+  )
+}).describe("Font: { family, style?, variationSettings? }");
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-text-properties.ts
+var SET_TEXT_PROPERTIES_TOOL_NAME = "set_text_properties";
+var lineHeight = external_exports.union([
+  external_exports.object({ unit: external_exports.literal("AUTO") }),
+  external_exports.object({ unit: external_exports.enum(["PIXELS", "PERCENT"]), value: external_exports.number() })
+]).describe('Line height: { unit: "AUTO" } or { unit: "PIXELS" | "PERCENT", value }');
+var letterSpacing = external_exports.object({ unit: external_exports.enum(["PIXELS", "PERCENT"]), value: external_exports.number() }).describe('Letter spacing: { unit: "PIXELS" | "PERCENT", value }');
+var setTextPropertiesTool = {
+  name: SET_TEXT_PROPERTIES_TOOL_NAME,
+  description: `Set a TEXT node's (or text on a path's) typography and layout/overflow properties. Typography: fontName ({ family, style?, variationSettings? } \u2014 variationSettings carries a variable font's axis values, e.g. { wght: 650 }), fontSize, lineHeight, letterSpacing, textCase, textDecoration, paragraphSpacing / paragraphIndent (px between / indenting the paragraphs the text splits into at "\\n" \u2014 the write half of the same fields get_design_context reads), textWrapStyle (BALANCE evens the line lengths of a heading, PRETTY avoids an orphan last word \u2014 the same three values as CSS text-wrap) \u2014 these load the required fonts first. Alignment: textAlignHorizontal (CSS text-align; JUSTIFIED = justify) and textAlignVertical (where the text sits in a box taller than it \u2014 it only shows with a fixed height, textAutoResize NONE or WIDTH_AND_HEIGHT hugging leaves no slack). Layout/overflow: textTruncation (ellipsis), maxLines (line clamp), textAutoResize, and the box size: width alone wraps the text at that width and lets its height follow (auto-width text becomes auto height; a fixed box keeps its height), width + height make a fixed box, and height alone fixes the height at the current width \u2014 the way to size text, since resize_nodes leaves it a fixed box its wrapped lines can overflow. In auto layout a sized axis becomes FIXED, and a width / height passed replaces a variable bound to it, as resize_nodes does. A width / height that textAutoResize in the same call would undo (WIDTH_AND_HEIGHT; HEIGHT with a height) is refused. A box being fixed keeps the height its text showed: textAutoResize NONE / TRUNCATE on auto-sized text fixes it as it is, and with a width it is re-fitted there first (FigJam keeps a fixed text box at least as tall as its text). Any field may be omitted to leave it unchanged, with the one exception Figma imposes: maxLines (a line clamp) shows only on auto-sized text with textTruncation ENDING, so a box being fixed keeps its ellipsis but shows no line count (a fixed box truncates at its own edge), turning the ellipsis off clears it, and turning it on for auto-sized text sets it to 1. A maxLines the box would not show is left out and named in adjusted; the rest of the call still applies. A text also keeps one truncation limit, a line count or a maxHeight bound (set_layout_props), so maxLines clears a maxHeight, named in adjusted too. Text on a path (TEXT_PATH) takes fontName, fontSize, letterSpacing, textCase and the two alignments \u2014 on a path textAlignHorizontal anchors the text at its start point and textAlignVertical picks the side of the path; the line, paragraph, decoration and box fields are refused there. Inside an instance, whose layers Figma mostly will not resize, a box change that needs a resize (a new size, or re-fitting it at a new width) is refused before anything is written; NONE / TRUNCATE fixing auto-sized text where it stands needs none. Returns { ok, nodeId, width, height, adjusted? } \u2014 the size the text ends at, read back; adjusted says why the box is not what was asked (a min / max bound held its size, Figma did not apply the mode or clamp, a maxLines was left out, or a maxHeight was cleared).`,
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("TEXT node id"),
+    // Typography (font load happens automatically when any of these is set)
+    fontName: fontNameSchema.optional(),
+    fontSize: external_exports.number().positive().optional().describe("Font size in px"),
+    lineHeight: lineHeight.optional(),
+    letterSpacing: letterSpacing.optional(),
+    paragraphSpacing: external_exports.number().min(0).optional().describe('Space between paragraphs in px (paragraphs split at "\\n")'),
+    paragraphIndent: external_exports.number().min(0).optional().describe("First-line indent of each paragraph in px"),
+    textWrapStyle: external_exports.enum(["AUTO", "BALANCE", "PRETTY"]).optional().describe("How each paragraph balances its line breaks; maps 1:1 to CSS text-wrap"),
+    textCase: external_exports.enum(["ORIGINAL", "UPPER", "LOWER", "TITLE", "SMALL_CAPS", "SMALL_CAPS_FORCED"]).optional(),
+    textDecoration: external_exports.enum(["NONE", "UNDERLINE", "STRIKETHROUGH"]).optional(),
+    textAlignHorizontal: external_exports.enum(["LEFT", "CENTER", "RIGHT", "JUSTIFIED"]).optional().describe("Horizontal alignment of the lines within the text box (CSS text-align)"),
+    textAlignVertical: external_exports.enum(["TOP", "CENTER", "BOTTOM"]).optional().describe("Vertical alignment of the text within a box taller than its content"),
+    // Layout / overflow (no font load needed)
+    textTruncation: external_exports.enum(["DISABLED", "ENDING"]).optional().describe("ENDING truncates with an ellipsis"),
+    maxLines: external_exports.number().nullable().optional().describe("Max lines before truncation; null = unlimited"),
+    textAutoResize: external_exports.enum(["NONE", "HEIGHT", "WIDTH_AND_HEIGHT", "TRUNCATE"]).optional().describe("How the text box resizes to its content"),
+    width: external_exports.number().min(0.01).optional().describe("Text box width in px; the text wraps at it (auto-width text becomes auto height)"),
+    height: external_exports.number().min(0.01).optional().describe("Text box height in px; fixes the box (textAutoResize NONE)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/initial-props-schema.ts
+var initialStyleShape = {
+  fills: external_exports.array(fillPaintItemSchema).optional().describe("Fills to apply on creation (as set_fills)"),
+  strokes: external_exports.array(fillPaintItemSchema).optional().describe("Stroke paints to apply on creation (as set_strokes)"),
+  strokeWeight: external_exports.number().min(0).optional().describe("Uniform stroke thickness in px"),
+  strokeAlign: external_exports.enum(["INSIDE", "OUTSIDE", "CENTER"]).optional().describe("Stroke position relative to the geometry"),
+  layoutSizingHorizontal: external_exports.enum(["FIXED", "HUG", "FILL"]).optional().describe("Horizontal sizing (as set_layout_props); FILL needs an auto-layout parent"),
+  layoutSizingVertical: external_exports.enum(["FIXED", "HUG", "FILL"]).optional().describe("Vertical sizing (as set_layout_props); FILL needs an auto-layout parent")
+};
+var initialRadiusShape = {
+  cornerRadius: external_exports.number().min(0).optional().describe("Uniform corner radius in px")
+};
+var initialFrameShape = {
+  autoLayout: setAutoLayoutTool.inputSchema.omit({ nodeId: true }).optional().describe(
+    "Auto layout to enable on creation \u2014 the same fields as set_auto_layout (layoutMode, padding*, itemSpacing, primaryAxisAlignItems, counterAxisAlignItems, \u2026)"
+  ),
+  clipsContent: external_exports.boolean().optional().describe("Clip children to the frame bounds")
+};
+var initialTextShape = setTextPropertiesTool.inputSchema.omit({ nodeId: true }).shape;
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-ellipse.ts
+var CREATE_ELLIPSE_TOOL_NAME = "create_ellipse";
+var createEllipseTool = {
+  name: CREATE_ELLIPSE_TOOL_NAME,
+  description: "Create an ellipse (a circle when width equals height), optionally sized/named/positioned under a parent (default: current page). To turn it into a pie, arc, or ring afterwards use set_arc. fills, strokes and layoutSizing* style it in the same call. Returns { ok, nodeId, name, type }.",
+  inputSchema: external_exports.object({
+    parentId: external_exports.string().optional().describe("Parent node id (default: current page)"),
+    name: external_exports.string().optional().describe("Layer name"),
+    x: external_exports.number().optional().describe("X position in the parent"),
+    y: external_exports.number().optional().describe("Y position in the parent"),
+    width: external_exports.number().min(0).optional().describe("Width in px; alone, the height stays at 100"),
+    height: external_exports.number().min(0).optional().describe("Height in px; alone, the width stays at 100"),
+    ...initialStyleShape
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/grid-schema.ts
+var gridItemSchema = external_exports.object({
+  pattern: external_exports.enum(["GRID", "ROWS", "COLUMNS"]),
+  visible: external_exports.boolean(),
+  sectionSize: external_exports.number().optional().describe("Cell size for GRID; section size for ROWS/COLUMNS (ignored when STRETCH)"),
+  count: external_exports.number().optional().describe("Number of columns/rows (ROWS/COLUMNS)"),
+  gutterSize: external_exports.number().optional().describe("Gap between columns/rows (ROWS/COLUMNS)"),
+  alignment: external_exports.enum(["MIN", "MAX", "CENTER", "STRETCH"]).optional(),
+  offset: external_exports.number().optional().describe("Page margin from the frame edge (ignored when CENTER)"),
+  boundVariables: boundVariablesSchema.describe("Bindable fields: sectionSize / count / offset / gutterSize (FLOAT variables).").optional()
+}).loose();
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-grid-style.ts
+var CREATE_GRID_STYLE_TOOL_NAME = "create_grid_style";
+var createGridStyleTool = {
+  name: CREATE_GRID_STYLE_TOOL_NAME,
+  description: "Create a reusable local layout-grid style for aligning content. Each grid pattern is GRID (uniform squares via sectionSize) or ROWS / COLUMNS (count + gutterSize + alignment). Apply it to frames with apply_style_to_node. Returns { ok, styleId, name }.",
+  inputSchema: external_exports.object({
+    name: external_exports.string().describe('Style name, e.g. "Layout/8pt"'),
+    grids: external_exports.array(gridItemSchema),
+    description: external_exports.string().optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-instance.ts
+var CREATE_INSTANCE_TOOL_NAME = "create_instance";
+var createInstanceTool = {
+  name: CREATE_INSTANCE_TOOL_NAME,
+  description: "Instantiate a component. Provide componentId (a local COMPONENT node) or componentKey (a published component imported via the API). Optionally name / position / parent the instance. Returns { ok, nodeId, name, type } for the new instance.",
+  inputSchema: external_exports.object({
+    componentId: external_exports.string().optional().describe("Local component node id to instantiate"),
+    componentKey: external_exports.string().optional().describe("Published component key to instantiate"),
+    parentId: external_exports.string().optional().describe("Container node id; omit for current page"),
+    name: external_exports.string().optional().describe("Optional name for the new instance"),
+    x: external_exports.number().optional(),
+    y: external_exports.number().optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-paint-style.ts
+var CREATE_PAINT_STYLE_TOOL_NAME = "create_paint_style";
+var createPaintStyleTool = {
+  name: CREATE_PAINT_STYLE_TOOL_NAME,
+  description: "Create a reusable local paint (color) style from SOLID or gradient paints (same shape as set_fills); use slashes in the name for folder grouping. Apply it to nodes with apply_style_to_node, or edit it later with update_paint_style. Returns { ok, styleId, name }.",
+  inputSchema: external_exports.object({
+    name: external_exports.string().describe('Style name, e.g. "Brand/Primary"'),
+    paints: external_exports.array(paintItemSchema).describe("Paints"),
+    description: external_exports.string().optional().describe("Optional style description")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-shape.ts
+var CREATE_SHAPE_TOOL_NAME = "create_shape";
+var createShapeTool = {
+  name: CREATE_SHAPE_TOOL_NAME,
+  description: "Create a LINE, POLYGON or STAR, optionally sized/positioned and appended to a parent (default: current page). A LINE is a length: `width` is its length (default 100, with the black 1px stroke Figma gives it) and it has no height \u2014 pass strokes / strokeWeight here to style it (caps via set_strokes) and tilt it with rotate_nodes. A POLYGON takes `pointCount` (sides, 3\u201360, default 3) and a STAR takes `pointCount` (points, 3\u201360, default 5) and `innerRadius` (the inner ring as a share of the outer, above 0 and up to 1 \u2014 1 is a regular polygon of twice the points; default 0.38). For rectangles and ellipses use create_rectangle / create_ellipse; to cut or merge shapes use boolean_nodes; for arbitrary vector artwork import_svg. fills, strokes and layoutSizing* style it in the same call. Returns { ok, nodeId, name, type }.",
+  inputSchema: external_exports.object({
+    shape: external_exports.enum(["LINE", "POLYGON", "STAR"]).describe("Which shape to create"),
+    parentId: external_exports.string().optional().describe("Container node id; omit for current page"),
+    name: external_exports.string().optional().describe("Layer name"),
+    x: external_exports.number().optional().describe("X position in the parent"),
+    y: external_exports.number().optional().describe("Y position in the parent"),
+    width: external_exports.number().min(0).optional().describe("Width in px (a LINE\u2019s length)"),
+    height: external_exports.number().min(0).optional().describe("Height in px (POLYGON / STAR only; a LINE has none)"),
+    // Figma caps both at 60 and draws 60 for anything larger without saying so (measured: 100
+    // sides and 200 points both came back as 60), so a larger count is refused, not clamped.
+    pointCount: external_exports.number().int().min(3).max(60).optional().describe("Sides of a POLYGON or points of a STAR, 3\u201360"),
+    // 0 is a degenerate star with no area: Figma accepts it and draws nothing (measured).
+    innerRadius: external_exports.number().gt(0).max(1).optional().describe("STAR only: inner ring as a share of the outer radius, above 0 and up to 1"),
+    ...initialStyleShape
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-text-path.ts
+var CREATE_TEXT_PATH_TOOL_NAME = "create_text_path";
+var createTextPathTool = {
+  name: CREATE_TEXT_PATH_TOOL_NAME,
+  description: "Set text along a path (Figma Draw): turn a shape, line or vector into text that follows its outline \u2014 lettering round a badge or seal, a caption along a curve. The source is consumed (its fill and stroke go; the text is black unless fills says otherwise) and the result takes its place: same parent, stack position and spot on the canvas, under a NEW node id, returned. The path starts where its first segment does and runs clockwise: a rectangle at its top-left corner (4 segments, 8 when its corners are rounded), an ellipse at its rightmost point (4), a polygon or star at its top point (one per side), a line at its start (1), a vector along its own segments. startSegment / startPosition (0\u20131 along that segment) move the start. textAlignHorizontal anchors the text there \u2014 LEFT starts at it, CENTER centres on it, RIGHT ends at it; text running past either end of an open path is not drawn. textAlignVertical TOP sits the baseline on the path (the letters on the outside of a clockwise circle), BOTTOM hangs them on the other side, CENTER straddles it. Restyle it afterwards with set_text, set_text_properties and set_text_range (font, size, case, tracking, links, fills \u2014 text on a path has no line height, decoration, lists or box) and move its start with set_text_path. Not allowed inside a batch. Returns { ok, nodeId, name, type }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("The shape, line or vector to set the text along"),
+    characters: external_exports.string().min(1).describe("The text"),
+    startSegment: external_exports.number().int().min(0).optional().describe("Index of the path segment the text starts on (default 0)"),
+    startPosition: external_exports.number().min(0).max(1).optional().describe("How far along that segment it starts, 0\u20131 (default 0)"),
+    fontName: fontNameSchema.optional(),
+    fontSize: external_exports.number().positive().optional().describe("Font size in px (default 12)"),
+    fills: external_exports.array(fillPaintItemSchema).optional().describe("Text fills (as set_fills)"),
+    textAlignHorizontal: external_exports.enum(["LEFT", "CENTER", "RIGHT", "JUSTIFIED"]).optional().describe("Where the text sits relative to its start (JUSTIFIED spreads it over the path)"),
+    textAlignVertical: external_exports.enum(["TOP", "CENTER", "BOTTOM"]).optional().describe("Which side of the path the letters sit on"),
+    name: external_exports.string().optional().describe("Layer name (default: the text)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-text-style.ts
+var CREATE_TEXT_STYLE_TOOL_NAME = "create_text_style";
+var createTextStyleTool = {
+  name: CREATE_TEXT_STYLE_TOOL_NAME,
+  description: "Create a reusable local text style (a typography token) that can be applied to TEXT nodes with apply_style_to_node. The font is loaded before assignment. lineHeight unit is AUTO / PIXELS / PERCENT (AUTO omits value); letterSpacing unit is PIXELS / PERCENT; textWrapStyle is the wrap balancing (CSS text-wrap) every bound node inherits. For one-off formatting of a single node use set_text_properties instead. Returns { ok, styleId, name }.",
+  inputSchema: external_exports.object({
+    name: external_exports.string().describe('Style name, e.g. "Heading/H1"'),
+    fontName: fontNameSchema.optional(),
+    fontSize: external_exports.number().optional(),
+    lineHeight: external_exports.object({ unit: external_exports.enum(["AUTO", "PIXELS", "PERCENT"]), value: external_exports.number().optional() }).optional(),
+    letterSpacing: external_exports.object({ unit: external_exports.enum(["PIXELS", "PERCENT"]), value: external_exports.number() }).optional(),
+    textWrapStyle: external_exports.enum(["AUTO", "BALANCE", "PRETTY"]).optional().describe(
+      "Line-break balancing every node bound to this style inherits; maps 1:1 to CSS text-wrap"
+    ),
+    boundVariables: textStyleBindingsSchema.optional(),
+    description: external_exports.string().optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-variable-collection.ts
+var CREATE_VARIABLE_COLLECTION_TOOL_NAME = "create_variable_collection";
+var createVariableCollectionTool = {
+  name: CREATE_VARIABLE_COLLECTION_TOOL_NAME,
+  description: "Create a variable collection. Figma auto-creates a default mode. Returns { ok, collectionId, defaultModeId, name }.",
+  inputSchema: external_exports.object({
+    name: external_exports.string().describe('Collection name, e.g. "Theme"')
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-variable.ts
+var CREATE_VARIABLE_TOOL_NAME = "create_variable";
+var VARIABLE_SCOPES = [
+  "ALL_SCOPES",
+  "TEXT_CONTENT",
+  "CORNER_RADIUS",
+  "WIDTH_HEIGHT",
+  "GAP",
+  "ALL_FILLS",
+  "FRAME_FILL",
+  "SHAPE_FILL",
+  "TEXT_FILL",
+  "STROKE_COLOR",
+  "STROKE_FLOAT",
+  "EFFECT_FLOAT",
+  "EFFECT_COLOR",
+  "OPACITY",
+  "COLOR_OPACITY",
+  "FONT_FAMILY",
+  "FONT_STYLE",
+  "FONT_WEIGHT",
+  "FONT_SIZE",
+  "LINE_HEIGHT",
+  "LETTER_SPACING",
+  "PARAGRAPH_SPACING",
+  "PARAGRAPH_INDENT"
+];
+var createVariableTool = {
+  name: CREATE_VARIABLE_TOOL_NAME,
+  description: `Create a variable in a collection with resolvedType BOOLEAN / FLOAT / STRING / COLOR / EASING / TIMING. Set per-mode values with set_variable_value, then attach it with bind_variable_to_node or bind_variable_to_paint \u2014 or, for EASING (a Motion curve) and TIMING (seconds), as a { type: "VARIABLE_ALIAS", id } in a Motion easing or a preset's delay / duration. Optionally pass scopes to narrow where Figma offers the variable in its picker (a radius token scoped to CORNER_RADIUS stops being suggested for width or gap); omit it to leave the variable in every scope, which is Figma's default. Returns { ok, variableId, name }.`,
+  inputSchema: external_exports.object({
+    name: external_exports.string().describe('Variable name, e.g. "color/primary"'),
+    collectionId: external_exports.string().describe("Variable collection id"),
+    resolvedType: external_exports.enum(["BOOLEAN", "FLOAT", "STRING", "COLOR", "EASING", "TIMING"]).describe("Variable data type"),
+    scopes: external_exports.array(external_exports.enum(VARIABLE_SCOPES)).nonempty().optional().describe(
+      'Where Figma offers this variable in its picker, e.g. ["CORNER_RADIUS"] or ["FRAME_FILL","SHAPE_FILL"]. Omit for all scopes. Not available for EASING / TIMING.'
+    )
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/vector-schema.ts
+var point = external_exports.object({ x: external_exports.number(), y: external_exports.number() });
+var vectorPathsSchema = external_exports.array(
+  external_exports.object({
+    windingRule: external_exports.enum(["NONZERO", "EVENODD", "NONE"]).describe(
+      "How the path fills: NONZERO / EVENODD for a closed shape, NONE for an open line"
+    ),
+    data: external_exports.string().min(1).describe(
+      "SVG path data in any syntax \u2014 relative commands, H / V, S / T, arcs and minified icon paths included; it is rewritten into the absolute M / L / C / Q / Z form Figma stores"
+    )
+  })
+).min(1).describe(
+  "Path data with its winding rule; one entry may hold several subpaths (each M starts one)"
+);
+var vectorNetworkSchema = external_exports.object({
+  vertices: external_exports.array(
+    external_exports.object({
+      x: external_exports.number(),
+      y: external_exports.number(),
+      strokeCap: external_exports.enum([
+        "NONE",
+        "ROUND",
+        "SQUARE",
+        "ARROW_LINES",
+        "ARROW_EQUILATERAL",
+        "DIAMOND_FILLED",
+        "TRIANGLE_FILLED",
+        "CIRCLE_FILLED"
+      ]).describe("The end cap drawn at this vertex when it ends an open path (an arrowhead)").optional(),
+      strokeJoin: external_exports.enum(["MITER", "BEVEL", "ROUND"]).optional(),
+      cornerRadius: external_exports.number().min(0).describe("Rounds the corner at this vertex").optional(),
+      handleMirroring: external_exports.enum(["NONE", "ANGLE", "ANGLE_AND_LENGTH"]).optional()
+    })
+  ).min(1),
+  segments: external_exports.array(
+    external_exports.object({
+      start: external_exports.number().int().min(0).describe("Index of the vertex it starts at"),
+      end: external_exports.number().int().min(0).describe("Index of the vertex it ends at"),
+      tangentStart: point.describe("B\xE9zier handle at the start, relative to that vertex ({0,0} = straight)").optional(),
+      tangentEnd: point.describe("B\xE9zier handle at the end, relative to that vertex").optional()
+    })
+  ),
+  regions: external_exports.array(
+    external_exports.object({
+      windingRule: external_exports.enum(["NONZERO", "EVENODD"]),
+      loops: external_exports.array(external_exports.array(external_exports.number().int().min(0))).describe("Each loop lists the segment indices that close it, in order"),
+      fills: external_exports.array(paintItemSchema).describe("This region\u2019s own fills (otherwise the node\u2019s fills apply)").optional()
+    })
+  ).describe("Closed areas that take a fill; omit for a stroke-only drawing").optional()
+}).describe(
+  "Vertices joined by segments \u2014 unlike SVG paths, a vertex may join three or more segments (a branching drawing). Each segment may curve through B\xE9zier tangents."
+);
+
+// mcp/vendor/figwright/packages/mcp/src/tools/create-vector.ts
+var CREATE_VECTOR_TOOL_NAME = "create_vector";
+var createVectorTool = {
+  name: CREATE_VECTOR_TOOL_NAME,
+  description: "Draw a vector \u2014 one editable VECTOR layer, no wrapper frame \u2014 from its geometry: vectorPaths (SVG path data in any syntax \u2014 an icon\u2019s d attribute as is, arcs and relative commands included) or vectorNetwork (Figma\u2019s own form, which can branch and carries per-vertex arrowheads and corner radii). Give exactly one. x / y place the drawing\u2019s origin in the parent, so a point at (10, 4) lands at (x + 10, y + 4); Figma then fits the layer\u2019s box to the drawing, which is where get_vector measures from afterwards. An open path needs strokes to be seen (pass strokes / strokeWeight here); a closed one takes fills. Then shape its stroke with set_complex_stroke (a brush, a hand-drawn wobble, a taper) or set text along it with create_text_path. For a whole SVG file use import_svg. Returns { ok, nodeId, name, type }.",
+  inputSchema: external_exports.object({
+    parentId: external_exports.string().optional().describe("Container node id; omit for current page"),
+    name: external_exports.string().optional().describe("Layer name"),
+    x: external_exports.number().optional().describe("Where the drawing\u2019s x = 0 falls in the parent (default 0)"),
+    y: external_exports.number().optional().describe("Where the drawing\u2019s y = 0 falls in the parent (default 0)"),
+    vectorPaths: vectorPathsSchema.optional(),
+    vectorNetwork: vectorNetworkSchema.optional(),
+    ...initialStyleShape
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/delete-component-property.ts
+var DELETE_COMPONENT_PROPERTY_TOOL_NAME = "delete_component_property";
+var deleteComponentPropertyTool = {
+  name: DELETE_COMPONENT_PROPERTY_TOOL_NAME,
+  description: "Remove a BOOLEAN / TEXT / INSTANCE_SWAP property from a component and every sublayer reference to it. VARIANT properties are the variant-set structure \u2014 delete their variants instead; this refuses a VARIANT. Get current property ids from get_component_api. Returns { ok, componentId, propertyId, name }.",
+  inputSchema: external_exports.object({
+    componentId: external_exports.string().describe("Component or component-set id that owns the property"),
+    propertyId: external_exports.string().describe("Property id to delete (name#id, from get_component_api)")
+  }),
+  kind: "write",
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/delete-nodes.ts
+var DELETE_NODES_TOOL_NAME = "delete_nodes";
+var deleteNodesTool = {
+  name: DELETE_NODES_TOOL_NAME,
+  description: "Permanently delete nodes by id; missing or non-removable nodes are skipped. To hide nodes reversibly instead of deleting them, use set_visible(false). Returns { ok, affected } \u2014 the ids actually removed.",
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).describe("Node ids to delete")
+  }),
+  kind: "write",
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/delete-page.ts
+var DELETE_PAGE_TOOL_NAME = "delete_page";
+var deletePageTool = {
+  name: DELETE_PAGE_TOOL_NAME,
+  description: "Delete a page by id. The current page and the last remaining page cannot be deleted. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    pageId: external_exports.string().describe("Page id to delete")
+  }),
+  kind: "write",
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/delete-style.ts
+var DELETE_STYLE_TOOL_NAME = "delete_style";
+var deleteStyleTool = {
+  name: DELETE_STYLE_TOOL_NAME,
+  description: "Delete a local style (paint / text / effect / grid) by id. Returns { ok, styleId, name }.",
+  inputSchema: external_exports.object({
+    styleId: external_exports.string().describe("Style id to delete")
+  }),
+  kind: "write",
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/delete-variable-collection.ts
+var DELETE_VARIABLE_COLLECTION_TOOL_NAME = "delete_variable_collection";
+var deleteVariableCollectionTool = {
+  name: DELETE_VARIABLE_COLLECTION_TOOL_NAME,
+  description: "Delete a variable collection by id, removing the collection and every variable and mode in it; bindings to those variables revert to their raw values. To delete a single variable instead, use delete_variable. Returns { ok, collectionId, name }.",
+  inputSchema: external_exports.object({
+    collectionId: external_exports.string().describe("Variable collection id to delete")
+  }),
+  kind: "write",
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/delete-variable-mode.ts
+var DELETE_VARIABLE_MODE_TOOL_NAME = "delete_variable_mode";
+var deleteVariableModeTool = {
+  name: DELETE_VARIABLE_MODE_TOOL_NAME,
+  description: "Remove a mode from a variable collection, freeing the slot it holds \u2014 mode count is gated by the file's Figma plan (Starter allows 1 per collection), so a mode added by mistake otherwise occupies that budget for good. Every variable's value for this mode goes with it. Not reversible: adding a mode back mints a new mode id, and the values that hung on the old id do not come with it \u2014 which is also why this tool cannot be used inside batch. Removing the collection's default mode is allowed (Figma moves the default to a mode that remains); the last remaining mode cannot be removed. Mode ids come from get_variable_defs. Returns { ok, collectionId, modeId, name }.",
+  inputSchema: external_exports.object({
+    collectionId: external_exports.string().describe("Variable collection id"),
+    modeId: external_exports.string().describe("Mode id to remove, from get_variable_defs")
+  }),
+  kind: "write",
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/delete-variable.ts
+var DELETE_VARIABLE_TOOL_NAME = "delete_variable";
+var deleteVariableTool = {
+  name: DELETE_VARIABLE_TOOL_NAME,
+  description: "Delete a single variable by id; any node or paint bound to it reverts to its raw value. To delete an entire collection and all its variables use delete_variable_collection. Returns { ok, variableId, name }.",
+  inputSchema: external_exports.object({
+    variableId: external_exports.string().describe("Variable id to delete")
+  }),
+  kind: "write",
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/detach-instance.ts
+var DETACH_INSTANCE_TOOL_NAME = "detach_instance";
+var detachInstanceTool = {
+  name: DETACH_INSTANCE_TOOL_NAME,
+  description: "Detach a component instance into a plain frame, permanently breaking its link to the main component; the frame keeps its current appearance and its layers become directly editable. To switch an instance to a different component instead of detaching, use swap_component. Returns { ok, nodeId, name, type } for the resulting frame.",
+  inputSchema: external_exports.object({
+    instanceId: external_exports.string().describe("Instance node id to detach")
+  }),
+  kind: "write",
+  // Severs the instance→component link permanently (Figma has no re-attach) — the binding is lost.
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/edit-component-property.ts
+var EDIT_COMPONENT_PROPERTY_TOOL_NAME = "edit_component_property";
+var editComponentPropertyTool = {
+  name: EDIT_COMPONENT_PROPERTY_TOOL_NAME,
+  description: "Change an existing component property: rename it, change its defaultValue, or (INSTANCE_SWAP only) change its preferredValues. Supply at least one. Renaming returns a new propertyId (the #id suffix is kept but the name part changes), so use the returned propertyId for later calls; existing bindings keep working. Get current property ids from get_component_api. Returns { ok, componentId, propertyId, name }.",
+  inputSchema: external_exports.object({
+    componentId: external_exports.string().describe("Component or component-set id that owns the property"),
+    propertyId: external_exports.string().describe("Property id to edit (name#id, from get_component_api / add)"),
+    name: external_exports.string().describe("New property name").optional(),
+    defaultValue: external_exports.union([external_exports.boolean(), external_exports.string()]).describe(
+      "New default matching the property type: boolean / string / the component's node id (INSTANCE_SWAP \u2014 a component key is refused; a library component's id is the mainComponent id of an instance of it)"
+    ).optional(),
+    preferredValues: external_exports.array(external_exports.object({ type: external_exports.enum(["COMPONENT", "COMPONENT_SET"]), key: external_exports.string() })).describe("INSTANCE_SWAP only: replacement swap-menu components/sets").optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/export-pdf.ts
+var import_promises = require("node:fs/promises");
+var import_node_path = require("node:path");
+
+// mcp/vendor/figwright/packages/mcp/src/tools/binary-payload.ts
+var binaryPayload = (carrier) => {
+  if (carrier.bytes !== void 0) return Buffer.from(carrier.bytes);
+  const b64 = carrier.base64;
+  return b64 === void 0 || b64 === null ? null : Buffer.from(b64, "base64");
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/export-pdf.ts
+var EXPORT_PDF_TOOL_NAME = "export_pdf";
+var inputSchema = external_exports.object({
+  nodeId: external_exports.string().describe(
+    "Node to export to a one-page PDF (a frame / section / component); omit for the current page"
+  ).optional(),
+  outPath: external_exports.string().describe("File path to write the .pdf to (parent dirs created if missing)")
+});
+var exportPdfTool = {
+  name: EXPORT_PDF_TOOL_NAME,
+  description: "Export a node (or the current page) to a single-page vector PDF file on disk. Figma's plugin API renders one PDF page per node and cannot paginate a page into one-frame-per-page or merge multiple nodes into a multi-page file. Pass a frame / section / component id for a vector PDF of that node; omit nodeId for the current page (large pages can be slow). For raster output (PNG/JPG) use save_screenshots instead. Returns { nodeId, path, empty? }; path is null if the target is missing or not exportable, and empty:true means it rendered a blank PDF.",
+  inputSchema,
+  kind: "local",
+  // Dispatches to a same-named sandbox handler; outPath stays on the server.
+  serverOnlyArgs: ["outPath"],
+  injectedArgs: ["binary"]
+};
+var writeExportedPdf = async (outPath, pdf) => {
+  const empty = pdf.empty === true ? { empty: true } : {};
+  const payload = binaryPayload(pdf);
+  if (payload === null) return { nodeId: pdf.nodeId, path: null, ...empty };
+  const path = (0, import_node_path.resolve)(outPath);
+  await (0, import_promises.mkdir)((0, import_node_path.dirname)(path), { recursive: true });
+  await (0, import_promises.writeFile)(path, payload);
+  return { nodeId: pdf.nodeId, path, ...empty };
+};
+var handleExportPdf = async (dispatch, rawArgs) => {
+  const args = inputSchema.parse(rawArgs);
+  const pluginArgs = {};
+  pluginArgs.binary = true;
+  if (args.nodeId !== void 0) pluginArgs.nodeId = args.nodeId;
+  const pdf = await dispatch(EXPORT_PDF_TOOL_NAME, pluginArgs);
+  return writeExportedPdf(args.outPath, pdf);
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/export-video.ts
+var import_promises2 = require("node:fs/promises");
+var import_node_path2 = require("node:path");
+var EXPORT_VIDEO_TOOL_NAME = "export_video";
+var inputSchema2 = external_exports.object({
+  nodeId: external_exports.string().describe(
+    "A node in the animated frame to export; its enclosing top-level frame (a frame placed directly on a page) is what gets encoded \u2014 pass the frame itself or any descendant"
+  ),
+  format: external_exports.enum(["MP4", "GIF", "WEBM"]).describe("MP4 / WebM (video) or GIF (looping)"),
+  fps: external_exports.number().describe("Frames per second (MP4/WebM: 12/24/30/60; GIF: 8/12/15/24/30). Defaults per format.").optional(),
+  quality: external_exports.enum(["LOW", "MEDIUM", "HIGH"]).describe("MP4/WebM quality; ignored for GIF").optional(),
+  loopCount: external_exports.number().int().min(0).max(1e3).describe("GIF only: number of loops; 0 = loop forever").optional(),
+  constraint: videoExportConstraintSchema.optional(),
+  outPath: external_exports.string().describe("File path to write the video to (parent dirs created if missing)")
+});
+var exportVideoTool = {
+  name: EXPORT_VIDEO_TOOL_NAME,
+  description: "Export an animated Figma top-level frame to an MP4 / WebM / GIF file on disk. Pass any node in the frame (or the frame itself) \u2014 its enclosing top-level frame is encoded across the animation's duration. Requires the Figma Design editor and a frame with animated content (Smart Animate / Motion keyframes); a static frame, a nested frame, or FigJam / Dev Mode yields path:null with a reason (and, when reason is `failed`, Figma\u2019s own message in error). Encoding is a heavy render \u2014 call it on its own, not concurrently with other tool calls, or the render can fail. Returns { nodeId, format, path, reason?, error? }.",
+  inputSchema: inputSchema2,
+  kind: "local",
+  // Dispatches to a same-named sandbox handler; outPath stays on the server.
+  serverOnlyArgs: ["outPath"],
+  injectedArgs: ["binary"]
+};
+var writeExportedVideo = async (outPath, video) => {
+  const miss = {
+    ...video.reason !== void 0 ? { reason: video.reason } : {},
+    ...video.error !== void 0 ? { error: video.error } : {}
+  };
+  const payload = binaryPayload(video);
+  if (payload === null) {
+    return { nodeId: video.nodeId, format: video.format, path: null, ...miss };
+  }
+  const path = (0, import_node_path2.resolve)(outPath);
+  await (0, import_promises2.mkdir)((0, import_node_path2.dirname)(path), { recursive: true });
+  await (0, import_promises2.writeFile)(path, payload);
+  return { nodeId: video.nodeId, format: video.format, path };
+};
+var handleExportVideo = async (dispatch, rawArgs) => {
+  const { outPath, ...pluginArgs } = inputSchema2.parse(rawArgs);
+  const video = await dispatch(EXPORT_VIDEO_TOOL_NAME, {
+    // These bytes go to disk, never to a model, so they ride the wire as a msgpack `bin`.
+    binary: true,
+    ...pluginArgs
+  });
+  return writeExportedVideo(outPath, video);
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/find-replace-text.ts
+var FIND_REPLACE_TEXT_TOOL_NAME = "find_replace_text";
+var findReplaceTextTool = {
+  name: FIND_REPLACE_TEXT_TOOL_NAME,
+  description: "Replace a substring across all TEXT nodes under a scope (text set along a path is not searched \u2014 scan_text_nodes lists those, and set_text edits one). Without root the whole current page is searched; matching is case-insensitive unless caseSensitive is true. Only the matched text changes: every other run keeps its styling, and each replacement takes the style of the text it replaces. Fonts are loaded before each edit. Returns { ok, affected } \u2014 the text node ids changed.",
+  inputSchema: external_exports.object({
+    find: external_exports.string().describe("Substring to find (non-empty)"),
+    replace: external_exports.string().describe("Replacement string"),
+    root: external_exports.string().optional().describe("Optional node id to scope the search (default: page)"),
+    caseSensitive: external_exports.boolean().optional().describe("Match case (default false)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/flatten-nodes.ts
+var FLATTEN_NODES_TOOL_NAME = "flatten_nodes";
+var flattenNodesTool = {
+  name: FLATTEN_NODES_TOOL_NAME,
+  description: "Flatten nodes into a single vector layer (Figma\u2019s Flatten): shapes, text and boolean groups are outlined and merged into one path whose points can be edited. Irreversible for the content \u2014 text stops being text and a boolean group stops being unpickable \u2014 so use it when the artwork is final, e.g. to export an icon as a single path. The nodes must share a parent, and the result takes their place there. Not allowed inside a batch. Returns { ok, nodeId, name, type }.",
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).min(1).describe("Nodes to flatten (one parent)"),
+    name: external_exports.string().optional().describe("Name for the resulting vector")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/flip-nodes.ts
+var FLIP_NODES_TOOL_NAME = "flip_nodes";
+var flipNodesTool = {
+  name: FLIP_NODES_TOOL_NAME,
+  description: "Mirror nodes in place \u2014 Figma\u2019s Flip horizontal / Flip vertical: HORIZONTAL swaps left and right on the canvas, VERTICAL top and bottom, each node about its own centre, so it stays where it was. A flipped node reads back flipped: true with its cssTransform. Flipping twice restores it. Returns { ok, affected }.",
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).min(1).describe("Node ids to flip"),
+    axis: external_exports.enum(["HORIZONTAL", "VERTICAL"]).describe("Which way to mirror")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-annotations.ts
+var GET_ANNOTATIONS_TOOL_NAME = "get_annotations";
+var getAnnotationsTool = {
+  name: GET_ANNOTATIONS_TOOL_NAME,
+  description: "Return Dev Mode annotations as { annotations: [{ nodeId, nodeName, annotations }] }. With nodeId, returns that node's annotations; without it, scans the current page for all annotated nodes.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node id to read annotations from; omit to scan the current page").optional()
+  }),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-component-api.ts
+var GET_COMPONENT_API_TOOL_NAME = "get_component_api";
+var getComponentApiTool = {
+  name: GET_COMPONENT_API_TOOL_NAME,
+  description: `Return a component's full property API \u2014 the prop contract behind its instances. Pass a COMPONENT, COMPONENT_SET, or INSTANCE id (an instance resolves to its main component / set). Returns { id, name, type, properties } where properties maps each property name to { type (VARIANT|BOOLEAN|TEXT|INSTANCE_SWAP|SLOT), defaultValue, variantOptions?, preferredValues?, description? }. Property names come back verbatim for set_instance_properties: VARIANT by bare name (e.g. "Size"), BOOLEAN/TEXT/INSTANCE_SWAP suffixed with #id (e.g. "Label#2:0"). Unlike get_local_components (a subtree inventory), this targets one component and is safe on large files.`,
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("A COMPONENT, COMPONENT_SET, or INSTANCE node id to read the property API of")
+  }),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-design-context.ts
+var GET_DESIGN_CONTEXT_TOOL_NAME = "get_design_context";
+var getDesignContextTool = {
+  name: GET_DESIGN_CONTEXT_TOOL_NAME,
+  description: "Get a depth-limited, token-efficient node tree \u2014 the main design-grounding read; prefer it over get_document / get_node for anything large. Starts from nodeId (a pasted Figma URL also works), else the current selection; errors when neither is available. detail: minimal (id/name/type) / compact (+ geometry) / full (+ styling, layout, text and design-system tokens resolved to names plus a deduped globalVars style table). Defaults to full with dedupeComponents true \u2014 the code-generation view; pass detail: compact explicitly for a cheap structure scan. An over-budget full result degrades gracefully, always with a leading note saying which shape you got: a small overshoot returns the same tree with LAYOUT intact and only appearance dropped (every frame keeps its flex/grid mode, padding, gap and alignment, each node its sizing/constraints, each text its characters \u2014 enough to build correct containers, then re-ground per section for colour and type); anything bigger returns a sectionPlan, which is the BEST outcome and not the worst \u2014 each section grounded on its own comes back at full detail with layout AND colour AND type. Layout-only and geometry-only views appear only for a subtree with nothing left to split into. Whatever shape comes back, build layout from each frame's own layout object \u2014 never reconstruct spacing from child x/y as margins or absolute offsets. depth limits child levels (omit or 0 = unlimited; cut nodes are flagged truncated). dedupeComponents collapses repeated instances of an already-expanded main component (flagged deduped); a deduped instance still carries textOverrides ({ name, characters } \u2014 the visible text it actually renders) and propertyOverrides (its per-instance visual diffs), so per-instance content survives without re-expanding the collapsed subtree. An instance whose component set Figma flags with errors carries componentSetError in place of its componentProperties, which Figma will not read there; the rest of the read is whole. A node carrying variableModes ({ color: \"Dark\" }) renders in that variable mode: its values are that mode's but its token names are the default's, so keep the token refs and scope the subtree in the project's theme mechanism (a root lists the modes it inherits too). A result led by colorProfile: \"DISPLAY_P3\" comes from a Display P3 file, where every hex and r/g/b is a P3 colour: emit a raw one as color(display-p3 r g b), not the plain hex, which renders visibly duller. A Figma effect radius is not CSS: emit a blur as blur(radius \xD7 0.43) and a shadow blur as radius \xD7 0.85 in box-shadow; a progressive blur (blurType PROGRESSIVE) carries ready cssLayers to emit as given, and a BACKGROUND_BLUR with drawn: false paints nothing in Figma, so emit no backdrop-filter for it. A tree too large to return whole comes back as a sectionPlan instead ({ sections: [{ nodeId, name, nodes, \u2026 }] } + a note): do not retry unscoped \u2014 call again per section nodeId at detail full and build section by section. On a full result, raw color values that exactly equal a project design token are annotated in projectTokens ({ '#6266F0': { ref, name, matchedBy: ['value'] } }, or { matchedBy, candidates: [...] } when several tokens share the value). An entry carrying `from` is a SCSS variable whose ref does NOT resolve on its own \u2014 the file you write must @use it first, and `from` is REPO-relative while Sass resolves @use against the importing file, so re-resolve it from where you are writing (src/components/x.scss imports '../styles/tokens'). `as *` keeps the ref as given, a namespaced @use requires prefixing it; emitting the ref without the import is a compile error. matchedBy: ['value'] marks every entry as name-blind value-equality evidence \u2014 a hypothesis to verify, not a resolved binding: emit the ref only when the token fits the context semantically, keep the raw value otherwise, and let a bound Figma variable win over a raw-value match.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Root node id (a pasted Figma URL also works); omit to use the selection").optional(),
+    depth: external_exports.number().min(0).describe("Max child levels to include; omit or 0 for unlimited").optional(),
+    detail: external_exports.enum(DETAIL_LEVELS).describe("How much per-node data: minimal / compact / full (default)").optional(),
+    dedupeComponents: external_exports.boolean().describe("Collapse repeated instances of the same main component (default true)").optional()
+  }),
+  kind: "read",
+  // See index.ts: the guarded public path dispatches with budget so the plugin bails before
+  // serializing an oversized tree. Internal dispatches (design_diff, component/icon map) stay raw.
+  injectedArgs: ["budget"]
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-document.ts
+var GET_DOCUMENT_TOOL_NAME = "get_document";
+var getDocumentTool = {
+  name: GET_DOCUMENT_TOOL_NAME,
+  description: "Return the full node tree (recursive children) of the active Figma page, with base geometry, rotation, opacity, cornerRadius, and fills enrichment.",
+  inputSchema: external_exports.object({}),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-fonts.ts
+var GET_FONTS_TOOL_NAME = "get_fonts";
+var getFontsTool = {
+  name: GET_FONTS_TOOL_NAME,
+  description: 'Return every font used on the current page as { fonts: [{ fontName, count }] }, sorted by usage frequency (descending). Mixed-font text contributes one count per styled segment. fontName carries variationSettings for a variable font \u2014 two rows sharing a family + style but differing there are different weights, not duplicates. A sibling variationAxes { family: ["wght", "slnt", ...] } lists the OpenType axes each variable family exposes: those are the tags the write tools accept in fontName.variationSettings. A family missing from it is static.',
+  inputSchema: external_exports.object({}),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-local-components.ts
+var GET_LOCAL_COMPONENTS_TOOL_NAME = "get_local_components";
+var getLocalComponentsTool = {
+  name: GET_LOCAL_COMPONENTS_TOOL_NAME,
+  description: "Return the components and component sets within a node subtree (or the current selection) as { components, componentSets }. Scans a subtree, not the whole document \u2014 pass nodeId, or select the frames to scan. A document root is not supported; use get_pages and scan each page by nodeId. Components carry their variantProperties (when part of a set); component sets carry their variantGroupProperties (available values per axis) and the ids of their variant components. A set Figma flags with errors (two variants with the same values, or variants whose properties differ) carries componentSetError in place of those properties, and so do its variants.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Root node id to scan within; omit to use the current selection").optional()
+  }),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-metadata.ts
+var GET_METADATA_TOOL_NAME = "get_metadata";
+var getMetadataTool = {
+  name: GET_METADATA_TOOL_NAME,
+  description: 'Return file metadata: fileName, current page, all page references, and which editor the file is open in (editorType / mode) \u2014 "dev" is read-only and "figjam" has no components, variables or styles \u2014 and colorProfile, the space its colours are stored in (SRGB / DISPLAY_P3 / LEGACY): in a DISPLAY_P3 file every r/g/b is P3, so a colour written from code takes space: "SRGB".',
+  inputSchema: external_exports.object({}),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-motion-context.ts
+var GET_MOTION_CONTEXT_TOOL_NAME = "get_motion_context";
+var getMotionContextTool = {
+  name: GET_MOTION_CONTEXT_TOOL_NAME,
+  description: 'List every Figma Motion (animation) source under a node: the node and its whole subtree, hidden layers and instance children included, never deduped (each instance under its own instance-qualified id). Call it once per root you implement \u2014 only coverage.status "complete" with no nodes means nothing there animates; a missing motion summary in get_design_context does not. Returns { rootNodeId, coverage, diagnostics?, nodes: [{ nodeId, parentId, name, type, motion }] } for each node with an applied animation style or a keyframe; motion is get_node_motion\u2019s raw read, except that manualKeyframeTracks keeps only the tracks animations does not already play as stored (a variable-bound easing). A call is bounded: "partial" coverage names why and lists pendingNodeIds, disjoint subtree roots to call it on next. Nodes on one timeline id share a clock. Loop, trigger and pivot are not in the data \u2014 never fill them in as if Figma had.',
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe(
+      "Frame or layer id whose subtree to inventory (a top-level frame covers its timeline)"
+    )
+  }),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-motion-styles.ts
+var GET_MOTION_STYLES_TOOL_NAME = "get_motion_styles";
+var getMotionStylesTool = {
+  name: GET_MOTION_STYLES_TOOL_NAME,
+  description: "List the file's available Figma Motion animation-style presets \u2014 the templates you apply with apply_animation_style. Returns { styles: [{ styleId, name, description?, props? }] }; the styleId is what apply_animation_style takes and props lists a preset\u2019s tunable keys. Motion is a beta feature: this read works wherever the plugin API exposes it; applying presets needs the Figma Design editor.",
+  inputSchema: external_exports.object({}),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-node-motion.ts
+var GET_NODE_MOTION_TOOL_NAME = "get_node_motion";
+var getNodeMotionTool = {
+  name: GET_NODE_MOTION_TOOL_NAME,
+  description: `Read one node's Figma Motion (animation) state: applied animation styles, all keyframe animations, manual keyframe tracks, and the timelines it belongs to. Call it before editing to discover styleIds / timelineIds and existing keyframes; for every animated layer under a frame use get_motion_context. Returns { nodeId, motion: { animationStyles, animations, manualKeyframeTracks, timelines } }, raw as Figma returns it, with motion: null when the node supports no Motion. Also returns playheadPosition \u2014 the editor's Motion playhead in seconds, present only with an active timeline. Use it as a keyframe timelinePosition when the user means "here", i.e. wherever they have scrubbed to.`,
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id to read Motion state from")
+  }),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-node.ts
+var GET_NODE_TOOL_NAME = "get_node";
+var getNodeTool = {
+  name: GET_NODE_TOOL_NAME,
+  description: "Return one node by id with its full recursive subtree at maximum fidelity \u2014 every serialized field (geometry, paints, effects, auto-layout, text with per-run segments, style/variable ids, mainComponent), no depth limit, no deduplication. Best for inspecting a single component or a node you are about to modify; for exploring or grounding anything large, prefer get_design_context (depth-limited, deduped, tokens resolved to names). Returns { node }, null when the id matches nothing.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe('Figma node id, e.g. "1:42"; a pasted Figma URL also works')
+  }),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-nodes-info.ts
+var GET_NODES_INFO_TOOL_NAME = "get_nodes_info";
+var getNodesInfoTool = {
+  name: GET_NODES_INFO_TOOL_NAME,
+  description: "Return multiple Figma nodes by id. Output preserves input order; missing ids slot null.",
+  inputSchema: external_exports.object({ nodeIds: external_exports.array(external_exports.string()).describe("Figma node ids to fetch") }),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-pages.ts
+var GET_PAGES_TOOL_NAME = "get_pages";
+var getPagesTool = {
+  name: GET_PAGES_TOOL_NAME,
+  description: "Return every page in the active Figma file as { id, name, flows }. flows lists the prototype flows Presentation view offers on that page, as { nodeId, name } in order: nodeId is the flow's starting frame, and the first flow is the one Presentation view opens by default. An empty flows means the page has none a plugin can see (a flow whose frame is hidden, grouped or nested is invisible until that frame is visible and top-level again). Change flows with update_flows.",
+  inputSchema: external_exports.object({}),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-reactions.ts
+var GET_REACTIONS_TOOL_NAME = "get_reactions";
+var getReactionsTool = {
+  name: GET_REACTIONS_TOOL_NAME,
+  description: "Return the prototype reactions on a node as { nodeId, reactions: [{ trigger, actions }] }. Each reaction pairs an interaction trigger (click, hover, key press, timeout\u2026) with its actions \u2014 navigate to a node, open an overlay, open a URL, back/close, set a variable or variable mode, control media, or a conditional block. Every field Figma holds is returned, including each action's transition and easing, so the output can be handed back to set_reactions unchanged to reproduce the reactions exactly.",
+  inputSchema: external_exports.object({ nodeId: external_exports.string().describe("Figma node id to read reactions from") }),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-screenshot.ts
+var GET_SCREENSHOT_TOOL_NAME = "get_screenshot";
+var getScreenshotTool = {
+  name: GET_SCREENSHOT_TOOL_NAME,
+  description: "Export nodes as images the model can see, one image block per node: { images: [{ nodeId, format, base64, width?, height?, scale?, recovered?, empty? }] }. format is PNG (default) / JPG / SVG. scale applies to raster formats; when omitted, each node is auto-fitted to a legible size (long edge into ~512\u20132576px: oversized frames scale down, tiny icons scale up \u22644x) \u2014 pass an explicit scale to force one. An explicit scale is capped so the long edge stays within 2576px, the most a vision model resolves: past that the model sees the identical pixels, so the extra bytes buy no detail \u2014 use save_screenshots when you need a full-res file on disk. Past 20 nodes in one call the whole batch drops to a 2000px long edge, which is what providers require of many-image requests; ask for fewer nodes when you need the detail. A batch is also capped by total size, not just resolution: a full-page frame is ~2.4MB, so 3\u20134 of them fill one response. Past that the remaining nodes come back labelled but not inlined, with a note naming them \u2014 re-request those ids in a follow-up call, or use save_screenshots for many nodes at once. Each raster label reports the exported width\xD7height px and the scale, the anchor for mapping raster px back to design px. base64 is null for missing or non-exportable nodes. Nodes that are fully clipped or off-canvas (carousels, masks, off-screen states) are auto-recovered at their intrinsic bounds and flagged recovered:true. empty:true means the node genuinely renders nothing even unclipped (hidden / no content) so the export is blank.",
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).describe("Figma node ids to export"),
+    format: external_exports.enum(SCREENSHOT_FORMATS).describe("Export format: PNG (default) / JPG / SVG").optional(),
+    scale: external_exports.number().positive().describe("Raster scale factor (PNG/JPG); omit to auto-fit each node to a legible size").optional()
+  }),
+  kind: "read",
+  // See index.ts: the public path dispatches with forVision so the sandbox caps an oversized scale
+  // to what a vision model resolves. save_screenshots dispatches the same tool without it, and with
+  // `binary` instead — its bytes land on disk, so they skip base64 (export_pdf / export_video /
+  // save_image_fills send the same flag, but they are `kind: 'local'` and so are not recorded here).
+  injectedArgs: ["forVision", "binary"]
+};
+var RASTER_MIME = /* @__PURE__ */ new Map([
+  ["PNG", "image/png"],
+  ["JPG", "image/jpeg"]
+]);
+var INLINE_IMAGE_BUDGET_BYTES = CLIENT_MESSAGE_LIMIT_BYTES - 512 * 1024;
+var blockBytes = (block) => Buffer.byteLength(JSON.stringify(block), "utf8");
+var screenshotContent = (result, budgetBytes = INLINE_IMAGE_BUDGET_BYTES) => {
+  const blocks = [];
+  const deferred = [];
+  const oversized = [];
+  let spent = 0;
+  for (const img of result.images) {
+    if (img.base64 === null) {
+      blocks.push({ type: "text", text: `${img.nodeId}: not exportable` });
+      continue;
+    }
+    const emptyNote = img.empty ? " \u2014 \u26A0 empty (node renders nothing even unclipped: hidden / no content)" : img.recovered ? " \u2014 \u21BA recovered (clipped/off-canvas; rendered at intrinsic bounds)" : "";
+    const dims = img.width !== void 0 && img.height !== void 0 ? ` ${img.width}\xD7${img.height}px${img.scale !== void 0 ? ` @${img.scale}x` : ""}` : "";
+    const mimeType = RASTER_MIME.get(img.format);
+    const payload = mimeType === void 0 ? {
+      type: "text",
+      text: `${img.nodeId} (${img.format})${emptyNote}:
+${Buffer.from(img.base64, "base64").toString("utf8")}`
+    } : { type: "image", data: img.base64, mimeType };
+    const size = blockBytes(payload);
+    if (spent + size > budgetBytes) {
+      (size > budgetBytes ? oversized : deferred).push(img.nodeId);
+      blocks.push({
+        type: "text",
+        text: `${img.nodeId} (${img.format}${dims})${emptyNote} \u2014 not inlined, see note below`
+      });
+      continue;
+    }
+    spent += size;
+    if (mimeType !== void 0) {
+      blocks.push({ type: "text", text: `${img.nodeId} (${img.format}${dims})${emptyNote}` });
+    }
+    blocks.push(payload);
+  }
+  if (deferred.length > 0 || oversized.length > 0) {
+    const remedies = [
+      // Two ways out, because the right one depends on why the batch was asked for. Splitting keeps
+      // full resolution per node; a smaller `scale` keeps the whole set in one response, which is
+      // what a side-by-side comparison actually needs. The model knows its own intent — offer both.
+      deferred.length > 0 ? `Re-request ${deferred.join(", ")} in a follow-up call with fewer ids, or repeat the whole call with a smaller \`scale\` to fit every node in one response at lower detail.` : "",
+      oversized.length > 0 ? `${oversized.join(", ")} exceeded the whole budget alone, so splitting the call will not help \u2014 re-request with a smaller \`scale\`, or use \`save_screenshots\` to write the full-resolution file to disk and read it from there.` : ""
+    ].filter((part) => part !== "");
+    const missed = deferred.length + oversized.length;
+    const exported = result.images.filter((img) => img.base64 !== null).length;
+    blocks.push({
+      type: "text",
+      text: `\u26A0 ${missed} of ${exported} export(s) were not inlined. Sending them would have exceeded what an MCP client can read in one response and closed the connection. ` + remedies.join(" ")
+    });
+  }
+  if (blocks.length === 0) blocks.push({ type: "text", text: "No nodes exported." });
+  return blocks;
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-styles.ts
+var GET_STYLES_TOOL_NAME = "get_styles";
+var getStylesTool = {
+  name: GET_STYLES_TOOL_NAME,
+  description: 'Return the document\'s local styles grouped as { paints, texts, effects, grids }. Paint styles carry their paints; text styles carry fontName / fontSize / lineHeight / letterSpacing / textWrapStyle; effect styles carry their effects; grid styles carry their layout grids. Any value the designer bound to a variable carries a `boundVariables` map ({ field: variableId }) on the object that owns it \u2014 the individual paint, gradient stop, effect or layout grid, and the text style itself for typography. A bound value is a reference, not a literal: emit the token, not the resolved colour/number sitting next to it. `variables` maps every referenced id to its { name, type, codeSyntax? } (ids stay the key because variable names collide across collections); it is omitted when nothing in the document is bound. This lists local styles, not all shared styles used by imported instances. To use a published style in another file, pass its key to import_style in that target file and use the returned styleId. A result led by colorProfile: "DISPLAY_P3" comes from a Display P3 file: its colours are P3, so emit one as color(display-p3 r g b), not the plain hex.',
+  inputSchema: external_exports.object({}),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-variable-defs.ts
+var GET_VARIABLE_DEFS_TOOL_NAME = "get_variable_defs";
+var getVariableDefsTool = {
+  name: GET_VARIABLE_DEFS_TOOL_NAME,
+  description: `Return the document's local variables as { collections, variables }. Each collection lists its modes and defaultModeId; each variable lists its resolvedType and valuesByMode (primitives, RGBA colors, { type: "VARIABLE_ALIAS", id } references to other variables, a composed color { color, opacity } pairing a color with a separate opacity where either half may be an alias, or \u2014 for an EASING variable \u2014 an easing curve { type, easingFunctionCubicBezier?, easingFunctionSpring? }). A variable also carries scopes when the designer narrowed where Figma offers it (e.g. ["CORNER_RADIUS"]) \u2014 authoritative intent about what the token is for; absent means every scope. This lists local definitions, not all shared library references. To use a published variable in another file, pass its key to import_variable in that target file and use the returned variableId. A result led by colorProfile: "DISPLAY_P3" comes from a Display P3 file: its COLOR values are P3, so emit one as color(display-p3 r g b), not the plain hex.`,
+  inputSchema: external_exports.object({}),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-vector.ts
+var GET_VECTOR_TOOL_NAME = "get_vector";
+var getVectorTool = {
+  name: GET_VECTOR_TOOL_NAME,
+  description: "Read a vector\u2019s geometry \u2014 what set_vector takes back: vectorPaths (SVG path data per subpath, measured from the layer\u2019s top-left) and vectorNetwork (vertices, the segments joining them with their B\xE9zier tangents, the regions that fill, and per-vertex caps, joins and corner radii), plus handleMirroring. For a VECTOR or text on a path (TEXT_PATH, read-only); a rectangle, ellipse, polygon, star or line has no editable path \u2014 flatten_nodes it into a VECTOR first. Not part of get_node / get_design_context, which stay small; codegen exports vector art rather than rebuilding it from its points. Returns { nodeId, type, width, height, vectorPaths, vectorNetwork, handleMirroring }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("A VECTOR or TEXT_PATH node id")
+  }),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/get-viewport.ts
+var GET_VIEWPORT_TOOL_NAME = "get_viewport";
+var getViewportTool = {
+  name: GET_VIEWPORT_TOOL_NAME,
+  description: "Return the current page viewport as { center, zoom, bounds } \u2014 the on-screen center point, zoom level (1.0 = 100%), and visible bounds rect.",
+  inputSchema: external_exports.object({}),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/import-image.ts
+var import_promises3 = require("node:fs/promises");
+var import_node_path3 = require("node:path");
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-image-fill.ts
+var SET_IMAGE_FILL_TOOL_NAME = "set_image_fill";
+var setImageFillTool = {
+  name: SET_IMAGE_FILL_TOOL_NAME,
+  description: "Put a raster image (PNG / JPG / GIF) into an existing node's fills \u2014 a photo into a card cover, an avatar into a circle \u2014 keeping the node's size, position, corners, effects and constraints. import_image instead creates a new rectangle. Provide exactly one of path (a local file the server reads; preferred, the bytes never pass through the conversation), data (base64) or url (fetched by Figma, so it must be publicly reachable). Figma accepts at most 4096px in width and height. Without index, the topmost IMAGE fill gets the new image and keeps its crop, filters and scale mode, like Figma's Replace image; a node without one gets the image added on top of its fills. With index (0 = the bottom fill, the order get_node lists them in), that fill is replaced. scaleMode is FILL / FIT / CROP / TILE (default: keep the replaced image's, else FILL). Setting fills unlinks a fill style. Returns { ok, nodeId, index, imageHash, width, height } \u2014 the fill it wrote and the image size in pixels.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node whose fills take the image (frame, shape or text)"),
+    path: external_exports.string().min(1).optional().describe(
+      "Local image file (PNG / JPEG / GIF), read by the MCP server; relative paths resolve against its working directory"
+    ),
+    data: external_exports.string().optional().describe("Base64-encoded image bytes (PNG / JPG / GIF)"),
+    url: external_exports.string().optional().describe("Image URL to fetch instead of data"),
+    index: external_exports.number().int().min(0).optional().describe("Fill to replace, 0 = bottom (default: the topmost IMAGE fill, else add on top)"),
+    scaleMode: external_exports.enum(["FILL", "FIT", "CROP", "TILE"]).optional()
+  }),
+  kind: "write",
+  // Resolved on the server into `data` before dispatch, so the sandbox handler never receives it.
+  serverOnlyArgs: ["path"]
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/import-image.ts
+var IMPORT_IMAGE_TOOL_NAME = "import_image";
+var importImageTool = {
+  name: IMPORT_IMAGE_TOOL_NAME,
+  description: "Import a raster image (PNG / JPG / GIF) and place it as a rectangle with an IMAGE fill. Provide exactly one of path (a local file the server reads), data (base64-encoded image bytes) or url. Prefer path for a file on this machine: the bytes never pass through the conversation, and a large base64 data argument can exceed the transport message limit. url is fetched by Figma, not by this machine, so it must be publicly reachable. Figma accepts at most 4096px in width and height whichever source is used, so downscale a camera-resolution photo before importing it. The rectangle defaults to the image size unless width/height are given. scaleMode is FILL / FIT / CROP / TILE (default FILL). For vector SVG (logos / icons) use import_svg instead. Returns { ok, nodeId, name, type }.",
+  inputSchema: external_exports.object({
+    path: external_exports.string().min(1).optional().describe(
+      "Local image file to import (PNG / JPEG / GIF), read by the MCP server; relative paths resolve against its working directory"
+    ),
+    data: external_exports.string().optional().describe("Base64-encoded image bytes (PNG / JPG / GIF)"),
+    url: external_exports.string().optional().describe("Image URL to fetch instead of data"),
+    name: external_exports.string().optional().describe("Optional name for the new rectangle"),
+    parentId: external_exports.string().optional().describe("Parent node id (default: current page)"),
+    x: external_exports.number().optional(),
+    y: external_exports.number().optional(),
+    width: external_exports.number().min(0).optional().describe("Override width (default: image width)"),
+    height: external_exports.number().min(0).optional().describe("Override height (default: image height)"),
+    scaleMode: external_exports.enum(["FILL", "FIT", "CROP", "TILE"]).optional()
+  }),
+  kind: "write",
+  // Resolved on the server into `data` before dispatch, so the sandbox handler never receives it.
+  serverOnlyArgs: ["path"]
+};
+var SIGNATURES = [
+  [137, 80, 78, 71],
+  // PNG
+  [255, 216, 255],
+  // JPEG
+  [71, 73, 70, 56]
+  // GIF
+];
+var isSupportedImage = (bytes) => SIGNATURES.some((signature) => signature.every((byte, i) => bytes[i] === byte));
+var HEADER_BYTES = 8;
+var MAX_FILE_BYTES = 72 * 1024 * 1024;
+var megabytes = (bytes) => (bytes / 1024 / 1024).toFixed(1);
+var readImageHeader = async (file2, tool) => {
+  const header = Buffer.alloc(HEADER_BYTES);
+  const handle = await (0, import_promises3.open)(file2, "r");
+  try {
+    const stats = await handle.stat();
+    if (stats.isDirectory()) {
+      throw new Error(`${tool}: ${file2} is a directory, not an image file`);
+    }
+    await handle.read(header, 0, HEADER_BYTES, 0);
+    return { header, size: stats.size };
+  } finally {
+    await handle.close().catch(() => {
+    });
+  }
+};
+var resolveImagePath = async (args, tool = IMPORT_IMAGE_TOOL_NAME) => {
+  const { path, ...rest } = args;
+  if (path === void 0) return args;
+  if (typeof path !== "string") throw new Error(`${tool}: path must be a string`);
+  if (rest.data !== void 0 || rest.url !== void 0)
+    throw new Error(`${tool}: provide exactly one of path, data or url`);
+  const file2 = (0, import_node_path3.resolve)(path);
+  const { header, size } = await readImageHeader(file2, tool);
+  if (!isSupportedImage(header))
+    throw new Error(`${tool}: ${file2} is not a PNG, JPEG or GIF image`);
+  if (size > MAX_FILE_BYTES) {
+    throw new Error(
+      `${tool}: ${file2} is ${megabytes(size)}MB, over the ${megabytes(MAX_FILE_BYTES)}MB a single relay message can carry once base64-encoded \u2014 downscale or re-compress the file.`
+    );
+  }
+  const bytes = await (0, import_promises3.readFile)(file2);
+  return { ...rest, data: bytes.toString("base64") };
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/import-style.ts
+var IMPORT_STYLE_TOOL_NAME = "import_style";
+var importStyleTool = {
+  name: IMPORT_STYLE_TOOL_NAME,
+  description: "Import a published library paint, text, effect or grid style by its key into the current file. Returns { ok, styleId, name }; use the returned styleId with apply_style_to_node. A key is not a style id, and an id from the source library is not a target-file reference. Get the key from get_styles in the source file. Does not apply the style or edit any node. Unpublished or inaccessible styles are refused by Figma. Import before a batch; library imports cannot be rolled back.",
+  inputSchema: external_exports.object({
+    styleKey: external_exports.string().min(1).describe("Published style key, not a style id")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/import-svg.ts
+var IMPORT_SVG_TOOL_NAME = "import_svg";
+var importSvgTool = {
+  name: IMPORT_SVG_TOOL_NAME,
+  description: "Import an SVG and place it as editable vector nodes (a FRAME of VECTOR paths) via createNodeFromSvg \u2014 use this for vector logos, brand marks, and icons. Provide the SVG's raw markup string (read it from the project asset, or inline it). The frame defaults to the SVG intrinsic size unless width/height are given. For raster photos (PNG / JPG) use import_image, or set_image_fill to fill an existing layer, instead; when a matching icon component already exists, create_instance it rather than re-pasting the SVG. Returns { ok, nodeId, name, type }.",
+  inputSchema: external_exports.object({
+    svg: external_exports.string().describe('Raw SVG markup, e.g. "<svg \u2026>\u2026</svg>"'),
+    name: external_exports.string().optional().describe("Optional name for the new node"),
+    parentId: external_exports.string().optional().describe("Parent node id (default: current page)"),
+    x: external_exports.number().optional(),
+    y: external_exports.number().optional(),
+    width: external_exports.number().min(0).optional().describe("Override width (default: SVG intrinsic width)"),
+    height: external_exports.number().min(0).optional().describe("Override height (default: SVG intrinsic height)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/import-variable.ts
+var IMPORT_VARIABLE_TOOL_NAME = "import_variable";
+var importVariableTool = {
+  name: IMPORT_VARIABLE_TOOL_NAME,
+  description: "Import a published library variable by its key into the current file. Returns { ok, variableId, name }; use the returned variableId with bind_variable_to_node, bind_variable_to_paint or other variable bindings. A key is not a variable id, and an id from the source library is not a target-file reference. Get the key from get_variable_defs in the source file. Does not bind or edit any node. Unpublished or inaccessible variables are refused by Figma. Import before a batch; library imports cannot be rolled back.",
+  inputSchema: external_exports.object({
+    variableKey: external_exports.string().min(1).describe("Published variable key, not a variable id")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/lock-nodes.ts
+var LOCK_NODES_TOOL_NAME = "lock_nodes";
+var lockNodesTool = {
+  name: LOCK_NODES_TOOL_NAME,
+  description: "Lock nodes so they can't be selected or edited on the canvas (e.g. backgrounds); locking a parent also locks its descendants. Locked nodes still render and export \u2014 this only affects canvas interaction and is reversed by unlock_nodes. Returns { ok, affected } with the ids actually locked.",
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).describe("Node ids to lock")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/move-nodes.ts
+var MOVE_NODES_TOOL_NAME = "move_nodes";
+var moveNodesTool = {
+  name: MOVE_NODES_TOOL_NAME,
+  description: "Translate nodes by (dx, dy). Nodes without a position are skipped. Returns { ok, affected }.",
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).describe("Node ids to move"),
+    dx: external_exports.number().optional().describe("Horizontal delta (default 0)"),
+    dy: external_exports.number().optional().describe("Vertical delta (default 0)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/navigate-to-page.ts
+var NAVIGATE_TO_PAGE_TOOL_NAME = "navigate_to_page";
+var navigateToPageTool = {
+  name: NAVIGATE_TO_PAGE_TOOL_NAME,
+  description: "Switch the active page. Subsequent selection / read tools operate on this page. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    pageId: external_exports.string().describe("Page id to navigate to")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/outline-stroke.ts
+var OUTLINE_STROKE_TOOL_NAME = "outline_stroke";
+var outlineStrokeTool = {
+  name: OUTLINE_STROKE_TOOL_NAME,
+  description: "Outline a node\u2019s stroke \u2014 Figma\u2019s Outline Stroke: a new VECTOR (a GROUP of glyph outlines for text) whose filled shape is exactly what the stroke draws \u2014 a brush, a hand-drawn wobble, a taper and dashes included \u2014 so it can be recoloured, combined with boolean_nodes, edited point by point (get_vector / set_vector) or exported as plain vector art. It is filled with the stroke\u2019s paints and keeps the node\u2019s opacity, blend mode and effects; the node\u2019s own fills are not part of it. It lands directly above the node, at the same spot \u2014 above the instance, boolean or repeat group holding the node, which cannot take it, or beside a group an auto-layout frame lays out, which would grow to fit it and move \u2014 and absolutely positioned in an auto-layout frame so nothing re-flows or moves. The node itself stays; delete_nodes it to replace it. A scatter brush outlines into thousands of shapes. Returns { ok, nodeId, name, type } for the outline.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("A node with a visible stroke"),
+    name: external_exports.string().optional().describe("Name for the outline")
+  }),
+  kind: "write"
+};
+
+// mcp/src/figwright-ping.ts
+var pingTool = {
+  name: "ping",
+  description: "Check the connected F2A document and Figma API.",
+  inputSchema: external_exports.object({}),
+  kind: "read"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/remove-animation-style.ts
+var REMOVE_ANIMATION_STYLE_TOOL_NAME = "remove_animation_style";
+var removeAnimationStyleTool = {
+  name: REMOVE_ANIMATION_STYLE_TOOL_NAME,
+  description: "Remove an applied Figma Motion animation style from a node. Pass animationStyleId (the appliedStyleId returned by apply_animation_style, or read from get_node_motion) to remove one; omit it to remove all applied styles on the node. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id to remove animation style(s) from"),
+    animationStyleId: external_exports.string().describe("The applied-style instance id to remove; omit to remove all on the node").optional()
+  }),
+  kind: "write",
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/remove-manual-keyframe-track.ts
+var REMOVE_MANUAL_KEYFRAME_TRACK_TOOL_NAME = "remove_manual_keyframe_track";
+var removeManualKeyframeTrackTool = {
+  name: REMOVE_MANUAL_KEYFRAME_TRACK_TOOL_NAME,
+  description: "Remove the manual Figma Motion keyframe track for a given field on a node. `field` selects the same target as apply_manual_keyframe_track (a node PROPERTY or an indexed fills/strokes/effects item). Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id to clear a keyframe track from"),
+    field: keyframeFieldSchema
+  }),
+  kind: "write",
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/remove-reactions.ts
+var REMOVE_REACTIONS_TOOL_NAME = "remove_reactions";
+var removeReactionsTool = {
+  name: REMOVE_REACTIONS_TOOL_NAME,
+  description: "Clear every prototype reaction from a node (equivalent to set_reactions with an empty array). Use this to strip interactivity; to replace reactions with new ones use set_reactions. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node to clear reactions from")
+  }),
+  kind: "write",
+  // Deletes the node's prototype reactions outright — data that can't be recovered afterwards.
+  destructive: true
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/rename-page.ts
+var RENAME_PAGE_TOOL_NAME = "rename_page";
+var renamePageTool = {
+  name: RENAME_PAGE_TOOL_NAME,
+  description: "Rename a Figma page (a top-level page/tab in the document) by id. Affects only the page name; its node id and contents are unchanged. To rename a layer/node on the canvas use rename_node instead, and a prototype flow with update_flows. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    pageId: external_exports.string().describe("Page id to rename"),
+    name: external_exports.string().describe("New page name")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/rename-variable.ts
+var RENAME_VARIABLE_TOOL_NAME = "rename_variable";
+var renameVariableTool = {
+  name: RENAME_VARIABLE_TOOL_NAME,
+  description: 'Rename a variable (e.g. "color/primary" \u2192 "color/brand"); use slashes in the name for folder grouping in the Variables panel. The variable id is unchanged, so existing bindings keep working. Returns { ok, variableId, name }.',
+  inputSchema: external_exports.object({
+    variableId: external_exports.string().describe("Variable id"),
+    name: external_exports.string().describe('New variable name, e.g. "color/brand"')
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/repeat-schema.ts
+var repeatModifierSchema = external_exports.object({
+  type: external_exports.literal("REPEAT").optional().describe("Always REPEAT; optional"),
+  repeatType: external_exports.enum(["LINEAR", "RADIAL"]),
+  count: external_exports.number().int().min(2).max(40).describe("How many times the content is drawn in all, the original included (2\u201340)"),
+  offset: external_exports.number().describe(
+    "LINEAR: the step from one copy to the next along axis. RADIAL: the diameter of the circle the content\u2019s centre travels round (not a radius). Pixels, or with unitType RELATIVE a multiple of the content\u2019s size. Negative steps go backwards"
+  ),
+  unitType: external_exports.enum(["PIXELS", "RELATIVE"]).optional().describe(
+    "PIXELS (default) or RELATIVE: offset \xD7 the content\u2019s width (LINEAR HORIZONTAL) or height (LINEAR VERTICAL and RADIAL) \u2014 LINEAR 1 = copies touching"
+  ),
+  axis: external_exports.enum(["HORIZONTAL", "VERTICAL"]).optional().describe("LINEAR only: the direction copies step in (default HORIZONTAL)")
+});
+var REPEAT_SEMANTICS = "LINEAR draws count copies in total, each offset further along axis. RADIAL turns each copy a further 360\xB0/count clockwise about a point straight below the content, so the content\u2019s centre travels a circle offset px across \u2014 offset is that circle\u2019s diameter. A second modifier repeats everything the first one drew: two LINEAR ones on different axes make a grid.";
+
+// mcp/vendor/figwright/packages/mcp/src/tools/repeat-nodes.ts
+var REPEAT_NODES_TOOL_NAME = "repeat_nodes";
+var repeatNodesTool = {
+  name: REPEAT_NODES_TOOL_NAME,
+  description: "Wrap layers in a repeat group (Figma Draw), which draws their content several times and stays live \u2014 edit the content and every copy follows: a row or grid of dots, the ticks round a dial, petals round a centre, a dashed border made of shapes. " + REPEAT_SEMANTICS + " The nodes must share a parent; the group takes the place of the topmost and the content keeps its position. Change the repeat later with set_repeat; ungroup_nodes removes it. Returns { ok, nodeId, name, type } for the new TRANSFORM_GROUP.",
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).min(1).describe("Layers to repeat (one parent)"),
+    modifiers: external_exports.array(repeatModifierSchema).min(1).max(2).describe("1 or 2 modifiers; the second repeats everything the first drew"),
+    name: external_exports.string().optional().describe("Name for the repeat group")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/resize-nodes.ts
+var RESIZE_NODES_TOOL_NAME = "resize_nodes";
+var resizeNodesTool = {
+  name: RESIZE_NODES_TOOL_NAME,
+  description: "Resize nodes to the given width \xD7 height (width at least 0.01 px). A LINE takes the width as its length and keeps height 0 \u2014 pass 0, or any height is reported in adjusted; every other node needs a height of at least 0.01 px, checked before any node is resized. This fixes the size, so an auto-layout FILL / HUG axis becomes FIXED and a TEXT node a fixed box its wrapped lines can overflow, which shows no maxLines line clamp \u2014 to wrap text at a width use set_text_properties width instead, which lets its height follow. Non-resizable nodes are skipped. A layer inside an instance keeps the size its main component gives it \u2014 resize the instance itself, change the layer in the main component, or detach_instance first. Every node is read back: affected lists the nodes that reached the requested size, and adjusted lists any Figma sized differently (an instance layer, a minWidth / maxWidth / minHeight / maxHeight bound) with its actual size and why. A call that changed nothing throws. A node Figma held at its size is left as it was, its HUG / FILL sizing and text box included. A text that reached its size but lost a maxLines is listed in cleared. Returns { ok, affected, adjusted?, cleared? }.",
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).describe("Node ids to resize"),
+    width: external_exports.number().min(0.01),
+    height: external_exports.number().min(0).describe(
+      "At least 0.01 px; a LINE keeps height 0 whatever is passed (0 is exact for a line)"
+    )
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/rotate-nodes.ts
+var ROTATE_NODES_TOOL_NAME = "rotate_nodes";
+var rotateNodesTool = {
+  name: ROTATE_NODES_TOOL_NAME,
+  description: "Set absolute rotation (degrees) on nodes. Nodes without rotation are skipped. Returns { ok, affected }.",
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).describe("Node ids to rotate"),
+    rotation: external_exports.number().describe("Rotation in degrees")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/save-image-fills.ts
+var import_node_crypto = require("node:crypto");
+var import_promises4 = require("node:fs/promises");
+var import_node_path4 = require("node:path");
+var SAVE_IMAGE_FILLS_TOOL_NAME = "save_image_fills";
+var inputSchema3 = external_exports.object({
+  nodeIds: external_exports.array(external_exports.string()).describe("Figma node ids whose IMAGE fills to extract"),
+  outDir: external_exports.string().describe("Directory to write the original image files into (created if missing)")
+});
+var saveImageFillsTool = {
+  name: SAVE_IMAGE_FILLS_TOOL_NAME,
+  description: "Extract the ORIGINAL image bytes behind each node's IMAGE fills and write them to disk under outDir \u2014 the source asset exactly as uploaded (no mask, clip, crop, scale, or effects applied), unlike save_screenshots / get_screenshot which re-render the composited node. Returns { nodes: [{ nodeId, images: [{ index, imageHash, format, path, width?, height?, scaleMode? }], mixed? }] }. index is the fill position in node.fills; width/height are the image intrinsic size; scaleMode is how the fill is displayed (FILL / FIT / CROP / TILE); format is sniffed from the bytes (PNG / JPG / GIF / WEBP, or BIN if unrecognized). Identical images (same imageHash reused across nodes) are fetched once and share one file, named by the SHA-1 of its bytes \u2014 which is the imageHash Figma reports for it. path is null when the fill image can't be resolved; images:[] means the node has no image fill; mixed:true means the node's fills are per-text-range and were not enumerated. For a rendered/composited raster use save_screenshots; for a vector node use export_pdf.",
+  inputSchema: inputSchema3,
+  kind: "local",
+  // Dispatches to a same-named sandbox handler; outDir stays on the server.
+  serverOnlyArgs: ["outDir"],
+  injectedArgs: ["binary"]
+};
+var detectImageFormat = (bytes) => {
+  if (bytes.length >= 4 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71)
+    return { format: "PNG", ext: "png" };
+  if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255)
+    return { format: "JPG", ext: "jpg" };
+  if (bytes.length >= 3 && bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70)
+    return { format: "GIF", ext: "gif" };
+  if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80)
+    return { format: "WEBP", ext: "webp" };
+  return { format: "BIN", ext: "bin" };
+};
+var contentName = (bytes) => (0, import_node_crypto.createHash)("sha1").update(bytes).digest("hex");
+var carry = (img) => ({
+  index: img.index,
+  imageHash: img.imageHash,
+  ...img.width !== void 0 ? { width: img.width } : {},
+  ...img.height !== void 0 ? { height: img.height } : {},
+  ...img.scaleMode !== void 0 ? { scaleMode: img.scaleMode } : {}
+});
+var writeImageFills = async (outDir, nodes, requestedNodeIds) => {
+  const dir = (0, import_node_path4.resolve)(outDir);
+  await (0, import_promises4.mkdir)(dir, { recursive: true });
+  const requested = new Set(requestedNodeIds);
+  const toWrite = /* @__PURE__ */ new Map();
+  const outNodes = nodes.map((node2) => {
+    const asked = requested.has(node2.nodeId);
+    const images = node2.images.map((img) => {
+      const buf = binaryPayload(img);
+      if (buf === null || img.imageHash === null || !asked) return { ...carry(img), path: null };
+      const { format, ext } = detectImageFormat(buf);
+      const path = (0, import_node_path4.join)(dir, `${contentName(buf)}.${ext}`);
+      if (!toWrite.has(path)) toWrite.set(path, buf);
+      return { ...carry(img), format, path };
+    });
+    return { nodeId: node2.nodeId, images, ...node2.mixed === true ? { mixed: true } : {} };
+  });
+  await Promise.all([...toWrite].map(([path, buf]) => (0, import_promises4.writeFile)(path, buf)));
+  return { nodes: outNodes };
+};
+var handleSaveImageFills = async (dispatch, rawArgs) => {
+  const args = inputSchema3.parse(rawArgs);
+  const { nodes } = await dispatch(SAVE_IMAGE_FILLS_TOOL_NAME, {
+    // These bytes go to disk, never to a model, so they ride the wire as a msgpack `bin`.
+    binary: true,
+    nodeIds: args.nodeIds
+  });
+  return writeImageFills(args.outDir, nodes, args.nodeIds);
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/save-screenshots.ts
+var import_promises5 = require("node:fs/promises");
+var import_node_path5 = require("node:path");
+var SAVE_SCREENSHOTS_TOOL_NAME = "save_screenshots";
+var inputSchema4 = external_exports.object({
+  nodeIds: external_exports.array(external_exports.string()).describe("Figma node ids to export"),
+  outDir: external_exports.string().describe("Directory to write files into (created if missing)"),
+  format: external_exports.enum(SCREENSHOT_FORMATS).describe("Export format: PNG (default) / JPG / SVG").optional(),
+  scale: external_exports.number().positive().describe("Raster scale factor (PNG/JPG), default 1").optional()
+});
+var saveScreenshotsTool = {
+  name: SAVE_SCREENSHOTS_TOOL_NAME,
+  description: "Export nodes and write them to disk under outDir: { saved: [{ nodeId, format, path, recovered?, empty? }] }. format is PNG (default) / JPG / SVG; scale applies to raster formats (default 1). path is null for missing or non-exportable nodes. Nodes that are fully clipped or off-canvas (e.g. a carousel's edge items) are auto-recovered at their intrinsic bounds and flagged recovered:true. empty:true means the node genuinely renders nothing even unclipped (hidden / no content) so the file is blank. Files are named after a sanitized node id.",
+  inputSchema: inputSchema4,
+  kind: "local",
+  // No sandbox handler of its own; its plugin arguments are recorded under the tool it reuses.
+  serverOnlyArgs: null
+};
+var EXTENSIONS = {
+  PNG: "png",
+  JPG: "jpg",
+  SVG: "svg"
+};
+var sanitize = (id) => id.replace(/[^\w.-]/g, "-");
+var writeScreenshots = async (outDir, images, request) => {
+  const dir = (0, import_node_path5.resolve)(outDir);
+  await (0, import_promises5.mkdir)(dir, { recursive: true });
+  const requested = new Set(request.nodeIds);
+  const ext = EXTENSIONS[request.format];
+  const saved = await Promise.all(
+    images.map(async (img) => {
+      const flags = {
+        ...img.empty === true ? { empty: true } : {},
+        ...img.recovered === true ? { recovered: true } : {}
+      };
+      const payload = binaryPayload(img);
+      const answersRequest = requested.has(img.nodeId) && img.format === request.format;
+      if (payload === null || !answersRequest) {
+        return { nodeId: img.nodeId, format: img.format, path: null, ...flags };
+      }
+      const path = (0, import_node_path5.join)(dir, `${sanitize(img.nodeId)}.${ext}`);
+      await (0, import_promises5.writeFile)(path, payload);
+      return { nodeId: img.nodeId, format: img.format, path, ...flags };
+    })
+  );
+  return { saved };
+};
+var handleSaveScreenshots = async (dispatch, rawArgs) => {
+  const args = inputSchema4.parse(rawArgs);
+  const request = { nodeIds: args.nodeIds, format: args.format ?? "PNG" };
+  const screenshotArgs = {
+    nodeIds: request.nodeIds,
+    format: request.format
+  };
+  screenshotArgs.binary = true;
+  screenshotArgs.scale = args.scale ?? 1;
+  const { images } = await dispatch(
+    GET_SCREENSHOT_TOOL_NAME,
+    screenshotArgs
+  );
+  return writeScreenshots(args.outDir, images, request);
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-arc.ts
+var SET_ARC_TOOL_NAME = "set_arc";
+var setArcTool = {
+  name: SET_ARC_TOOL_NAME,
+  description: "Turn an ellipse into a pie slice / gauge or a ring / donut by setting its arc data. startingAngle / endingAngle are in radians and carve out the visible wedge (a full circle is 0 \u2192 2\u03C0 \u2248 6.28319; a half is \u03C0 \u2248 3.14159); innerRadius is 0\u20131 of the radius (0 = a solid disc, > 0 = a ring with a hole, e.g. 0.6 for a donut or progress ring). Only ellipses have arc data. Pass any subset \u2014 omitted fields keep their current value. At least one is required. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id (must be an ellipse)"),
+    startingAngle: external_exports.number().optional().describe("Arc start angle in radians"),
+    endingAngle: external_exports.number().optional().describe("Arc end angle in radians"),
+    innerRadius: external_exports.number().min(0).max(1).optional().describe("Inner radius 0\u20131 of the outer radius (0 = solid disc, > 0 = ring / donut)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-blend-mode.ts
+var SET_BLEND_MODE_TOOL_NAME = "set_blend_mode";
+var setBlendModeTool = {
+  name: SET_BLEND_MODE_TOOL_NAME,
+  description: "Set how a node composites with the layers beneath it (NORMAL, MULTIPLY, SCREEN, OVERLAY, DARKEN, LIGHTEN, COLOR_DODGE, etc.). PASS_THROUGH is only meaningful on groups/frames (lets children blend with content outside the group). Affects compositing only, not the node's own fills \u2014 use set_fills or set_opacity for those. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node to set the blend mode on"),
+    blendMode: external_exports.string().describe('Figma blend mode literal, e.g. "MULTIPLY"')
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-complex-stroke.ts
+var SET_COMPLEX_STROKE_TOOL_NAME = "set_complex_stroke";
+var STRETCH_BRUSHES = [
+  "HEIST",
+  "BLOCKBUSTER",
+  "GRINDHOUSE",
+  "BIOPIC",
+  "SPAGHETTI_WESTERN",
+  "SLASHER",
+  "HARDBOILED",
+  "VERITE",
+  "EPIC",
+  "SCREWBALL",
+  "ROM_COM",
+  "NOIR",
+  "PROPAGANDA",
+  "MELODRAMA",
+  "NEW_WAVE"
+];
+var SCATTER_BRUSHES = [
+  "BUBBLEGUM",
+  "WITCH_HOUSE",
+  "SHOEGAZE",
+  "HONKY_TONK",
+  "SCREAMO",
+  "DRONE",
+  "DOO_WOP",
+  "SPOKEN_WORD",
+  "VAPORWAVE",
+  "OI"
+];
+var setComplexStrokeTool = {
+  name: SET_COMPLEX_STROKE_TOOL_NAME,
+  description: "Give a node's stroke a Figma Draw look \u2014 a brush, a hand-drawn wobble or a width that varies along it \u2014 on any node with a stroke (paths, shapes, frames, text). complexStrokeProperties: { type:'BRUSH', brushType:'STRETCH', brushName, direction } drags one textured stroke along the path; { type:'BRUSH', brushType:'SCATTER', brushName, gap, wiggle, sizeJitter, angularJitter, rotation } stamps the brush along it; { type:'DYNAMIC', frequency, wiggle, smoothen } wobbles it; { type:'BASIC' } goes back to a plain stroke. Fields left out take the brush's own defaults. variableWidthStrokeProperties: { widthProfile } with a preset (WEDGE, TAPER, QUARTER_TAPER, EYE, MIRRORED_TAPER; UNIFORM = constant), or CUSTOM with variableWidthPoints [{ position 0\u20131 along the stroke, width }] \u2014 the stroke is 2 \xD7 width \xD7 strokeWeight thick there, so 0.5 is its normal weight and 1 twice it; a vector that branches cannot take one. Both may be combined. The node needs a visible stroke first (set_strokes) \u2014 its colour and weight still apply. Any of these draws the stroke solid: a dash pattern stays set but is not drawn. These are the same fields get_node reads. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node whose stroke to restyle"),
+    complexStrokeProperties: external_exports.object({
+      type: external_exports.enum(["BASIC", "BRUSH", "DYNAMIC"]),
+      brushType: external_exports.enum(["STRETCH", "SCATTER"]).optional().describe("BRUSH: which kind"),
+      brushName: external_exports.enum([...STRETCH_BRUSHES, ...SCATTER_BRUSHES]).optional().describe(
+        `BRUSH: STRETCH brushes ${STRETCH_BRUSHES.join(", ")}; SCATTER brushes ` + SCATTER_BRUSHES.join(", ")
+      ),
+      direction: external_exports.enum(["FORWARD", "BACKWARD"]).optional().describe("STRETCH: which way the brush runs along the path"),
+      gap: external_exports.number().min(0.25).optional().describe("SCATTER: space between stamps (\u2265 0.25)"),
+      wiggle: external_exports.number().min(0).optional().describe("SCATTER / DYNAMIC: random sideways movement (\u2265 0)"),
+      sizeJitter: external_exports.number().min(0).max(3).optional().describe("SCATTER: size variation 0\u20133"),
+      angularJitter: external_exports.number().min(-180).max(180).optional().describe("SCATTER: angle variation in degrees"),
+      rotation: external_exports.number().min(-180).max(180).optional().describe("SCATTER: rotation of every stamp in degrees"),
+      frequency: external_exports.number().min(0.01).max(20).optional().describe("DYNAMIC: wobbles, 0.01\u201320"),
+      smoothen: external_exports.number().min(0).max(1).optional().describe("DYNAMIC: smoothing, 0\u20131")
+    }).optional(),
+    variableWidthStrokeProperties: external_exports.object({
+      widthProfile: external_exports.enum([
+        "UNIFORM",
+        "WEDGE",
+        "TAPER",
+        "QUARTER_TAPER",
+        "EYE",
+        "MIRRORED_TAPER",
+        "CUSTOM"
+      ]),
+      variableWidthPoints: external_exports.array(
+        external_exports.object({
+          position: external_exports.number().min(0).max(1).describe("0\u20131 along the stroke"),
+          width: external_exports.number().min(0).describe("Width there: 0.5 = the stroke\u2019s own weight, 1 = twice it")
+        })
+      ).min(1).optional().describe("CUSTOM only: the width at each point (a preset reports its own on read)")
+    }).optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-constraints.ts
+var SET_CONSTRAINTS_TOOL_NAME = "set_constraints";
+var constraint = external_exports.enum(["MIN", "CENTER", "MAX", "STRETCH", "SCALE"]);
+var setConstraintsTool = {
+  name: SET_CONSTRAINTS_TOOL_NAME,
+  description: "Set how a node responds when its parent frame is resized, via horizontal and vertical constraints: MIN pins to the left/top, MAX to the right/bottom, CENTER keeps it centered, STRETCH pins both edges (grows with the parent), and SCALE resizes proportionally. Constraints apply to children of a plain frame and to ABSOLUTE children of an auto-layout frame; an in-flow auto-layout child is positioned by the layout and ignores them. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node to constrain"),
+    horizontal: constraint.describe("Horizontal behavior when the parent resizes"),
+    vertical: constraint.describe("Vertical behavior when the parent resizes")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-effects.ts
+var SET_EFFECTS_TOOL_NAME = "set_effects";
+var setEffectsTool = {
+  name: SET_EFFECTS_TOOL_NAME,
+  description: "Set a node's effects. Shadows (DROP_SHADOW / INNER_SHADOW) need color + offset; blurs need radius. A drop shadow is written with showShadowBehindNode false unless it says true \u2014 what a CSS box-shadow draws. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id to apply effects to"),
+    effects: external_exports.array(effectItemSchema).describe("Effects to apply")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-fills.ts
+var SET_FILLS_TOOL_NAME = "set_fills";
+var setFillsTool = {
+  name: SET_FILLS_TOOL_NAME,
+  description: "Set a node's fills. SOLID: { type:'SOLID', color:{r,g,b} } (0\u20131). Gradient: { type:'GRADIENT_LINEAR'|\u2026, gradientStops:[{position,color:{r,g,b,a}}], gradientTransform } (round-trips get_node output). A SOLID paint may carry boundVariables ({ color: variableId }) and a gradient stop its own \u2014 the paint then tracks that variable instead of the literal. Channels are in the document's colour space; a colour taken from code adds space: 'SRGB' so a Display P3 file shows it as the code does. PATTERN tiles another layer across the fill: { type:'PATTERN', sourceNodeId, tileType, scalingFactor, spacing, horizontalAlignment, verticalAlignment } (round-trips get_node output; omitted fields take the defaults). Images go in with set_image_fill. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id to repaint"),
+    fills: external_exports.array(fillPaintItemSchema).describe("Paints to apply")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-instance-properties.ts
+var SET_INSTANCE_PROPERTIES_TOOL_NAME = "set_instance_properties";
+var instancePropertyValue = external_exports.union([
+  external_exports.string(),
+  external_exports.boolean(),
+  external_exports.looseObject({ type: external_exports.literal("VARIABLE_ALIAS"), id: external_exports.string() })
+]).describe(
+  'string (VARIANT / TEXT / INSTANCE_SWAP target component id) | boolean (BOOLEAN) | { type:"VARIABLE_ALIAS", id }'
+);
+var setInstancePropertiesTool = {
+  name: SET_INSTANCE_PROPERTIES_TOOL_NAME,
+  description: `Set an instance's component properties (variant / boolean / text / instance-swap). Keys are the property names from get_component_api, used verbatim: VARIANT by bare name (e.g. "Size": "Large"), BOOLEAN/TEXT/INSTANCE_SWAP suffixed with #id (e.g. "Label#2:0": "Sign in", "Disabled#1:2": true). An INSTANCE_SWAP value is the target component node id. Unspecified properties keep their value; SLOT properties are not settable. Returns { ok, nodeId }.`,
+  inputSchema: external_exports.object({
+    instanceId: external_exports.string().describe("Instance node id to update"),
+    properties: external_exports.record(external_exports.string(), instancePropertyValue).describe("Map of property name (verbatim from get_component_api) \u2192 value")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-layout-grids.ts
+var SET_LAYOUT_GRIDS_TOOL_NAME = "set_layout_grids";
+var setLayoutGridsTool = {
+  name: SET_LAYOUT_GRIDS_TOOL_NAME,
+  description: "Set a frame's own layout grids \u2014 the responsive column/row scaffold laid over it (the 12-column grid, the 8pt baseline), distinct from auto-layout (set_auto_layout arranges children). Each grid is COLUMNS / ROWS (count + gutterSize + alignment, e.g. a 12-col grid) or GRID (uniform squares via sectionSize, a baseline). Replaces the frame's grids with the array given; pass [] to clear them. Only frames (and components/instances) carry layout grids. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Frame (or component/instance) node id"),
+    grids: external_exports.array(gridItemSchema).describe("Layout grids to set; [] clears all grids on the frame")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-layout-props.ts
+var SET_LAYOUT_PROPS_TOOL_NAME = "set_layout_props";
+var setLayoutPropsTool = {
+  name: SET_LAYOUT_PROPS_TOOL_NAME,
+  description: "Set a node's sizing, child properties and content clipping. clipsContent controls whether a frame-like container clips its children; it also works without auto-layout. layoutSizingHorizontal / layoutSizingVertical (HUG = shrink to fit children, FILL = stretch to fill the auto-layout parent, FIXED = keep the current size) are the preferred way to size a frame to its content (HUG) or make a child fill its container (FILL) \u2014 reach for these instead of guessing pixel sizes with resize_nodes. layoutAlign (STRETCH = fill the counter axis, INHERIT = default) and layoutGrow (1 = fill the primary axis, 0 = hug) are the older per-axis equivalents. Figma has no per-child alignment: every child of an auto-layout frame shares the frame\u2019s counterAxisAlignItems, so to centre one child alone wrap it in its own auto-layout frame, or make it ABSOLUTE and use align_nodes. layoutPositioning (ABSOLUTE = ignore the flow and position freely, AUTO = participate in layout). minWidth / maxWidth / minHeight / maxHeight set responsive size bounds (\u2192 min-w / max-w); pass null to clear a bound. Bounds apply to auto-layout frames and their direct children. HUG needs an auto-layout frame (or text); FILL needs an auto-layout parent. On a text, Figma keeps one truncation limit \u2014 a maxLines line clamp or a maxHeight \u2014 so maxHeight replaces a line clamp, and a FIXED or FILL height makes a fixed box, which truncates at its edge and shows no line count; the write still lands, and a maxLines it cleared is named in adjusted. Any field may be omitted to leave it unchanged. Returns { ok, nodeId, adjusted? }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node id \u2014 a frame-like container, or an auto-layout child"),
+    clipsContent: external_exports.boolean().optional().describe("Clip children to the container bounds"),
+    layoutSizingHorizontal: external_exports.enum(["FIXED", "HUG", "FILL"]).optional().describe("Horizontal sizing: HUG fits content, FILL fills the parent, FIXED keeps width"),
+    layoutSizingVertical: external_exports.enum(["FIXED", "HUG", "FILL"]).optional().describe("Vertical sizing: HUG fits content, FILL fills the parent, FIXED keeps height"),
+    // MIN / CENTER / MAX are deprecated by Figma and silently reset to INHERIT on write, so a
+    // call carrying one would answer ok and change nothing — they are not offered.
+    layoutAlign: external_exports.enum(["STRETCH", "INHERIT"]).optional().describe("STRETCH fills the counter axis; INHERIT follows the parent"),
+    layoutGrow: external_exports.number().min(0).optional().describe("1 = grow to fill the primary axis, 0 = hug content"),
+    layoutPositioning: external_exports.enum(["AUTO", "ABSOLUTE"]).optional().describe("ABSOLUTE takes the node out of the auto-layout flow"),
+    minWidth: external_exports.number().positive().nullable().optional().describe("Minimum width in px (null clears the bound)"),
+    maxWidth: external_exports.number().positive().nullable().optional().describe("Maximum width in px (null clears the bound)"),
+    minHeight: external_exports.number().positive().nullable().optional().describe("Minimum height in px (null clears the bound)"),
+    maxHeight: external_exports.number().positive().nullable().optional().describe("Maximum height in px (null clears the bound)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-mask.ts
+var SET_MASK_TOOL_NAME = "set_mask";
+var setMaskTool = {
+  name: SET_MASK_TOOL_NAME,
+  description: "Set whether a node is a mask \u2014 a mask clips its later siblings to its own shape. Pass isMask true/false, and optionally maskType (ALPHA / LUMINANCE / GEOMETRY) when enabling. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id"),
+    isMask: external_exports.boolean().describe("Whether the node masks its later siblings"),
+    maskType: external_exports.enum(["ALPHA", "LUMINANCE", "GEOMETRY"]).optional().describe("How the mask clips (only applied when enabling)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-node-variable-mode.ts
+var SET_NODE_VARIABLE_MODE_TOOL_NAME = "set_node_variable_mode";
+var setNodeVariableModeTool = {
+  name: SET_NODE_VARIABLE_MODE_TOOL_NAME,
+  description: "Switch a node to one of a variable collection's modes \u2014 the Dark (or another theme, brand or language) variant of a frame, a component, a layer inside an instance, or a whole page \u2014 so every variable bound in its subtree takes that mode's value. This changes which mode a node renders in; to add or remove modes on the collection itself use add_variable_mode / delete_variable_mode. collectionId and modeId come from get_variable_defs. modeId null clears the setting so the node inherits its parent's mode again. Returns { ok, nodeId, collectionId, collectionName, modeId, modeName }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node to switch: any layer, or a page"),
+    collectionId: external_exports.string().describe("Variable collection id, from get_variable_defs"),
+    modeId: external_exports.string().nullable().describe("A mode id of that collection; null clears it so the node inherits its parent's")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-opacity.ts
+var SET_OPACITY_TOOL_NAME = "set_opacity";
+var setOpacityTool = {
+  name: SET_OPACITY_TOOL_NAME,
+  description: "Set a node's layer opacity from 0 (transparent) to 1 (opaque); this multiplies with any fill or stroke alpha. Opacity 0 still renders, exports, and hit-tests \u2014 to exclude a node from rendering use set_visible(false), and to remove it use delete_nodes. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id"),
+    opacity: external_exports.number().min(0).max(1).describe("Opacity 0\u20131")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-position.ts
+var SET_POSITION_TOOL_NAME = "set_position";
+var setPositionTool = {
+  name: SET_POSITION_TOOL_NAME,
+  description: "Set a node's exact position (x / y), relative to its parent \u2014 for a top-level node these are canvas coordinates; for an absolutely-positioned child they are relative to its auto-layout parent. Use this to place an overlay / badge / pinned element at a known spot, or to position a top-level frame on the canvas; to nudge by a delta instead use move_nodes. A node that sits in-flow inside an auto-layout frame is positioned by the layout \u2014 set layoutPositioning ABSOLUTE (set_layout_props) first to place it freely. Either coordinate may be omitted to leave it unchanged. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node id to position"),
+    x: external_exports.number().optional().describe("X position relative to the parent"),
+    y: external_exports.number().optional().describe("Y position relative to the parent")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-reactions.ts
+var SET_REACTIONS_TOOL_NAME = "set_reactions";
+var setReactionsTool = {
+  name: SET_REACTIONS_TOOL_NAME,
+  description: `Replace all of a node's prototype reactions \u2014 this overwrites existing reactions rather than appending. Each reaction pairs a trigger (e.g. { type: 'ON_CLICK' }, or ON_KEY_DOWN with device + keyCodes) with an actions array: NODE carries destinationId, navigation (NAVIGATE / SWAP / OVERLAY / SCROLL_TO / CHANGE_TO) and transition; URL, BACK, CLOSE, SET_VARIABLE, SET_VARIABLE_MODE, UPDATE_MEDIA_RUNTIME and CONDITIONAL carry their own fields. An OVERLAY action takes overlayRelativePosition ({ x, y }) to offset the overlay, which Figma applies only when the destination frame's overlay position is set to Manual \u2014 that setting lives on the frame and is read-only to plugins, so it must be chosen in Figma first. get_reactions output round-trips through here unchanged; to clear all reactions instead use remove_reactions. On a page with no prototype flows, Figma may make the top-level frame holding a new connection a flow named "Flow 1" on its own; get_pages lists it and update_flows renames or removes it. Returns { ok, nodeId }.`,
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Node to set reactions on"),
+    // Derived from the wire format rather than restated: get_reactions emits exactly this shape and
+    // this tool is how it goes back, so a second hand-kept mirror here could only drift out of
+    // agreement with the sandbox — and a stale mirror used for validation rejects good calls.
+    reactions: external_exports.array(SerializedReactionSchema).describe("Reactions to apply (replaces existing)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-repeat.ts
+var SET_REPEAT_TOOL_NAME = "set_repeat";
+var setRepeatTool = {
+  name: SET_REPEAT_TOOL_NAME,
+  description: "Replace how a repeat group (TRANSFORM_GROUP \u2014 from repeat_nodes, or drawn in Figma Draw) repeats its content. " + REPEAT_SEMANTICS + " get_node reads the current modifiers in this same shape. [] keeps the group and draws the content once. A repeat group inside an instance cannot take this \u2014 Figma does not let an instance override it; change the main component. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("The repeat group (TRANSFORM_GROUP)"),
+    modifiers: external_exports.array(repeatModifierSchema).max(2).describe("0\u20132 modifiers; the second repeats everything the first drew")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-strokes.ts
+var SET_STROKES_TOOL_NAME = "set_strokes";
+var setStrokesTool = {
+  name: SET_STROKES_TOOL_NAME,
+  description: "Set a node's strokes (SOLID, gradient or PATTERN paints, same shape as set_fills) plus optional strokeWeight, strokeAlign (INSIDE / OUTSIDE / CENTER), dashPattern (dashes), and per-side weights (strokeTopWeight / strokeRightWeight / strokeBottomWeight / strokeLeftWeight \u2014 for nodes that support individual stroke weights, e.g. a border-bottom-only divider). A per-side weight overrides strokeWeight for that side. strokeCap shapes the ends of an open path or line \u2014 ROUND for a pen line, an ARROW / TRIANGLE / DIAMOND / CIRCLE cap for an arrowhead or a connector end \u2014 on every open end, so an arrow cap on a line heads both ends; for one arrowhead draw it with create_vector\u2019s vectorNetwork, the cap on its end vertex. strokeJoin (MITER / BEVEL / ROUND) shapes the corners, strokeMiterLimit (1\u201316) how long a MITER corner may get before it is bevelled. Any field may be omitted to leave it unchanged. Brushes, dynamic strokes and width profiles are set_complex_stroke. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("Figma node id"),
+    strokes: external_exports.array(fillPaintItemSchema).describe("Stroke paints"),
+    strokeWeight: external_exports.number().min(0).optional().describe("Uniform stroke thickness in px"),
+    strokeAlign: external_exports.enum(["INSIDE", "OUTSIDE", "CENTER"]).optional().describe("Stroke position relative to the geometry"),
+    dashPattern: external_exports.array(external_exports.number().min(0)).optional().describe("Dash/gap lengths in px, e.g. [4, 2]; [] for a solid stroke"),
+    strokeCap: external_exports.enum([
+      "NONE",
+      "ROUND",
+      "SQUARE",
+      "ARROW_LINES",
+      "ARROW_EQUILATERAL",
+      "DIAMOND_FILLED",
+      "TRIANGLE_FILLED",
+      "CIRCLE_FILLED"
+    ]).optional().describe("The ends of an open path or line: a line cap, or an arrowhead"),
+    strokeJoin: external_exports.enum(["MITER", "BEVEL", "ROUND"]).optional().describe("How corners are drawn"),
+    strokeMiterLimit: external_exports.number().min(1).max(16).optional().describe(
+      "How long a MITER corner may get, as a multiple of the stroke weight, before it is bevelled"
+    ),
+    strokeTopWeight: external_exports.number().min(0).optional().describe("Top side weight in px"),
+    strokeRightWeight: external_exports.number().min(0).optional().describe("Right side weight in px"),
+    strokeBottomWeight: external_exports.number().min(0).optional().describe("Bottom side weight in px"),
+    strokeLeftWeight: external_exports.number().min(0).optional().describe("Left side weight in px")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-text-path.ts
+var SET_TEXT_PATH_TOOL_NAME = "set_text_path";
+var setTextPathTool = {
+  name: SET_TEXT_PATH_TOOL_NAME,
+  description: "Move where text on a path (TEXT_PATH) starts: a segment of its path and 0\u20131 along it \u2014 the same textPathStartData get_node reports. The segments are numbered as create_text_path describes; an index past the last is refused (Figma would silently ignore it). Edit the text itself with set_text / set_text_properties / set_text_range. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("The text on a path"),
+    startSegment: external_exports.number().int().min(0).optional().describe("Path segment the text starts on"),
+    startPosition: external_exports.number().min(0).max(1).optional().describe("How far along that segment, 0\u20131")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-text-range.ts
+var SET_TEXT_RANGE_TOOL_NAME = "set_text_range";
+var rangeSchema = external_exports.object({
+  start: external_exports.number().describe("Start char offset (inclusive)"),
+  end: external_exports.number().describe("End char offset (exclusive)"),
+  fontName: fontNameSchema.optional(),
+  fontSize: external_exports.number().optional(),
+  fills: external_exports.array(paintItemSchema).optional().describe("Run colour (SOLID or gradient), like set_fills"),
+  textDecoration: external_exports.enum(["NONE", "UNDERLINE", "STRIKETHROUGH"]).optional(),
+  textCase: external_exports.enum(["ORIGINAL", "UPPER", "LOWER", "TITLE", "SMALL_CAPS", "SMALL_CAPS_FORCED"]).optional(),
+  lineHeight: external_exports.union([
+    external_exports.object({ unit: external_exports.literal("AUTO") }),
+    external_exports.object({ unit: external_exports.enum(["PIXELS", "PERCENT"]), value: external_exports.number() })
+  ]).optional(),
+  letterSpacing: external_exports.object({ unit: external_exports.enum(["PIXELS", "PERCENT"]), value: external_exports.number() }).optional(),
+  hyperlink: external_exports.union([external_exports.object({ type: external_exports.enum(["URL", "NODE"]), value: external_exports.string() }), external_exports.null()]).optional().describe("Make the run a link ({ type, value }); null clears it"),
+  listOptions: external_exports.enum(["ORDERED", "UNORDERED", "NONE"]).optional().describe("Turn the run into an ordered/unordered list item; NONE clears it"),
+  indentation: external_exports.number().optional().describe("List / block indentation depth"),
+  textWrapStyle: external_exports.enum(["AUTO", "BALANCE", "PRETTY"]).optional().describe(
+    "Line-break balancing (CSS text-wrap). Paragraph-scoped, unlike the other fields here: it applies to every paragraph the range touches, not just the selected characters"
+  ),
+  textStyleId: external_exports.string().optional().describe("Bind the run to a shared text style (its id)"),
+  fillStyleId: external_exports.string().optional().describe("Bind the run to a shared fill style (its id)"),
+  boundVariables: external_exports.record(external_exports.string(), external_exports.union([external_exports.string(), external_exports.null()])).optional().describe(
+    "Per-run variable bindings: { field: variableId }; null unbinds. `fills` binds a COLOR variable onto the run (a colour token on an inline link); other fields (fontSize / lineHeight / letterSpacing / fontFamily / fontStyle / fontWeight / paragraphSpacing / paragraphIndent) bind a token"
+  )
+});
+var setTextRangeTool = {
+  name: SET_TEXT_RANGE_TOOL_NAME,
+  description: "Style character ranges of an existing TEXT node \u2014 the write-side mirror of a read segment, for inline rich text (a link inside a sentence, a bold word, a coloured span, a bulleted list, a smaller /mo after a price). Each range gives start/end (char offsets into the node's characters) plus any subset of run properties: fontName / fontSize / fills / textDecoration / textCase / lineHeight / letterSpacing / hyperlink / listOptions / indentation / textWrapStyle, and design-system bindings textStyleId / fillStyleId / boundVariables. Ranges apply in order (a later range overrides an earlier one on overlap). Fonts are loaded automatically. Set the whole node first with create_text / set_text; use set_text_properties for node-level typography & overflow. Text on a path (TEXT_PATH) takes the run fields it draws \u2014 fontName, fontSize, fills, textCase, letterSpacing, hyperlink and the bindings \u2014 and refuses decoration, lineHeight, lists and textWrapStyle. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("TEXT node id whose ranges to style"),
+    ranges: external_exports.array(rangeSchema).describe("Character ranges + the run properties to apply to each")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-text.ts
+var SET_TEXT_TOOL_NAME = "set_text";
+var setTextTool = {
+  name: SET_TEXT_TOOL_NAME,
+  description: "Replace the entire text content of a TEXT node or of text on a path (TEXT_PATH); the plugin loads the node's current fonts first. Styled runs the old and new text share whole at the start or end keep their styling, so a typo fix leaves a bold word or a link alone; the rewritten span takes the style of the text it replaces. For formatting (font, size, color, spacing) use set_text_properties, and to substitute text across many nodes use find_replace_text. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("TEXT node id to update"),
+    characters: external_exports.string().describe("New text content")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-timeline-duration.ts
+var SET_TIMELINE_DURATION_TOOL_NAME = "set_timeline_duration";
+var setTimelineDurationTool = {
+  name: SET_TIMELINE_DURATION_TOOL_NAME,
+  description: "Set the duration (in seconds, must be > 0) of a Figma Motion timeline. Get the timelineId from get_node_motion (a node's `timelines`). Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("A node on the timeline (used to resolve the Motion API)"),
+    timelineId: external_exports.string().describe("Timeline id from get_node_motion"),
+    duration: external_exports.number().positive().describe("New timeline duration in seconds (> 0)")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-variable-code-syntax.ts
+var SET_VARIABLE_CODE_SYNTAX_TOOL_NAME = "set_variable_code_syntax";
+var platformDeclaration = external_exports.string().min(1).nullable();
+var setVariableCodeSyntaxTool = {
+  name: SET_VARIABLE_CODE_SYNTAX_TOOL_NAME,
+  description: `Declare a variable's code-side token name per platform (codeSyntax) \u2014 the write half of the codeSyntax that get_design_context / get_variable_defs surface to codegen as the authoritative name (e.g. WEB: "--color-primary"). Per platform (WEB / ANDROID / iOS): a non-empty string sets the declaration, null removes it, an omitted platform is untouched. When authoring design-system variables from existing code tokens, declare the source token name here so future codegen resolves to the exact token instead of deriving a name. Returns { ok, variableId, name, codeSyntax } with the declarations now in effect.`,
+  inputSchema: external_exports.object({
+    variableId: external_exports.string().describe("Variable id"),
+    codeSyntax: external_exports.object({
+      WEB: platformDeclaration.optional().describe('Web/CSS name, e.g. "--color-primary" or "theme.colors.primary"'),
+      ANDROID: platformDeclaration.optional().describe("Android resource name"),
+      iOS: platformDeclaration.optional().describe("iOS symbol name")
+    }).describe("Per-platform declarations: string sets, null removes, omitted is untouched")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-variable-value.ts
+var SET_VARIABLE_VALUE_TOOL_NAME = "set_variable_value";
+var variableValue = external_exports.union([
+  external_exports.boolean(),
+  external_exports.number(),
+  external_exports.string(),
+  external_exports.looseObject({
+    r: external_exports.number(),
+    g: external_exports.number(),
+    b: external_exports.number(),
+    a: external_exports.number().optional(),
+    space: colorSpaceSchema.optional()
+  }),
+  external_exports.looseObject({ type: external_exports.literal("VARIABLE_ALIAS"), id: external_exports.string() }),
+  // A composed color (plugin-typings 1.139): a color and its opacity authored separately, with an
+  // alias on at least one half. It nests the keys the members around it are keyed by rather than
+  // carrying them, so it cannot be swallowed by either and its position is not load-bearing.
+  external_exports.looseObject({
+    color: external_exports.union([
+      external_exports.looseObject({
+        r: external_exports.number(),
+        g: external_exports.number(),
+        b: external_exports.number(),
+        a: external_exports.number().optional(),
+        space: colorSpaceSchema.optional()
+      }),
+      external_exports.looseObject({ type: external_exports.literal("VARIABLE_ALIAS"), id: external_exports.string() })
+    ]),
+    opacity: external_exports.union([
+      external_exports.number(),
+      external_exports.looseObject({ type: external_exports.literal("VARIABLE_ALIAS"), id: external_exports.string() })
+    ])
+  }),
+  // An EASING variable's curve, with the requirement every Motion easing input has. Its `type`
+  // enum has no VARIABLE_ALIAS, so it cannot swallow the alias member above.
+  variableEasingSchema
+]).describe(
+  'boolean | number | string | { r,g,b,a, space? } | { type:"VARIABLE_ALIAS", id } | { color, opacity } composed color | { type: easing }'
+);
+var setVariableValueTool = {
+  name: SET_VARIABLE_VALUE_TOOL_NAME,
+  description: `Set a variable's value for one mode (modeId comes from the variable's collection). value must match the variable resolvedType: a boolean, a number (FLOAT), a string, a color { r, g, b, a } (0\u20131, in the document's colour space unless \`space\` names another \u2014 pass "SRGB" for a colour taken from code), an alias { type: "VARIABLE_ALIAS", id } pointing at another variable, or a composed color { color, opacity } that pairs a color with a separate opacity \u2014 each half either a concrete value or an alias, with at least one of the two an alias. An EASING variable takes a Motion easing, a TIMING variable a number of seconds. Create the variable first with create_variable. Returns { ok, variableId, name }.`,
+  inputSchema: external_exports.object({
+    variableId: external_exports.string().describe("Variable id"),
+    modeId: external_exports.string().describe("Mode id (from the collection)"),
+    value: variableValue
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/set-vector.ts
+var SET_VECTOR_TOOL_NAME = "set_vector";
+var setVectorTool = {
+  name: SET_VECTOR_TOOL_NAME,
+  description: "Redraw an existing VECTOR\u2019s geometry: vectorPaths (SVG path data) or vectorNetwork (vertices, segments with B\xE9zier tangents, regions) \u2014 exactly one, in the shape get_vector reads, so read, edit the points, write back (paths in any SVG syntax; what reads back is Figma\u2019s own form \u2014 absolute commands, its own subpath order). Coordinates are in the layer\u2019s current space: the drawing stays where they put it and Figma refits the layer\u2019s box around it, so drawing left of 0 moves the layer left (and an auto-layout parent re-flows to the new size). Fills, strokes, effects, a brush or dynamic stroke, and one cap or join the whole line had stay; a width profile is dropped when the new network branches (Figma allows none there). A rectangle, ellipse, polygon, star or line has to be flatten_nodes\u2019d into a VECTOR first; a vector inside an instance cannot be redrawn (change the main component); text on a path cannot change its path. Returns { ok, nodeId }.",
+  inputSchema: external_exports.object({
+    nodeId: external_exports.string().describe("The VECTOR to redraw"),
+    vectorPaths: vectorPathsSchema.optional(),
+    vectorNetwork: vectorNetworkSchema.optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/swap-component.ts
+var SWAP_COMPONENT_TOOL_NAME = "swap_component";
+var swapComponentTool = {
+  name: SWAP_COMPONENT_TOOL_NAME,
+  description: "Swap an instance's main component. Provide componentKey (published component, imported via the API) or componentId (a local COMPONENT node). Returns { ok, nodeId } (the instance id).",
+  inputSchema: external_exports.object({
+    instanceId: external_exports.string().describe("Instance node id to swap"),
+    componentId: external_exports.string().optional().describe("Local component node id"),
+    componentKey: external_exports.string().optional().describe("Published component key")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/unlock-nodes.ts
+var UNLOCK_NODES_TOOL_NAME = "unlock_nodes";
+var unlockNodesTool = {
+  name: UNLOCK_NODES_TOOL_NAME,
+  description: "Unlock nodes so they can be selected and edited on the canvas again \u2014 the inverse of lock_nodes. Ids that no longer exist are skipped. Returns { ok, affected } with the ids actually unlocked.",
+  inputSchema: external_exports.object({
+    nodeIds: external_exports.array(external_exports.string()).describe("Node ids to unlock")
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/update-effect-style.ts
+var UPDATE_EFFECT_STYLE_TOOL_NAME = "update_effect_style";
+var updateEffectStyleTool = {
+  name: UPDATE_EFFECT_STYLE_TOOL_NAME,
+  description: "Update an existing effect style by id. Any of name / effects / description may be omitted to leave unchanged; effects, when given, replaces the whole list. Shadows (DROP_SHADOW / INNER_SHADOW) need color + offset; blurs (LAYER_BLUR / BACKGROUND_BLUR) need radius. Use this to keep a shared style in sync with code instead of creating a duplicate. Because effects replace wholesale, an effect written back WITHOUT its boundVariables clears the variables it was bound to \u2014 re-send them, or change the variable itself instead. Returns { ok, styleId, name }.",
+  inputSchema: external_exports.object({
+    styleId: external_exports.string().describe("Effect style id to update"),
+    name: external_exports.string().optional(),
+    effects: external_exports.array(effectItemSchema).optional().describe("New effects (replaces all)"),
+    description: external_exports.string().optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/update-flows.ts
+var UPDATE_FLOWS_TOOL_NAME = "update_flows";
+var updateFlowsTool = {
+  name: UPDATE_FLOWS_TOOL_NAME,
+  description: "Rename, add, remove or reorder a page's prototype flows \u2014 the named starting points Presentation view lists (get_pages shows each page's flows). A flow's name is its own: it is not the frame name (rename_node) or the page name (rename_page). Flows are addressed by their starting frame's nodeId, never by name, since several flows may share one. Only the flows named are touched; every other flow keeps its name and place. flows renames a flow in place, or makes a frame a new flow appended at the end; remove stops a frame being a flow (the frame and its reactions stay); order moves flows to the front, and the first flow is the one Presentation view opens by default. A flow starts on a visible top-level frame, component or instance of that page (directly on it or in a section). A flow whose frame is hidden, grouped or nested is invisible to plugins until that frame is visible and top-level again, so it can be neither listed nor changed. The list is checked before and read back after the write: any argument that cannot apply leaves the page unchanged, and the error names the frame and why. Returns { ok, pageId, flows } with the full list as it now stands.",
+  inputSchema: external_exports.object({
+    pageId: external_exports.string().describe("Page whose flows to change, from get_pages"),
+    flows: external_exports.array(
+      external_exports.object({
+        nodeId: external_exports.string().describe("Starting frame of the flow"),
+        name: external_exports.string().min(1).describe('Flow name, e.g. "Sign up"')
+      })
+    ).optional().describe("Flows to rename, or frames to make new flows"),
+    remove: external_exports.array(external_exports.string()).optional().describe("Starting frames whose flow to remove; the frames themselves are kept"),
+    order: external_exports.array(external_exports.string()).optional().describe(
+      "Starting frames to move to the front, in this order; the first becomes the default flow"
+    )
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/update-paint-style.ts
+var UPDATE_PAINT_STYLE_TOOL_NAME = "update_paint_style";
+var updatePaintStyleTool = {
+  name: UPDATE_PAINT_STYLE_TOOL_NAME,
+  description: "Update an existing paint style by id. Any of name / paints / description may be omitted to leave unchanged. Because paints replace wholesale, a paint written back WITHOUT its boundVariables clears the variable it was bound to \u2014 re-send the binding, or change the variable itself instead. Returns { ok, styleId, name }.",
+  inputSchema: external_exports.object({
+    styleId: external_exports.string().describe("Paint style id to update"),
+    name: external_exports.string().optional(),
+    paints: external_exports.array(paintItemSchema).optional().describe("New paints (SOLID or gradient)"),
+    description: external_exports.string().optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/update-text-style.ts
+var UPDATE_TEXT_STYLE_TOOL_NAME = "update_text_style";
+var updateTextStyleTool = {
+  name: UPDATE_TEXT_STYLE_TOOL_NAME,
+  description: "Update an existing text style (typography token) by id. Any of name / fontName / fontSize / lineHeight / letterSpacing / textWrapStyle / description may be omitted to leave unchanged. A new font is loaded before assignment. lineHeight unit is AUTO / PIXELS / PERCENT (AUTO omits value); letterSpacing unit is PIXELS / PERCENT. Use this to keep a shared style in sync with code instead of creating a duplicate. Returns { ok, styleId, name }.",
+  inputSchema: external_exports.object({
+    styleId: external_exports.string().describe("Text style id to update"),
+    name: external_exports.string().optional(),
+    fontName: fontNameSchema.optional(),
+    fontSize: external_exports.number().optional(),
+    lineHeight: external_exports.object({ unit: external_exports.enum(["AUTO", "PIXELS", "PERCENT"]), value: external_exports.number().optional() }).optional(),
+    letterSpacing: external_exports.object({ unit: external_exports.enum(["PIXELS", "PERCENT"]), value: external_exports.number() }).optional(),
+    textWrapStyle: external_exports.enum(["AUTO", "BALANCE", "PRETTY"]).optional().describe(
+      "Line-break balancing every node bound to this style inherits; maps 1:1 to CSS text-wrap"
+    ),
+    boundVariables: textStyleBindingsSchema.optional(),
+    description: external_exports.string().optional()
+  }),
+  kind: "write"
+};
+
+// mcp/vendor/figwright/packages/mcp/src/tools/update-variable-collection.ts
+var UPDATE_VARIABLE_COLLECTION_TOOL_NAME = "update_variable_collection";
+var updateVariableCollectionTool = {
+  name: UPDATE_VARIABLE_COLLECTION_TOOL_NAME,
+  description: "Rename a variable collection and/or its modes. Either of name / modes may be omitted to leave unchanged. No id changes, so every binding and every mode value survives \u2014 this is how a mis-named collection gets fixed, because deleting and recreating one mints a new id and takes its variables and modes with it. Mode ids come from get_variable_defs. Every mode id is checked before anything is written, so one bad id leaves the collection untouched rather than half-renamed. Returns { ok, collectionId, name, modes } with the full mode list as it now stands.",
+  inputSchema: external_exports.object({
+    collectionId: external_exports.string().describe("Variable collection id"),
+    name: external_exports.string().optional().describe('New collection name, e.g. "Color"'),
+    modes: external_exports.array(
+      external_exports.object({
+        modeId: external_exports.string().describe("Mode id, from get_variable_defs"),
+        name: external_exports.string().describe('New mode name, e.g. "Dark"')
+      })
+    ).optional().describe("Modes to rename; modes left out of the array keep their current names")
+  }),
+  kind: "write"
+};
+
+// mcp/src/figwright-catalog.ts
+var figwrightTools = [
+  { spec: addComponentPropertyTool, name: "add_component_property" },
+  { spec: addPageTool, name: "add_page" },
+  { spec: addVariableModeTool, name: "add_variable_mode" },
+  { spec: alignNodesTool, name: "align_nodes" },
+  { spec: applyAnimationStyleTool, name: "apply_animation_style" },
+  { spec: applyManualKeyframeTrackTool, name: "apply_manual_keyframe_track" },
+  { spec: applyStyleToNodeTool, name: "apply_style_to_node" },
+  { spec: bindComponentPropertyTool, name: "bind_component_property" },
+  { spec: bindVariableToNodeTool, name: "bind_variable_to_node" },
+  { spec: bindVariableToPaintTool, name: "bind_variable_to_paint" },
+  { spec: booleanNodesTool, name: "boolean_nodes" },
+  { spec: combineAsVariantsTool, name: "combine_as_variants" },
+  { spec: createComponentTool, name: "create_component" },
+  { spec: createEffectStyleTool, name: "create_effect_style" },
+  { spec: createEllipseTool, name: "create_ellipse" },
+  { spec: createGridStyleTool, name: "create_grid_style" },
+  { spec: createInstanceTool, name: "create_instance" },
+  { spec: createPaintStyleTool, name: "create_paint_style" },
+  { spec: createShapeTool, name: "create_shape" },
+  { spec: createTextPathTool, name: "create_text_path" },
+  { spec: createTextStyleTool, name: "create_text_style" },
+  { spec: createVariableCollectionTool, name: "create_variable_collection" },
+  { spec: createVariableTool, name: "create_variable" },
+  { spec: createVectorTool, name: "create_vector" },
+  { spec: deleteComponentPropertyTool, name: "delete_component_property" },
+  { spec: deleteNodesTool, name: "delete_nodes" },
+  { spec: deletePageTool, name: "delete_page" },
+  { spec: deleteStyleTool, name: "delete_style" },
+  { spec: deleteVariableCollectionTool, name: "delete_variable_collection" },
+  { spec: deleteVariableModeTool, name: "delete_variable_mode" },
+  { spec: deleteVariableTool, name: "delete_variable" },
+  { spec: detachInstanceTool, name: "detach_instance" },
+  { spec: editComponentPropertyTool, name: "edit_component_property" },
+  { spec: exportPdfTool, name: "export_pdf" },
+  { spec: exportVideoTool, name: "export_video" },
+  { spec: findReplaceTextTool, name: "find_replace_text" },
+  { spec: flattenNodesTool, name: "flatten_nodes" },
+  { spec: flipNodesTool, name: "flip_nodes" },
+  { spec: getAnnotationsTool, name: "get_design_annotations" },
+  { spec: getComponentApiTool, name: "get_component_api" },
+  { spec: getDesignContextTool, name: "get_design_context" },
+  { spec: getDocumentTool, name: "get_document" },
+  { spec: getFontsTool, name: "get_fonts" },
+  { spec: getLocalComponentsTool, name: "get_design_components" },
+  { spec: getMetadataTool, name: "get_metadata" },
+  { spec: getMotionContextTool, name: "get_motion_context" },
+  { spec: getMotionStylesTool, name: "get_motion_styles" },
+  { spec: getNodeMotionTool, name: "get_node_motion" },
+  { spec: getNodeTool, name: "get_node" },
+  { spec: getNodesInfoTool, name: "get_design_nodes" },
+  { spec: getPagesTool, name: "get_pages" },
+  { spec: getReactionsTool, name: "get_prototype_reactions" },
+  { spec: getScreenshotTool, name: "get_screenshot" },
+  { spec: getStylesTool, name: "get_design_styles" },
+  { spec: getVariableDefsTool, name: "get_variable_defs" },
+  { spec: getVectorTool, name: "get_vector" },
+  { spec: getViewportTool, name: "get_viewport" },
+  { spec: importImageTool, name: "import_image" },
+  { spec: importStyleTool, name: "import_style" },
+  { spec: importSvgTool, name: "import_svg" },
+  { spec: importVariableTool, name: "import_variable" },
+  { spec: lockNodesTool, name: "lock_nodes" },
+  { spec: moveNodesTool, name: "move_nodes" },
+  { spec: navigateToPageTool, name: "navigate_to_page" },
+  { spec: outlineStrokeTool, name: "outline_stroke" },
+  { spec: pingTool, name: "ping" },
+  { spec: removeAnimationStyleTool, name: "remove_animation_style" },
+  { spec: removeManualKeyframeTrackTool, name: "remove_manual_keyframe_track" },
+  { spec: removeReactionsTool, name: "remove_reactions" },
+  { spec: renamePageTool, name: "rename_page" },
+  { spec: renameVariableTool, name: "rename_variable" },
+  { spec: repeatNodesTool, name: "repeat_nodes" },
+  { spec: resizeNodesTool, name: "resize_nodes" },
+  { spec: rotateNodesTool, name: "rotate_nodes" },
+  { spec: saveImageFillsTool, name: "save_image_fills" },
+  { spec: saveScreenshotsTool, name: "save_screenshots" },
+  { spec: setArcTool, name: "set_arc" },
+  { spec: setAutoLayoutTool, name: "set_auto_layout" },
+  { spec: setBlendModeTool, name: "set_blend_mode" },
+  { spec: setComplexStrokeTool, name: "set_complex_stroke" },
+  { spec: setConstraintsTool, name: "set_constraints" },
+  { spec: setEffectsTool, name: "set_effects" },
+  { spec: setFillsTool, name: "set_fills" },
+  { spec: setImageFillTool, name: "set_design_image_fill" },
+  { spec: setInstancePropertiesTool, name: "set_instance_properties" },
+  { spec: setLayoutGridsTool, name: "set_layout_grids" },
+  { spec: setLayoutPropsTool, name: "set_layout_props" },
+  { spec: setMaskTool, name: "set_mask" },
+  { spec: setNodeVariableModeTool, name: "set_node_variable_mode" },
+  { spec: setOpacityTool, name: "set_opacity" },
+  { spec: setPositionTool, name: "set_position" },
+  { spec: setReactionsTool, name: "set_reactions" },
+  { spec: setRepeatTool, name: "set_repeat" },
+  { spec: setStrokesTool, name: "set_strokes" },
+  { spec: setTextPathTool, name: "set_text_path" },
+  { spec: setTextPropertiesTool, name: "set_text_properties" },
+  { spec: setTextRangeTool, name: "set_text_range" },
+  { spec: setTextTool, name: "set_text" },
+  { spec: setTimelineDurationTool, name: "set_timeline_duration" },
+  { spec: setVariableCodeSyntaxTool, name: "set_variable_code_syntax" },
+  { spec: setVariableValueTool, name: "set_variable_value" },
+  { spec: setVectorTool, name: "set_vector" },
+  { spec: swapComponentTool, name: "swap_component" },
+  { spec: unlockNodesTool, name: "unlock_nodes" },
+  { spec: updateEffectStyleTool, name: "update_effect_style" },
+  { spec: updateFlowsTool, name: "update_flows" },
+  { spec: updatePaintStyleTool, name: "update_paint_style" },
+  { spec: updateTextStyleTool, name: "update_text_style" },
+  { spec: updateVariableCollectionTool, name: "update_variable_collection" }
+];
+
+// mcp/vendor/figwright/packages/mcp/src/node-id.ts
+var FIGMA_URL = /figma\.com\//i;
+var NODE_ID_QUERY = /[?&]node-id=([^&]+)/i;
+var NODE_ID_SHAPE = /^[\dI:;-]+$/;
+var normalizeNodeId = (raw) => {
+  let value = raw.trim();
+  if (FIGMA_URL.test(value)) {
+    const match = NODE_ID_QUERY.exec(value);
+    const captured = match?.[1];
+    if (captured === void 0) return raw;
+    try {
+      value = decodeURIComponent(captured);
+    } catch {
+      value = captured;
+    }
+  }
+  if (value.includes("-") && NODE_ID_SHAPE.test(value)) {
+    value = value.replace(/-/g, ":");
+  }
+  return value;
+};
+var STRING_ID_FIELDS = [
+  "nodeId",
+  "parentId",
+  "newParentId",
+  "pageId",
+  "root",
+  "componentId",
+  "instanceId",
+  "fromNodeId"
+];
+var normalizeIdArgs = (args) => {
+  if (typeof args !== "object" || args === null) return args;
+  const record2 = args;
+  let out = null;
+  const ensure = () => out ??= { ...record2 };
+  for (const field of STRING_ID_FIELDS) {
+    const v = record2[field];
+    if (typeof v === "string") {
+      const normalized = normalizeNodeId(v);
+      if (normalized !== v) ensure()[field] = normalized;
+    }
+  }
+  if (Array.isArray(record2.nodeIds)) {
+    const ids = record2.nodeIds;
+    let changed = false;
+    const mapped = ids.map((id) => {
+      if (typeof id !== "string") return id;
+      const normalized = normalizeNodeId(id);
+      if (normalized !== id) changed = true;
+      return normalized;
+    });
+    if (changed) ensure().nodeIds = mapped;
+  }
+  return out ?? args;
+};
+
+// mcp/src/figwright-tools.ts
+var files = {
+  save_screenshots: handleSaveScreenshots,
+  save_image_fills: handleSaveImageFills,
+  export_pdf: handleExportPdf,
+  export_video: handleExportVideo
+};
+async function prepare(name, args) {
+  args = normalizeIdArgs(args);
+  if (name === "import_image" || name === "set_design_image_fill") {
+    args = await resolveImagePath(args, name);
+  }
+  return args;
+}
+function withFigwrightArgs(send2) {
+  return async (name, args = {}) => {
+    if (name === "batch" && Array.isArray(args.ops)) {
+      const ops = [];
+      for (const op of args.ops) {
+        ops.push({ ...op, params: await prepare(op.tool, op.params || {}) });
+      }
+      return send2(name, { ...args, ops });
+    }
+    return send2(name, await prepare(name, args));
+  };
+}
+function registerFigwrightTools(server2, send2) {
+  const dispatch = (name, args) => {
+    const { binary, ...payload } = args ?? {};
+    return send2(name, payload);
+  };
+  for (const { spec, name } of figwrightTools) {
+    const description = name === "get_design_context" ? "Read the selected layers or nodeId as a design tree with layout, text, paints, effects, variables and component overrides. Defaults to full detail with repeated components deduplicated. Use depth or compact/minimal detail for structure; sectionPlan lists sections to read individually." : spec.description;
+    server2.registerTool(name, {
+      description,
+      inputSchema: spec.inputSchema.strict(),
+      annotations: { readOnlyHint: spec.kind === "read", destructiveHint: spec.destructive === true }
+    }, async (raw) => {
+      try {
+        const args = normalizeIdArgs(raw);
+        if (files[name]) return json2(await files[name](dispatch, args));
+        if (name === "get_screenshot") {
+          return { content: screenshotContent(await dispatch(name, { ...args, forVision: true })) };
+        }
+        const params = name === "get_design_context" ? { detail: "full", dedupeComponents: true, ...args, budget: true } : args;
+        return json2(await dispatch(name, params));
+      } catch (error62) {
+        return { isError: true, content: [{ type: "text", text: `${name}: ${error62 instanceof Error ? error62.message : String(error62)}` }] };
+      }
+    });
+  }
+}
+function json2(value) {
+  const response = { content: [{ type: "text", text: JSON.stringify(value) }] };
+  if (Buffer.byteLength(JSON.stringify(response)) > TOOL_RESULT_LIMIT_BYTES) {
+    throw new Error("Result is too large. Read fewer nodes, reduce depth, or use compact detail.");
+  }
+  return response;
 }
 
 // mcp/f2a-server.ts
@@ -39181,7 +43361,7 @@ server.tool(
       }
       let base64Data;
       if (imagePath) {
-        base64Data = (await (0, import_promises.readFile)(imagePath)).toString("base64");
+        base64Data = (await (0, import_promises6.readFile)(imagePath)).toString("base64");
       } else if (imageUrl) {
         const response = await fetch(imageUrl);
         if (!response.ok) {
@@ -39342,7 +43522,9 @@ server.tool("join_channel", "Select an open F2A document by session ID, file key
     return { isError: true, content: [{ type: "text", text: error62.message }] };
   }
 });
-registerLayerTools(server, import_bridge.sendCommandToFigma);
+var send = withFigwrightArgs(import_bridge.sendCommandToFigma);
+registerLayerTools(server, send);
+registerFigwrightTools(server, send);
 server.connect(new StdioServerTransport()).catch((error62) => {
   console.error(error62);
   process.exit(1);

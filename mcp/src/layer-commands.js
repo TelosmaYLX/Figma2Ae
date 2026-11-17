@@ -378,6 +378,9 @@ function f2aCreatedId(result) {
   if (!result || typeof result !== 'object') return null;
   if (typeof result.nodeId === 'string') return result.nodeId;
   if (typeof result.id === 'string') return result.id;
+  for (var key of ['collectionId', 'variableId', 'styleId', 'modeId']) {
+    if (typeof result[key] === 'string') return result[key];
+  }
   if (result.created && typeof result.created.id === 'string') return result.created.id;
   return null;
 }
@@ -423,5 +426,6 @@ async function batchCommand(params) {
 async function f2aExecute(command, params) {
   var own = F2A_LAYER_COMMANDS[command];
   if (own) return await own(params || {});
+  if (Object.prototype.hasOwnProperty.call(figwrightCommands, command)) return await figwrightCommands[command](params || {});
   return await handleCommand(command, params || {});
 }
