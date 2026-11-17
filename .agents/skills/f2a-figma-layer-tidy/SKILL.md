@@ -144,6 +144,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
 5. **阶段 5：动效师规范批量命名（`batch_rename_nodes`）**
    - 清理所有 `Frame xxx`、`Group xxx`、`Rectangle xxx`、`Vector xxx`、`image xxx`。
    - 命名风格与原稿语言/团队习惯保持一致，推荐简洁的 `模块_角色[_序号]`（如 `card_bg`、`card_border`、`icon_star`、`title_main`、`*fx_glow_bg`、`*tex_overlay`）。
+   - **混合模式显式后缀（强制规则）**：凡是使用了非默认混合模式（`blendMode` 不是叶层默认 `NORMAL` 且不是容器默认 `PASS_THROUGH`，或填充/描边自身带混合模式）的图层，**必须在语义名称末尾加上 `（混合模式名）`**，例如 `装饰1` 使用了柔光（`SOFT_LIGHT`），则命名为 `装饰1（柔光）`；若已有对应括号后缀则避免重复追加；中文混合模式对照表见 [`references/f2a-aep-compatibility.md`](references/f2a-aep-compatibility.md)。普通默认 `NORMAL` / `PASS_THROUGH` 不加括号。
    - **最后检查一遍所有名字**：确保没有任何**未打算合并**的图层以 `*` 开头！
    - 可对纯静态参考背景层用 `set_locked` 锁定防误触（可选，锁定不影响 F2A 导出）。
 
@@ -181,6 +182,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
 ## 常见误区自检清单（提交前必核）
 
 - [ ] 是否存在非合并意图的图层名以 `*` 开头？（会导致整个图层被栅格化）
+- [ ] 是否为所有使用非默认混合模式的图层在名称末尾加上了 `（混合模式名）`？（如 `装饰1（柔光）`）
 - [ ] 是否误展开了 `opacity < 1`、`blendMode !== 'PASS_THROUGH'`、带 `effects`、或 `clipsContent: true` 的容器？
 - [ ] 是否在 Auto Layout 容器内直接 `ungroup`/`reorder` 而导致子图层漂移？
 - [ ] 是否给需要单独动效的文字/图标加了 `*` 或把它们留在了带 `LAYER_BLUR`/`INNER_SHADOW` 的父组内？
