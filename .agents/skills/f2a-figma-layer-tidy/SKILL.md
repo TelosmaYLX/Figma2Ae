@@ -14,7 +14,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
 1. **视觉零偏差硬门禁**：整理前必须导出基准 PNG（`before.png`），整理后必须以同一节点 ID 和相同倍率导出结果 PNG（`after.png`），并用 [`scripts/compare_pixels.py`](scripts/compare_pixels.py) 校验尺寸完全一致且 RGBA 逐像素最大差 `max_abs_diff == 0`。任何尺寸变化或像素差异都必须立即回退/修复，未通过校验禁止宣布完成。
 2. **保留图层优先，最小化合并**：凡是 F2A `.aep` 可原生导出或动效师需要独立做关键帧动画的元素（独立卡片、按钮、图标、文字、角色部件、背景元素、独立 `DROP_SHADOW` 层等），**禁止合并**。
 3. **仅在最小必要范围内合并复杂效果**：对于无法原生写入 `.aep` 的复杂效果（如 `GLASS`、`BACKGROUND_BLUR`、`INNER_SHADOW`、`LAYER_BLUR`、特殊渐变/图案、多层静态混合叠加纹理等），优先将其隔离在**最小叶子或最小静态局部组**并添加 `*` 前缀（F2A 栅格化标记），避免连带吞噬上方的可动文字或前景元素。
-4. **绝不凭猜测删改或改动视觉参数**：不擅自修改颜色、透明度、混合模式、效果参数、字体字号、绝对坐标或实际起裁剪作用的 `clipsContent`；涉及合并（`*` 或 `flatten_nodes`）、拆出背景、分离实例或删除隐藏图层等结构性决策，先做诊断报告与确认（除非用户明确要求直接全自动整理）。
+4. **绝不凭猜测删改或改动视觉参数**：不擅自修改颜色、透明度、混合模式、效果参数、字体字号、绝对坐标或实际起裁剪作用的 `clipsContent`；涉及合并（`*` 或 `flatten_nodes`）、拆出背景或删除有内容的隐藏图层等结构性决策，先做诊断报告与确认（除非用户明确要求直接全自动整理）。**实例（`INSTANCE`）在整理阶段默认自动全部分离**（由外向内递归分离为普通 Frame）。
 
 ---
 
@@ -57,8 +57,8 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
 2. **垃圾命名与危险 `*` 前缀**：
    - 统计 `Frame 123456`、`Group 8`、`Rectangle 12`、`Vector 3`、`image 64` 等自动生成名称。
    - **高危检查**：排查名称以 `*` 开头的图层——在 F2A 中 `*` 会强制整层转成单张 PNG 并丢弃所有内部子层！确认哪些 `*` 是有意合图，哪些是误标。
-3. **实例（`INSTANCE`）分布**：
-   - 实例内部只读，无法改名/拆组/调序。识别哪些实例需要拆分内部做局部动画（需由外向内分离），哪些只需整体运动（可保留实例或仅重命名实例本身）。
+3. **实例（`INSTANCE`）统计**：
+   - 实例内部只读，无法改名、拆组、调序或编辑内部蒙版/特效。整理阶段会**自动将目标范围内的全部实例由外向内递归分离为普通 Frame**（再进入后续层级精简与命名），诊断时先统计全部 `INSTANCE` 数量与嵌套情况即可。
 4. **隐藏图层（`visible: false`）与空节点**：
    - 区分“废弃草稿/空容器”与“可能用于切换状态的隐藏图层”。默认绝不武断删除有内容的状态层。
 5. **Auto Layout 与裁剪（`clipsContent`）陷阱**：
@@ -115,9 +115,10 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
 
 严格按以下顺序分批执行，每阶段可使用 `batch`（注意记住 `batch` 无自动回滚，重要节点先留底）并注意 Auto Layout 限制：
 
-1. **阶段 1：分离必须编辑内部的实例（若需要）**
-   - 仅对需要改内部结构/命名/局部合并的 `INSTANCE` 调用 `detach_instances`（由外向内）。
-   - 用返回的 `detached: [{nodeId, newId}]` 更新本地 ID 映射表，**切勿继续使用旧 ID**！
+1. **阶段 1：自动全部分离目标范围内的实例**
+   - 用 `search_nodes(type: "INSTANCE", root: rootId)`（或诊断结果）找出所有顶层/最外层 `INSTANCE`（注意：只传最外层实例 ID，或利用 `recursive: true` 由外向内自动递归分离，**切勿直接对嵌套在内层的实例单独调用分离**）。
+   - 调用 `detach_instances({ nodeIds: outerInstanceIds, recursive: true })` **自动全部分离**目标范围内的全部实例（如果根选区本身就是 `INSTANCE`，先分离根并记录返回的新 `newId` 作为新的 `rootId`）。
+   - 分离后所有原实例及其子孙节点的 ID 均会变更为普通 Frame/子节点新 ID，**必须用返回的 `detached: [{nodeId, newId}]` 更新 `rootId` 并重新扫描节点树（`search_nodes` / `get_design_context`），切勿继续使用旧 ID**！
 2. **阶段 2：清理明显无效的空容器与（经确认的）废弃隐藏层**
    - 先用 `search_nodes` 核查 `visible: false` 与空容器。
    - **安全展开冗余嵌套（完全等价 `code.js` 的 `_canExpand` 条件）**：
@@ -149,7 +150,7 @@ description: "基于 F2A 导出 `.aep` 工程规则与动效师工作流的 Figm
 ### Step 5：强制像素级一致性验证与交付报告
 
 1. **导出整理后图像**：
-   - 使用与 Step 1 完全相同的 `rootId`、`format: "PNG"` 和 `scale`，调用 `save_screenshots` 保存到 `after.png`（或 `export_node_as_image`）。
+   - 使用与 Step 1 对应的根节点 ID（若原 `rootId` 本身就是 `INSTANCE` 并在阶段 1 被分离，则使用其返回的 `newId`）、相同的 `format: "PNG"` 和 `scale`，调用 `save_screenshots` 保存到 `after.png`（或 `export_node_as_image`）。
 2. **运行像素对比硬门禁**：
    ```powershell
    python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.png" --diff "<dir>/diff.png"

@@ -52,9 +52,10 @@ python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.p
 
 ### 核心图层整理工具（F2A 专用）
 
-1. **`detach_instances`（实例分离）**：
-   - `nodeIds`: 实例 ID 数组；`recursive: true`（默认，从外向内递归分离）。
-   - **关键**：分离后实例和所有子孙节点 ID 都会变成新 ID！必须使用返回的 `detached: [{nodeId, newId}]` 或对 `newId` 重新 `search_nodes` / `get_design_context`。
+1. **`detach_instances`（自动全部分离实例）**：
+   - 整理阶段默认**对目标范围内的全部 `INSTANCE` 自动全部分离**：先用 `search_nodes(type: "INSTANCE", root: rootId)` 找到最外层实例（如果 `rootId` 自身也是 `INSTANCE`，先单独分离它并更新 `rootId = newId`），再传 `nodeIds` 并开启 `recursive: true`（默认，从外向内递归分离）。
+   - **关键**：分离后实例和所有子孙节点 ID 都会变成新 ID！必须使用返回的 `detached: [{nodeId, newId}]` 更新 `rootId`（若根节点被分离），并在分离完成后重新执行 `search_nodes` / `get_design_context` 获取最新节点树。
+   - **降级方案**：若当前环境无 `detach_instances`，可调用 `detach_instance` 逐个由外向内分离。
 2. **`ungroup_nodes`（解散组）**：
    - 仅用于安全可展开的 `GROUP`（非实例、无裁剪、无特效、无混合隔离、非 Auto Layout、无蒙版边界冲突）。子层会被提升到原父级并保持视觉坐标。
 3. **`reparent_nodes`（批量改父级）**：
