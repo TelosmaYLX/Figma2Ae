@@ -17,3 +17,6 @@ pnpm-debug.log*
 
 # AE fidelity renders and local replay data
 artifacts/
+
+# Packaged distribution builds (release assets, not source)
+dist/
