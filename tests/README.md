@@ -11,10 +11,25 @@ node tests/mcp-start.cjs
 ```
 
 检查使用独立 stdio MCP 进程、真实 HTTP/WebSocket 中继、实际 F2A UI 和内置命令，
-覆盖 45 个工具的发现、读写、单文档自动连接、多文档选择、导出互斥、错误与空值、
-超时和断线。冷启动检查在中文/空格临时目录中同时启动四个连接，确认复用同一个
-后台中继；运行目录不含 node_modules。Figma API 对象由测试模拟，不替代真实 Figma
-文档操作验收。`scripts/preview-export-ui.mjs` 检查新增连接状态的布局。
+覆盖 55 个工具的发现（含 10 个图层整理工具）、读写、单文档自动连接、多文档选择、
+导出互斥、错误与空值、超时和断线。冷启动检查在中文/空格临时目录中同时启动四个
+连接，确认复用同一个后台中继；运行目录不含 node_modules。Figma API 对象由测试模拟，
+不替代真实 Figma 文档操作验收。`scripts/preview-export-ui.mjs` 检查新增连接状态的布局。
+
+## MCP 图层整理工具
+
+```powershell
+node tests/mcp-layer.cjs
+```
+
+在模拟 Figma 文档上运行生成的 `figma-plugin/code.js`，检查 F2A 追加的 10 条命令：
+成组要求同一父级、解散把子级放回组原来的位置、`reorder_nodes` 的索引语义与越界置顶、
+`reparent_nodes` 保持画布绝对坐标和拒绝移入自身子树、`keepPosition:false` 退回原生行为、
+`batch_rename_nodes` 跳过缺失节点、显隐与锁定批量生效、`set_clips_content` 只对容器生效、
+`search_nodes` 的名称/类型/子树/数量上限，以及 `batch` 的 `"$N"` 引用、遇错停止时保留
+已生效命令并返回 `rolledBack:false`、`stopOnError:false` 继续执行和写命令白名单。调用走
+构建产物里的 `F2AMCP.execute`，同时确认上游命令仍经新分发器可用。Figma API 由测试模拟；
+新命令要在真实 Figma 里重新运行 F2A 插件后才会加载，真实文档验收仍需人工执行。
 
 已有 AE 面板可运行 `node scripts/verify-mcp-cep.mjs --reload` 检查真实 CEP 启动；
 `node scripts/verify-mcp-live.cjs` 通过独立 MCP 客户端读取实际连接的 Figma 文档和选区。

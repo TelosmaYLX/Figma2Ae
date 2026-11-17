@@ -25,6 +25,7 @@ import {z} from 'zod';
 import {readFile} from 'node:fs/promises';
 import {status, selectSession, sendCommandToFigma} from './src/bridge.cjs';
 import {ensureRelay} from './launcher.cjs';
+import {registerLayerTools} from './src/layer-tools.ts';
 // Upstream helper logging must never enter the MCP stdout stream.
 console.log = console.info = console.debug = (...args) => console.error(...args);
 ensureRelay(error => {if (error) console.error('F2A MCP: ' + error.message);});
@@ -35,6 +36,8 @@ server.tool('join_channel', 'Select an open F2A document by session ID, file key
   try { return {content:[{type:'text',text:JSON.stringify(await selectSession(channel))}]}; }
   catch(error) { return {isError:true,content:[{type:'text',text:error.message}]}; }
 });
+// F2A's own layer commands (group / ungroup / z-order / bulk rename / clip content / batch).
+registerLayerTools(server, sendCommandToFigma);
 server.connect(new StdioServerTransport()).catch(error => {console.error(error);process.exit(1);});
 `;
   const settings = {bundle:true, platform:'node', target:'node20', format:'cjs', legalComments:'inline', metafile:true, external:['bufferutil','utf-8-validate']};
@@ -44,7 +47,10 @@ server.connect(new StdioServerTransport()).catch(error => {console.error(error);
   const plugin = await fs.readFile(path.join(vendor,'plugin.js'),'utf8');
   const handlers = (between(plugin, '// Helper function for progress updates', '// Show UI') + plugin.slice(plugin.indexOf('// Handle commands from UI')))
     .replace(between(plugin, '// Initialize settings on load', 'function uniqBy'), '');
-  const api = await esbuild.transform(`var F2AMCP = (function(){${handlers}\nreturn {execute:handleCommand};})();`, {target:'es2017', legalComments:'inline'});
+  // F2A layer commands are appended inside the same closure so they share `figma`, `handleCommand`
+  // and the queue, and so upstream vendor/plugin.js stays unmodified.
+  const layerCommands = await fs.readFile(path.join(mcp,'src/layer-commands.js'),'utf8');
+  const api = await esbuild.transform(`var F2AMCP = (function(){${handlers}\n${layerCommands}\nreturn {execute:f2aExecute};})();`, {target:'es2017', legalComments:'inline'});
   const pluginFile = path.join(root,'figma-plugin/code.js');
   const current = await fs.readFile(pluginFile,'utf8');
   const upstreamLicense = await fs.readFile(path.join(vendor,'LICENSE'),'utf8');

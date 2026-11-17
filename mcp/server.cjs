@@ -36794,6 +36794,172 @@ var StdioServerTransport = class {
 var import_promises = require("node:fs/promises");
 var import_bridge = __toESM(require_bridge());
 var import_launcher = __toESM(require_launcher());
+
+// mcp/src/layer-tools.ts
+function describeError(error62) {
+  return error62 instanceof Error ? error62.message : String(error62);
+}
+function layerJson(value) {
+  return { content: [{ type: "text", text: JSON.stringify(value) }] };
+}
+function failed(tool, error62) {
+  return { isError: true, content: [{ type: "text", text: `${tool}: ${describeError(error62)}` }] };
+}
+var nodeIds = (what) => external_exports.array(external_exports.string()).min(1).describe(what);
+function registerLayerTools(server2, send) {
+  server2.tool(
+    "group_nodes",
+    "Group nodes that share one parent into a new GROUP and return its id. A group is the layer wrapper that does not clip: unlike a frame it has no clip content, so shadows and overflowing children stay visible. Every id must already be a sibling \u2014 move layers in first with reparent_nodes. Groups cannot be created inside an auto-layout frame; wrap those layers in a frame instead. Returns JSON {ok, nodeId, name, type, parentId, index, grouped, skipped}.",
+    {
+      nodeIds: nodeIds("Node ids to group; all must share the same parent"),
+      name: external_exports.string().optional().describe('Name for the new group; Figma auto-names it "Group N" otherwise')
+    },
+    async ({ nodeIds: nodeIds2, name }) => {
+      try {
+        return layerJson(await send("group_nodes", { nodeIds: nodeIds2, name }));
+      } catch (error62) {
+        return failed("group_nodes", error62);
+      }
+    }
+  );
+  server2.tool(
+    "ungroup_nodes",
+    "Ungroup GROUP nodes (and Figma Draw repeat groups) by id, promoting their children into the old parent and returning the children ids. This destroys the group node itself and cannot be undone except with Figma undo, so it is the one destructive layer command. Nodes that are not groups are skipped and reported. Returns JSON {ok, affected, skipped}.",
+    { nodeIds: nodeIds("Group ids to ungroup") },
+    async ({ nodeIds: nodeIds2 }) => {
+      try {
+        return layerJson(await send("ungroup_nodes", { nodeIds: nodeIds2 }));
+      } catch (error62) {
+        return failed("ungroup_nodes", error62);
+      }
+    }
+  );
+  server2.tool(
+    "reorder_nodes",
+    "Change z-order inside the current parent. index is a child index (0 = bottom of the stack) and each id lands one step further up, so the given order is kept; an index at or past the last child appends, which is how a layer is brought to the top without counting children. Returns JSON {ok, moved:[{id, name, index}], skipped}.",
+    {
+      nodeIds: nodeIds("Node ids to reorder, in the order they should stack"),
+      index: external_exports.number().int().min(0).describe("Target child index (0 = bottom of the stack)")
+    },
+    async ({ nodeIds: nodeIds2, index }) => {
+      try {
+        return layerJson(await send("reorder_nodes", { nodeIds: nodeIds2, index }));
+      } catch (error62) {
+        return failed("reorder_nodes", error62);
+      }
+    }
+  );
+  server2.tool(
+    "reparent_nodes",
+    "Move many nodes into another frame, group, section or page in one call, optionally inserting at index. On-canvas positions are preserved by default (pass keepPosition:false for plain Figma behaviour, where coordinates become relative to the new parent). Moving a node into its own subtree is refused and reported per node. Returns JSON {ok, parentId, parentName, moved, skipped}.",
+    {
+      nodeIds: nodeIds("Node ids to move"),
+      newParentId: external_exports.string().describe("Id of the frame, group, section or page to move them into"),
+      index: external_exports.number().int().min(0).optional().describe("Optional child index in the new parent; appended last when omitted"),
+      keepPosition: external_exports.boolean().optional().describe("Keep the on-canvas position (default true)")
+    },
+    async ({ nodeIds: nodeIds2, newParentId, index, keepPosition }) => {
+      try {
+        return layerJson(await send("reparent_nodes", { nodeIds: nodeIds2, newParentId, index, keepPosition }));
+      } catch (error62) {
+        return failed("reparent_nodes", error62);
+      }
+    }
+  );
+  server2.tool(
+    "batch_rename_nodes",
+    'Rename many nodes in one call from a [{nodeId, name}] list. This is the tool for cleaning auto-generated names ("Frame 1321318046") across a page; missing or malformed entries are skipped and reported. Returns JSON {ok, affected:[{id, previousName, name}], skipped}.',
+    {
+      renames: external_exports.array(external_exports.object({ nodeId: external_exports.string(), name: external_exports.string() })).min(1).describe("Per-node renames")
+    },
+    async ({ renames }) => {
+      try {
+        return layerJson(await send("batch_rename_nodes", { renames }));
+      } catch (error62) {
+        return failed("batch_rename_nodes", error62);
+      }
+    }
+  );
+  server2.tool(
+    "set_visible",
+    "Show or hide nodes by toggling their visible flag. A hidden layer stays in the tree and in the file, is excluded from rendering and export, and takes its descendants with it; the change is reversible. Use it to park work-in-progress rather than deleting it. Returns JSON {ok, visible, affected, skipped}.",
+    {
+      nodeIds: nodeIds("Node ids to show or hide"),
+      visible: external_exports.boolean().describe("true to show, false to hide")
+    },
+    async ({ nodeIds: nodeIds2, visible }) => {
+      try {
+        return layerJson(await send("set_visible", { nodeIds: nodeIds2, visible }));
+      } catch (error62) {
+        return failed("set_visible", error62);
+      }
+    }
+  );
+  server2.tool(
+    "set_locked",
+    "Lock or unlock nodes. A locked layer still renders and exports; it only stops canvas selection and editing, and locking a parent locks its descendants. Locking the finished background or artwork keeps a tidy-up from moving the wrong layer. Returns JSON {ok, locked, affected, skipped}.",
+    {
+      nodeIds: nodeIds("Node ids to lock or unlock"),
+      locked: external_exports.boolean().describe("true to lock, false to unlock")
+    },
+    async ({ nodeIds: nodeIds2, locked }) => {
+      try {
+        return layerJson(await send("set_locked", { nodeIds: nodeIds2, locked }));
+      } catch (error62) {
+        return failed("set_locked", error62);
+      }
+    }
+  );
+  server2.tool(
+    "set_clips_content",
+    "Turn clip content on or off for a frame, component or instance. This is what decides whether a container trims overflowing children \u2014 a new frame clips by default, so a frame used as a grouping wrapper hides shadows and out-of-bounds layers until this is set false. Returns JSON {ok, nodeId, name, clipsContent}.",
+    {
+      nodeId: external_exports.string().describe("Frame, component or instance id"),
+      clipsContent: external_exports.boolean().describe("true to clip children to the bounds, false to let them overflow")
+    },
+    async ({ nodeId, clipsContent }) => {
+      try {
+        return layerJson(await send("set_clips_content", { nodeId, clipsContent }));
+      } catch (error62) {
+        return failed("set_clips_content", error62);
+      }
+    }
+  );
+  server2.tool(
+    "search_nodes",
+    "Find nodes by name substring (case-insensitive), by type, or both, inside the current page or a subtree. Depth-first and bounded by limit, so it is the cheap way to collect the ids a tidy-up needs (every auto-named frame, every TEXT layer, one component tree) without pulling a whole subtree through get_node_info. Returns JSON {ok, count, visited, truncated, limit, nodes:[{id, name, type, depth, parentId, parentName, visible, locked}]}.",
+    {
+      name: external_exports.string().optional().describe("Case-insensitive name substring"),
+      type: external_exports.string().optional().describe("Node type, e.g. FRAME, GROUP, TEXT, INSTANCE"),
+      root: external_exports.string().optional().describe("Node id to search inside; the current page when omitted"),
+      limit: external_exports.number().int().min(1).max(1e3).optional().describe("Maximum matches to return (default 200)")
+    },
+    async ({ name, type, root: searchRoot, limit }) => {
+      try {
+        return layerJson(await send("search_nodes", { name, type, root: searchRoot, limit }));
+      } catch (error62) {
+        return failed("search_nodes", error62);
+      }
+    }
+  );
+  server2.tool(
+    "batch",
+    'Run several write commands in one call, in order. Each op is {tool, params} where tool is any write command (create_frame, move_node, rename_node, reparent_nodes, set_visible, set_layout_mode, ...). An id argument of "$N" means "the node id op N created (0-based)", so one call can create a frame, fill it, and name it. There is NO rollback: Figma has no transaction for plugins, so ops already applied stay applied and the result lists every op with its own result, plus failedIndex and rolledBack:false on failure. Ops are not validated upfront \u2014 a bad op fails when it runs. Returns JSON {ok, applied, total, results, failedIndex?, error?}.',
+    {
+      ops: external_exports.array(external_exports.object({ tool: external_exports.string(), params: external_exports.record(external_exports.string(), external_exports.unknown()).optional() })).min(1).describe("Ordered write ops"),
+      stopOnError: external_exports.boolean().optional().describe("Stop at the first failure (default true)")
+    },
+    async ({ ops, stopOnError }) => {
+      try {
+        return layerJson(await send("batch", { ops, stopOnError }));
+      } catch (error62) {
+        return failed("batch", error62);
+      }
+    }
+  );
+}
+
+// mcp/f2a-server.ts
 console.log = console.info = console.debug = (...args) => console.error(...args);
 (0, import_launcher.ensureRelay)((error62) => {
   if (error62) console.error("F2A MCP: " + error62.message);
@@ -36990,10 +37156,10 @@ server.tool(
   {
     nodeIds: external_exports.array(external_exports.string()).describe("Array of node IDs to get information about")
   },
-  async ({ nodeIds }) => {
+  async ({ nodeIds: nodeIds2 }) => {
     try {
       const results = await Promise.all(
-        nodeIds.map(async (nodeId) => {
+        nodeIds2.map(async (nodeId) => {
           const result = await (0, import_bridge.sendCommandToFigma)("get_node_info", { nodeId });
           return { nodeId, info: result };
         })
@@ -37422,9 +37588,9 @@ server.tool(
   {
     nodeIds: external_exports.array(external_exports.string()).describe("Array of node IDs to delete")
   },
-  async ({ nodeIds }) => {
+  async ({ nodeIds: nodeIds2 }) => {
     try {
-      const result = await (0, import_bridge.sendCommandToFigma)("delete_multiple_nodes", { nodeIds });
+      const result = await (0, import_bridge.sendCommandToFigma)("delete_multiple_nodes", { nodeIds: nodeIds2 });
       return {
         content: [
           {
@@ -38725,9 +38891,9 @@ server.tool(
   {
     nodeIds: external_exports.array(external_exports.string()).describe("Array of node IDs to get reactions from")
   },
-  async ({ nodeIds }) => {
+  async ({ nodeIds: nodeIds2 }) => {
     try {
-      const result = await (0, import_bridge.sendCommandToFigma)("get_reactions", { nodeIds });
+      const result = await (0, import_bridge.sendCommandToFigma)("get_reactions", { nodeIds: nodeIds2 });
       return {
         content: [
           {
@@ -38868,9 +39034,9 @@ server.tool(
   {
     nodeIds: external_exports.array(external_exports.string()).describe("Array of node IDs to select")
   },
-  async ({ nodeIds }) => {
+  async ({ nodeIds: nodeIds2 }) => {
     try {
-      const result = await (0, import_bridge.sendCommandToFigma)("set_selections", { nodeIds });
+      const result = await (0, import_bridge.sendCommandToFigma)("set_selections", { nodeIds: nodeIds2 });
       const typedResult = result;
       return {
         content: [
@@ -39161,6 +39327,7 @@ server.tool("join_channel", "Select an open F2A document by session ID, file key
     return { isError: true, content: [{ type: "text", text: error62.message }] };
   }
 });
+registerLayerTools(server, import_bridge.sendCommandToFigma);
 server.connect(new StdioServerTransport()).catch((error62) => {
   console.error(error62);
   process.exit(1);
