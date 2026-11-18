@@ -9,6 +9,7 @@ import re
 import sys
 import time
 from functools import lru_cache
+from itertools import groupby
 from pathlib import Path
 
 import py_aep
@@ -27,6 +28,21 @@ from py_aep.enums import BlendingMode, MaskMode, ParagraphJustification, TrackMa
 from py_aep.svg.fonts import resolve_font, resolve_font_exact, resolve_postscript
 
 AE_VERSIONS = {'24.0': '24.0x0', '25.0': '25.0x0', '26.0': '26.0x67'}
+CJK_GLYPHS = re.compile(r'[\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\ufe30-\ufe4f\uff01-\uff60\uffe0-\uffe6]')
+CJK_FONTS = {
+    'regular': ('MicrosoftYaHei', 'NotoSansCJKsc-Regular'),
+    'bold': ('MicrosoftYaHei-Bold', 'NotoSansCJKsc-Bold'),
+    'light': ('MicrosoftYaHeiLight', 'NotoSansCJKsc-Light'),
+}
+
+
+@lru_cache(maxsize=32)
+def font_cmap(postscript):
+    face = resolve_postscript(postscript)
+    if face is None:
+        return {}
+    with TTFont(face[0], fontNumber=face[1], lazy=True) as font:
+        return font.getBestCmap() or {}
 
 
 def open_main_composition(project, comp):
@@ -394,7 +410,8 @@ class Writer:
         family, variant = style.get('family', 'Arial'), style.get('style', 'Regular')
         if resolve_font_exact(family) is None:
             self.fail('font-substitution', style, '找不到字体 ' + family)
-        doc.font = self.font(family, variant)
+        font = self.font(family, variant)
+        doc.font = font
         doc.font_size = style.get('fontSize', 16)
         doc.apply_fill = True
         doc.fill_color = style.get('color') or [0, 0, 0]
@@ -402,6 +419,38 @@ class Writer:
         if style.get('leading') is not None:
             doc.auto_leading = False
             doc.leading = style['leading']
+        return font
+
+    def apply_cjk_font(self, doc, text, start, font, style):
+        cjk = set(CJK_GLYPHS.findall(text))
+        if not cjk:
+            return
+        cmap = font_cmap(font)
+        missing = {char for char in cjk if cmap.get(ord(char), '.notdef') == '.notdef'}
+        if not missing:
+            return
+        weight = 'regular'
+        if re.search('bold|heavy|black', style, re.I):
+            weight = 'bold'
+        elif re.search('light|thin', style, re.I):
+            weight = 'light'
+        for candidate in CJK_FONTS[weight]:
+            cmap = font_cmap(candidate)
+            if all(cmap.get(ord(char), '.notdef') != '.notdef' for char in missing):
+                break
+        else:
+            self.fail('font-glyph', self.current_item, '字体 ' + font + ' 缺少中文字形，请换用支持中文的字体')
+
+        # AE indexes text ranges in UTF-16 units. Keep the original style on both sides of each span.
+        italic = bool(re.search('italic|oblique', style, re.I))
+        for substitute, group in groupby(text, key=missing.__contains__):
+            end = start + len(''.join(group).encode('utf-16-le')) // 2
+            if substitute:
+                span = doc.character_range(start, end)
+                span.font = candidate
+                if italic:
+                    span.faux_italic = True
+            start = end
 
     def text_fill_opacity(self, layer, segments):
         start = 0
@@ -433,7 +482,7 @@ class Writer:
         self.common(layer, item)
         prop = layer['ADBE Text Properties']['ADBE Text Document']
         doc = prop.value
-        self.text_style(doc, segments[0] if segments else item)
+        base_font = self.text_style(doc, segments[0] if segments else item)
         doc.justification = {'LEFT': ParagraphJustification.LEFT_JUSTIFY, 'CENTER': ParagraphJustification.CENTER_JUSTIFY,
                              'RIGHT': ParagraphJustification.RIGHT_JUSTIFY}.get(item.get('align'), ParagraphJustification.LEFT_JUSTIFY)
         if item.get('paragraphSpacing') is not None:
@@ -442,10 +491,12 @@ class Writer:
             doc.first_line_indent = item['paragraphIndent']
         doc.apply_stroke = False
         start = 0
-        for segment in segments:
-            end = start + len(segment['characters'].encode('utf-16-le')) // 2
+        for segment in segments or [item]:
+            text = segment['characters']
+            end = start + len(text.encode('utf-16-le')) // 2
             if end > start:
-                self.text_style(doc.character_range(start, end), segment)
+                font = self.text_style(doc.character_range(start, end), segment) if segments else base_font
+                self.apply_cjk_font(doc, text, start, font, segment.get('style', 'Regular'))
             start = end
         prop.value = doc
         self.transform(layer)

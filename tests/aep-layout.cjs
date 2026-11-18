@@ -25,13 +25,17 @@ async function check(){
   const rich=at(node('TEXT','Rich text',{characters:'Mixed sizes',fills:fill,getStyledTextSegments(){return[
     {characters:'Mixed ',fontName:{family:'Arial',style:'Regular'},fontSize:18,fills:fill},
     {characters:'sizes',fontName:{family:'Arial',style:'Regular'},fontSize:24,fills:fill}];}}),750,460,180,36);
+  const chinese=at(node('TEXT','CJK fallback',{characters:'挂牌须知',fills:fill}),750,500,100,24);
+  const mixed=at(node('TEXT','Mixed CJK fallback',{characters:'A挂牌B须知C',fills:fill,getStyledTextSegments(){return[
+    {characters:'A挂牌B',fontName:{family:'Arial',style:'Regular'},fontSize:18,fills:fill},
+    {characters:'须知C',fontName:{family:'Arial',style:'Bold'},fontSize:24,fills:fill}];}}),880,500,160,30);
   const gradient=at(node('TEXT','Gradient text',{characters:'Gradient',fills:[{type:'GRADIENT_LINEAR',gradientTransform:[[1,0,0],[0,1,0]],gradientStops:[{position:0,color:{r:1,g:0,b:0,a:1}},{position:1,color:{r:0,g:0,b:1,a:1}}]}]}),900,335,110,24);
   const raster=at(node('RECTANGLE','*Fractional raster'),780.375,270.625,100.37,37.21);
   const photo=mode=>at(node('RECTANGLE','Photo '+mode,{cornerRadius:0,fills:[{type:'IMAGE',imageHash:'photo',scaleMode:mode}]}),900,390,82.25,60.125);
   const mask=at(node('RECTANGLE','Mask',{isMask:true,cornerRadius:0,fills:fill,fillGeometry:[{data:'M0 0H70V40H0Z',windingRule:'NONZERO'}]}),560,390,70,40);
   const masked=at(node('RECTANGLE','Masked artwork',{cornerRadius:0,fills:fill,fillGeometry:[{data:'M0 0H100V60H0Z',windingRule:'NONZERO'}]}),550,380);
   const nested=at(node('FRAME','Nested clip',{clipsContent:true,cornerRadius:8,children:[curve,outlined,raster,rotated]}),525.5,230.25,460.5,90.25);
-  const root=at(node('FRAME','AEP layout',{children:[nested,...texts,gradient,paragraph,rich,photo('FIT'),photo('FILL'),group('Mask group',[mask,masked])]}),500.125,200.375,640,360);
+  const root=at(node('FRAME','AEP layout',{children:[nested,...texts,gradient,paragraph,rich,chinese,mixed,photo('FIT'),photo('FILL'),group('Mask group',[mask,masked])]}),500.125,200.375,640,360);
   const h=harness(root);
   (function render(n){n.exportAsync=async function(options){return png(Math.round(this.absoluteRenderBounds.width*options.constraint.value),Math.round(this.absoluteRenderBounds.height*options.constraint.value));};if(n.children)n.children.forEach(render);})(root);
   h.context.figma.getImageByHash=()=>({getBytesAsync:async()=>png(300,200),getSizeAsync:async()=>({width:300,height:200})});

@@ -83,4 +83,15 @@ for item in model['texts']:
         left=box['x']+({'CENTER':.5,'RIGHT':1}.get(item.get('align'),0))*(box['w']-rect['width'])
         mapped=point(layer,rect['left'],rect['top']+rect['height']/2)
         close(mapped[0],left-ox);close(mapped[1],box['y']+box['h']/2-oy)
+chinese=layers['CJK fallback']['ADBE Text Properties']['ADBE Text Document'].value
+assert chinese.text=='挂牌须知'
+assert chinese.character_range(0,4).font in ('MicrosoftYaHei','NotoSansCJKsc-Regular')
+mixed=layers['Mixed CJK fallback']['ADBE Text Properties']['ADBE Text Document'].value
+assert mixed.text=='A挂牌B须知C'
+assert mixed.character_range(0,1).font==mixed.character_range(3,4).font=='ArialMT'
+assert mixed.character_range(1,3).font==chinese.character_range(0,4).font
+assert mixed.character_range(4,6).font in ('MicrosoftYaHei-Bold','NotoSansCJKsc-Bold')
+assert mixed.character_range(6,7).font=='Arial-BoldMT'
+close(mixed.character_range(0,4).font_size,18)
+close(mixed.character_range(4,7).font_size,24)
 print('PASS: parsed AEP anchors centered for Bezier/primitive/text/gradient/mattes/precomps/images; original placement retained; baked PNG follows export scale, photo FIT/FILL unchanged')
