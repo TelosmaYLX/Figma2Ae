@@ -18,7 +18,8 @@ pnpm-debug.log*
 # AE fidelity renders and local replay data
 artifacts/
 
-# Local reference materials
+# Local instructions and reference materials
+/AGENTS.md
 /CEP SDK/
 /docs/
 
