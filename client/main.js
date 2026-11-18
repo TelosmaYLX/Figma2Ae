@@ -4,7 +4,7 @@
 
   // ---- Live log ------------------------------------------------------------
   // One timestamped line per event. The bridge modules report through MKReport, so the console
-  // shows what they are doing from the first tick; the panel has no buttons and no toast bubble.
+  // shows what they are doing from the first tick, including updater progress.
   var logList = document.getElementById("mk-log");
   var logCap = 200;
   function stamp(now) {

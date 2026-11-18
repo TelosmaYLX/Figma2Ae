@@ -33,6 +33,7 @@ body{
 /* ---------- Header ---------- */
 .mk-header{
   position:sticky; top:0; z-index:5;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
   padding:14px 16px 12px;
   background:linear-gradient(180deg, rgba(0,0,0,.96) 60%, rgba(0,0,0,0));
   backdrop-filter:blur(4px);
@@ -41,6 +42,13 @@ body{
 .mk-brand > * + *{margin-left:9px;}
 .mk-name{margin:0; font-size:15px; font-weight:700; letter-spacing:.2px; color:var(--text);}
 .mk-ver{font-size:11px; font-weight:600; color:var(--text-mute); letter-spacing:.3px; margin-left:7px;}
+.mk-update{
+  padding:4px 8px; border:1px solid var(--border); border-radius:var(--radius-sm);
+  background:var(--surface); color:var(--text-dim); font:inherit; font-size:11px; cursor:pointer;
+}
+.mk-update:hover:not(:disabled){background:var(--surface-hi); color:var(--text);}
+.mk-update:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.mk-update:disabled{cursor:default; opacity:.65;}
 
 /* thin scrollbar */
 ::-webkit-scrollbar{width:9px;height:9px;}

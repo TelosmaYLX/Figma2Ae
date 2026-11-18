@@ -7,6 +7,7 @@ const os = require('node:os');
 const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
 const {createHash} = require('node:crypto');
+const {version} = require('../version.json');
 const run = promisify(execFile);
 const root = path.resolve(__dirname, '..');
 const name = 'F2A-Windows-x64';
@@ -14,9 +15,10 @@ const output = path.join(root, 'dist', name + '.zip');
 
 // Keep this explicit: new captures, configuration or development files must not enter a release.
 const files = [
+  'version.json',
   'CSXS/manifest.xml',
   ...['aepLauncher.js', 'ffxGradient.js', 'figmaBridge.js', 'figmaRasterEffects.js',
-    'index.html', 'main.js', 'mcpBridge.js', 'mkBridgeServer.js', 'style.css'].map(f => 'client/' + f),
+    'index.html', 'main.js', 'mcpBridge.js', 'mkBridgeServer.js', 'style.css', 'updatePanel.js', 'updateRelease.js'].map(f => 'client/' + f),
   ...['code.js', 'manifest.json', 'ui.html'].map(f => 'figma-plugin/' + f),
   ...['aeShapeBuilder.jsx', 'figmaRunner.jsx', 'svgParser.js', 'grad-template.ffx',
     'gradoverlay-template.ffx', 'gradstroke-template.ffx', 'innershadow-overlay-template.ffx',
@@ -24,7 +26,7 @@ const files = [
   ...['server.cjs', 'relay.cjs', 'launcher.cjs', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/' + f),
   ...['aep-server.cjs', 'export-aep.cjs', 'open-aep-directory.ps1', 'start-aep-export.ps1',
     'install-aep-launcher.ps1', 'install-mcp.ps1', 'install-mcp-dsh.cjs',
-    'install-f2a.ps1'].map(f => 'scripts/' + f),
+    'install-f2a.ps1', 'update-f2a.ps1'].map(f => 'scripts/' + f),
   ...['choose-destination.py', 'packet.cjs', 'requirements.txt', 'writer.py'].map(f => 'scripts/aep/' + f),
 ];
 
@@ -70,7 +72,7 @@ async function build() {
       manifest.push({path: file, bytes: data.length, sha256: createHash('sha256').update(data).digest('hex')});
     }
     await fs.writeFile(path.join(target, 'package-manifest.json'), JSON.stringify({
-      name, version: '1.0.0', platform: 'win32', arch: 'x64', bundledRuntimes: false,
+      name, version, platform: 'win32', arch: 'x64', bundledRuntimes: false,
       requires: {node: '>=20', python: '>=3.11', pythonTkinter: true}, files: manifest,
     }, null, 2) + '\n');
     // Use .NET so the archive includes exactly the staged tree, with one top-level folder.
@@ -84,6 +86,8 @@ async function build() {
     const archive = await fs.readFile(output);
     const sha256 = createHash('sha256').update(archive).digest('hex');
     await fs.writeFile(output + '.sha256', sha256 + '  ' + path.basename(output) + '\n');
+    await fs.writeFile(path.join(path.dirname(output), 'latest.json'),
+      JSON.stringify({version, file: path.basename(output), sha256}, null, 2) + '\n');
     console.log(JSON.stringify({file: output, files: packaged.length + 1, bytes: archive.length, sha256}));
   } finally {
     await fs.rm(stage, {recursive: true, force: true});

@@ -7,13 +7,14 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- The panel is a bridge monitor: Figma drives the import through the localhost routes, so the
-       panel only shows the two connection lines and the live log. No tool buttons, no toast. -->
+  <!-- Connection and activity take priority. Keep the update action secondary in the header.
+       Reuse the panel's border, text, radius and focus tokens. Update results use the live log. -->
   <header class="mk-header">
     <div class="mk-brand">
       <h1 class="mk-name">F2A</h1>
-      <span class="mk-ver">v1.0</span>
+      <span class="mk-ver" id="mk-version"></span>
     </div>
+    <button type="button" id="mk-update" class="mk-update" hidden>检查更新</button>
   </header>
 
   <!-- Figma bridge status (updated by figmaBridge.js) -->
@@ -40,5 +41,6 @@
   <script src="main.js"></script>
   <script src="figmaBridge.js"></script>
   <script src="mcpBridge.js"></script>
+  <script src="updatePanel.js"></script>
 </body>
 </html>

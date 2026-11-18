@@ -28,6 +28,10 @@ F2A（Windows x64）
 如提示环境不存在，安装对应环境并重启相关应用，再运行 install.cmd。
 导出可编辑文字时，目标设备仍需安装原设计使用的字体。
 
+联网更新：在 AE 的 F2A 面板点“检查更新”，再点“更新到版本”。
+仓库为私有，需要 Git for Windows 及 Git Credential Manager，并登录有 Releases 读取权限的 GitHub 账号。
+更新完成后重新打开 AE 和 Figma 的 F2A 面板。
+
 三、MCP（可选）
 
 在 MCP 客户端中添加 stdio 服务，名称使用 f2a：

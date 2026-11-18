@@ -2,6 +2,7 @@
 
 const http = require('node:http');
 const fs = require('node:fs/promises');
+const {watchFile, unwatchFile} = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const {execFile} = require('node:child_process');
@@ -96,6 +97,13 @@ function start(options = {}) {
   server.listen(options.port ?? 7366, '127.0.0.1', () => {
     if (!options.quiet) console.log('F2A AEP: http://127.0.0.1:' + server.address().port + '\n导出时选择位置和名称');
   });
+  if (options.updateSignal) {
+    // Drain the queued exports before the installer replaces the writer on disk.
+    watchFile(options.updateSignal, {interval: 250, persistent: false}, current => {
+      if (current.nlink && server.listening) server.close();
+    });
+    server.once('close', () => unwatchFile(options.updateSignal));
+  }
   return server;
 }
 
@@ -105,5 +113,5 @@ async function openDirectory(directory) {
     '-File', path.join(__dirname, 'open-aep-directory.ps1'), '-Directory', directory], {windowsHide:true, timeout:15000});
 }
 
-if (require.main === module) start();
+if (require.main === module) start({updateSignal: path.join(__dirname, '..', '.f2a-update-aep')});
 module.exports = {start, openDirectory};

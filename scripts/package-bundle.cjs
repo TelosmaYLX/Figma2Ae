@@ -9,9 +9,10 @@ const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
 const {createHash} = require('node:crypto');
 const {files: f2aFiles, privacyIssues} = require('./package-dist.cjs');
+const {version} = require('../version.json');
 const run = promisify(execFile);
 const root = path.resolve(__dirname, '..');
-const bundle = 'F2A-Bundle-v1.0';
+const bundle = 'F2A-Bundle-v' + version;
 const f2a = 'F2A';
 const skill = 'f2a-figma-layer-tidy';
 const extra = ['README.txt', 'install.cmd'];
@@ -64,7 +65,7 @@ async function stage(target) {
     manifest.push({path: file, bytes: data.length, sha256: createHash('sha256').update(data).digest('hex')});
   }
   await writeFile(path.join(f2aRoot, 'package-manifest.json'), JSON.stringify({
-    name: 'F2A-Windows-x64', version: '1.0.0', platform: 'win32', arch: 'x64', bundledRuntimes: false,
+    name: 'F2A-Windows-x64', version, platform: 'win32', arch: 'x64', bundledRuntimes: false,
     requires: {node: '>=20', python: '>=3.11', pythonTkinter: true}, files: manifest,
   }, null, 2) + '\n');
 

@@ -11,7 +11,7 @@ const root = path.resolve(__dirname, '..');
 async function copyCepExtension(output) {
   const extension = path.join(output, 'cep-extension');
   await fs.mkdir(extension, {recursive:true});
-  for (const part of ['client','host','CSXS','.debug']) await fs.cp(path.join(root,part),path.join(extension,part),{recursive:true});
+  for (const part of ['client','host','CSXS','.debug','version.json']) await fs.cp(path.join(root,part),path.join(extension,part),{recursive:true});
   await copyMcp(extension);
 }
 
