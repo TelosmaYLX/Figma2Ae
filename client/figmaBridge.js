@@ -318,7 +318,7 @@
     if (importing || !importQueue.length || !importQueue[0].ready || !importQueue[0].targetReady) return;
     importing = true;
     var job = importQueue[0], images = job.images || [];
-    if (!job.data.compId) { finishImport('请先打开一个合成', true); return; }
+    if (!job.data.compSize && !job.data.compId) { finishImport('请先打开一个合成', true); return; }
     if (!job.shadowsReady && images.some(function (image) { return !!image.shadowBase; })) {
       job.shadowsReady = true;
       var renderer = require(ext + '/client/figmaRasterEffects.js'), pending = Promise.resolve();
@@ -451,13 +451,12 @@
         var cp = (meta.organize && meta.containers && meta.containers.length)
                    ? saveJsonTemp(meta.containers, 'containers').replace(/\\/g, '/') : "";
         if (cp) flash("分组预合成：" + meta.containers.length + " 个组");
-        else if (meta.organize) flash("没有嵌套组，将使用当前合成");
         var job = { data: {name: meta.name || '', svgPath: arg, textsPath: tp, gradMapPath: gp, effectsPath: ep,
-                           shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp},
-                    ready: !meta.imageCount, expectedImages: meta.imageCount || 0, targetReady: false, images: null };
+                           shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp, compSize: meta.compSize},
+                    ready: !meta.imageCount, expectedImages: meta.imageCount || 0, targetReady: !!meta.compSize, images: null };
         importQueue.push(job);
         // Bind the target before the PNG wait or folder dialog can change the active viewer.
-        evalES('mkFigmaTargetCompId()', function (id) {
+        if (!job.targetReady) evalES('mkFigmaTargetCompId()', function (id) {
           job.data.compId = parseInt(id, 10) || 0; job.targetReady = true; pumpImport();
         });
         if (meta.imageCount) flash('等待图片导出完成…');

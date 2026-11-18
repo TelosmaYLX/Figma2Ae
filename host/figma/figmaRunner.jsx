@@ -39,11 +39,11 @@ function _mkShiftModel(model, dx, dy) {
 
 var _mkNodeOrigin = { x: 0, y: 0 };     // frame origin for node mode, set by the panel
 
-function runSvgToShapes(pathOrSvg, gradientPresets, effects, shiftX, shiftY, imageMasks, imageFolder) {
+function runSvgToShapes(pathOrSvg, gradientPresets, effects, shiftX, shiftY, imageMasks, imageFolder, comp) {
   try {
     if (typeof SVGParser === "undefined" || typeof AEShapeBuilder === "undefined")
       return "ERROR: Figma 引擎未加载。";
-    var comp = app.project ? app.project.activeItem : null;
+    comp = comp || (app.project ? app.project.activeItem : null);
     if (!comp || !(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
 
     var svgString, name = "Figma UI";
@@ -83,9 +83,9 @@ var _mkContainers = null;    // organize mode: collapsed only after text AND ima
 // Collapse every Figma container into its own precomp. Runs LAST, from the panel, because
 // pictures arrive in a separate message — precomposing before them would leave the footage
 // outside the group it belongs to.
-function runOrganize() {
+function runOrganize(comp) {
   try {
-    var comp = app.project ? app.project.activeItem : null;
+    comp = comp || (app.project ? app.project.activeItem : null);
     if (!comp || !(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
     return AEShapeBuilder.withUndo("Figma -> Organize", function () {
     // No containers (or the user disabled precomps): still reconcile the late text/image passes.
@@ -127,13 +127,13 @@ function _mkChildFolder(parent, name) {
   }
   return parent.items.addFolder(name);
 }
-function _mkOrganizeImport(before, name) {
+function _mkOrganizeImport(before, name, mainComp) {
   // Collect first: an import that only added layers needs no folders, and empty Assets/
   // Precomps pairs would just be clutter in the project panel.
   var fresh = [], total = app.project.numItems, i, item;
   for (i = 1; i <= total; i++) {
     item = app.project.item(i);
-    if (before[item.id]) continue;
+    if (before[item.id] || (mainComp && item.id === mainComp.id)) continue;
     if (item instanceof CompItem || item instanceof FootageItem) fresh.push(item);
   }
   if (!fresh.length) return { name: "", moved: 0 };
@@ -142,6 +142,7 @@ function _mkOrganizeImport(before, name) {
   if (!label) label = "F2A 导入";
   if (label.length > 60) label = label.substr(0, 60);
   var top = _mkChildFolder(root, label);
+  if (mainComp) mainComp.parentFolder = top;
   var assets = _mkChildFolder(top, "Assets");
   var precomps = _mkChildFolder(top, "Precomps");
   var moved = 0;
@@ -159,41 +160,61 @@ function runImportBatch(jobPath) {
   try {
     var job = _mkReadJson(jobPath);
     if (!job) return "ERROR: 导入数据不存在。";
-    var comp = app.project ? app.project.activeItem : null;
-    if (job.compId != null) {
+    var project = app.project;
+    if (!project) return "ERROR: 请先打开 AE 项目。";
+    var comp = project.activeItem, size = job.compSize;
+    var width, height;
+    if (size) {
+      width = Math.ceil(size.width); height = Math.ceil(size.height);
+      if (!(width > 0 && width <= 30000 && height > 0 && height <= 30000))
+        return "ERROR: 画框尺寸超出 AE 合成范围。";
+    } else if (job.compId != null) {
       comp = null;
-      for (var ci = 1; ci <= app.project.numItems; ci++) {
-        var candidate = app.project.item(ci);
+      for (var ci = 1; ci <= project.numItems; ci++) {
+        var candidate = project.item(ci);
         if (candidate.id === job.compId && candidate instanceof CompItem) { comp = candidate; break; }
       }
       if (!comp) return "ERROR: 导入目标合成不存在。";
-      if (app.project.activeItem !== comp) comp.openInViewer();
+      if (project.activeItem !== comp) comp.openInViewer();
     }
-    if (!comp || !(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
+    if (!size && !(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
     return AEShapeBuilder.withUndo("Figma -> AE", function () {
       var before = _mkProjectIds();
+      var created = null, complete = false;
       try {
+        if (size) {
+          created = project.items.addComp(job.name || "Figma", Math.max(4, width), Math.max(4, height), 1, 10, 30);
+          comp = created;
+        }
         var status = runImport(job.svgPath, job.textsPath, job.gradMapPath, job.effectsPath,
                                job.shiftX || 0, job.shiftY || 0, job.nodesPath, job.containersPath,
-                               job.imagesPath ? _mkReadJson(job.imagesPath) : null, job.imageFolder);
+                               job.imagesPath ? _mkReadJson(job.imagesPath) : null, job.imageFolder, comp);
         if (/^(ERROR|node error)/i.test(status)) return status;
         if (job.imagesPath && job.imageFolder) {
-          var images = runImportImages(job.imagesPath, job.imageFolder);
+          var images = runImportImages(job.imagesPath, job.imageFolder, comp);
           if (/^(ERROR|image error)/i.test(images)) return status + " | " + images;
         }
-        var result = status + (images ? " | " + images.split(" | ")[0] : "") + " | " + runOrganize();
+        var result = status + (images ? " | " + images.split(" | ")[0] : "") + " | " + runOrganize(comp);
         // Organize AFTER the precomps exist, so newly created compositions land in Precomps too.
         try {
-          var placed = _mkOrganizeImport(before, job.name);
+          var placed = _mkOrganizeImport(before, job.name, created);
           if (placed && placed.moved > 0) result = result + " | " + placed.moved + " 项已整理到「" + placed.name + "」";
         } catch (eOrg) { result = result + " | 整理失败：" + eOrg; }
+        complete = true;
         return result;
-      } finally { _mkContainers = null; }
+      } finally {
+        _mkContainers = null;
+        if (created) {
+          if (complete || created.numLayers) created.openInViewer();
+          else created.remove();
+        }
+      }
     });
   } catch (e) { return "batch error: " + e.toString(); }
 }
 
-function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY, nodesPath, containersPath, imageMasks, imageFolder) {
+function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY, nodesPath, containersPath, imageMasks, imageFolder, comp) {
+  comp = comp || (app.project ? app.project.activeItem : null);
   var gradPresets = null, effects = null;
   try { gradPresets = _mkReadJson(gradMapPath); } catch (eg) {}
   try { effects = _mkReadJson(effectsPath); } catch (ee) {}
@@ -208,10 +229,9 @@ function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY,
     // An EMPTY array still means node mode: complex groups may have been routed to Figma PNGs,
     // so falling back to the SVG here would import their shapes a second time.
     try {
-      var compN = app.project ? app.project.activeItem : null;
-      if (!compN || !(compN instanceof CompItem)) status = "ERROR: open a composition first.";
+      if (!(comp instanceof CompItem)) status = "ERROR: open a composition first.";
       else {
-        var modelN = SVGParser.fromNodes(nodes, compN.width, compN.height, { x: 0, y: 0 });   // already frame-relative
+        var modelN = SVGParser.fromNodes(nodes, comp.width, comp.height, { x: 0, y: 0 });   // already frame-relative
         // Leaf shadows ride on the node itself; only the GROUP-level ones are left to the
         // bounding-box matcher, otherwise a leaf would get its shadow applied twice.
         var effN = null;
@@ -220,20 +240,19 @@ function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY,
           for (var q = 0; q < effects.length; q++) if (!effects[q].leaf) effN.push(effects[q]);
           if (!effN.length) effN = null;
         }
-        var lyrsN = AEShapeBuilder.build(modelN, { comp: compN, oneLayer: false, name: "Figma UI",
+        var lyrsN = AEShapeBuilder.build(modelN, { comp: comp, oneLayer: false, name: "Figma UI",
                                                    gradientPresets: gradPresets || null, effects: effN, imageMasks: imageMasks, imageFolder: imageFolder });
         status = "可编辑模式：已从 " + nodes.length + " 个 Figma 图层创建 " + lyrsN.length + " 个图层。";
       }
     } catch (eN) { status = "node error: " + eN.toString(); }
   } else {
-    status = runSvgToShapes(svgPath, gradPresets, effects, shiftX, shiftY, imageMasks, imageFolder);
+    status = runSvgToShapes(svgPath, gradPresets, effects, shiftX, shiftY, imageMasks, imageFolder, comp);
   }
 
   try {
     if (textsPath && textsPath.length) {
       var texts = _mkReadJson(textsPath);
       if (texts && texts.length) {
-        var comp = app.project ? app.project.activeItem : null;
         var n = AEShapeBuilder.buildText(comp, texts);
         status = status + "，以及 " + n + " 个文本图层";
       }
@@ -255,10 +274,10 @@ function mkChooseImageFolder(hint) {
 }
 
 // Import the saved pictures as footage (+ track mattes for cropped ones).
-function runImportImages(imagesJsonPath, folder) {
+function runImportImages(imagesJsonPath, folder, comp) {
   try {
     if (!folder || !imagesJsonPath) return "no images";
-    var comp = app.project ? app.project.activeItem : null;
+    comp = comp || (app.project ? app.project.activeItem : null);
     if (!comp || !(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
     var images = _mkReadJson(imagesJsonPath);
     if (!images || !images.length) return "no images";

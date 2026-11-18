@@ -176,7 +176,7 @@ function start(opts) {
       // Forgetting to add one is silent: organize mode looked completely dead for exactly that
       // reason, because `containers` was dropped right here.
       var msg = null, svg, name, texts = null, effects = null, shift = null, nodes = null;
-      var containers = null, organize = false, imageCount = 0, vnStats = null;
+      var containers = null, organize = false, imageCount = 0, vnStats = null, compSize = null;
       if (text.charAt(0) === '{') {
         msg = JSON.parse(text);
         if (msg.type === 'export-abort') {
@@ -203,13 +203,14 @@ function start(opts) {
         }
         svg = msg.svg; name = msg.name; texts = msg.texts || null; effects = msg.effects || null; shift = msg.shift || null; nodes = msg.nodes || null;
         containers = msg.containers || null; organize = !!msg.organize; imageCount = msg.imageCount || 0; vnStats = msg.vnStats || null;
+        compSize = msg.compSize || null;
         explicitImageEnd = !!msg.imageBatch && imageCount > 0;
         expectedImages = imageCount;
       }
       else { svg = text; }
       if (!svg || svg.indexOf('<svg') === -1) return { ok: false, error: 'no svg in message' };
       var result = onSvg(svg, { name: name, via: meta.via, texts: texts, effects: effects, shift: shift, nodes: nodes,
-                                containers: containers, organize: organize, imageCount: imageCount, vnStats: vnStats });
+                                containers: containers, organize: organize, imageCount: imageCount, vnStats: vnStats, compSize: compSize });
       return result || { ok: true };
     } catch (e) {
       onStatus('handle error: ' + e.message);

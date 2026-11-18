@@ -39,4 +39,34 @@ files.job = JSON.stringify({nodesPath: 'nodes', containersPath: 'groups', compId
 assert.doesNotMatch(context.runImportBatch('job'), /error/i); assert.equal(app.project.activeItem, target);
 files.job = JSON.stringify({compId: 999}); before = begins;
 assert.match(context.runImportBatch('job'), /ERROR/); assert.equal(begins, before, 'A missing target must not open an undo group');
-console.log('PASS: one owner, nested builders, exception balance, next import, parser/organize failures, flat import');
+const projectItems = [target], stages = [];
+Object.defineProperty(app.project, 'numItems', {get() {return projectItems.length;}});
+app.project.item = index => projectItems[index-1];
+app.project.items = {addComp(name, width, height, pixelAspect, duration, fps) {
+  assert.equal(depth, 1, 'Composition creation is part of the import undo');
+  const created = Object.assign(new CompItem(101 + projectItems.length), {name,width,height,pixelAspect,duration,fps,
+    remove() {projectItems.splice(projectItems.indexOf(this), 1);}});
+  projectItems.push(created);
+  return created;
+}};
+builder.build = (model, options) => {stages.push(options.comp); return [];};
+builder.buildText = target => {stages.push(target); return 1;};
+builder.buildImages = target => {stages.push(target); return 1;};
+builder.restack = target => stages.push(target);
+files.texts = '[{}]'; files.images = '[{}]';
+files.job = JSON.stringify({name:'测试画框',compSize:{width:810.25,height:432},nodesPath:'nodes',textsPath:'texts',imagesPath:'images',imageFolder:'assets'});
+app.project.activeItem = null;
+before = begins;
+assert.doesNotMatch(context.runImportBatch('job'), /error/i);
+const created = projectItems[1];
+assert.equal(app.project.activeItem, created);
+assert.deepEqual([created.name,created.width,created.height,created.pixelAspect,created.duration,created.fps],['测试画框',811,432,1,10,30]);
+assert.deepEqual(stages, [created,created,created,created], 'All import stages run against the new composition');
+assert.equal(begins - before, 1); assert.equal(begins, ends);
+context.SVGParser.fromNodes = () => { throw new Error('invalid frame paths'); };
+assert.match(context.runImportBatch('job'), /invalid frame paths/);
+assert.equal(projectItems.length, 2, 'A failed frame import must remove its empty composition');
+assert.equal(app.project.activeItem, created);
+files.job = JSON.stringify({compSize:{width:30001,height:432}}); before = begins;
+assert.match(context.runImportBatch('job'), /ERROR/); assert.equal(begins, before);
+console.log('PASS: one undo owner, existing and new compositions, all import phases, invalid bounds and failure cleanup');

@@ -578,6 +578,7 @@
         return;
       }
       var payload = { type: 'svg', name: msg.name, svg: msg.svg, texts: msg.texts || [], effects: msg.effects || [], shift: msg.shift || { x: 0, y: 0 }, nodes: msg.nodes || null,
+                      compSize: msg.newComp ? msg.frame : null,
                       containers: msg.containers || null, organize: !!msg.organize, imageCount: msg.imageCount || 0, imageBatch: !!msg.imageBatch, vnStats: msg.vnStats || null };
       var kb = Math.round((msg.bytes || msg.svg.length) / 1024);
       if (connected && ws && ws.readyState === 1) { ws.send(JSON.stringify(payload)); say('正在向 AE 发送 ' + kb + ' KB 数据…'); }

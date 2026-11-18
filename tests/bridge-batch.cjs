@@ -91,8 +91,11 @@ function uiHarness(bridge, main) {
   });
   textUi.elements.ship.onclick(); await finished;
   assert.equal(textBridge.imports[0].meta.texts.length, 0);
+  assert.equal(textBridge.imports[0].meta.compSize, null);
   assert.equal(textBridge.batches.length, 1); assert.equal(textBridge.batches[0].filter(im=>!im.reference).length, 2, 'The text mode reaches the exporter through the actual UI message handler');
-  const policyBridge = bridgeHarness(), policyMain = harness(node('FRAME', '选项画框', {clipsContent: true, fills: [{type: 'SOLID'}], children: [group('Group', [node('TEXT', '组文字')]), node('INSTANCE', 'Instance', {children: [node('TEXT', '实例文字')]})]}));
+  const policyBridge = bridgeHarness(), policyMain = harness(node('FRAME', '选项画框', {clipsContent: true, fills: [{type: 'SOLID'}],
+    width: 810.25, height: 432, absoluteBoundingBox: {x: 20, y: 30, width: 810.25, height: 432},
+    children: [group('Group', [node('TEXT', '组文字')]), node('INSTANCE', 'Instance', {children: [node('TEXT', '实例文字')]})]}));
   const policyUi = uiHarness(policyBridge, policyMain);
   assert.equal(policyUi.elements.rasterallgroups.checked, false); assert.equal(policyUi.elements.rasterinstances.checked, false); assert.equal(policyUi.elements.enableclip.checked, true);
   policyUi.elements.rasterallgroups.checked = true; policyUi.elements.rasterinstances.checked = true; policyUi.elements.enableclip.checked = false;
@@ -101,6 +104,8 @@ function uiHarness(bridge, main) {
     policyMain.figma.ui.postMessage = m => { policyPost(m); if (m.type === 'export-state' && !m.busy) resolve(); };
   });
   policyUi.elements.ship.onclick(); await policyDone;
+  const compSize = policyBridge.imports[0].meta.compSize;
+  assert.deepEqual([compSize.width, compSize.height], [810.25, 432], 'The live import uses frame bounds through the actual UI and bridge');
   assert.equal(policyBridge.batches[0].filter(im=>!im.reference).length, 2); assert.equal(policyBridge.imports[0].meta.texts.length, 0);
   assert.equal(policyBridge.imports[0].meta.containers.length, 1); assert.equal(policyBridge.imports[0].meta.containers[0].clip, false);
   const blendBridge=bridgeHarness(),blendMain=harness(group('叠加',[node('RECTANGLE','底图',{cornerRadius:0,fills:[{type:'SOLID'}]}),node('RECTANGLE','柔光',{blendMode:'SOFT_LIGHT'}),node('TEXT','标题')]));

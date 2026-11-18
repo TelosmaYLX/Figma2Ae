@@ -1507,6 +1507,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
 
     figma.ui.postMessage({ type: 'ship', name: name, svg: svg, texts: texts, effects: effects,
                            frame: { width: bbox.width, height: bbox.height },
+                           newComp: options.target === 'ae' && originals.length === 1 && originals[0].type === 'FRAME',
                            shift: svgShift, nodes: nodeShapes, nodeOrigin: origin, bytes: svg.length,
                            containers: containers, organize: !!organize, imageCount: images.length, imageBatch: true,
                            vnStats: _vnStats, blendStats: blendBake.stats });

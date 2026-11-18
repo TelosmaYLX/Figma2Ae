@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '..'), output = path.join(root, 'artifacts/undo/client', String(process.pid));
 let testId = 0;
-function harness({rememberFolder = true, failImages = false, shadowRenderer, nativeFolder} = {}) {
+function harness({rememberFolder = true, failImages = false, shadowRenderer, nativeFolder, activeCompId = 101} = {}) {
   const dir = path.join(output, String(++testId)), assets = path.join(dir, 'assets');
   fs.mkdirSync(assets, {recursive: true});
   const native = [], pending = [], pickers = [], messages = [], folderCalls = [], elements = {}, launchCalls=[];
@@ -23,7 +23,7 @@ function harness({rememberFolder = true, failImages = false, shadowRenderer, nat
         assert.equal(active, 0, 'Only one mutating native evaluation may run at a time'); active++;
         const file = script.match(/\("([^"]+)"\)/)[1], job = JSON.parse(fs.readFileSync(file, 'utf8'));
         native.push({file, job, id: JSON.parse(fs.readFileSync(job.nodesPath, 'utf8'))[0]?.id}); pending.push(callback);
-      } else if (script === 'mkFigmaTargetCompId()') callback('101');
+      } else if (script === 'mkFigmaTargetCompId()') callback(String(activeCompId));
       else if (script.startsWith('mkChooseImageFolder(')) pickers.push(callback);
       else { assert.ok(!/^runImport\(|^runImportImages\(|^runOrganize\(/.test(script), 'Old split import entry must not be called'); if (callback) callback('loaded'); }
     }
@@ -43,7 +43,7 @@ function harness({rememberFolder = true, failImages = false, shadowRenderer, nat
     require(name) { if (name === 'fs') return disk; if (name === 'os') return {tmpdir: () => dir}; if(name.endsWith('/client/aepLauncher.js'))return launcherModule.exports; if (name.endsWith('/client/figmaRasterEffects.js') && shadowRenderer) return shadowRenderer; if (name.endsWith('/client/mkBridgeServer.js')) return bridge; return require(name); }
   });
   return Object.assign(result,{native, pending, pickers, messages, elements, storage, window, folderCalls, assets, get callbacks(){return callbacks;},
-    start(id, imageCount) { return callbacks.onSvg('<svg width="10" height="10"></svg>', {name: id, nodes: [{id, fills: [], strokes: []}], texts: [], effects: [], imageCount}); },
+    start(id, imageCount, compSize) { return callbacks.onSvg('<svg width="10" height="10"></svg>', {name: id, nodes: [{id, fills: [], strokes: []}], texts: [], effects: [], imageCount, compSize}); },
     images(id, reference = false, shadow = false) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3, reference, hidden: reference, external: shadow, shadowBase: shadow ? {data:'clean'} : null}] : []); },
     abort(message){callbacks.onAbort(message);},
     finish() { assert.equal(active, 1); active--; pending.shift()('OK'); }
@@ -65,8 +65,16 @@ assert.equal(h.native[0].job.compId, 101);
 assert.equal(h.native[0].job.name, 'A', 'The frame name travels to AE so the import folders carry it');
 assert.equal(JSON.parse(fs.readFileSync(h.native[2].job.imagesPath, 'utf8'))[0].name, 'C');
 h.finish();
+const newFrame = harness({activeCompId: 0});
+const frameSize = {width: 810.25, height: 432};
+newFrame.start('new frame', 1, frameSize);
+assert.equal(newFrame.native.length, 0, 'Wait for the image before creating a composition');
+newFrame.images('frame artwork');
+assert.deepEqual(newFrame.native[0].job.compSize, frameSize);
+assert.equal(newFrame.native[0].job.compId, undefined);
+newFrame.finish();
 const canceled = harness({rememberFolder: false});
-canceled.start('cancel images', 1); canceled.images('image'); canceled.start('next', 0);
+canceled.start('cancel images', 1, frameSize); canceled.images('image'); canceled.start('next', 0);
 assert.equal(canceled.native.length, 0, 'A folder picker is outside the native transaction');
 canceled.pickers.shift()('');
 assert.equal(canceled.native.length,1);assert.equal(canceled.native[0].id,'next');canceled.finish();
