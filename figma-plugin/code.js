@@ -2389,7 +2389,9 @@ function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
                        paragraphIndent: typeof n.paragraphIndent === 'number' ? n.paragraphIndent : null });
           } else {
             var cc = _solidOf(n.fills);
-            var fn2 = n.fontName, fam2 = 'Arial', sty2 = 'Regular';
+            // A text node can report a mixed font even when its only style segment names one face.
+            var fn2 = (segs && segs.length === 1 && segs[0].fontName) || n.fontName;
+            var fam2 = 'Arial', sty2 = 'Regular';
             if (fn2 && fn2 !== figma.mixed) { fam2 = fn2.family || fam2; sty2 = fn2.style || sty2; }
             var fsz = (typeof n.fontSize === 'number') ? n.fontSize : 16;
             var tc = (n.textCase && n.textCase !== figma.mixed) ? n.textCase : 'ORIGINAL';

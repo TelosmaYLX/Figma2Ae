@@ -130,6 +130,17 @@ async function check() {
   const onlyText = await textHarness.run(false, false, false, true);
   assert.equal(onlyText.images.length, 1); assert.equal(onlyText.ship.texts.length, 0);
   assert.deepEqual(onlyText.images[0].path, []); assert.equal(textHarness.calls.svg, 0);
+  const mixedFont = node('TEXT', '分享', {characters: '挂牌须知', fontSize: 28,
+    getStyledTextSegments() {
+      return [{characters: this.characters, fontName: {family: 'MiSans', style: 'Medium'}, fontSize: this.fontSize}];
+    }});
+  const mixedFontHarness = harness(node('FRAME', '按钮', {children: [mixedFont]}));
+  mixedFont.fontName = mixedFontHarness.figma.mixed;
+  const mixedFontResult = await mixedFontHarness.run(true, false, true, false, {target: 'aep'});
+  const exportedFont = mixedFontResult.ship.texts[0];
+  assert.equal(exportedFont.characters, '挂牌须知');
+  assert.equal(exportedFont.family, 'MiSans');
+  assert.equal(exportedFont.style, 'Medium');
   const masked = group('蒙版文字', [node('RECTANGLE', '遮罩', {isMask: true}), node('TEXT', '组内文字')]);
   const maskHarness = harness(group('画框', [masked]));
   const maskTextResult = await maskHarness.run(true, true, true, true);
