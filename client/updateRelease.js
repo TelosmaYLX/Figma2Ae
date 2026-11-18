@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const {URL} = require('url');
 const {execFile} = require('child_process');
 const {promisify} = require('util');
 const run = promisify(execFile);
@@ -14,8 +15,12 @@ const archiveBase = 'F2A-Windows-x64';
 const archiveName = archiveBase + '.zip';
 const manifestName = 'latest.json';
 
+function updateError(message) {
+  return Object.assign(new Error(message), {userMessage: message});
+}
+
 function versionParts(version) {
-  if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('无效的版本号');
+  if (!/^\d+\.\d+\.\d+$/.test(version)) throw updateError('版本号无效。');
   return version.split('.').map(Number);
 }
 
@@ -34,7 +39,7 @@ function githubCredential(interactive) {
       env: {...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: interactive ? 'true' : 'false'}
     }, (error, stdout) => {
       if (error) {
-        if (error.code === 'ENOENT' && interactive) { reject(new Error('请安装 Git for Windows 后检查更新。')); return; }
+        if (error.code === 'ENOENT' && interactive) { reject(updateError('请安装 Git for Windows 后检查更新。')); return; }
         resolve(null); return;
       }
       const entry = /^password=([^\r\n]+)/m.exec(stdout);
@@ -50,11 +55,13 @@ function request(url, credential, accept, limit, redirects = 4) {
     const target = new URL(url);
     const apiHost = target.host === 'api.github.com';
     if (target.protocol !== 'https:' || (!apiHost && !target.host.endsWith('.githubusercontent.com'))) {
-      reject(new Error('GitHub 下载地址无效。')); return;
+      reject(updateError('GitHub 下载地址无效。')); return;
     }
     const headers = {'User-Agent': 'F2A updater', Accept: accept};
     if (apiHost && credential) headers.Authorization = 'Bearer ' + credential;
-    const req = https.get(target, {headers}, response => {
+    // CEP has a browser URL constructor in the panel realm. Use the options overload.
+    const connectionError = error => reject(error.userMessage ? error : updateError('无法连接 GitHub，请检查网络后重试。'));
+    const req = https.get({hostname: target.hostname, port: target.port, path: target.pathname + target.search, headers}, response => {
       const status = response.statusCode;
       if ([301, 302, 303, 307, 308].includes(status) && response.headers.location && redirects > 0) {
         response.resume();
@@ -63,7 +70,7 @@ function request(url, credential, accept, limit, redirects = 4) {
       }
       if (status !== 200) {
         response.resume();
-        const error = new Error('GitHub 请求失败（' + status + '）。');
+        const error = updateError('GitHub 请求失败（状态码 ' + status + '）。');
         error.status = status;
         reject(error); return;
       }
@@ -71,20 +78,20 @@ function request(url, credential, accept, limit, redirects = 4) {
       let length = 0;
       response.on('data', chunk => {
         length += chunk.length;
-        if (length > limit) { req.destroy(new Error('更新文件超出大小限制。')); return; }
+        if (length > limit) { req.destroy(updateError('更新文件超出大小限制。')); return; }
         chunks.push(chunk);
       });
-      response.on('error', reject);
+      response.on('error', connectionError);
       response.on('end', () => resolve(Buffer.concat(chunks)));
     });
-    req.setTimeout(30000, () => req.destroy(new Error('连接 GitHub 超时。')));
-    req.on('error', reject);
+    req.setTimeout(30000, () => req.destroy(updateError('连接 GitHub 超时。')));
+    req.on('error', connectionError);
   });
 }
 
 function assetUrl(release, name) {
   const asset = (release.assets || []).find(item => item.name === name);
-  if (!asset || !Number.isSafeInteger(asset.id) || asset.id < 1) throw new Error('GitHub Release 缺少 ' + name + '。');
+  if (!asset || !Number.isSafeInteger(asset.id) || asset.id < 1) throw updateError('GitHub 发布附件缺少 ' + name + '。');
   return api + '/releases/assets/' + asset.id;
 }
 
@@ -98,12 +105,12 @@ async function check(installed, {interactive = false, credentialFor = githubCred
       try { await fetchRelease(''); }
       catch (repoError) {
         if (repoError.status !== 404) throw repoError;
-        throw new Error('请用 Git Credential Manager 登录有仓库读取权限的 GitHub 账号。');
+        throw updateError('请用 Git Credential Manager 登录有仓库读取权限的 GitHub 账号。');
       }
       return null;
     }
-    if (!credential && error.status === 403) throw new Error('请用 Git Credential Manager 登录 GitHub 后重试。');
-    if (credential && error.status === 401) throw new Error('GitHub 登录已失效，请重新登录。');
+    if (!credential && error.status === 403) throw updateError('请用 Git Credential Manager 登录 GitHub 后重试。');
+    if (credential && error.status === 401) throw updateError('GitHub 登录已失效，请重新登录。');
     throw error;
   }
   const version = String(release.tag_name || '').replace(/^v/, '');
@@ -112,13 +119,13 @@ async function check(installed, {interactive = false, credentialFor = githubCred
   const manifest = JSON.parse(buffer.toString('utf8'));
   const releaseArchive = archiveBase + '-v' + version + '.zip';
   if (manifest.version !== version || ![releaseArchive, archiveName].includes(manifest.file) || !/^[a-f0-9]{64}$/.test(manifest.sha256))
-    throw new Error('GitHub Release 的更新清单无效。');
+    throw updateError('GitHub 上的更新清单无效。');
   return {version, sha256: manifest.sha256, url: assetUrl(release, manifest.file), credential};
 }
 
 async function install(extension, update, {get = request, execute = run} = {}) {
   const buffer = await get(update.url, update.credential, 'application/octet-stream', 128 * 1024 * 1024);
-  if (crypto.createHash('sha256').update(buffer).digest('hex') !== update.sha256) throw new Error('安装包校验失败。');
+  if (crypto.createHash('sha256').update(buffer).digest('hex') !== update.sha256) throw updateError('安装包校验失败。');
   const temporary = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'f2a-update-'));
   try {
     const archive = path.join(temporary, archiveName);
@@ -129,8 +136,10 @@ async function install(extension, update, {get = request, execute = run} = {}) {
         '-File', path.join(extension, 'scripts/update-f2a.ps1'), '-Archive', archive,
         '-Sha256', update.sha256, '-Version', update.version, '-InstallDirectory', extension], {windowsHide: true});
     } catch (error) {
-      const detail = String(error.stderr || error.stdout || '').trim().split(/\r?\n/)[0];
-      throw new Error(detail || '安装失败，请重试。');
+      const detail = String(error.stderr || '');
+      if (detail.includes('Finish the AEP export')) throw updateError('请完成当前 AEP 导出后再更新。');
+      if (detail.includes('administrator installer')) throw updateError('管理员安装失败，请重试。');
+      throw updateError('安装失败，请重试。');
     }
   } finally {
     await fs.promises.unlink(path.join(temporary, archiveName)).catch(error => {

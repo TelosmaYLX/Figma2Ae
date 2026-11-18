@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="7.0" ExtensionBundleId="F2A"
-    ExtensionBundleVersion="1.1.0" ExtensionBundleName="F2A"
+    ExtensionBundleVersion="1.1.1" ExtensionBundleName="F2A"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ExtensionList>
-    <Extension Id="F2A" Version="1.1.0"/>
+    <Extension Id="F2A" Version="1.1.1"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>

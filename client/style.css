@@ -65,6 +65,8 @@ body{
   border-radius:var(--radius); font-size:11px; color:var(--text-dim);
 }
 .mk-figbar > * + *{margin-left:8px;}
+.mk-update-notice{color:var(--accent-hi);}
+.mk-update-notice[hidden]{display:none;}
 .mk-fig-dot{ width:8px; height:8px; border-radius:50%; background:var(--text-mute); flex:0 0 auto; }
 .mk-fig-dot.on{ background:#34d399; box-shadow:0 0 0 3px rgba(52,211,153,.15); }
 .mk-fig-dot.off{ background:var(--danger); }

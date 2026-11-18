@@ -5,18 +5,20 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const vm = require('node:vm');
 const {createHash} = require('node:crypto');
+const {EventEmitter} = require('node:events');
 const {check, install} = require('../client/updateRelease.js');
 
 async function verifyPanel() {
   const source = await fs.readFile(path.join(__dirname, '../client/updatePanel.js'), 'utf8');
   const extension = path.resolve('F2A test install');
   for (const installedPackage of [false, true]) {
-    const button = {hidden: true, textContent: '检查更新'}, version = {}, reports = [];
-    let installations = 0;
+    const button = {hidden: true, textContent: '检查更新'}, notice = {hidden: true}, version = {};
+    const reports = [], checks = [];
+    let installations = 0, checkError;
     vm.runInNewContext(source, {
       window: {__adobe_cep__: {getSystemPath: () => extension}, MKReport: message => reports.push(message)},
       process: {platform: 'win32'},
-      document: {getElementById: id => id === 'mk-update' ? button : version},
+      document: {getElementById: id => ({'mk-update': button, 'mk-update-notice': notice, 'mk-version': version})[id]},
       require(name) {
         if (name === 'path') return path;
         if (name === 'fs') return {
@@ -24,17 +26,61 @@ async function verifyPanel() {
             || (!installedPackage && path.basename(file) === '.git'),
           readFileSync: () => '{"version":"1.1.0"}'
         };
-        return {check: async () => ({version: '1.2.0'}), install: async () => { installations++; }};
+        return {check: async (_, options) => {
+          checks.push(options.interactive);
+          if (checkError) throw checkError;
+          return {version: '1.2.0'};
+        }, install: async () => { installations++; }};
       }
     });
     assert.equal(button.hidden, false, 'The update entry is visible in both package and source panels');
     assert.equal(version.textContent, 'v1.1.0');
     await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(checks, [false], 'Startup checks once in both installation modes');
+    assert.equal(notice.hidden, false);
+    assert.equal(notice.textContent, '发现新版 v1.2.0');
+    assert.match(reports[0], /发现新版 v1\.2\.0/);
     assert.equal(button.textContent, installedPackage ? '更新到 1.2.0' : '检查更新');
     await button.onclick();
     assert.equal(installations, installedPackage ? 1 : 0);
-    assert.match(reports[0], installedPackage ? /已更新到 1\.2\.0/ : /发现新版 v1\.2\.0/);
+    if (installedPackage) {
+      assert.match(reports[1], /已更新到 1\.2\.0/);
+      assert.equal(notice.hidden, true);
+    } else {
+      assert.deepEqual(checks, [false, true]);
+      checkError = new TypeError('The listener argument must be of type function');
+      await button.onclick();
+      assert.equal(reports.at(-1), '检查更新失败，请重试。');
+    }
   }
+}
+
+async function verifyCepTransport() {
+  const source = await fs.readFile(path.join(__dirname, '../client/updateRelease.js'), 'utf8');
+  const module = {exports: {}};
+  vm.runInNewContext(source, {
+    module, Buffer,
+    URL: class {constructor() {throw new Error('Browser URL passed into Node transport');}},
+    require(name) {
+      if (name !== 'https') return require(name);
+      return {get(options, listener) {
+        assert.equal(typeof listener, 'function');
+        assert.equal(options.hostname, 'api.github.com');
+        assert.match(options.path, /\/releases\/latest$/);
+        const request = new EventEmitter();
+        request.setTimeout = () => {};
+        process.nextTick(() => {
+          const response = new EventEmitter();
+          response.statusCode = 200;
+          listener(response);
+          response.emit('data', Buffer.from('{"tag_name":"v1.1.0"}'));
+          response.emit('end');
+        });
+        return request;
+      }};
+    }
+  });
+  assert.equal(await module.exports.check('1.1.0', {credentialFor: async () => null}), null);
 }
 
 async function verify() {
@@ -87,6 +133,7 @@ async function verify() {
   await install(extension, update, apply);
   await assert.rejects(fs.stat(path.dirname(archive)), {code: 'ENOENT'});
   await verifyPanel();
+  await verifyCepTransport();
   console.log('PASS: private GitHub Release lookup, version comparison, manifest and archive validation, installer arguments and cleanup');
 }
 

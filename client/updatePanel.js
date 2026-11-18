@@ -13,6 +13,7 @@
   versionLabel.textContent = 'v' + installed;
 
   var button = document.getElementById('mk-update');
+  var notice = document.getElementById('mk-update-notice');
   var updater = require(path.join(extension, 'client/updateRelease.js'));
   var pending = null;
   function report(message, failed) { window.MKReport(message, failed); }
@@ -22,10 +23,13 @@
     try {
       var update = await updater.check(installed, {interactive: interactive});
       pending = canInstall ? update : null;
-      if (interactive && !update) report('暂无可用更新。');
-      if (interactive && update && !canInstall) report('发现新版 v' + update.version + '，当前面板从本地源码加载。');
+      notice.hidden = !update;
+      if (update) {
+        notice.textContent = '发现新版 v' + update.version;
+        report(notice.textContent + (canInstall ? '。' : '，源码版请通过 Git 更新。'));
+      } else if (interactive) report('暂无可用更新。');
     } catch (error) {
-      if (interactive) report(error.message, true);
+      if (interactive) report(error.userMessage || '检查更新失败，请重试。', true);
     } finally {
       button.textContent = pending ? '更新到 ' + pending.version : '检查更新';
       button.disabled = false;
@@ -39,12 +43,13 @@
     try {
       await updater.install(extension, pending);
       button.textContent = '已更新';
+      notice.hidden = true;
       report('已更新到 ' + pending.version + '，请重新打开 AE 和 Figma 的 F2A 面板。');
     } catch (error) {
       button.textContent = '更新到 ' + pending.version;
       button.disabled = false;
-      report(error.message, true);
+      report(error.userMessage || '安装失败，请重试。', true);
     }
   };
-  if (canInstall) check(false);
+  check(false);
 })();
