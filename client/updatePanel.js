@@ -6,11 +6,11 @@
   var extension = decodeURIComponent(cep.getSystemPath('extension')).replace(/^file:\/\/\/?/, '');
   var versionLabel = document.getElementById('mk-version');
   var manifest = path.join(extension, 'package-manifest.json');
-  var versionFile = fs.existsSync(manifest) ? manifest : path.join(extension, 'version.json');
+  var canInstall = fs.existsSync(manifest) && !fs.existsSync(path.join(extension, '.git'));
+  var versionFile = canInstall ? manifest : path.join(extension, 'version.json');
   if (!fs.existsSync(versionFile)) return;
   var installed = JSON.parse(fs.readFileSync(versionFile, 'utf8')).version;
   versionLabel.textContent = 'v' + installed;
-  if (versionFile !== manifest || fs.existsSync(path.join(extension, '.git'))) return;
 
   var button = document.getElementById('mk-update');
   var updater = require(path.join(extension, 'client/updateRelease.js'));
@@ -20,8 +20,10 @@
     button.disabled = true;
     button.textContent = '检查中…';
     try {
-      pending = await updater.check(installed, {interactive: interactive});
-      if (interactive && !pending) report('已是最新版本。');
+      var update = await updater.check(installed, {interactive: interactive});
+      pending = canInstall ? update : null;
+      if (interactive && !update) report('暂无可用更新。');
+      if (interactive && update && !canInstall) report('发现新版 v' + update.version + '，当前面板从本地源码加载。');
     } catch (error) {
       if (interactive) report(error.message, true);
     } finally {
@@ -44,5 +46,5 @@
       report(error.message, true);
     }
   };
-  check(false);
+  if (canInstall) check(false);
 })();

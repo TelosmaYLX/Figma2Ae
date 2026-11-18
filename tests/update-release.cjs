@@ -3,8 +3,39 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const vm = require('node:vm');
 const {createHash} = require('node:crypto');
 const {check, install} = require('../client/updateRelease.js');
+
+async function verifyPanel() {
+  const source = await fs.readFile(path.join(__dirname, '../client/updatePanel.js'), 'utf8');
+  const extension = path.resolve('F2A test install');
+  for (const installedPackage of [false, true]) {
+    const button = {hidden: true, textContent: '检查更新'}, version = {}, reports = [];
+    let installations = 0;
+    vm.runInNewContext(source, {
+      window: {__adobe_cep__: {getSystemPath: () => extension}, MKReport: message => reports.push(message)},
+      process: {platform: 'win32'},
+      document: {getElementById: id => id === 'mk-update' ? button : version},
+      require(name) {
+        if (name === 'path') return path;
+        if (name === 'fs') return {
+          existsSync: file => path.basename(file) === (installedPackage ? 'package-manifest.json' : 'version.json')
+            || (!installedPackage && path.basename(file) === '.git'),
+          readFileSync: () => '{"version":"1.1.0"}'
+        };
+        return {check: async () => ({version: '1.2.0'}), install: async () => { installations++; }};
+      }
+    });
+    assert.equal(button.hidden, false, 'The update entry is visible in both package and source panels');
+    assert.equal(version.textContent, 'v1.1.0');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(button.textContent, installedPackage ? '更新到 1.2.0' : '检查更新');
+    await button.onclick();
+    assert.equal(installations, installedPackage ? 1 : 0);
+    assert.match(reports[0], installedPackage ? /已更新到 1\.2\.0/ : /发现新版 v1\.2\.0/);
+  }
+}
 
 async function verify() {
   const file = 'F2A-Windows-x64.zip';
@@ -49,6 +80,7 @@ async function verify() {
   assert.equal(archive, undefined);
   await install(extension, update, apply);
   await assert.rejects(fs.stat(path.dirname(archive)), {code: 'ENOENT'});
+  await verifyPanel();
   console.log('PASS: private GitHub Release lookup, version comparison, manifest and archive validation, installer arguments and cleanup');
 }
 
