@@ -7,7 +7,7 @@ node scripts/package-dist.cjs
 node tests/package-dist.cjs
 ```
 
-压缩包输出到 `dist/F2A-Windows-x64.zip`，只按明确的文件清单收集运行文件，
+压缩包输出到 `dist/F2A-Windows-x64-v<版本号>.zip`，只按明确的文件清单收集运行文件，
 保留第三方许可证，不包含 Node、Python、虚拟环境、账号配置、开发记录或测试素材。
 安装说明在包内 `README.txt`；用户自行安装 Node.js 20+、Python 3.11+（64 位，含 Tcl/Tk），
 再运行 `install.cmd`。安装时联网安装固定版本的 Python 依赖，不自动修改 MCP 客户端配置。

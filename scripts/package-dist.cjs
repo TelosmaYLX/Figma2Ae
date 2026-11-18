@@ -11,7 +11,8 @@ const {version} = require('../version.json');
 const run = promisify(execFile);
 const root = path.resolve(__dirname, '..');
 const name = 'F2A-Windows-x64';
-const output = path.join(root, 'dist', name + '.zip');
+const zipName = name + '-v' + version + '.zip';
+const output = path.join(root, 'dist', zipName);
 
 // Keep this explicit: new captures, configuration or development files must not enter a release.
 const files = [
@@ -76,7 +77,7 @@ async function build() {
       requires: {node: '>=20', python: '>=3.11', pythonTkinter: true}, files: manifest,
     }, null, 2) + '\n');
     // Use .NET so the archive includes exactly the staged tree, with one top-level folder.
-    const stagedZip = path.join(stage, name + '.zip');
+    const stagedZip = path.join(stage, zipName);
     await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
       'Add-Type -AssemblyName System.IO.Compression.FileSystem; ' +
       '[IO.Compression.ZipFile]::CreateFromDirectory($env:F2A_ZIP_SOURCE, $env:F2A_ZIP_TARGET, [IO.Compression.CompressionLevel]::Optimal, $true)'],

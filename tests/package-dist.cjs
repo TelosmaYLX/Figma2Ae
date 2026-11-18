@@ -10,6 +10,7 @@ const {once} = require('node:events');
 const {createHash} = require('node:crypto');
 const {fixture} = require('./direct-aep.cjs');
 const {privacyIssues} = require('../scripts/package-dist.cjs');
+const {version} = require('../version.json');
 const run = promisify(execFile);
 const root = path.resolve(__dirname, '..');
 
@@ -58,7 +59,7 @@ async function checkMcp(target) {
 }
 
 async function check() {
-  const archive = path.join(root, 'dist/F2A-Windows-x64.zip');
+  const archive = path.join(root, 'dist', 'F2A-Windows-x64-v' + version + '.zip');
   const scratch = await fs.mkdtemp(path.join(os.tmpdir(), 'F2A 分发 中文 '));
   // mkdtemp returns this task's disposable directory; never operate on the source checkout.
   assert.equal(path.dirname(scratch), os.tmpdir());

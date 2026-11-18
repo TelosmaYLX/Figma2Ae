@@ -10,7 +10,8 @@ const {promisify} = require('util');
 const run = promisify(execFile);
 const repository = 'TelosmaYLX/Figma2Ae';
 const api = 'https://api.github.com/repos/' + repository;
-const archiveName = 'F2A-Windows-x64.zip';
+const archiveBase = 'F2A-Windows-x64';
+const archiveName = archiveBase + '.zip';
 const manifestName = 'latest.json';
 
 function versionParts(version) {
@@ -109,9 +110,10 @@ async function check(installed, {interactive = false, credentialFor = githubCred
   if (!isNewer(version, installed)) return null;
   const buffer = await get(assetUrl(release, manifestName), credential, 'application/octet-stream', 16 * 1024);
   const manifest = JSON.parse(buffer.toString('utf8'));
-  if (manifest.version !== version || manifest.file !== archiveName || !/^[a-f0-9]{64}$/.test(manifest.sha256))
+  const releaseArchive = archiveBase + '-v' + version + '.zip';
+  if (manifest.version !== version || ![releaseArchive, archiveName].includes(manifest.file) || !/^[a-f0-9]{64}$/.test(manifest.sha256))
     throw new Error('GitHub Release 的更新清单无效。');
-  return {version, sha256: manifest.sha256, url: assetUrl(release, archiveName), credential};
+  return {version, sha256: manifest.sha256, url: assetUrl(release, manifest.file), credential};
 }
 
 async function install(extension, update, {get = request, execute = run} = {}) {

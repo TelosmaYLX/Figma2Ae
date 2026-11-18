@@ -38,7 +38,7 @@ async function verifyPanel() {
 }
 
 async function verify() {
-  const file = 'F2A-Windows-x64.zip';
+  const file = 'F2A-Windows-x64-v1.10.0.zip';
   const bytes = Buffer.from('Windows ZIP fixture');
   const digest = createHash('sha256').update(bytes).digest('hex');
   const release = {tag_name: 'v1.10.0', assets: [{name: file, id: 42}, {name: 'latest.json', id: 43}]};
@@ -59,6 +59,12 @@ async function verify() {
   const update = await check('1.9.0', options);
   assert.equal(update.version, '1.10.0');
   assert.equal(update.url, api + '/releases/assets/42');
+  const legacy = 'F2A-Windows-x64.zip';
+  release.assets[0].name = replies.get('/releases/assets/43').file = legacy;
+  assert.equal((await check('1.9.0', options)).url, update.url);
+  replies.get('/releases/assets/43').file = 'F2A-Windows-x64-v1.9.0.zip';
+  await assert.rejects(check('1.9.0', options), /清单无效/);
+  replies.get('/releases/assets/43').file = legacy;
   replies.get('/releases/assets/43').version = '1.12.0';
   await assert.rejects(check('1.9.0', options), /清单无效/);
   replies.delete('/releases/latest');

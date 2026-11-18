@@ -247,4 +247,4 @@ Node / Python 运行时、Python 虚拟环境、本机账号配置与密钥、�
 
 在 AE 的 F2A 面板点「检查更新」，有新版时点「更新到版本」。私有仓库使用 Git for Windows 的 Git Credential Manager 登录，需要仓库读取权限。安装完成后重新打开 AE 和 Figma 的 F2A 面板。
 
-发布时将 `version.json` 和 `CSXS/manifest.xml` 更新到目标版本。在 Windows 运行 `node scripts/package-dist.cjs`，将 `dist/F2A-Windows-x64.zip` 和 `dist/latest.json` 一起附到 `TelosmaYLX/Figma2Ae` 的 Release，标签使用 `v<版本号>`。上传完成后再发布为 Latest。首次使用联网更新的用户先安装带更新入口的版本。
+发布时将 `version.json` 和 `CSXS/manifest.xml` 更新到目标版本。在 Windows 运行 `node scripts/package-dist.cjs`，将 `dist/F2A-Windows-x64-v<版本号>.zip` 和 `dist/latest.json` 一起附到 `TelosmaYLX/Figma2Ae` 的 Release，标签使用 `v<版本号>`。上传完成后再发布为 Latest。首次使用联网更新的用户先安装带更新入口的版本。
