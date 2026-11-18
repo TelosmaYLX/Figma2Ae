@@ -75,5 +75,5 @@ if (require.main === module) {
   const output = path.resolve(process.argv[2] || path.join(root, 'artifacts/F2A-AEP-Windows-x64'));
   build(output).catch(error => {console.error(error);process.exitCode=1;});
 }
-const instructions='\ufeffF2A AEP 导出组件（Windows x64）\r\n\r\n1. 双击 install.cmd，安装到当前用户目录。无需安装 Node、Python 或联网下载依赖。\r\n2. 用 cep-extension 内的文件更新 AE 中已有的 F2A 扩展，重新打开 F2A 面板。\r\n3. 在 Figma 中导入安装后目录下的 figma-plugin/manifest.json。安装程序会显示该路径。\r\n4. 选中内容，点击“导出 AEP（实验）”。AE 面板会在需要时启动本地组件。\r\n\r\n本组件不添加开机启动项。首次冷启动需要打开 AE 的 F2A 面板；工程仍直接写入，不在 AE 中逐层搭建。\r\n保存窗口可改名，生成同名文件夹与 AEP，另含 Assets 和 report.json。\r\n支持 24.x、25.x、26.x，在导出按钮右侧选择版本。可编辑文字需对应字体。\r\n';
+const instructions='\ufeffF2A AEP 导出组件（Windows x64）\r\n\r\n1. 双击 install.cmd，安装到当前用户目录。无需安装 Node、Python 或联网下载依赖。\r\n2. 用 cep-extension 内的文件更新 AE 中已有的 F2A 扩展，重新打开 F2A 面板。\r\n3. 在 Figma 中导入安装后目录下的 figma-plugin/manifest.json。安装程序会显示该路径。\r\n4. 选中内容，点击“导出 AEP（推荐）”。AE 面板会在需要时启动本地组件。\r\n\r\n本组件不添加开机启动项。首次冷启动需要打开 AE 的 F2A 面板；工程仍直接写入，不在 AE 中逐层搭建。\r\n保存窗口可改名，生成同名文件夹与 AEP，另含 Assets 和 report.json。\r\n支持 24.x、25.x、26.x，在导出按钮右侧选择版本。可编辑文字需对应字体。\r\n';
 module.exports = {build,copyCepExtension,copyMcp,instructions};
