@@ -18,5 +18,9 @@ pnpm-debug.log*
 # AE fidelity renders and local replay data
 artifacts/
 
+# Local reference materials
+/CEP SDK/
+/docs/
+
 # Packaged distribution builds (release assets, not source)
 dist/
