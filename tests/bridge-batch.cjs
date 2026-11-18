@@ -108,6 +108,53 @@ function uiHarness(bridge, main) {
   assert.deepEqual([compSize.width, compSize.height], [810.25, 432], 'The live import uses frame bounds through the actual UI and bridge');
   assert.equal(policyBridge.batches[0].filter(im=>!im.reference).length, 2); assert.equal(policyBridge.imports[0].meta.texts.length, 0);
   assert.equal(policyBridge.imports[0].meta.containers.length, 1); assert.equal(policyBridge.imports[0].meta.containers[0].clip, false);
+  const at = (layer, x, y) => Object.assign(layer, {
+    absoluteBoundingBox: {x,y,width:layer.width,height:layer.height},
+    absoluteRenderBounds: {x,y,width:layer.width,height:layer.height}, absoluteTransform: [[1,0,x],[0,1,y]]
+  });
+  const artwork = at(node('RECTANGLE', 'Selected shape', {cornerRadius:0,
+    fillGeometry:[{data:'M0 0H100V60H0Z',windingRule:'NONZERO'}],
+    fills:[{type:'SOLID',color:{r:1,g:0,b:0}}]}), 1120.25, 580.5);
+  const label = at(node('TEXT', 'Selected text'), 1140.25, 610.5);
+  const raster = at(node('RECTANGLE', '*Selected image'), 1220.25, 660.5);
+  const inner = at(node('FRAME', '[root] Inner', {width:320,height:280,children:[artwork,label,raster]}), 1100.25, 560.5);
+  const outer = at(node('FRAME', 'Board', {width:810.5,height:480,children:[inner,node('TEXT','Outside selection')]}), 1000.25, 500.5);
+  const rootBridge = bridgeHarness(), rootMain = harness(outer), rootUi = uiHarness(rootBridge, rootMain);
+  assert.equal(rootUi.elements['mark-root'].disabled, false);
+  rootUi.elements['mark-raster'].onclick();
+  rootUi.elements['mark-root'].onclick();
+  rootUi.elements['mark-root'].onclick();
+  assert.equal(outer.name, '[root] *Board');
+  rootUi.elements['unmark-root'].onclick();
+  assert.equal(outer.name, '*Board');
+  rootUi.elements['mark-root'].onclick();
+  rootUi.elements['unmark-raster'].onclick();
+  assert.equal(outer.name, '[root] Board', 'Both markers can be removed independently');
+  rootMain.figma.currentPage.selection = [inner]; rootMain.context.reportSelection();
+  rootUi.elements['text-mode'].value = 'editable';
+  const rootPost = rootMain.figma.ui.postMessage;
+  const rootDone = new Promise(resolve => {
+    rootMain.figma.ui.postMessage = m => { rootPost(m); if (m.type === 'export-state' && !m.busy) resolve(); };
+  });
+  rootUi.elements.ship.onclick(); await rootDone;
+  const sent = rootBridge.imports[0].meta;
+  assert.equal(sent.name, 'Board');
+  assert.deepEqual([sent.compSize.width,sent.compSize.height], [810.5,480]);
+  assert.deepEqual(Array.from(sent.nodes, shape => shape.sourceId), [artwork.id]);
+  assert.deepEqual(Array.from(sent.nodes[0].matrix.slice(4)), [120,80]);
+  assert.deepEqual(Array.from(sent.texts, text => [text.sourceId,text.x,text.y]), [[label.id,140,110]]);
+  assert.deepEqual([sent.containers[0].x,sent.containers[0].y], [100,60]);
+  assert.deepEqual(Array.from(rootBridge.batches[0], image => [image.sourceId,image.x,image.y]), [[raster.id,220,160],[inner.id,100,60]]);
+  rootMain.figma.currentPage.selection = [outer]; rootMain.context.reportSelection();
+  rootUi.elements['unmark-root'].onclick();
+  assert.equal(outer.name, 'Board');
+  rootMain.figma.currentPage.selection = [artwork]; rootMain.context.reportSelection();
+  assert.equal(rootUi.elements['mark-root'].disabled, true);
+  assert.equal(rootUi.elements['unmark-root'].disabled, true);
+  rootMain.figma.currentPage.selection = [inner,outer.children[1]];
+  await rootMain.context.exportSelectionSVG(true,true,true,false,false,false,{target:'ae'});
+  assert.match(rootUi.elements.msg.textContent, /同一基准画框/);
+  assert.equal(rootBridge.imports.length, 1, 'A mixed selection must not queue an import');
   const blendBridge=bridgeHarness(),blendMain=harness(group('叠加',[node('RECTANGLE','底图',{cornerRadius:0,fills:[{type:'SOLID'}]}),node('RECTANGLE','柔光',{blendMode:'SOFT_LIGHT'}),node('TEXT','标题')]));
   const blendUi=uiHarness(blendBridge,blendMain);
   assert.equal(blendUi.elements.mergeblends.checked,true);

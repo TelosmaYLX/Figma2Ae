@@ -9,7 +9,7 @@
      It takes the folder control's --panel fill with a --line edge so the two read alike, and matches the
      action row's 13px type so the version label is not smaller than the button beside it.
      Keep the existing dark tokens, 8px control gaps/radii, 12px panel padding and 16px section spacing.
-     Layer-tool buttons sit on a panel, so they use the raised --surface fill and --line edge to read as buttons.
+     Image and coordinate markers use paired secondary buttons with the existing --surface fill and --line edge.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --surface:#383838; --surface-hover:#464646; --surface-active:#303030; --line:#4b4b4b; --line-hover:#5a5a5a; --accent:#a78bfa; --text:#e8e8e8; --muted:#a3a3a3; --ok:#22c55e; --err:#ef4444; }
@@ -98,7 +98,11 @@
       <button id="mark-raster" disabled>标记为图片</button>
       <button id="unmark-raster" disabled>取消标记</button>
     </div>
-    <div class="mark-hint">名称以 * 开头的图层将导出为图片。</div>
+    <div class="mark-hint">带图片标记（*）的图层将导出为图片。</div>
+    <div class="tool-actions">
+      <button id="mark-root" title="添加 [root]，发送时以此画框定位" disabled>标记基准画框</button>
+      <button id="unmark-root" disabled>取消基准标记</button>
+    </div>
     <div class="tool-actions">
       <button id="detach-instances" disabled>分离实例</button>
       <button id="convert-groups" disabled>Group 转 Frame</button>
@@ -171,6 +175,7 @@
 <script>
   var PORT = 7365;
   var ws = null, connected = false, selCount = 0, imgAsm = null, exporting = false, blendNotice = '';
+  var frameSelected = false;
   var aepMode = false, aepBusy = false, aepPacket = null, aepResultId = null, openingFolder = false;
   var imageFolder = '', folderBusy = false;
   var errorNodeId = null, locatingLayer = false;
@@ -221,6 +226,7 @@
     for (var i = 0; i < settings.length; i++) $(settings[i]).disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
+    $('mark-root').disabled = $('unmark-root').disabled = busy || !frameSelected;
     for (var id in toolButtons) $(id).disabled = busy || selCount === 0;
   }
   function say(text, cls, nodeId) {
@@ -286,6 +292,8 @@
   var organize = false, bridgePending = false;
   $('mark-raster').onclick = function () { parent.postMessage({ pluginMessage: { type: 'mark-raster' } }, '*'); };
   $('unmark-raster').onclick = function () { parent.postMessage({ pluginMessage: { type: 'unmark-raster' } }, '*'); };
+  $('mark-root').onclick = function () { parent.postMessage({ pluginMessage: { type: 'mark-root' } }, '*'); };
+  $('unmark-root').onclick = function () { parent.postMessage({ pluginMessage: { type: 'unmark-root' } }, '*'); };
   for (var toolId in toolButtons) (function (id) {
     $(id).onclick = function () { parent.postMessage({ pluginMessage: { type: 'layer-tool', action: toolButtons[id] } }, '*'); };
   })(toolId);
@@ -508,7 +516,7 @@
     if (msg.type === 'command_progress') { mcpSend({type:'progress', id:msg.commandId}); return; }
     if (msg.type === 'mcp-busy') { mcpExecuting = msg.busy; updateButton(); return; }
     if (msg.type === 'image-abort') msg = {type:'error',message:'图片导出失败，已取消导出'};
-    if (msg.type === 'selection') { selCount = msg.count; updateButton(); }
+    if (msg.type === 'selection') { selCount = msg.count; frameSelected = msg.frameSelected; updateButton(); }
     if (msg.type === 'locate-result') {
       locatingLayer = false; updateButton();
       if (!msg.ok) say(msg.message, 'err');

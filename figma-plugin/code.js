@@ -93,7 +93,11 @@ async function locateErrorLayer(id) {
     figma.ui.postMessage({type:'locate-result',ok:true});
   } catch (error) { figma.ui.postMessage({type:'locate-result',ok:false,message:'定位失败：' + error.message}); }
 }
-function _isForcedRaster(n) { return !!(n && n.name && n.name.charAt(0) === '*'); }
+function _rootPrefix(n) {
+  var match = n.type === 'FRAME' && /^\[root\] ?/.exec(n.name);
+  return match ? match[0] : '';
+}
+function _isForcedRaster(n) { return !!(n && n.name && n.name.charAt(_rootPrefix(n).length) === '*'); }
 function _rasterWhole(n) {
   return _isForcedRaster(n) || n.type === 'TEXT_PATH' ||
          (_rasterAllGroups && n.type === 'GROUP' && n !== _temporaryExportRoot) ||
@@ -120,11 +124,44 @@ function markRasterSelection(mark) {
   if (_exporting) return;
   var selection = figma.currentPage.selection, changed = 0;
   for (var i = 0; i < selection.length; i++) {
-    var n = selection[i], name = mark ? (_isForcedRaster(n) ? n.name : '*' + n.name) : n.name.replace(/^\*+/, '');
+    var n = selection[i], prefix = _rootPrefix(n), label = n.name.slice(prefix.length);
+    var name = prefix + (mark ? (label.charAt(0) === '*' ? label : '*' + label) : label.replace(/^\*+/, ''));
     if (name !== n.name) { n.name = name; changed++; }
   }
   if (changed) figma.commitUndo();
   figma.ui.postMessage({ type: 'mark-result', message: (mark ? '已标记 ' : '已取消 ') + changed + ' 个图层' });
+}
+
+function markRootSelection(mark) {
+  if (_exporting) return;
+  var selection = figma.currentPage.selection, changed = 0;
+  for (var i = 0; i < selection.length; i++) {
+    var n = selection[i];
+    if (n.type !== 'FRAME') continue;
+    var prefix = _rootPrefix(n);
+    var name = mark ? (prefix ? n.name : '[root] ' + n.name) : n.name.slice(prefix.length);
+    if (name !== n.name) { n.name = name; changed++; }
+  }
+  if (changed) figma.commitUndo();
+  figma.ui.postMessage({ type: 'mark-result', message: (mark ? '已标记 ' : '已取消 ') + changed + ' 个基准画框' });
+}
+
+function _markedRoot(n) {
+  var root = null;
+  while (n && n.type !== 'PAGE') {
+    if (_rootPrefix(n)) root = n;
+    n = n.parent;
+  }
+  return root;
+}
+
+function _selectionRootFrame(selection) {
+  var root = _markedRoot(selection[0]);
+  for (var i = 1; i < selection.length; i++) {
+    var candidate = _markedRoot(selection[i]);
+    if ((candidate && candidate.id) !== (root && root.id)) throw new Error('请选择同一基准画框内的图层。');
+  }
+  return root;
 }
 
 // Document tools are explicit actions on the selection; the export path never invokes them.
@@ -1219,7 +1256,11 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   var disabledClips = [];
   try {
     if ([1, 2, 3, 4].indexOf(_rasterScale) === -1) throw new Error('请选择有效的切图倍率');
-    _rasterOrigin = {
+    var rootFrame = options.target === 'ae' ? _selectionRootFrame(originals) : null;
+    var rootBounds = rootFrame ? rootFrame.absoluteBoundingBox : null;
+    if (rootFrame && !rootBounds) throw _layerError(rootFrame, '无法读取基准画框的位置。');
+    var rootName = rootFrame ? rootFrame.name.slice(_rootPrefix(rootFrame).length) : null;
+    _rasterOrigin = rootBounds || {
       x: Math.min.apply(null, sel.map(function (n) { return n.absoluteBoundingBox.x; })),
       y: Math.min.apply(null, sel.map(function (n) { return n.absoluteBoundingBox.y; }))
     };
@@ -1467,6 +1508,11 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       // can grow and would otherwise shift the entire board (this board moved +329,-88 px).
       try { var rb2 = node.absoluteRenderBounds; if (rb2 && typeof rb2.x === 'number') origin = { x: rb2.x, y: rb2.y }; } catch (erb2) {}
     }
+    if (rootBounds) {
+      // Match the origin used when the entire marked frame is imported.
+      if (!useNodes) { svgShift.x += rootBounds.x - origin.x; svgShift.y += rootBounds.y - origin.y; }
+      origin = { x: rootBounds.x, y: rootBounds.y };
+    }
     // Node mode collects absolute coordinates; re-base them on the frame exactly like the
     // other channels, so shapes, text and pictures all share one origin.
     if (nodeShapes) {
@@ -1505,9 +1551,10 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
 
     }
 
-    figma.ui.postMessage({ type: 'ship', name: name, svg: svg, texts: texts, effects: effects,
-                           frame: { width: bbox.width, height: bbox.height },
-                           newComp: options.target === 'ae' && originals.length === 1 && originals[0].type === 'FRAME',
+    var frame = rootBounds || bbox;
+    figma.ui.postMessage({ type: 'ship', name: rootName || name,
+                           svg: svg, texts: texts, effects: effects, frame: { width: frame.width, height: frame.height },
+                           newComp: options.target === 'ae' && (!!rootFrame || (originals.length === 1 && originals[0].type === 'FRAME')),
                            shift: svgShift, nodes: nodeShapes, nodeOrigin: origin, bytes: svg.length,
                            containers: containers, organize: !!organize, imageCount: images.length, imageBatch: true,
                            vnStats: _vnStats, blendStats: blendBake.stats });
@@ -2445,6 +2492,8 @@ figma.ui.onmessage = function (msg) {
   if (msg.type === 'ship-selection') exportSelectionSVG(!!msg.useNodes, !!msg.organize, msg.ignoreHidden !== false, msg.convertMasks === true, msg.rasterGroups !== false, msg.rasterTexts === true, msg);
   if (msg.type === 'mark-raster') markRasterSelection(true);
   if (msg.type === 'unmark-raster') markRasterSelection(false);
+  if (msg.type === 'mark-root') markRootSelection(true);
+  if (msg.type === 'unmark-root') markRootSelection(false);
   if (msg.type === 'layer-tool') runLayerTool(msg.action);
   if (msg.type === 'close') figma.closePlugin(msg.message || undefined);
   if (msg.type === 'notify') figma.notify(msg.message);
@@ -2452,7 +2501,9 @@ figma.ui.onmessage = function (msg) {
 
 // Tell the UI about selection so the button can enable/disable + show a count.
 function reportSelection() {
-  figma.ui.postMessage({ type: 'selection', count: figma.currentPage.selection.length });
+  var selection = figma.currentPage.selection;
+  figma.ui.postMessage({ type: 'selection', count: selection.length,
+    frameSelected: selection.some(function (n) { return n.type === 'FRAME'; }) });
 }
 figma.on('selectionchange', reportSelection);
 reportSelection();
