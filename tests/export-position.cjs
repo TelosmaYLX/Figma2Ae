@@ -56,7 +56,8 @@ async function check(name, fn) {
       fills:[{type:'SOLID',color:{r:1,g:0,b:0}}],
       fillGeometry:[{data:'M0 0H20V10H0Z',windingRule:'NONZERO'}]});
     const frame = node('FRAME','[root] Board',{width:800,height:480,children:[selected],absoluteBoundingBox:rect(100.25,100.5,800,480)});
-    const h=harness(frame);
+    const outer = node('FRAME','[root] Outer',{width:1000,height:600,children:[frame],absoluteBoundingBox:rect(.25,.5,1000,600)});
+    const h=harness(outer);
     h.figma.currentPage.selection=[selected];
     const exportTo = async (useNodes, target) => (await h.run(useNodes,false,false,false,{target})).ship;
     assert.deepEqual((await exportTo(false,'ae')).shift,{x:-120,y:-80});
@@ -68,6 +69,12 @@ async function check(name, fn) {
     assert.deepEqual(direct.nodes[0].matrix.slice(4),[0,0]);
     assert.deepEqual(direct.frame,{width:20,height:10});
     h.figma.currentPage.selection=[frame];
+    h.figma.ui.onmessage({type:'unmark-root'});
+    h.figma.currentPage.selection=[selected];
+    const remaining=await exportTo(true,'ae');
+    assert.deepEqual(remaining.nodes[0].matrix.slice(4),[220,180]);
+    assert.deepEqual(remaining.frame,{width:1000,height:600});
+    h.figma.currentPage.selection=[outer];
     h.figma.ui.onmessage({type:'unmark-root'});
     h.figma.currentPage.selection=[selected];
     const unmarked=await exportTo(true,'ae');

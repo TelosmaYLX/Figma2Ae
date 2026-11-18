@@ -146,22 +146,26 @@ function markRootSelection(mark) {
   figma.ui.postMessage({ type: 'mark-result', message: (mark ? '已标记 ' : '已取消 ') + changed + ' 个基准画框' });
 }
 
-function _markedRoot(n) {
-  var root = null;
+function _markedFrames(n) {
+  var frames = [];
   while (n && n.type !== 'PAGE') {
-    if (_rootPrefix(n)) root = n;
+    if (_rootPrefix(n)) frames.push(n);
     n = n.parent;
   }
-  return root;
+  return frames;
 }
 
 function _selectionRootFrame(selection) {
-  var root = _markedRoot(selection[0]);
+  var shared = _markedFrames(selection[0]);
   for (var i = 1; i < selection.length; i++) {
-    var candidate = _markedRoot(selection[i]);
-    if ((candidate && candidate.id) !== (root && root.id)) throw new Error('请选择同一基准画框内的图层。');
+    var marked = _markedFrames(selection[i]);
+    if (!shared.length && !marked.length) continue;
+    shared = shared.filter(function (frame) {
+      return marked.some(function (candidate) { return candidate.id === frame.id; });
+    });
+    if (!shared.length) throw new Error('请选择同一基准画框内的图层。');
   }
-  return root;
+  return shared[0] || null;
 }
 
 // Document tools are explicit actions on the selection; the export path never invokes them.
