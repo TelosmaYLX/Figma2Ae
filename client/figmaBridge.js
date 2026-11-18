@@ -452,12 +452,15 @@
                    ? saveJsonTemp(meta.containers, 'containers').replace(/\\/g, '/') : "";
         if (cp) flash("分组预合成：" + meta.containers.length + " 个组");
         var job = { data: {name: meta.name || '', svgPath: arg, textsPath: tp, gradMapPath: gp, effectsPath: ep,
-                           shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp, compSize: meta.compSize},
-                    ready: !meta.imageCount, expectedImages: meta.imageCount || 0, targetReady: !!meta.compSize, images: null };
+                           shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp},
+                    ready: !meta.imageCount, expectedImages: meta.imageCount || 0, targetReady: false, images: null };
         importQueue.push(job);
         // Bind the target before the PNG wait or folder dialog can change the active viewer.
-        if (!job.targetReady) evalES('mkFigmaTargetCompId()', function (id) {
-          job.data.compId = parseInt(id, 10) || 0; job.targetReady = true; pumpImport();
+        evalES('mkFigmaTargetCompId()', function (id) {
+          var compId = parseInt(id, 10);
+          if (compId > 0) job.data.compId = compId;
+          else if (compId === 0) job.data.compSize = meta.compSize;
+          job.targetReady = true; pumpImport();
         });
         if (meta.imageCount) flash('等待图片导出完成…');
         pumpImport();

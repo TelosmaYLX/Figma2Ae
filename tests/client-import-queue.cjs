@@ -43,6 +43,7 @@ function harness({rememberFolder = true, failImages = false, shadowRenderer, nat
     require(name) { if (name === 'fs') return disk; if (name === 'os') return {tmpdir: () => dir}; if(name.endsWith('/client/aepLauncher.js'))return launcherModule.exports; if (name.endsWith('/client/figmaRasterEffects.js') && shadowRenderer) return shadowRenderer; if (name.endsWith('/client/mkBridgeServer.js')) return bridge; return require(name); }
   });
   return Object.assign(result,{native, pending, pickers, messages, elements, storage, window, folderCalls, assets, get callbacks(){return callbacks;},
+    setActiveComp(id) { activeCompId = id; },
     start(id, imageCount, compSize) { return callbacks.onSvg('<svg width="10" height="10"></svg>', {name: id, nodes: [{id, fills: [], strokes: []}], texts: [], effects: [], imageCount, compSize}); },
     images(id, reference = false, shadow = false) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3, reference, hidden: reference, external: shadow, shadowBase: shadow ? {data:'clean'} : null}] : []); },
     abort(message){callbacks.onAbort(message);},
@@ -67,6 +68,13 @@ assert.equal(JSON.parse(fs.readFileSync(h.native[2].job.imagesPath, 'utf8'))[0].
 h.finish();
 const newFrame = harness({activeCompId: 0});
 const frameSize = {width: 810.25, height: 432};
+const existingFrame = harness({activeCompId: 202});
+existingFrame.start('frame into current comp', 1, frameSize);
+existingFrame.setActiveComp(303);
+existingFrame.images('frame artwork');
+assert.equal(existingFrame.native[0].job.compId, 202, 'A frame targets the composition active when it was sent');
+assert.equal(existingFrame.native[0].job.compSize, undefined, 'An active composition takes precedence over creating one');
+existingFrame.finish();
 newFrame.start('new frame', 1, frameSize);
 assert.equal(newFrame.native.length, 0, 'Wait for the image before creating a composition');
 newFrame.images('frame artwork');
