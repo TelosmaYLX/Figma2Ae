@@ -20,6 +20,7 @@ artifacts/
 
 # Local instructions and reference materials
 /AGENTS.md
+/.agents/
 /CEP SDK/
 /docs/
 

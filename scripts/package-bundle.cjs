@@ -71,7 +71,7 @@ async function stage(target) {
 
   // 3. Skill and the shared install guide.
   for (const file of skillFiles) {
-    await copy(path.join(root, '.agents/skills', skill, file), path.join(target, 'skills', skill, file));
+    await copy(path.join(root, 'skills', skill, file), path.join(target, 'skills', skill, file));
   }
   await copy(path.join(root, 'scripts/distribution/INSTALL.md'), path.join(target, 'INSTALL.md'));
 }
