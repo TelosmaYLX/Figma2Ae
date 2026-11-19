@@ -23,7 +23,7 @@
     button.disabled = true;
     button.textContent = '检查中…';
     try {
-      var update = await updater.check(installed, {interactive: interactive});
+      var update = await updater.check(installed);
       pending = canInstall ? update : null;
       notice.hidden = !update;
       if (update) {

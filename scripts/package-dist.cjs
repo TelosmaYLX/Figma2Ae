@@ -2,6 +2,7 @@
 
 // Build a runtime-only Windows package. Node/Python and local state are never copied.
 const fs = require('node:fs/promises');
+const {existsSync, readdirSync} = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const {execFile} = require('node:child_process');
@@ -14,21 +15,31 @@ const name = 'F2A-Windows-x64';
 const zipName = name + '-v' + version + '.zip';
 const output = path.join(root, 'dist', zipName);
 
-// Keep this explicit: new captures, configuration or development files must not enter a release.
+function runtimeFiles(directory) {
+  return readdirSync(path.join(root, directory), {withFileTypes: true}).flatMap(entry => {
+    if (entry.name.startsWith('.') || /^(?:__pycache__|node_modules|artifacts|runtime|tests|docs)$/i.test(entry.name)) return [];
+    const file = directory + '/' + entry.name;
+    if (entry.isDirectory()) return runtimeFiles(file);
+    return entry.isFile() && !/\.(?:exe|dll|pyc|pyo|log|map)$/i.test(entry.name) ? [file] : [];
+  });
+}
+
+const skillsRoot = path.join(root, 'skills');
+const skillFiles = existsSync(skillsRoot) ? readdirSync(skillsRoot, {withFileTypes: true})
+  .filter(entry => entry.isDirectory() && !entry.name.startsWith('.') && existsSync(path.join(skillsRoot, entry.name, 'SKILL.md')))
+  .flatMap(entry => runtimeFiles('skills/' + entry.name)) : [];
+
+// Ship the runtime trees. Mixed source and tooling directories use explicit file lists.
 const files = [
   'version.json',
   'CSXS/manifest.xml',
-  ...['aepLauncher.js', 'ffxGradient.js', 'figmaBridge.js', 'figmaRasterEffects.js',
-    'index.html', 'main.js', 'mcpBridge.js', 'mkBridgeServer.js', 'style.css', 'updatePanel.js', 'updateRelease.js'].map(f => 'client/' + f),
-  ...['code.js', 'manifest.json', 'ui.html'].map(f => 'figma-plugin/' + f),
-  ...['aeFilename.js', 'aeShapeBuilder.jsx', 'figmaRunner.jsx', 'svgParser.js', 'grad-template.ffx',
-    'gradoverlay-template.ffx', 'gradstroke-template.ffx', 'innershadow-overlay-template.ffx',
-    'innershadow-template.ffx', 'stroke-template.ffx'].map(f => 'host/figma/' + f),
+  ...['client', 'figma-plugin', 'host/figma'].flatMap(runtimeFiles),
+  ...skillFiles,
   ...['server.cjs', 'relay.cjs', 'launcher.cjs', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/' + f),
   ...['surehand-ae.mjs', 'LICENSE', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/vendor/surehand/' + f),
   ...['aep-server.cjs', 'export-aep.cjs', 'open-aep-directory.ps1', 'start-aep-export.ps1',
     'install-aep-launcher.ps1', 'install-mcp.ps1', 'install-mcp-dsh.cjs',
-    'install-f2a.ps1', 'update-f2a.ps1'].map(f => 'scripts/' + f),
+    'install-f2a.ps1', 'install-files.cjs', 'update-f2a.ps1'].map(f => 'scripts/' + f),
   ...['choose-destination.py', 'packet.cjs', 'requirements.txt', 'writer.py'].map(f => 'scripts/aep/' + f),
 ];
 
@@ -45,38 +56,45 @@ function privacyIssues(buffer, identifiers) {
   return rules.filter(([, re]) => texts.some(text => re.test(text))).map(([label]) => label);
 }
 
-async function build() {
+async function stagePackage(target) {
+  const identifiers = [path.basename(os.homedir()), os.hostname()];
+  const entries = files.map(file => [file, file]);
+  for (const file of ['README.txt', 'INSTALL.md', 'install.cmd']) entries.push(['scripts/distribution/' + file, file]);
+  for (const vendor of ['cursor-talk-to-figma-mcp', 'figwright']) {
+    entries.push(['mcp/vendor/' + vendor + '/LICENSE', 'licenses/' + vendor + '.txt']);
+  }
+  const manifest = [];
+  for (const [source, file] of entries.sort((a, b) => a[1].localeCompare(b[1]))) {
+    const data = await fs.readFile(path.join(root, source));
+    const issues = privacyIssues(data, identifiers);
+    if (issues.length) throw new Error('Privacy check failed in ' + file + ': ' + issues.join(', '));
+    const destination = path.join(target, file);
+    await fs.mkdir(path.dirname(destination), {recursive: true});
+    await fs.writeFile(destination, data);
+    manifest.push({path: file, bytes: data.length, sha256: createHash('sha256').update(data).digest('hex')});
+  }
+  await fs.writeFile(path.join(target, 'package-manifest.json'), JSON.stringify({
+    name, version, platform: 'win32', arch: 'x64', bundledRuntimes: false,
+    requires: {node: '>=20', python: '>=3.11', pythonTkinter: true}, files: manifest,
+  }, null, 2) + '\n');
+  return manifest.length + 1;
+}
+
+async function build(notesFile) {
   if (process.platform !== 'win32') throw new Error('Build this ZIP on Windows.');
+  const release = {version, file: zipName, sha256: '0'.repeat(64)};
+  if (notesFile) {
+    const notes = (await fs.readFile(notesFile, 'utf8')).trim();
+    const issues = privacyIssues(Buffer.from(notes), [path.basename(os.homedir()), os.hostname()]);
+    if (issues.length) throw new Error('Privacy check failed in release notes: ' + issues.join(', '));
+    if (notes) release.notes = notes;
+    if (Buffer.byteLength(JSON.stringify(release, null, 2) + '\n') > 64 * 1024) throw new Error('Release notes are too long.');
+  }
   const stage = await fs.mkdtemp(path.join(os.tmpdir(), 'f2a-dist-'));
   if (path.dirname(stage) !== os.tmpdir()) throw new Error('Unexpected staging directory.');
   const target = path.join(stage, name);
-  const identifiers = [path.basename(os.homedir()), os.hostname()];
   try {
-    await fs.mkdir(target);
-    for (const file of files) {
-      const destination = path.join(target, file);
-      await fs.mkdir(path.dirname(destination), {recursive: true});
-      await fs.copyFile(path.join(root, file), destination);
-    }
-    await fs.copyFile(path.join(root, 'scripts/distribution/README.txt'), path.join(target, 'README.txt'));
-    await fs.copyFile(path.join(root, 'scripts/distribution/install.cmd'), path.join(target, 'install.cmd'));
-    for (const vendor of ['cursor-talk-to-figma-mcp', 'figwright']) {
-      await fs.mkdir(path.join(target, 'licenses'), {recursive: true});
-      await fs.copyFile(path.join(root, 'mcp/vendor', vendor, 'LICENSE'), path.join(target, 'licenses', vendor + '.txt'));
-    }
-    const packaged = [...files, 'README.txt', 'install.cmd',
-      'licenses/cursor-talk-to-figma-mcp.txt', 'licenses/figwright.txt'].sort();
-    const manifest = [];
-    for (const file of packaged) {
-      const data = await fs.readFile(path.join(target, file));
-      const issues = privacyIssues(data, identifiers);
-      if (issues.length) throw new Error('Privacy check failed in ' + file + ': ' + issues.join(', '));
-      manifest.push({path: file, bytes: data.length, sha256: createHash('sha256').update(data).digest('hex')});
-    }
-    await fs.writeFile(path.join(target, 'package-manifest.json'), JSON.stringify({
-      name, version, platform: 'win32', arch: 'x64', bundledRuntimes: false,
-      requires: {node: '>=20', python: '>=3.11', pythonTkinter: true}, files: manifest,
-    }, null, 2) + '\n');
+    const packaged = await stagePackage(target);
     // Use .NET so the archive includes exactly the staged tree, with one top-level folder.
     const stagedZip = path.join(stage, zipName);
     await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
@@ -88,13 +106,14 @@ async function build() {
     const archive = await fs.readFile(output);
     const sha256 = createHash('sha256').update(archive).digest('hex');
     await fs.writeFile(output + '.sha256', sha256 + '  ' + path.basename(output) + '\n');
+    release.sha256 = sha256;
     await fs.writeFile(path.join(path.dirname(output), 'latest.json'),
-      JSON.stringify({version, file: path.basename(output), sha256}, null, 2) + '\n');
-    console.log(JSON.stringify({file: output, files: packaged.length + 1, bytes: archive.length, sha256}));
+      JSON.stringify(release, null, 2) + '\n');
+    console.log(JSON.stringify({file: output, files: packaged, bytes: archive.length, sha256}));
   } finally {
     await fs.rm(stage, {recursive: true, force: true});
   }
 }
 
-if (require.main === module) build().catch(error => {console.error(error.message); process.exitCode = 1;});
-module.exports = {files, privacyIssues};
+if (require.main === module) build(process.argv[2]).catch(error => {console.error(error.message); process.exitCode = 1;});
+module.exports = {files, skillFiles, privacyIssues, stagePackage};

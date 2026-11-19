@@ -10,7 +10,9 @@ const {execFile} = require('child_process');
 const {promisify} = require('util');
 const run = promisify(execFile);
 const repository = 'TelosmaYLX/Figma2Ae';
-const api = 'https://api.github.com/repos/' + repository;
+const releasePath = '/' + repository + '/releases/';
+const downloads = 'https://github.com' + releasePath;
+const api = 'https://api.github.com/repos' + releasePath;
 const archiveBase = 'F2A-Windows-x64';
 const archiveName = archiveBase + '.zip';
 const manifestName = 'latest.json';
@@ -32,40 +34,22 @@ function isNewer(version, installed) {
   return false;
 }
 
-function githubCredential(interactive) {
-  return new Promise((resolve, reject) => {
-    const child = execFile('git', ['-c', 'credential.interactive=' + (interactive ? 'true' : 'false'), 'credential', 'fill'], {
-      windowsHide: true, timeout: 120000,
-      env: {...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: interactive ? 'true' : 'false'}
-    }, (error, stdout) => {
-      if (error) {
-        if (error.code === 'ENOENT' && interactive) { reject(updateError('请安装 Git for Windows 后检查更新。')); return; }
-        resolve(null); return;
-      }
-      const entry = /^password=([^\r\n]+)/m.exec(stdout);
-      resolve(entry ? entry[1] : null);
-    });
-    child.stdin.on('error', () => {});
-    child.stdin.end('protocol=https\nhost=github.com\npath=' + repository + '.git\n\n');
-  });
-}
-
-function request(url, credential, accept, limit, redirects = 4) {
+function request(url, accept, limit, redirects = 4) {
   return new Promise((resolve, reject) => {
     const target = new URL(url);
-    const apiHost = target.host === 'api.github.com';
-    if (target.protocol !== 'https:' || (!apiHost && !target.host.endsWith('.githubusercontent.com'))) {
+    const githubRelease = target.host === 'github.com' && target.pathname.startsWith(releasePath);
+    const releaseApi = target.host === 'api.github.com' && target.pathname.startsWith('/repos' + releasePath);
+    if (target.protocol !== 'https:' || (!githubRelease && !releaseApi && !target.host.endsWith('.githubusercontent.com'))) {
       reject(updateError('GitHub 下载地址无效。')); return;
     }
     const headers = {'User-Agent': 'F2A updater', Accept: accept};
-    if (apiHost && credential) headers.Authorization = 'Bearer ' + credential;
     // CEP has a browser URL constructor in the panel realm. Use the options overload.
     const connectionError = error => reject(error.userMessage ? error : updateError('无法连接 GitHub，请检查网络后重试。'));
     const req = https.get({hostname: target.hostname, port: target.port, path: target.pathname + target.search, headers}, response => {
       const status = response.statusCode;
       if ([301, 302, 303, 307, 308].includes(status) && response.headers.location && redirects > 0) {
         response.resume();
-        resolve(request(new URL(response.headers.location, target).href, null, accept, limit, redirects - 1));
+        resolve(request(new URL(response.headers.location, target).href, accept, limit, redirects - 1));
         return;
       }
       if (status !== 200) {
@@ -89,43 +73,34 @@ function request(url, credential, accept, limit, redirects = 4) {
   });
 }
 
-function assetUrl(release, name) {
-  const asset = (release.assets || []).find(item => item.name === name);
-  if (!asset || !Number.isSafeInteger(asset.id) || asset.id < 1) throw updateError('GitHub 发布附件缺少 ' + name + '。');
-  return api + '/releases/assets/' + asset.id;
-}
-
-async function check(installed, {interactive = false, credentialFor = githubCredential, get = request} = {}) {
-  const credential = await credentialFor(interactive);
-  const fetchRelease = suffix => get(api + suffix, credential, 'application/vnd.github.text+json', 1024 * 1024);
-  let release;
-  try { release = JSON.parse((await fetchRelease('/releases/latest')).toString('utf8')); }
+async function check(installed, {get = request} = {}) {
+  let manifest;
+  try {
+    const body = await get(downloads + 'latest/download/' + manifestName, 'application/octet-stream', 64 * 1024);
+    manifest = JSON.parse(body.toString('utf8'));
+  }
   catch (error) {
-    if (error.status === 404) {
-      try { await fetchRelease(''); }
-      catch (repoError) {
-        if (repoError.status !== 404) throw repoError;
-        throw updateError('请用 Git Credential Manager 登录有仓库读取权限的 GitHub 账号。');
-      }
-      return null;
-    }
-    if (!credential && error.status === 403) throw updateError('请用 Git Credential Manager 登录 GitHub 后重试。');
-    if (credential && error.status === 401) throw updateError('GitHub 登录已失效，请重新登录。');
+    if (error.status === 404) return null;
     throw error;
   }
-  const version = String(release.tag_name || '').replace(/^v/, '');
+  const version = String(manifest.version || '');
   if (!isNewer(version, installed)) return null;
-  const notes = (typeof release.body_text === 'string' ? release.body_text : release.body || '').trim();
-  const buffer = await get(assetUrl(release, manifestName), credential, 'application/octet-stream', 16 * 1024);
-  const manifest = JSON.parse(buffer.toString('utf8'));
   const releaseArchive = archiveBase + '-v' + version + '.zip';
-  if (manifest.version !== version || ![releaseArchive, archiveName].includes(manifest.file) || !/^[a-f0-9]{64}$/.test(manifest.sha256))
+  if (![releaseArchive, archiveName].includes(manifest.file) || !/^[a-f0-9]{64}$/.test(manifest.sha256))
     throw updateError('GitHub 上的更新清单无效。');
-  return {version, notes, sha256: manifest.sha256, url: assetUrl(release, manifest.file), credential};
+  let notes = typeof manifest.notes === 'string' ? manifest.notes.trim() : '';
+  if (!notes) {
+    try {
+      const body = await get(api + 'tags/v' + version, 'application/vnd.github.text+json', 1024 * 1024);
+      const release = JSON.parse(body.toString('utf8'));
+      notes = (typeof release.body_text === 'string' ? release.body_text : release.body || '').trim();
+    } catch {} // Older manifests use Release notes when the public API is available.
+  }
+  return {version, notes, sha256: manifest.sha256, url: downloads + 'download/v' + version + '/' + manifest.file};
 }
 
 async function install(extension, update, {get = request, execute = run} = {}) {
-  const buffer = await get(update.url, update.credential, 'application/octet-stream', 128 * 1024 * 1024);
+  const buffer = await get(update.url, 'application/octet-stream', 128 * 1024 * 1024);
   if (crypto.createHash('sha256').update(buffer).digest('hex') !== update.sha256) throw updateError('安装包校验失败。');
   const temporary = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'f2a-update-'));
   try {

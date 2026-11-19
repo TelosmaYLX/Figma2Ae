@@ -13,8 +13,8 @@
 
 需要 **Windows x64**、Figma 桌面版和 After Effects。将 **Node.js 20+** 和 **Python 3.11+** 的 64 位版本加入 `PATH`，安装 Python 时保留 pip、venv 和 Tcl/Tk。首次安装需要联网下载 AEP 依赖。
 
-1. 登录有仓库读取权限的 GitHub 账号，下载 `F2A-Windows-x64-v<版本号>.zip` 并完整解压。[下载最新版](https://github.com/TelosmaYLX/Figma2Ae/releases/latest)
-2. 关闭 AE，双击 `install.cmd`。默认安装到 `%APPDATA%\Adobe\CEP\extensions\F2A`。
+1. 下载 `F2A-Windows-x64-v<版本号>.zip` 并完整解压。[下载最新版](https://github.com/TelosmaYLX/Figma2Ae/releases/latest)
+2. 关闭 AE，双击 `install.cmd`。默认安装到 `%APPDATA%\Adobe\CEP\extensions\F2A`，同时把随包的 Skill 安装到检测到的本机 Agent 目录。
 3. 在 Figma 桌面版打开「插件 → 开发」，从 manifest 导入安装程序显示的 `figma-plugin/manifest.json`，然后打开 F2A。
 4. 在 AE 打开「窗口 → 扩展 → F2A」。Figma 面板显示「已连接到 After Effects」后即可使用。
 
@@ -76,9 +76,11 @@ flowchart LR
 
 ## 在 AE 中更新
 
-打开 AE 的 F2A 面板时会自动检查一次更新，有新版时会显示提醒。也可手动点 **检查更新**。发现新版后，点击 `更新到 <版本号>` 安装，然后重新打开 AE 和 Figma 的 F2A 面板。私有仓库通过 Git for Windows 的 Git Credential Manager 登录。
+打开 AE 的 F2A 面板时会自动检查一次更新，有新版时会显示提醒。也可手动点 **检查更新**。发现新版后，点击 `更新到 <版本号>` 安装，然后重新打开 AE 和 Figma 的 F2A 面板。
 
 发现新版时，点击「有可用更新」可查看 GitHub Release 的发布说明。手动检查发现新版会自动展开，安装完成后该栏自动隐藏。
+
+安装和更新按发布清单同步 CEP 扩展和 Skill。新增文件会补齐，上一版由 F2A 安装、这版已移除的文件会清理。
 
 如果 v1.1.0 检查更新报 `listener` 错误，下载新版 ZIP 并按安装步骤覆盖原安装目录。该错误已在 v1.1.1 修复。[下载最新版](https://github.com/TelosmaYLX/Figma2Ae/releases/latest)
 

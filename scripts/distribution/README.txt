@@ -12,7 +12,7 @@ F2A（Windows x64）
 二、安装 F2A
 
 1. 完整解压到一个文件夹，关闭 After Effects。
-2. 双击 install.cmd，等待显示 Installation complete。
+2. 双击 install.cmd，等待显示 Installation complete。安装器会同步 CEP 扩展和随包的 Skill。
 3. 在 Figma 桌面版的插件开发菜单中，选择从 manifest 导入。
    选择安装程序显示的 figma-plugin\manifest.json。
 4. 重启 After Effects，在“窗口 → 扩展”中打开 F2A。
@@ -30,8 +30,10 @@ F2A（Windows x64）
 
 联网更新：打开 AE 的 F2A 面板时会自动检查一次，有新版时在面板顶部提醒。
 可点“更新到版本”安装，也可点“检查更新”手动查询。
-仓库为私有，需要 Git for Windows 及 Git Credential Manager，并登录有 Releases 读取权限的 GitHub 账号。
+版本检查和安装包下载使用公开的 GitHub Release 附件。
 更新完成后重新打开 AE 和 Figma 的 F2A 面板。
+安装和更新都按发布清单同步。新增文件会补齐，上一版由 F2A 安装、这版已移除的文件会清理。
+自定义 Skill 目录可通过 install.cmd -SkillDirectory "<目录>" 指定，一并登记到后续更新。
 
 三、MCP（可选）
 

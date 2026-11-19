@@ -1,13 +1,8 @@
-# F2A + 图层整理 Skill 安装说明（Windows x64）
+# F2A 安装与更新（Windows x64）
 
-本包含两部分：
+解压后双击根目录的 `install.cmd`，一次安装 CEP 扩展、AEP 导出服务和随包 Skill。扩展包 `F2A-Bundle` 的扩展文件在 `F2A/`，根目录的安装入口会调用同一个安装器。
 
-| 目录 | 内容 |
-| --- | --- |
-| `F2A/` | After Effects ↔ Figma 桥接扩展（CEP 面板）、本地 MCP 服务、AEP 导出服务与安装脚本 |
-| `skills/f2a-figma-layer-tidy/` | 「整理图层（面向 AEP 导出）」AI 技能 |
-
-安装顺序：**① 装 F2A → ② Figma 导入插件 → ③ AE 打开面板 → ④ 接入 MCP → ⑤ 装 Skill**。
+安装后在 Figma 导入插件，在 AE 打开 F2A。使用 agent 时接入 MCP。
 
 ---
 
@@ -54,14 +49,14 @@ CEP 扩展有两个合法位置，二选一：
 关闭 After Effects，用**管理员 PowerShell**执行：
 
 ```powershell
-cd "<解压目录>\F2A"
+cd "<解压后的包根目录>"
 .\install.cmd -InstallDirectory "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"
 ```
 
 等价于直接调用脚本（参数相同）：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "<解压目录>\F2A\scripts\install-f2a.ps1" `
+powershell -ExecutionPolicy Bypass -File "<扩展包中的 F2A 目录>\scripts\install-f2a.ps1" `
   -InstallDirectory "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"
 ```
 
@@ -70,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File "<解压目录>\F2A\scripts\install-f2a
 ### 1.3 用户级安装（默认，无需管理员）
 
 1. 关闭 After Effects。
-2. 双击 `F2A\install.cmd`，等待输出 `Installation complete`。
+2. 双击包根目录的 `install.cmd`，等待输出 `Installation complete`。
 
 装到 `%APPDATA%\Adobe\CEP\extensions\F2A`，其余行为与上面一致。
 
@@ -184,16 +179,19 @@ powershell -ExecutionPolicy Bypass -File "$f2a\scripts\install-mcp.ps1" -Client 
 
 ---
 
-## 5. 安装「整理图层」Skill
+## 5. Skill 安装与同步
 
-把 `skills\f2a-figma-layer-tidy` **整个文件夹**复制到客户端的技能目录：
+安装器会检测当前用户的 Agent 目录。Codex、Cursor 和 Gemini CLI 使用 `%USERPROFILE%\.agents\skills`，DSH 和 Claude Code 使用各自配置目录的 `skills` 子目录。已发现的旧版 F2A Skill 副本也会纳入同步。
+
+自定义目录可以在安装时指定，后续更新会沿用该目录。
 
 ```powershell
-Copy-Item .\skills\f2a-figma-layer-tidy "$env:USERPROFILE\.dsh\skills\"   -Recurse -Force  # DSH
-Copy-Item .\skills\f2a-figma-layer-tidy "$env:USERPROFILE\.codex\skills\" -Recurse -Force  # Codex
+.\install.cmd -SkillDirectory "<自定义 Skill 目录>"
 ```
 
-再为**系统 Python**（不是 `.venv-aep`）装两个库，像素门禁脚本依赖它们：
+安装和更新都按新旧 `package-manifest.json` 同步。安装器复制新增和修改的文件，删除上一版清单登记、本版撤下的文件。旧版手动复制的文件从新版安装登记时开始管理，原目录里的自定义文件继续保留。
+
+整理图层时，像素对比脚本使用系统 Python 的两个依赖。
 
 ```powershell
 python -m pip install numpy pillow
@@ -246,6 +244,10 @@ Node / Python 运行时、Python 虚拟环境、本机账号配置与密钥、�
 
 ## GitHub Releases
 
-在 AE 的 F2A 面板点「检查更新」，有新版时点「更新到版本」。私有仓库使用 Git for Windows 的 Git Credential Manager 登录，需要仓库读取权限。安装完成后重新打开 AE 和 Figma 的 F2A 面板。
+在 AE 的 F2A 面板点「检查更新」，有新版时点「更新到版本」。更新器从公开的 GitHub Release 下载。安装完成后重新打开 AE 和 Figma 的 F2A 面板。
 
 发布时将 `version.json` 和 `CSXS/manifest.xml` 更新到目标版本。在 Windows 运行 `node scripts/package-dist.cjs`，将 `dist/F2A-Windows-x64-v<版本号>.zip` 和 `dist/latest.json` 一起附到 `TelosmaYLX/Figma2Ae` 的 Release，标签使用 `v<版本号>`。上传完成后再发布为 Latest。首次使用联网更新的用户先安装带更新入口的版本。
+
+打包脚本会从 `client/`、`figma-plugin/`、`host/figma/` 和含 `SKILL.md` 的 Skill 目录生成文件清单。源代码与开发工具混在一起的目录，按 `scripts/package-dist.cjs` 中的明确清单选文件。新增、替换或撤下文件后重新打包即可，用户在更新版本时同步。
+
+如需把发布说明随清单分发，打包时传入同一份发布说明文件，例如 `node scripts/package-dist.cjs release-notes.txt`。

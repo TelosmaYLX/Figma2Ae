@@ -79,8 +79,9 @@ async function check() {
     const target = path.join(scratch, 'F2A-Windows-x64');
     const manifest = JSON.parse(await fs.readFile(path.join(target, 'package-manifest.json'), 'utf8'));
     assert.equal(manifest.bundledRuntimes, false);
-    const release = JSON.parse(await fs.readFile(path.join(root, 'dist/latest.json'), 'utf8'));
+    const {notes, ...release} = JSON.parse(await fs.readFile(path.join(root, 'dist/latest.json'), 'utf8'));
     assert.deepEqual(release, {version: manifest.version, file: path.basename(archive), sha256: actualHash});
+    if (notes !== undefined) assert.ok(typeof notes === 'string' && notes.trim());
     const packaged = [];
     async function walk(directory) {
       for (const entry of await fs.readdir(directory, {withFileTypes: true})) {
@@ -93,6 +94,7 @@ async function check() {
     assert.ok(packaged.includes('licenses/cursor-talk-to-figma-mcp.txt'));
     assert.ok(packaged.includes('licenses/figwright.txt'));
     assert.ok(packaged.includes('mcp/vendor/surehand/LICENSE'));
+    assert.ok(packaged.includes('skills/f2a-figma-layer-tidy/SKILL.md'));
     assert.equal(manifest.files.find(file => file.path === 'mcp/vendor/surehand/surehand-ae.mjs')?.sha256, surehand.sha256);
     for (const file of packaged) {
       assert.doesNotMatch(file, /(?:^|\/)(?:\.git|\.agents|\.venv[^/]*|node_modules|runtime|artifacts|tests|docs)(?:\/|$)|\.(?:exe|dll|pyc|pyo|log|map)$|(?:^|\/)\.env(?:\.|$)/i);
@@ -119,12 +121,44 @@ async function check() {
     const installedPanel = path.join(target, 'client/index.html');
     const marker = path.join(target, 'user-setting.txt');
     const oldPanel = '<!-- old installed panel -->';
-    const oldManifest = {...manifest, version: '1.0.0'};
+    const profile = path.join(scratch, 'Agent 用户');
+    const sharedSkills = path.join(profile, '.agents/skills');
+    const dshSkills = path.join(profile, '.dsh/skills');
+    const customSkills = path.join(scratch, '自定义 Skill');
+    const skill = 'f2a-figma-layer-tidy';
+    const retiredSkillFile = 'retired-skill/SKILL.md';
+    const retiredReference = skill + '/references/retired.md';
+    const removed = ['client/retired.js', 'skills/' + retiredSkillFile, 'skills/' + retiredReference];
+    const added = 'client/updateRelease.js';
+    const writeFixture = async (file, text) => {
+      await fs.mkdir(path.dirname(file), {recursive:true});
+      await fs.writeFile(file, text);
+    };
+    const installEnv = {...env, USERPROFILE:profile, CODEX_HOME:'', DSH_HOME:'', CLAUDE_CONFIG_DIR:''};
+    const otherPackage = path.join(scratch, 'another-package');
+    const otherFile = path.join(otherPackage, 'owned.txt');
+    await writeFixture(path.join(otherPackage, 'package-manifest.json'), JSON.stringify({name:'another-package', files:[{path:'owned.txt'}]}));
+    await fs.writeFile(otherFile, 'keep another package');
+    await assert.rejects(run(process.execPath, [path.join(target, 'scripts/install-files.cjs'), otherPackage],
+      {windowsHide:true, env:installEnv}), /belongs to another package/);
+    assert.equal(await fs.readFile(otherFile, 'utf8'), 'keep another package');
+    await fs.mkdir(path.join(profile, '.codex'), {recursive:true});
+    const oldManifest = {...manifest, version: '1.0.0', skillDirectories:[sharedSkills, customSkills],
+      files:[...manifest.files.filter(file => file.path !== added), ...removed.map(file => ({path:file}))]};
+    for (const file of removed) await writeFixture(path.join(target, file), 'old package file');
+    for (const directory of oldManifest.skillDirectories) {
+      await writeFixture(path.join(directory, retiredSkillFile), 'old skill');
+      await writeFixture(path.join(directory, retiredReference), 'old reference');
+      await writeFixture(path.join(directory, skill, 'SKILL.md'), 'old entry');
+      await writeFixture(path.join(directory, skill, 'user-notes.md'), 'keep my notes');
+    }
+    await writeFixture(path.join(sharedSkills, 'user-skill/SKILL.md'), 'keep my skill');
+    await fs.unlink(path.join(target, added));
     await fs.writeFile(manifestPath, JSON.stringify(oldManifest));
     await fs.writeFile(installedPanel, oldPanel);
     await fs.writeFile(marker, 'preserve');
     const broken = path.join(scratch, 'broken-update');
-    for (const relative of ['scripts/install-f2a.ps1', 'scripts/aep/requirements.txt', 'client/index.html']) {
+    for (const relative of ['scripts/install-f2a.ps1', 'scripts/install-files.cjs', 'scripts/aep/requirements.txt', 'client/index.html']) {
       const to = path.join(broken, relative);
       await fs.mkdir(path.dirname(to), {recursive: true});
       await fs.copyFile(path.join(target, relative), to);
@@ -134,17 +168,44 @@ async function check() {
       ...manifest, files: [{path: 'client/index.html'}, {path: 'client/missing.js'}]
     }));
     await assert.rejects(run('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-      '-File', path.join(broken, 'scripts/install-f2a.ps1'), '-InstallDirectory', target, '-Update'], {windowsHide: true, env}));
+      '-File', path.join(broken, 'scripts/install-f2a.ps1'), '-InstallDirectory', target, '-Update'], {windowsHide: true, env: installEnv}));
     assert.deepEqual(JSON.parse(await fs.readFile(manifestPath, 'utf8')), oldManifest);
-    assert.equal(await fs.readFile(installedPanel, 'utf8'), oldPanel, 'Failed update restores a file already replaced');
+    assert.equal(await fs.readFile(installedPanel, 'utf8'), oldPanel, 'Missing package file prevents any changes');
     const updateArgs = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
       path.join(target, 'scripts/update-f2a.ps1'), '-Archive', archive, '-Sha256', actualHash,
       '-Version', manifest.version, '-InstallDirectory', target];
-    await run('powershell.exe', updateArgs, {windowsHide: true, env, timeout: 30000});
-    assert.equal(JSON.parse(await fs.readFile(manifestPath, 'utf8')).version, manifest.version);
+    const update = () => run('powershell.exe', updateArgs, {windowsHide:true, env:installEnv, timeout:30000});
+    const block = path.join(dshSkills, skill, 'SKILL.md');
+    await writeFixture(path.join(block, 'local.txt'), 'directory created by user');
+    await assert.rejects(update(), /Expected a file at/);
+    assert.deepEqual(JSON.parse(await fs.readFile(manifestPath, 'utf8')), oldManifest);
+    assert.equal(await fs.readFile(installedPanel, 'utf8'), oldPanel);
+    assert.equal(await fs.readFile(path.join(target, removed[0]), 'utf8'), 'old package file');
+    assert.equal(await fs.readFile(path.join(sharedSkills, retiredSkillFile), 'utf8'), 'old skill');
+    assert.equal(await fs.readFile(path.join(sharedSkills, skill, 'SKILL.md'), 'utf8'), 'old entry');
+    await assert.rejects(fs.access(path.join(target, added)), {code:'ENOENT'});
+    assert.equal(await fs.readFile(path.join(block, 'local.txt'), 'utf8'), 'directory created by user');
+    await fs.unlink(path.join(block, 'local.txt'));
+    await fs.rmdir(block);
+    await update();
+    const installed = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+    assert.equal(installed.version, manifest.version);
+    assert.deepEqual(installed.skillDirectories.sort(), [sharedSkills, customSkills, dshSkills].sort());
     assert.equal(await fs.readFile(marker, 'utf8'), 'preserve');
     assert.match(await fs.readFile(installedPanel, 'utf8'), /mk-update/);
-    console.log('PASS: Windows updater applies the verified ZIP in place and preserves user files');
+    assert.ok((await fs.stat(path.join(target, added))).isFile());
+    for (const file of removed) await assert.rejects(fs.access(path.join(target, file)), {code:'ENOENT'});
+    const skillEntry = await fs.readFile(path.join(target, 'skills', skill, 'SKILL.md'), 'utf8');
+    for (const directory of installed.skillDirectories) {
+      assert.equal(await fs.readFile(path.join(directory, skill, 'SKILL.md'), 'utf8'), skillEntry);
+      assert.ok((await fs.stat(path.join(directory, skill, 'scripts/compare_pixels.py'))).isFile());
+      await assert.rejects(fs.access(path.join(directory, retiredSkillFile)), {code:'ENOENT'});
+      await assert.rejects(fs.access(path.join(directory, retiredReference)), {code:'ENOENT'});
+    }
+    assert.equal(await fs.readFile(path.join(sharedSkills, skill, 'user-notes.md'), 'utf8'), 'keep my notes');
+    assert.equal(await fs.readFile(path.join(customSkills, skill, 'user-notes.md'), 'utf8'), 'keep my notes');
+    assert.equal(await fs.readFile(path.join(sharedSkills, 'user-skill/SKILL.md'), 'utf8'), 'keep my skill');
+    console.log('PASS: Windows updater synchronizes added and retired CEP and Skill files, rolls back a conflict and preserves user files');
     let pickerEntered, releasePicker;
     const picker = new Promise(resolve => { pickerEntered = resolve; });
     const proceed = new Promise(resolve => { releasePicker = resolve; });
