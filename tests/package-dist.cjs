@@ -10,6 +10,7 @@ const {once} = require('node:events');
 const {createHash} = require('node:crypto');
 const {fixture} = require('./direct-aep.cjs');
 const {privacyIssues} = require('../scripts/package-dist.cjs');
+const surehand = require('../mcp/vendor/surehand/catalog.json');
 const {version} = require('../version.json');
 const run = promisify(execFile);
 const root = path.resolve(__dirname, '..');
@@ -49,6 +50,7 @@ async function checkMcp(target) {
     const result = await call('tools/list', {});
     assert.ok(result.tools.length >= 165);
     assert.ok(result.tools.some(tool => tool.name === 'get_f2a_status'));
+    assert.ok(result.tools.some(tool => tool.name === 'ae_render_background'));
     return result.tools.length;
   } finally {
     for (const job of pending.values()) clearTimeout(job.timer);
@@ -86,6 +88,8 @@ async function check() {
     assert.deepEqual(packaged.sort(), [...manifest.files.map(entry => entry.path), 'package-manifest.json'].sort());
     assert.ok(packaged.includes('licenses/cursor-talk-to-figma-mcp.txt'));
     assert.ok(packaged.includes('licenses/figwright.txt'));
+    assert.ok(packaged.includes('mcp/vendor/surehand/LICENSE'));
+    assert.equal(manifest.files.find(file => file.path === 'mcp/vendor/surehand/surehand-ae.mjs')?.sha256, surehand.sha256);
     for (const file of packaged) {
       assert.doesNotMatch(file, /(?:^|\/)(?:\.git|\.agents|\.venv[^/]*|node_modules|runtime|artifacts|tests|docs)(?:\/|$)|\.(?:exe|dll|pyc|pyo|log|map)$|(?:^|\/)\.env(?:\.|$)/i);
       const data = await fs.readFile(path.join(target, file));

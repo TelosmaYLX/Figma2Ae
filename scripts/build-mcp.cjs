@@ -2,6 +2,7 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const {createHash} = require('node:crypto');
 const esbuild = require('../mcp/node_modules/esbuild');
 const root = path.resolve(__dirname, '..');
 const mcp = path.join(root, 'mcp');
@@ -17,6 +18,10 @@ function between(source, from, to) {
 }
 
 async function build() {
+  const surehand = path.join(mcp, 'vendor/surehand');
+  const {sha256} = require('../mcp/vendor/surehand/catalog.json');
+  const hash = createHash('sha256').update(await fs.readFile(path.join(surehand, 'surehand-ae.mjs'))).digest('hex');
+  if (hash !== sha256) throw new Error('Surehand bundle checksum does not match the tool catalog.');
   const upstream = await fs.readFile(path.join(vendor, 'server.ts'), 'utf8');
   const tools = between(upstream, '// Document Info Tool', '// Update the connectToFigma function') +
     between(upstream, '// Set Image Fill Tool', '// Update the join_channel tool');
@@ -29,10 +34,21 @@ import {status, selectSession, sendCommandToFigma} from './src/bridge.cjs';
 import {ensureRelay} from './launcher.cjs';
 import {registerLayerTools} from './src/layer-tools.ts';
 import {registerFigwrightTools, withFigwrightArgs} from './src/figwright-tools.ts';
+import {registerSurehandTools} from './src/surehand-tools.ts';
 // Upstream helper logging must never enter the MCP stdout stream.
 console.log = console.info = console.debug = (...args) => console.error(...args);
 ensureRelay(error => {if (error) console.error('F2A MCP: ' + error.message);});
-const server = new McpServer({name:'F2A',version:'1.0.0'}, {instructions:'Open F2A in Figma. A single open document connects automatically. Use get_f2a_status and join_channel only when choosing among multiple documents.'});
+const instructions = [
+  'For Figma tools, open F2A in Figma. A single open document connects automatically.',
+  'Use get_f2a_status and join_channel to choose among multiple Figma documents.',
+  'For After Effects, start with ae_status to check the current project and choose the intended instance.',
+  'Use ae_list_comps and the composition item ID when editing F2A exports because folders can share composition names.',
+  'Animate with ae_* tools and preview with ae_render_frame. Save an editable .aep with ae_save_project.',
+  'For video, use an output module template installed in the target AE. Read available templates with ae_call and ae_list_render_queue when a queue item exists.',
+  'Run ae_render_background and poll ae_render_jobs in the same session, or render in AE with ae_add_to_render_queue and ae_call for ae_render_queue_start.',
+  'Discover more Surehand tools with ae_tools and ae_call.',
+].join(' ');
+const server = new McpServer({name:'F2A',version:'1.0.0'}, {instructions});
 ${tools.replace('- Always join the appropriate channel first with \\`join_channel()\\`', '- A single open F2A document connects automatically.')}
 server.tool('get_f2a_status', 'List Figma documents with F2A open; a single document is selected automatically by other tools.', {}, async () => ({content:[{type:'text',text:JSON.stringify(await status())}]}));
 server.tool('join_channel', 'Select an open F2A document by session ID, file key or unique name. Omit channel to select the only open document.', {channel:z.string().default('')}, async ({channel}) => {
@@ -43,6 +59,8 @@ server.tool('join_channel', 'Select an open F2A document by session ID, file key
 const send = withFigwrightArgs(sendCommandToFigma);
 registerLayerTools(server, send);
 registerFigwrightTools(server, send);
+registerSurehandTools(server);
+process.stdin.once('end', () => { void server.close(); });
 server.connect(new StdioServerTransport()).catch(error => {console.error(error);process.exit(1);});
 `;
   const settings = {absWorkingDir:root, bundle:true, platform:'node', target:'node20', format:'cjs', legalComments:'inline', metafile:true, external:['bufferutil','utf-8-validate']};
@@ -90,7 +108,7 @@ export const commands = Object.keys(figwrightCommands);
     for (const file of files) licenses.push(`${pkg.name} ${pkg.version}\n${await fs.readFile(path.join(directory,file),'utf8')}`);
   }
   await fs.writeFile(path.join(mcp,'THIRD_PARTY_LICENSES.txt'), licenses.join('\n\n--------------------\n\n'));
-  console.log('Built F2A MCP server, relay and embedded Figma commands.');
+  console.log('Built F2A MCP server with Surehand, relay and embedded Figma commands.');
 }
 
 build().catch(error => {console.error(error);process.exitCode=1;});

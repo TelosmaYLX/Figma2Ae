@@ -1,0 +1,2242 @@
+{
+  "version": "1.4.1",
+  "commit": "6fdc8e161b6d8480439cf9b1d80eb46c5f33a353",
+  "release": "https://github.com/ConformLabs/surehand-mcp/releases/tag/v1.4.1",
+  "upstreamSha256": "e60542d00fcd0b8cd33ee2d90e737ac8f42ec144b545d20dae4199afdb38ec57",
+  "sha256": "7d606c20d7aba793c06849a978b39b1e493bcd3998ef9ce567ec142cc60c0efa",
+  "profile": "core,ae_open_project,ae_save_project,ae_get_keyframes,ae_add_to_render_queue,ae_render_background,ae_render_jobs,ae_list_comps",
+  "tools": [
+    {
+      "name": "ae_run_script",
+      "title": "Run ExtendScript",
+      "description": "Execute JavaScript inside After Effects (its ExtendScript scripting API) and return the result. This is the most powerful tool: anything in the After Effects scripting API is available (app, app.project, CompItem, layers, properties, render queue, File/Folder, system.callSystem...).\n- The code runs as the body of a function: use `return value` to send data back. Returned AE objects (comps, layers, properties, items) are summarized to JSON automatically.\n- `args` (the JSON you pass in `args`) and `log(...)` are available; log output is returned too.\n- Modern JavaScript is fine: let/const, arrow functions, template strings, destructuring, spread, classes, ?. and ??, for...of, plus map/filter/forEach/find/includes, Object.keys/assign and JSON (converted for AE automatically). Not available: async/await, Promise, Map/Set, generators.\n- The `aemcp` helper library is available: aemcp.findComp(idOrName), aemcp.findLayer(comp, indexOrName), aemcp.findItem(ref), aemcp.resolveProp(layer, 'Transform/Position'), aemcp.color('#ff0000'), aemcp.compInfo(comp, true), aemcp.layerInfo(layer, true), aemcp.propInfo(prop, {depth:2}), aemcp.projectInfo().\n- Collections are 1-based: app.project.item(1), comp.layer(1), prop.property(1).\n- The whole script is one undo step. Errors come back with the failing line and code around it. ae_get_scripting_guide has an API cheat sheet.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "JavaScript source; a function body, use `return` to return data."
+          },
+          "args": {
+            "description": "JSON object exposed to the script as `args`.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "undoGroup": {
+            "description": "Undo step name (default \"Surehand MCP Script\"). Pass \"\" to skip the undo group.",
+            "type": "string"
+          },
+          "depth": {
+            "description": "How deep to serialize the returned value (default 4).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "timeoutSeconds": {
+            "description": "Max seconds to wait for the result (default 120).",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3600
+          },
+          "transpile": {
+            "description": "Convert modern JS for ExtendScript (default true). Set false to send the code exactly as written.",
+            "type": "boolean"
+          },
+          "report": {
+            "description": "List what the script changed in the project (default true). Set false for read-only queries on huge projects.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "ae_run_script_file",
+      "title": "Run JSX file",
+      "description": "Run an existing .jsx/.jsxbin script file from disk inside After Effects (like File > Scripts > Run Script File). `args` is exposed to the script as the global AEMCP_ARGS. Returns the value of the script's last expression.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path to the .jsx / .jsxbin file."
+          },
+          "args": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "timeoutSeconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3600
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "ae_status",
+      "title": "After Effects status",
+      "description": "Check the connection to After Effects: app version, OS, open project, active item, permission mode, and whether AE is busy. Lists every running After Effects instance when several are open; pass `instance` (e.g. \"2025\", \"2026\" or a port) to choose which one this session controls. Call this first if unsure AE is reachable.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "instance": {
+            "description": "Switch to another running After Effects: \"2026\", \"26.5\", or a bridge port. Omit to keep the current one.",
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_render_frame",
+      "title": "Preview frame",
+      "description": "Render a frame of a composition and return it as an image, so you can SEE the result. Inspection options: zoom into a region, render only some layers, show transparency on a checkerboard or a color, and compare against another time or comp as a difference image (black = identical). Large frames are downscaled to maxSize.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "time": {
+            "description": "Time in seconds (default: the comp's current time).",
+            "type": "number"
+          },
+          "maxSize": {
+            "description": "Longest side in pixels of the returned image (default 1280).",
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 4096
+          },
+          "region": {
+            "description": "Zoom into [x, y, width, height] in comp pixels (scaled up to maxSize, at most 8x).",
+            "minItems": 4,
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "layers": {
+            "description": "Render only these layers (others are hidden for the render and restored).",
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "description": "Layer: 1-based index (number) or exact layer name."
+            }
+          },
+          "background": {
+            "description": "\"checkerboard\" to show transparency, or a color like \"#808080\" behind the comp.",
+            "type": "string"
+          },
+          "compareWith": {
+            "description": "Difference image against another time and/or comp (black where identical).",
+            "type": "object",
+            "properties": {
+              "comp": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "time": {
+                "type": "number"
+              }
+            }
+          },
+          "outputPath": {
+            "description": "Optional absolute path to also save the PNG to.",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Replace an existing file at outputPath (default false: refuse).",
+            "type": "boolean"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_render_contact_sheet",
+      "title": "Preview animation (contact sheet)",
+      "description": "Render several frames of a composition into ONE image (a grid, each cell labelled with its time and frame number), so you can judge motion, timing and easing, not just a single frame. Defaults to 9 frames spread over the work area.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "frames": {
+            "description": "Number of evenly spaced frames (default 9).",
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 36
+          },
+          "start": {
+            "description": "Start time in seconds (default: work area start).",
+            "type": "number"
+          },
+          "end": {
+            "description": "End time in seconds (default: work area end).",
+            "type": "number"
+          },
+          "times": {
+            "description": "Exact times (seconds) instead of evenly spaced frames.",
+            "minItems": 1,
+            "maxItems": 36,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "columns": {
+            "description": "Grid columns (default: square-ish).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "width": {
+            "description": "Width of the returned image in pixels (default 1600).",
+            "type": "integer",
+            "minimum": 320,
+            "maximum": 4096
+          },
+          "outputPath": {
+            "description": "Optional absolute path to also save the PNG to.",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Replace an existing file at outputPath (default false: refuse).",
+            "type": "boolean"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_get_project_info",
+      "title": "Get project info",
+      "description": "Summary of the open project: file path, dirty state, item counts, bit depth, render queue size, active item.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_save_project",
+      "title": "Save project",
+      "description": "Save the project (optionally Save As to a new .aep path). Save As never replaces an existing file unless overwrite is true.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Absolute .aep path for Save As.",
+            "type": "string"
+          },
+          "overwrite": {
+            "description": "Save As over an existing file at path (default false: refuse).",
+            "type": "boolean"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_open_project",
+      "title": "Open project",
+      "description": "Open an .aep/.aet project file. Unsaved changes in the current project are discarded only if discardChanges is true.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "discardChanges": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_list_comps",
+      "title": "List compositions",
+      "description": "List all compositions with id, size, duration, frame rate and layer count.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "nameContains": {
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_get_comp_info",
+      "title": "Get composition info",
+      "description": "Composition settings plus a summary of its layers (index, id, name, type, timing, parent, switches). Large comps are paged: use layerOffset/layerLimit (see totalLayers / nextLayerOffset in the result).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "includeLayers": {
+            "description": "Default true.",
+            "type": "boolean"
+          },
+          "layerOffset": {
+            "description": "Skip this many layers (default 0).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "layerLimit": {
+            "description": "Max layers to return (default 150).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_create_comp",
+      "title": "Create composition",
+      "description": "Create a new composition and (by default) open it in the viewer.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "width": {
+            "description": "Default 1920.",
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 30000
+          },
+          "height": {
+            "description": "Default 1080.",
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 30000
+          },
+          "duration": {
+            "description": "Seconds, default 10.",
+            "type": "number",
+            "minimum": 0.01
+          },
+          "frameRate": {
+            "description": "Default 30.",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 999
+          },
+          "pixelAspect": {
+            "description": "Default 1.",
+            "type": "number"
+          },
+          "bgColor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "minItems": 3,
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            ],
+            "description": "Color as \"#rrggbb\" or [r,g,b] (0-1 or 0-255)."
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Project item id (number) or exact name."
+          },
+          "open": {
+            "description": "Open in viewer (default true).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_get_layer_info",
+      "title": "Get layer info",
+      "description": "Full info for one layer: switches, timing, parent, source, transform values, effects, masks count, markers, text, and every animated/expression property.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Layer: 1-based index (number) or exact layer name."
+          }
+        },
+        "required": [
+          "layer"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_add_layer",
+      "title": "Add layer",
+      "description": "Add a layer to a composition: solid, text, shape (empty, use ae_add_shape to draw), null, adjustment, camera, light, or an existing project item (footage/comp).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "solid",
+              "text",
+              "shape",
+              "null",
+              "adjustment",
+              "camera",
+              "light",
+              "item"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "text": {
+            "description": "For text layers.",
+            "type": "string"
+          },
+          "boxSize": {
+            "description": "Paragraph (box) text size [w,h]; omit for point text.",
+            "minItems": 2,
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "font": {
+            "description": "PostScript font name, e.g. \"Arial-BoldMT\", \"Helvetica\", \"Montserrat-Bold\".",
+            "type": "string"
+          },
+          "fontSize": {
+            "type": "number"
+          },
+          "fillColor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "minItems": 3,
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            ],
+            "description": "Color as \"#rrggbb\" or [r,g,b] (0-1 or 0-255)."
+          },
+          "strokeColor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "minItems": 3,
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            ],
+            "description": "Color as \"#rrggbb\" or [r,g,b] (0-1 or 0-255)."
+          },
+          "strokeWidth": {
+            "type": "number"
+          },
+          "tracking": {
+            "type": "number"
+          },
+          "leading": {
+            "type": "number"
+          },
+          "justification": {
+            "type": "string",
+            "enum": [
+              "LEFT_JUSTIFY",
+              "CENTER_JUSTIFY",
+              "RIGHT_JUSTIFY",
+              "FULL_JUSTIFY_LASTLINE_LEFT",
+              "FULL_JUSTIFY_LASTLINE_CENTER",
+              "FULL_JUSTIFY_LASTLINE_RIGHT",
+              "FULL_JUSTIFY_LASTLINE_FULL"
+            ]
+          },
+          "fauxBold": {
+            "type": "boolean"
+          },
+          "fauxItalic": {
+            "type": "boolean"
+          },
+          "allCaps": {
+            "type": "boolean"
+          },
+          "direction": {
+            "description": "Paragraph direction (AE 24+). Default: text without Hebrew/Arabic characters is set left to right whatever the user's AE type preference is.",
+            "type": "string",
+            "enum": [
+              "LEFT_TO_RIGHT",
+              "RIGHT_TO_LEFT"
+            ]
+          },
+          "color": {
+            "description": "Solid/adjustment color, or light color.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "minItems": 3,
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            ]
+          },
+          "width": {
+            "description": "Solid size (default comp size).",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "item": {
+            "description": "For type 'item': project item to add.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "lightType": {
+            "type": "string",
+            "enum": [
+              "PARALLEL",
+              "SPOT",
+              "POINT",
+              "AMBIENT"
+            ]
+          },
+          "position": {
+            "minItems": 2,
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "startTime": {
+            "type": "number"
+          },
+          "duration": {
+            "description": "Layer duration in seconds (default comp duration).",
+            "type": "number"
+          },
+          "threeD": {
+            "type": "boolean"
+          },
+          "moveToIndex": {
+            "description": "Move the new layer to this 1-based index (new layers are added on top).",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_get_selection",
+      "title": "Get selection",
+      "description": "What the user has selected: project items, and in the active comp the selected layers and selected properties (with paths).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_get_properties",
+      "title": "Get properties",
+      "description": "Inspect the property tree of a layer (or a sub-group via path): names, match names, values, keyframe counts, expressions. Use this to discover property paths before setting values.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Layer: 1-based index (number) or exact layer name."
+          },
+          "path": {
+            "description": "Start at this group/property (default: the whole layer).",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "depth": {
+            "description": "Group depth to expand (default 2).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "keyframes": {
+            "description": "Include keyframe details.",
+            "type": "boolean"
+          },
+          "includeHidden": {
+            "description": "Include NO_VALUE properties.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "layer"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_find_properties",
+      "title": "Find properties",
+      "description": "Search every layer of a comp (or one layer) for properties whose name or match name contains the query, e.g. \"opacity\", \"blur\", \"Source Text\", \"ADBE Fill Color\". Returns ready-to-use paths. Filter to animated or expression properties.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "query": {
+            "description": "Case-insensitive text to match in the property name or match name. Omit to list all matches of the filters.",
+            "type": "string"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Layer: 1-based index (number) or exact layer name."
+          },
+          "onlyAnimated": {
+            "description": "Only properties with keyframes.",
+            "type": "boolean"
+          },
+          "onlyExpressions": {
+            "description": "Only properties with an expression.",
+            "type": "boolean"
+          },
+          "limit": {
+            "description": "Default 100.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_set_property",
+      "title": "Set property value",
+      "description": "Set the value of any property (transform, effect parameter, shape attribute, text...). If `time` is given (or the property already has keyframes) a keyframe is set at that time. Examples: path \"Transform/Opacity\" value 50; \"Transform/Position\" [960,540]; \"Transform/Scale\" [50,50]; \"Effects/Fill/Color\" \"#ff0000\".",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Layer: 1-based index (number) or exact layer name."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  ]
+                }
+              }
+            ],
+            "description": "Property path from the layer, \"/\"-separated display names or match names, e.g. \"Transform/Position\", \"Effects/Gaussian Blur/Blurriness\", \"ADBE Transform Group/ADBE Opacity\", \"Contents/Rectangle 1/Fill 1/Color\"."
+          },
+          "value": {
+            "description": "Value: number, array ([x,y] / [x,y,z] / color), string for text, or object for text style / shape path."
+          },
+          "time": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "layer",
+          "path",
+          "value"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_set_keyframes",
+      "title": "Set keyframes",
+      "description": "Create keyframes on a property in one call, with optional interpolation (linear/bezier/hold) and temporal easing. Place keys by time (seconds) or frame (whole frames). Example: path \"Transform/Position\", keyframes [{time:0,value:[0,540]},{frame:24,value:[960,540],easeIn:80}].",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Layer: 1-based index (number) or exact layer name."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  ]
+                }
+              }
+            ],
+            "description": "Property path from the layer, \"/\"-separated display names or match names, e.g. \"Transform/Position\", \"Effects/Gaussian Blur/Blurriness\", \"ADBE Transform Group/ADBE Opacity\", \"Contents/Rectangle 1/Fill 1/Color\"."
+          },
+          "keyframes": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "time": {
+                  "description": "Seconds (comp time).",
+                  "type": "number"
+                },
+                "frame": {
+                  "description": "Whole frame from the comp's start, instead of time.",
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "value": {
+                  "description": "Value: number, array ([x,y] / [x,y,z] / color), string for text, or object for text style / shape path."
+                },
+                "interpolation": {
+                  "description": "Both in and out.",
+                  "type": "string",
+                  "enum": [
+                    "linear",
+                    "bezier",
+                    "hold"
+                  ]
+                },
+                "inInterpolation": {
+                  "type": "string",
+                  "enum": [
+                    "linear",
+                    "bezier",
+                    "hold"
+                  ]
+                },
+                "outInterpolation": {
+                  "type": "string",
+                  "enum": [
+                    "linear",
+                    "bezier",
+                    "hold"
+                  ]
+                },
+                "easeIn": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "speed": {
+                          "type": "number"
+                        },
+                        "influence": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    {
+                      "minItems": 1,
+                      "maxItems": 3,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "speed": {
+                            "type": "number"
+                          },
+                          "influence": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "speed",
+                          "influence"
+                        ]
+                      }
+                    }
+                  ],
+                  "description": "Temporal ease: influence % (e.g. 75 = strong easy-ease), {speed, influence}, or one {speed, influence} per dimension (2D/3D values; 1 for Position and other spatial properties)."
+                },
+                "easeOut": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "speed": {
+                          "type": "number"
+                        },
+                        "influence": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    {
+                      "minItems": 1,
+                      "maxItems": 3,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "speed": {
+                            "type": "number"
+                          },
+                          "influence": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "speed",
+                          "influence"
+                        ]
+                      }
+                    }
+                  ],
+                  "description": "Temporal ease: influence % (e.g. 75 = strong easy-ease), {speed, influence}, or one {speed, influence} per dimension (2D/3D values; 1 for Position and other spatial properties)."
+                }
+              },
+              "required": [
+                "value"
+              ]
+            }
+          },
+          "clearExisting": {
+            "description": "Remove existing keyframes first.",
+            "type": "boolean"
+          },
+          "easyEase": {
+            "description": "Apply easy ease (33%) to all new keyframes that don't specify easing.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "layer",
+          "path",
+          "keyframes"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_set_expression",
+      "title": "Set expression",
+      "description": "Set (or clear with an empty string) an expression on a property. Returns any expression error AE reports.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Layer: 1-based index (number) or exact layer name."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  ]
+                }
+              }
+            ],
+            "description": "Property path from the layer, \"/\"-separated display names or match names, e.g. \"Transform/Position\", \"Effects/Gaussian Blur/Blurriness\", \"ADBE Transform Group/ADBE Opacity\", \"Contents/Rectangle 1/Fill 1/Color\"."
+          },
+          "expression": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "layer",
+          "path",
+          "expression"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_get_effect_params",
+      "title": "Inspect effect parameters",
+      "description": "List an effect's parameters (names, match names, value types, defaults, min/max) WITHOUT changing your layers, so you know the exact parameter names for ae_apply_effect / ae_set_effect_params. Pass comp+layer to inspect an effect already applied (current values).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "effect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            ],
+            "description": "Match name (e.g. \"ADBE Glo2\") or display name (\"Glow\"); with comp+layer, also an index in the stack."
+          },
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "layer": {
+            "description": "Inspect the effect on this layer instead of a fresh default instance.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "effect"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_apply_effect",
+      "title": "Apply effect",
+      "description": "Apply an effect to a layer by match name (preferred, e.g. \"ADBE Gaussian Blur 2\", \"ADBE Fill\", \"ADBE Glo2\", \"ADBE Drop Shadow\") or display name, optionally setting parameters. Returns the effect's parameters.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Layer: 1-based index (number) or exact layer name."
+          },
+          "effect": {
+            "type": "string"
+          },
+          "name": {
+            "description": "Rename the effect instance.",
+            "type": "string"
+          },
+          "params": {
+            "description": "Effect parameters by display name or match name, e.g. {\"Blurriness\": 20, \"Repeat Edge Pixels\": true} or {\"Color\": \"#ff0000\"}.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "layer",
+          "effect"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_add_shape",
+      "title": "Add shape",
+      "description": "Draw a shape (rectangle, ellipse, polygon, star, or custom path) with fill and/or stroke, on a new shape layer or an existing one. Positions are relative to the layer (new layers are centered in the comp).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "layer": {
+            "description": "Existing shape layer; omit to create a new one.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "rectangle",
+              "ellipse",
+              "polygon",
+              "star",
+              "path"
+            ]
+          },
+          "size": {
+            "description": "[w,h] for rectangle/ellipse (default 400x400).",
+            "minItems": 2,
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "position": {
+            "description": "Shape position within the layer (default [0,0]).",
+            "minItems": 2,
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "roundness": {
+            "description": "Rectangle corner roundness.",
+            "type": "number"
+          },
+          "points": {
+            "description": "Polygon/star points.",
+            "type": "number"
+          },
+          "outerRadius": {
+            "type": "number"
+          },
+          "innerRadius": {
+            "type": "number"
+          },
+          "vertices": {
+            "description": "For 'path': [[x,y],...].",
+            "type": "array",
+            "items": {
+              "minItems": 2,
+              "maxItems": 2,
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "inTangents": {
+            "type": "array",
+            "items": {
+              "minItems": 2,
+              "maxItems": 2,
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "outTangents": {
+            "type": "array",
+            "items": {
+              "minItems": 2,
+              "maxItems": 2,
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "closed": {
+            "type": "boolean"
+          },
+          "fill": {
+            "description": "Fill color; omit for no fill (unless no stroke either: defaults to white).",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "minItems": 3,
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            ]
+          },
+          "stroke": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "minItems": 3,
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            ],
+            "description": "Color as \"#rrggbb\" or [r,g,b] (0-1 or 0-255)."
+          },
+          "strokeWidth": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "shape"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_add_to_render_queue",
+      "title": "Add to render queue",
+      "description": "Add a composition to the render queue with an output path and optional templates (see ae_list_render_queue for template names).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "outputPath": {
+            "description": "Absolute output file path (extension should match the output module).",
+            "type": "string"
+          },
+          "renderSettingsTemplate": {
+            "description": "e.g. \"Best Settings\".",
+            "type": "string"
+          },
+          "outputModuleTemplate": {
+            "description": "e.g. \"High Quality\", \"H.264 - Match Render Settings - 15 Mbps\", \"Lossless with Alpha\".",
+            "type": "string"
+          },
+          "workAreaOnly": {
+            "type": "boolean"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_undo",
+      "title": "Undo",
+      "description": "Undo the last action(s) in After Effects (Edit > Undo).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_get_layer_bounds",
+      "title": "Layer bounds",
+      "description": "Exact on-screen bounding boxes of layers in composition pixels at a time, after all transforms, parenting, 3D and the active camera (via AE's own toComp()). Also reports whether each layer is visible at that time, fully/partly/not in frame, and inside action-safe (5% margin) and title-safe (10% margin). Use it to check alignment, spacing, overlaps and safe areas with numbers.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "layers": {
+            "description": "Layers to measure (default: all layers, up to 300).",
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "description": "Layer: 1-based index (number) or exact layer name."
+            }
+          },
+          "selectedOnly": {
+            "description": "Measure only the layers selected in After Effects.",
+            "type": "boolean"
+          },
+          "time": {
+            "description": "Seconds (default: the comp's current time).",
+            "type": "number"
+          },
+          "frame": {
+            "description": "Whole frame number from the comp's start (frame 0 = time 0), instead of time.",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "includeExtents": {
+            "description": "Include stroke widths, effects and other extents (default false = content box).",
+            "type": "boolean"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_get_comp_map",
+      "title": "Composition structure map",
+      "description": "Overview of how a composition is built: the tree of nested precomps (with how many times each is used), parenting chains, track mattes, and which layers/comps each expression references. Use it to understand an unfamiliar project before editing.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "depth": {
+            "description": "How deep to follow nested precomps (default 4).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_get_keyframes",
+      "title": "Keyframe table",
+      "description": "Read keyframes as a table across many layers and properties in one call: for every key its whole frame number AND exact time in seconds, exact value, in/out interpolation, temporal ease per dimension (speed in the property's units per second, influence %) exactly as After Effects stores them, continuous/auto-Bezier, spatial tangents and roving (spatial properties), label. A key that is not on a whole frame is flagged with offFrame (fraction of a frame). curves: true adds, per segment between keys, the normalised curve (cubic-bezier x1,y1,x2,y2 per dimension; along the path for spatial properties). The output's properties[] can be edited and written back with ae_set_keyframe_table.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition: item id (number) or exact name. Omit (or \"active\") for the active/open composition.",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "layers": {
+            "description": "Layers (default: every layer of the comp).",
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "description": "Layer: 1-based index (number) or exact layer name."
+            }
+          },
+          "selectedOnly": {
+            "description": "Only the layers selected in After Effects.",
+            "type": "boolean"
+          },
+          "paths": {
+            "description": "Properties or groups to read on each layer (default: every animated property). The returned paths resolve in any AE language.",
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    ]
+                  }
+                }
+              ],
+              "description": "Property path from the layer, \"/\"-separated display names or match names, e.g. \"Transform/Position\", \"Effects/Gaussian Blur/Blurriness\", \"ADBE Transform Group/ADBE Opacity\", \"Contents/Rectangle 1/Fill 1/Color\"."
+            }
+          },
+          "startFrame": {
+            "description": "Only keys at or after this frame.",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "endFrame": {
+            "description": "Only keys at or before this frame.",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "curves": {
+            "description": "Add the normalised curve numbers of every segment.",
+            "type": "boolean"
+          },
+          "maxKeys": {
+            "description": "Stop after this many keys (default 5000).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20000
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_render_background",
+      "title": "Render in background",
+      "description": "Render a composition (or a render queue item) with aerender in a separate process, so After Effects stays usable. It renders the project as saved on disk: pass save:true to save the open project first (required when it has unsaved changes). Returns a job id; check progress with ae_render_jobs and cancel there.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "description": "Composition to render (id or name; default: the active comp).",
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "rqIndex": {
+            "description": "Render this render queue item with its own settings instead of a comp.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "output": {
+            "description": "Absolute output path (with comp). Extension should match the output module.",
+            "type": "string"
+          },
+          "renderSettingsTemplate": {
+            "description": "e.g. \"Best Settings\".",
+            "type": "string"
+          },
+          "outputModuleTemplate": {
+            "description": "e.g. \"High Quality\", \"H.264 - Match Render Settings - 15 Mbps\".",
+            "type": "string"
+          },
+          "startFrame": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "endFrame": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "save": {
+            "description": "Save the open project first (needed if it has unsaved changes).",
+            "type": "boolean"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_render_jobs",
+      "title": "Background render jobs",
+      "description": "Status and progress of background renders started with ae_render_background (this session), or cancel one.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Only this job.",
+            "type": "string"
+          },
+          "cancel": {
+            "description": "Cancel this job id.",
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_batch",
+      "title": "Batch edits",
+      "description": "Run many steps in ONE call: each step is a tool with its arguments (any project/comp/layer/property/keyframe/effect/text/footage tool) or {tool: \"ae_run_script\", args: {code}}. All steps form a single undo step and return one change report. Atomic by default: if any step fails, everything is undone and you get the error of the failing step. Use it for repetitive or multi-part edits (e.g. style 30 layers, build a scene) to save round trips.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "minItems": 1,
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tool": {
+                  "type": "string"
+                },
+                "args": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "tool"
+              ]
+            }
+          },
+          "atomic": {
+            "description": "Undo everything if a step fails (default true). false = keep successful steps and continue.",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Undo step name shown in After Effects (default \"Surehand MCP Batch\").",
+            "type": "string"
+          },
+          "checkpoint": {
+            "description": "Save a project checkpoint before running (see ae_checkpoint).",
+            "type": "boolean"
+          },
+          "verbose": {
+            "description": "Return each step's full result (default: short summaries).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "steps"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "ae_checkpoint",
+      "title": "Project checkpoints",
+      "description": "Safety copies of the project: save (saves the open project, then keeps a timestamped copy), list the checkpoints of this project, or restore one (opens it as a NEW file next to the original; neither the original nor an earlier restore is ever overwritten). Use before large or risky changes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "save",
+              "list",
+              "restore"
+            ]
+          },
+          "label": {
+            "description": "Short label for a new checkpoint.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Checkpoint id to restore (from list).",
+            "type": "string"
+          },
+          "discardChanges": {
+            "description": "Restore even if the open project has unsaved changes (they are discarded).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_list_scripts",
+      "title": "List scripts",
+      "description": "List the user's own After Effects scripts: AE's Scripts folder (and ScriptUI Panels) plus folders configured as \"scriptFolders\" in ~/.surehand/ae/config.json, with each script's description from its header comment. Run one with ae_run_script_file.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "nameContains": {
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_prove_identical",
+      "title": "Prove the render is unchanged",
+      "description": "Prove a structural change (un-precompose, bake expressions, reorder effects, simplify a rig) left the render unchanged, or show which frames and areas differ. capture: render reference frames (default: active comp, 5 frames over the work area), returns a proof id. compare: render them again and compare pixel by pixel (verdict, per-frame max difference, changed pixels, ΔE, area, difference image). run: capture, ae_batch steps, compare, in one call. For un-precompose, prove the parent comp. Only the sampled video frames are compared (alpha included; not audio, the comp background color or times between samples; 32 bpc values above 1.0 are clamped).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "capture",
+              "compare",
+              "run"
+            ]
+          },
+          "comps": {
+            "description": "capture/run: comps to prove (item id or exact name; default the active comp).",
+            "minItems": 1,
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "times": {
+            "description": "capture/run: exact times in seconds (snapped to frames) instead of evenly spaced frames.",
+            "minItems": 1,
+            "maxItems": 24,
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "frames": {
+            "description": "capture/run: number of frames spread over each comp's work area (default 5).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24
+          },
+          "maxSize": {
+            "description": "capture/run: longest rendered side in pixels (default 1920; larger comps are scaled down).",
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 4096
+          },
+          "id": {
+            "description": "compare: the proof id from capture (default the latest proof).",
+            "type": "string"
+          },
+          "tolerance": {
+            "description": "compare/run: allowed difference per channel, 0-255 (default 0.5: less than one 8-bit step, so only 16/32 bpc rounding is allowed; 0 = bit-identical).",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "steps": {
+            "description": "run: the edits, as ae_batch steps.",
+            "minItems": 1,
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tool": {
+                  "type": "string"
+                },
+                "args": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "tool"
+              ]
+            }
+          },
+          "atomic": {
+            "description": "run: as ae_batch (default true: a failed step undoes everything, and nothing is compared).",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "run: undo step name.",
+            "type": "string"
+          },
+          "checkpoint": {
+            "description": "run: save a project checkpoint before the edits.",
+            "type": "boolean"
+          },
+          "verbose": {
+            "description": "run: full result of each step.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "ae_get_scripting_guide",
+      "title": "ExtendScript guide",
+      "description": "Returns the After Effects ExtendScript cheat sheet (ES3 rules, helpers, common match names). Read before writing complex ae_run_script code.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_tools",
+      "title": "More tools",
+      "description": "Discover every After Effects tool, including ones not loaded in this chat: list them by category (one line each), or describe chosen tools (full parameters). Then run any of them with ae_call. Categories: status & app, scripts, project, comps, layers, properties & keyframes, effects, shapes & masks, text, 3D, audio, footage, files & export, checks, see & measure, essential graphics, render.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "describe": {
+            "description": "Tool names to get full parameter details for.",
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "description": "Only list this category.",
+            "type": "string"
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "ae_call",
+      "title": "Run any tool",
+      "description": "Run any After Effects tool by name with its arguments, e.g. tools listed by ae_tools that aren't loaded in this chat. Same validation, permissions, change report and activity log as calling the tool directly. Get the parameters with ae_tools {describe: [name]}.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "description": "Tool name, e.g. \"ae_set_camera\"."
+          },
+          "args": {
+            "description": "The tool's arguments.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "tool"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    }
+  ]
+}

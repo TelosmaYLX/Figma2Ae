@@ -29,4 +29,4 @@ $mcpText = [IO.File]::ReadAllText($mcpConfig)
 $mcpHeader = '(?m)^\[mcp_servers\.' + [regex]::Escape($Name) + '\]\r?$'
 $mcpText = [regex]::Replace($mcpText, $mcpHeader, ('$0' + "`nstartup_timeout_sec = 60`ntool_timeout_sec = 120"))
 [IO.File]::WriteAllText($mcpConfig, $mcpText, (New-Object System.Text.UTF8Encoding $false))
-Write-Output 'F2A MCP configured. Reconnect MCP or restart Codex once, then open F2A in Figma.'
+Write-Output 'F2A MCP configured. Reconnect MCP to use the Figma tools and ae_status for After Effects.'

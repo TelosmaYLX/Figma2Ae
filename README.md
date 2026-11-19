@@ -2,7 +2,7 @@
 
 **把 Figma 设计变成可以继续做动效的 AE 图层。** 从一个画框生成独立的 `.aep`，也可以只发送选中的几个图层，直接接到正在制作的合成里。
 
-[**下载 Windows 版**](https://github.com/TelosmaYLX/Figma2Ae/releases/latest) · [快速开始](#快速开始) · [工作原理](#工作原理) · [图层转换](#图层转换) · [MCP](#用-mcp-操作-figma)
+[**下载 Windows 版**](https://github.com/TelosmaYLX/Figma2Ae/releases/latest) · [快速开始](#快速开始) · [工作原理](#工作原理) · [图层转换](#图层转换) · [MCP](#用-mcp-操作-figma-和-ae)
 
 | 你想做什么 | 在 Figma 中选择 | 在 AE 中得到 |
 | --- | --- | --- |
@@ -80,9 +80,9 @@ flowchart LR
 
 如果 v1.1.0 检查更新报 `listener` 错误，下载新版 ZIP 并按安装步骤覆盖原安装目录。该错误已在 v1.1.1 修复。[下载最新版](https://github.com/TelosmaYLX/Figma2Ae/releases/latest)
 
-## 用 MCP 操作 Figma
+## 用 MCP 操作 Figma 和 AE
 
-F2A 也可作为 MCP 服务。注册 `f2a` 并打开 Figma 面板后，支持 MCP 的客户端可以读取选区、查找和重命名图层、编辑设计节点或获取截图。仅使用 MCP 时，可以只启动 Figma。[配置 MCP](mcp/README.md)
+注册 `f2a` 后，agent 可以读取和编辑 Figma，也能通过内置的 Surehand 打开 AE 工程、制作动画、预览并导出 AEP 或视频。首次使用 AE 工具时，按提示重启 AE 以加载扩展。 [配置和使用 MCP](mcp/README.md)
 
 ## 常见问题
 

@@ -1,9 +1,7 @@
 # F2A MCP
 
-F2A 内置 [Cursor Talk to Figma MCP](https://github.com/grab/cursor-talk-to-figma-mcp)
-和 [Figwright](https://github.com/awdr74100/figwright) 的工具和 Figma 命令，共 165 个工具。
-打开 Figma 中的 F2A，agent 即可读写当前文档；不需要另开
-Cursor MCP 插件、启动 Bun 服务或复制频道。
+F2A 提供 165 个 Figma 工具和内置的 Surehand AE 工具。打开 Figma 中的 F2A，agent 即可读写当前文档。
+同一个 `f2a` MCP 也可以连接 After Effects。 [Cursor Talk to Figma MCP](https://github.com/grab/cursor-talk-to-figma-mcp) · [Figwright](https://github.com/awdr74100/figwright) · [Surehand v1.4.1](https://github.com/ConformLabs/surehand-mcp/releases/tag/v1.4.1)
 
 ## 本机配置
 
@@ -41,7 +39,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\Tools\F2A\scripts\install
 }
 ```
 
-分发包可将 `command` 指向随包提供的 `runtime/node/node.exe`，无需安装依赖或联网。
+Windows 分发包使用本机的 Node.js 20+，MCP 依赖已打包。
+
+## 在 After Effects 中制作和导出动画
+
+更新 F2A 后重连 `f2a`。首次调用 `ae_status` 会安装随包提供的 Surehand 扩展。按提示重启 AE 后再次调用。开着多个 AE 实例时，可用 `ae_status` 的 `instance` 参数选择目标版本或桥接端口。
+
+1. 在 AE 打开目标工程，或让 agent 用 `ae_open_project` 打开 F2A 导出的 `.aep`。
+2. 用 `ae_list_comps` 找到合成的 ID。F2A 工程中，合成和文件夹可能同名。
+3. 用 `ae_set_keyframes`、`ae_set_expression` 等工具制作动画，用 `ae_render_frame` 预览。
+4. 用 `ae_save_project` 保存可编辑的 AEP。输出视频时使用本机 AE 的输出模板，例如中文 AE 的 `H.264 - 匹配渲染设置 - 15 Mbps`。可以在 AE 渲染队列中渲染，也可以用 `ae_render_background` 启动后台渲染，并在同一会话通过 `ae_render_jobs` 查看进度。
+
+可以对 agent 说：“用 F2A 打开这份 AEP，给标题做 12 帧淡入，预览首尾帧。保存为新的 AEP，再渲染成 H.264 MP4。”
+
+用 `ae_tools` 查找更多 Surehand 工具，例如文字动画器、交付预检和像素比对，用 `ae_call` 调用。
 
 ## 使用
 
@@ -127,4 +138,5 @@ npm test
 
 `server.cjs`、`relay.cjs` 和嵌入 `figma-plugin/code.js` 的命令代码均已提交，运行时
 不依赖 `node_modules`。构建复用上游工具与命令，使用 F2A 的传输与面板。
+`vendor/surehand` 包含基于 Surehand v1.4.1 构建的服务文件、工具清单和许可证。`f2a-unicode.patch` 修正了 CEP 传递中文名称的问题。清单记录上游提交和 SHA-256，构建时会校验服务文件。
 `THIRD_PARTY_LICENSES.txt` 保留打包依赖的许可证。

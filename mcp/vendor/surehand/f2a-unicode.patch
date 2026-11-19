@@ -1,0 +1,17 @@
+diff --git a/server/src/jsx.ts b/server/src/jsx.ts
+index caa1f97..f77b955 100644
+--- a/server/src/jsx.ts
++++ b/server/src/jsx.ts
+@@ -101,9 +101,10 @@ export interface RunResult {
+   writeAccess?: false;
+ }
+ 
+-/** JSON.stringify that is also a valid ES3 literal (U+2028/2029 are illegal in ES3 strings). */
++/** Keep JSON literals ASCII for the CEP to ExtendScript transport, including ES3 line separators. */
+ export function toJsLiteral(v: unknown): string {
+-  return (JSON.stringify(v ?? null) ?? "null").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
++  return (JSON.stringify(v ?? null) ?? "null").replace(/[\u0080-\uffff]/g, (character) =>
++    "\\u" + character.charCodeAt(0).toString(16).padStart(4, "0"));
+ }
+ 
+ /**

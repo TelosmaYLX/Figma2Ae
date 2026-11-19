@@ -25,6 +25,7 @@ const files = [
     'gradoverlay-template.ffx', 'gradstroke-template.ffx', 'innershadow-overlay-template.ffx',
     'innershadow-template.ffx', 'stroke-template.ffx'].map(f => 'host/figma/' + f),
   ...['server.cjs', 'relay.cjs', 'launcher.cjs', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/' + f),
+  ...['surehand-ae.mjs', 'LICENSE', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/vendor/surehand/' + f),
   ...['aep-server.cjs', 'export-aep.cjs', 'open-aep-directory.ps1', 'start-aep-export.ps1',
     'install-aep-launcher.ps1', 'install-mcp.ps1', 'install-mcp-dsh.cjs',
     'install-f2a.ps1', 'update-f2a.ps1'].map(f => 'scripts/' + f),

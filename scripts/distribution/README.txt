@@ -45,8 +45,9 @@ Codex CLI 已安装时，在 PowerShell 中运行（<安装目录> 换成实际�
 DSH Desktop 用户可运行：
 & "<安装目录>\scripts\install-mcp.ps1" -Client DshDesktop
 
-重新连接 MCP，打开 Figma 中的 F2A，等待“MCP 已就绪”。
-MCP 已打包，无需 npm install。
+重连 f2a。使用 Figma 工具时，在 Figma 中打开 F2A。
+使用 AE 工具时，先调用 ae_status。首次安装 Surehand 扩展后按提示重启 AE。
+agent 可以制作动画、预览、保存 AEP 和渲染视频。MCP 依赖已打包。
 
 四、包内内容
 

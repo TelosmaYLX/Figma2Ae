@@ -135,9 +135,10 @@ Figma 桌面版 → 菜单 `Plugins` → `Development` → `Import plugin from m
 
 ---
 
-## 4. 接入 MCP（让 AI 能读写 Figma / 触发导出）
+## 4. 接入 MCP（让 agent 操作 Figma 和 AE）
 
-MCP 是一个 stdio 服务，入口固定为**安装目录**下的 `mcp\server.cjs`，**无需** `npm install`（依赖已打包进 `server.cjs`）。
+MCP 是一个 stdio 服务，入口是安装目录下的 `mcp\server.cjs`。MCP 依赖和 Surehand 随包提供。
+首次使用 `ae_status` 会安装 Surehand 扩展。重新打开 AE 后，agent 可以操作合成、制作动画、保存 AEP 和渲染视频。
 
 先设一个变量，避免路径写错（按你的实际安装位置改）：
 

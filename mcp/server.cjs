@@ -3261,8 +3261,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path) {
-      let input2 = path;
+    function removeDotSegments(path2) {
+      let input2 = path2;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -3336,11 +3336,11 @@ var require_utils = __commonJS({
       }
       return output2.join("");
     }
-    function removeDotSegmentsRelative(path) {
-      if (path === "" || path[0] === "/") {
-        return removeDotSegments(path);
+    function removeDotSegmentsRelative(path2) {
+      if (path2 === "" || path2[0] === "/") {
+        return removeDotSegments(path2);
       }
-      const segments = path.split("/");
+      const segments = path2.split("/");
       const last = segments.length - 1;
       const output2 = [];
       let trailingDirectory = false;
@@ -3703,8 +3703,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path && path !== "/" ? path : void 0;
+        const path2 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -7260,8 +7260,8 @@ var require_launcher = __commonJS({
     "use strict";
     var http = require("http");
     var fs = require("fs");
-    var path = require("path");
-    var spawn = require("child_process").spawn;
+    var path2 = require("path");
+    var spawn2 = require("child_process").spawn;
     var PORT = Number(process.env.F2A_MCP_PORT || 7367);
     function health(callback) {
       var done = false;
@@ -7293,9 +7293,9 @@ var require_launcher = __commonJS({
       request.on("error", finish);
     }
     function nodePath() {
-      var bundled = path.join(__dirname, "../runtime/node/node.exe");
+      var bundled = path2.join(__dirname, "../runtime/node/node.exe");
       if (fs.existsSync(bundled)) return bundled;
-      bundled = path.join(__dirname, "../../runtime/node/node.exe");
+      bundled = path2.join(__dirname, "../../runtime/node/node.exe");
       if (fs.existsSync(bundled)) return bundled;
       if (/node(?:\.exe)?$/i.test(process.execPath)) return process.execPath;
       return process.platform === "win32" ? "node.exe" : "node";
@@ -7318,7 +7318,7 @@ var require_launcher = __commonJS({
             callback(failure2, result);
           }
         }
-        var child = spawn(options.nodePath || nodePath(), [path.join(__dirname, "relay.cjs")], {
+        var child = spawn2(options.nodePath || nodePath(), [path2.join(__dirname, "relay.cjs")], {
           cwd: __dirname,
           detached: true,
           stdio: "ignore",
@@ -7388,6 +7388,503 @@ var require_bridge = __commonJS({
       return result;
     }
     module2.exports = { status: status2, selectSession: selectSession2, sendCommandToFigma: sendCommandToFigma2 };
+  }
+});
+
+// mcp/node_modules/isexe/windows.js
+var require_windows = __commonJS({
+  "mcp/node_modules/isexe/windows.js"(exports2, module2) {
+    module2.exports = isexe;
+    isexe.sync = sync;
+    var fs = require("fs");
+    function checkPathExt(path2, options) {
+      var pathext = options.pathExt !== void 0 ? options.pathExt : process.env.PATHEXT;
+      if (!pathext) {
+        return true;
+      }
+      pathext = pathext.split(";");
+      if (pathext.indexOf("") !== -1) {
+        return true;
+      }
+      for (var i = 0; i < pathext.length; i++) {
+        var p = pathext[i].toLowerCase();
+        if (p && path2.substr(-p.length).toLowerCase() === p) {
+          return true;
+        }
+      }
+      return false;
+    }
+    function checkStat(stat, path2, options) {
+      if (!stat.isSymbolicLink() && !stat.isFile()) {
+        return false;
+      }
+      return checkPathExt(path2, options);
+    }
+    function isexe(path2, options, cb) {
+      fs.stat(path2, function(er, stat) {
+        cb(er, er ? false : checkStat(stat, path2, options));
+      });
+    }
+    function sync(path2, options) {
+      return checkStat(fs.statSync(path2), path2, options);
+    }
+  }
+});
+
+// mcp/node_modules/isexe/mode.js
+var require_mode = __commonJS({
+  "mcp/node_modules/isexe/mode.js"(exports2, module2) {
+    module2.exports = isexe;
+    isexe.sync = sync;
+    var fs = require("fs");
+    function isexe(path2, options, cb) {
+      fs.stat(path2, function(er, stat) {
+        cb(er, er ? false : checkStat(stat, options));
+      });
+    }
+    function sync(path2, options) {
+      return checkStat(fs.statSync(path2), options);
+    }
+    function checkStat(stat, options) {
+      return stat.isFile() && checkMode(stat, options);
+    }
+    function checkMode(stat, options) {
+      var mod = stat.mode;
+      var uid = stat.uid;
+      var gid = stat.gid;
+      var myUid = options.uid !== void 0 ? options.uid : process.getuid && process.getuid();
+      var myGid = options.gid !== void 0 ? options.gid : process.getgid && process.getgid();
+      var u = parseInt("100", 8);
+      var g = parseInt("010", 8);
+      var o = parseInt("001", 8);
+      var ug = u | g;
+      var ret = mod & o || mod & g && gid === myGid || mod & u && uid === myUid || mod & ug && myUid === 0;
+      return ret;
+    }
+  }
+});
+
+// mcp/node_modules/isexe/index.js
+var require_isexe = __commonJS({
+  "mcp/node_modules/isexe/index.js"(exports2, module2) {
+    var fs = require("fs");
+    var core;
+    if (process.platform === "win32" || global.TESTING_WINDOWS) {
+      core = require_windows();
+    } else {
+      core = require_mode();
+    }
+    module2.exports = isexe;
+    isexe.sync = sync;
+    function isexe(path2, options, cb) {
+      if (typeof options === "function") {
+        cb = options;
+        options = {};
+      }
+      if (!cb) {
+        if (typeof Promise !== "function") {
+          throw new TypeError("callback not provided");
+        }
+        return new Promise(function(resolve6, reject) {
+          isexe(path2, options || {}, function(er, is) {
+            if (er) {
+              reject(er);
+            } else {
+              resolve6(is);
+            }
+          });
+        });
+      }
+      core(path2, options || {}, function(er, is) {
+        if (er) {
+          if (er.code === "EACCES" || options && options.ignoreErrors) {
+            er = null;
+            is = false;
+          }
+        }
+        cb(er, is);
+      });
+    }
+    function sync(path2, options) {
+      try {
+        return core.sync(path2, options || {});
+      } catch (er) {
+        if (options && options.ignoreErrors || er.code === "EACCES") {
+          return false;
+        } else {
+          throw er;
+        }
+      }
+    }
+  }
+});
+
+// mcp/node_modules/which/which.js
+var require_which = __commonJS({
+  "mcp/node_modules/which/which.js"(exports2, module2) {
+    var isWindows = process.platform === "win32" || process.env.OSTYPE === "cygwin" || process.env.OSTYPE === "msys";
+    var path2 = require("path");
+    var COLON = isWindows ? ";" : ":";
+    var isexe = require_isexe();
+    var getNotFoundError = (cmd) => Object.assign(new Error(`not found: ${cmd}`), { code: "ENOENT" });
+    var getPathInfo = (cmd, opt) => {
+      const colon = opt.colon || COLON;
+      const pathEnv = cmd.match(/\//) || isWindows && cmd.match(/\\/) ? [""] : [
+        // windows always checks the cwd first
+        ...isWindows ? [process.cwd()] : [],
+        ...(opt.path || process.env.PATH || /* istanbul ignore next: very unusual */
+        "").split(colon)
+      ];
+      const pathExtExe = isWindows ? opt.pathExt || process.env.PATHEXT || ".EXE;.CMD;.BAT;.COM" : "";
+      const pathExt = isWindows ? pathExtExe.split(colon) : [""];
+      if (isWindows) {
+        if (cmd.indexOf(".") !== -1 && pathExt[0] !== "")
+          pathExt.unshift("");
+      }
+      return {
+        pathEnv,
+        pathExt,
+        pathExtExe
+      };
+    };
+    var which = (cmd, opt, cb) => {
+      if (typeof opt === "function") {
+        cb = opt;
+        opt = {};
+      }
+      if (!opt)
+        opt = {};
+      const { pathEnv, pathExt, pathExtExe } = getPathInfo(cmd, opt);
+      const found = [];
+      const step = (i) => new Promise((resolve6, reject) => {
+        if (i === pathEnv.length)
+          return opt.all && found.length ? resolve6(found) : reject(getNotFoundError(cmd));
+        const ppRaw = pathEnv[i];
+        const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
+        const pCmd = path2.join(pathPart, cmd);
+        const p = !pathPart && /^\.[\\\/]/.test(cmd) ? cmd.slice(0, 2) + pCmd : pCmd;
+        resolve6(subStep(p, i, 0));
+      });
+      const subStep = (p, i, ii) => new Promise((resolve6, reject) => {
+        if (ii === pathExt.length)
+          return resolve6(step(i + 1));
+        const ext = pathExt[ii];
+        isexe(p + ext, { pathExt: pathExtExe }, (er, is) => {
+          if (!er && is) {
+            if (opt.all)
+              found.push(p + ext);
+            else
+              return resolve6(p + ext);
+          }
+          return resolve6(subStep(p, i, ii + 1));
+        });
+      });
+      return cb ? step(0).then((res) => cb(null, res), cb) : step(0);
+    };
+    var whichSync = (cmd, opt) => {
+      opt = opt || {};
+      const { pathEnv, pathExt, pathExtExe } = getPathInfo(cmd, opt);
+      const found = [];
+      for (let i = 0; i < pathEnv.length; i++) {
+        const ppRaw = pathEnv[i];
+        const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
+        const pCmd = path2.join(pathPart, cmd);
+        const p = !pathPart && /^\.[\\\/]/.test(cmd) ? cmd.slice(0, 2) + pCmd : pCmd;
+        for (let j = 0; j < pathExt.length; j++) {
+          const cur = p + pathExt[j];
+          try {
+            const is = isexe.sync(cur, { pathExt: pathExtExe });
+            if (is) {
+              if (opt.all)
+                found.push(cur);
+              else
+                return cur;
+            }
+          } catch (ex) {
+          }
+        }
+      }
+      if (opt.all && found.length)
+        return found;
+      if (opt.nothrow)
+        return null;
+      throw getNotFoundError(cmd);
+    };
+    module2.exports = which;
+    which.sync = whichSync;
+  }
+});
+
+// mcp/node_modules/path-key/index.js
+var require_path_key = __commonJS({
+  "mcp/node_modules/path-key/index.js"(exports2, module2) {
+    "use strict";
+    var pathKey = (options = {}) => {
+      const environment = options.env || process.env;
+      const platform = options.platform || process.platform;
+      if (platform !== "win32") {
+        return "PATH";
+      }
+      return Object.keys(environment).reverse().find((key) => key.toUpperCase() === "PATH") || "Path";
+    };
+    module2.exports = pathKey;
+    module2.exports.default = pathKey;
+  }
+});
+
+// mcp/node_modules/cross-spawn/lib/util/resolveCommand.js
+var require_resolveCommand = __commonJS({
+  "mcp/node_modules/cross-spawn/lib/util/resolveCommand.js"(exports2, module2) {
+    "use strict";
+    var path2 = require("path");
+    var which = require_which();
+    var getPathKey = require_path_key();
+    function resolveCommandAttempt(parsed, withoutPathExt) {
+      const env = parsed.options.env || process.env;
+      const cwd = process.cwd();
+      const hasCustomCwd = parsed.options.cwd != null;
+      const shouldSwitchCwd = hasCustomCwd && process.chdir !== void 0 && !process.chdir.disabled;
+      if (shouldSwitchCwd) {
+        try {
+          process.chdir(parsed.options.cwd);
+        } catch (err) {
+        }
+      }
+      let resolved;
+      try {
+        resolved = which.sync(parsed.command, {
+          path: env[getPathKey({ env })],
+          pathExt: withoutPathExt ? path2.delimiter : void 0
+        });
+      } catch (e) {
+      } finally {
+        if (shouldSwitchCwd) {
+          process.chdir(cwd);
+        }
+      }
+      if (resolved) {
+        resolved = path2.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
+      }
+      return resolved;
+    }
+    function resolveCommand(parsed) {
+      return resolveCommandAttempt(parsed) || resolveCommandAttempt(parsed, true);
+    }
+    module2.exports = resolveCommand;
+  }
+});
+
+// mcp/node_modules/cross-spawn/lib/util/escape.js
+var require_escape = __commonJS({
+  "mcp/node_modules/cross-spawn/lib/util/escape.js"(exports2, module2) {
+    "use strict";
+    var metaCharsRegExp = /([()\][%!^"`<>&|;, *?])/g;
+    function escapeCommand(arg) {
+      arg = arg.replace(metaCharsRegExp, "^$1");
+      return arg;
+    }
+    function escapeArgument(arg, doubleEscapeMetaChars) {
+      arg = `${arg}`;
+      arg = arg.replace(/(?=(\\+?)?)\1"/g, '$1$1\\"');
+      arg = arg.replace(/(?=(\\+?)?)\1$/, "$1$1");
+      arg = `"${arg}"`;
+      arg = arg.replace(metaCharsRegExp, "^$1");
+      if (doubleEscapeMetaChars) {
+        arg = arg.replace(metaCharsRegExp, "^$1");
+      }
+      return arg;
+    }
+    module2.exports.command = escapeCommand;
+    module2.exports.argument = escapeArgument;
+  }
+});
+
+// mcp/node_modules/shebang-regex/index.js
+var require_shebang_regex = __commonJS({
+  "mcp/node_modules/shebang-regex/index.js"(exports2, module2) {
+    "use strict";
+    module2.exports = /^#!(.*)/;
+  }
+});
+
+// mcp/node_modules/shebang-command/index.js
+var require_shebang_command = __commonJS({
+  "mcp/node_modules/shebang-command/index.js"(exports2, module2) {
+    "use strict";
+    var shebangRegex = require_shebang_regex();
+    module2.exports = (string4 = "") => {
+      const match = string4.match(shebangRegex);
+      if (!match) {
+        return null;
+      }
+      const [path2, argument] = match[0].replace(/#! ?/, "").split(" ");
+      const binary = path2.split("/").pop();
+      if (binary === "env") {
+        return argument;
+      }
+      return argument ? `${binary} ${argument}` : binary;
+    };
+  }
+});
+
+// mcp/node_modules/cross-spawn/lib/util/readShebang.js
+var require_readShebang = __commonJS({
+  "mcp/node_modules/cross-spawn/lib/util/readShebang.js"(exports2, module2) {
+    "use strict";
+    var fs = require("fs");
+    var shebangCommand = require_shebang_command();
+    function readShebang(command) {
+      const size = 150;
+      const buffer = Buffer.alloc(size);
+      let fd;
+      try {
+        fd = fs.openSync(command, "r");
+        fs.readSync(fd, buffer, 0, size, 0);
+        fs.closeSync(fd);
+      } catch (e) {
+      }
+      return shebangCommand(buffer.toString());
+    }
+    module2.exports = readShebang;
+  }
+});
+
+// mcp/node_modules/cross-spawn/lib/parse.js
+var require_parse = __commonJS({
+  "mcp/node_modules/cross-spawn/lib/parse.js"(exports2, module2) {
+    "use strict";
+    var path2 = require("path");
+    var resolveCommand = require_resolveCommand();
+    var escape2 = require_escape();
+    var readShebang = require_readShebang();
+    var isWin = process.platform === "win32";
+    var isExecutableRegExp = /\.(?:com|exe)$/i;
+    var isCmdShimRegExp = /node_modules[\\/].bin[\\/][^\\/]+\.cmd$/i;
+    function detectShebang(parsed) {
+      parsed.file = resolveCommand(parsed);
+      const shebang = parsed.file && readShebang(parsed.file);
+      if (shebang) {
+        parsed.args.unshift(parsed.file);
+        parsed.command = shebang;
+        return resolveCommand(parsed);
+      }
+      return parsed.file;
+    }
+    function parseNonShell(parsed) {
+      if (!isWin) {
+        return parsed;
+      }
+      const commandFile = detectShebang(parsed);
+      const needsShell = !isExecutableRegExp.test(commandFile);
+      if (parsed.options.forceShell || needsShell) {
+        const needsDoubleEscapeMetaChars = isCmdShimRegExp.test(commandFile);
+        parsed.command = path2.normalize(parsed.command);
+        parsed.command = escape2.command(parsed.command);
+        parsed.args = parsed.args.map((arg) => escape2.argument(arg, needsDoubleEscapeMetaChars));
+        const shellCommand = [parsed.command].concat(parsed.args).join(" ");
+        parsed.args = ["/d", "/s", "/c", `"${shellCommand}"`];
+        parsed.command = process.env.comspec || "cmd.exe";
+        parsed.options.windowsVerbatimArguments = true;
+      }
+      return parsed;
+    }
+    function parse3(command, args, options) {
+      if (args && !Array.isArray(args)) {
+        options = args;
+        args = null;
+      }
+      args = args ? args.slice(0) : [];
+      options = Object.assign({}, options);
+      const parsed = {
+        command,
+        args,
+        options,
+        file: void 0,
+        original: {
+          command,
+          args
+        }
+      };
+      return options.shell ? parsed : parseNonShell(parsed);
+    }
+    module2.exports = parse3;
+  }
+});
+
+// mcp/node_modules/cross-spawn/lib/enoent.js
+var require_enoent = __commonJS({
+  "mcp/node_modules/cross-spawn/lib/enoent.js"(exports2, module2) {
+    "use strict";
+    var isWin = process.platform === "win32";
+    function notFoundError(original, syscall) {
+      return Object.assign(new Error(`${syscall} ${original.command} ENOENT`), {
+        code: "ENOENT",
+        errno: "ENOENT",
+        syscall: `${syscall} ${original.command}`,
+        path: original.command,
+        spawnargs: original.args
+      });
+    }
+    function hookChildProcess(cp, parsed) {
+      if (!isWin) {
+        return;
+      }
+      const originalEmit = cp.emit;
+      cp.emit = function(name, arg1) {
+        if (name === "exit") {
+          const err = verifyENOENT(arg1, parsed);
+          if (err) {
+            return originalEmit.call(cp, "error", err);
+          }
+        }
+        return originalEmit.apply(cp, arguments);
+      };
+    }
+    function verifyENOENT(status2, parsed) {
+      if (isWin && status2 === 1 && !parsed.file) {
+        return notFoundError(parsed.original, "spawn");
+      }
+      return null;
+    }
+    function verifyENOENTSync(status2, parsed) {
+      if (isWin && status2 === 1 && !parsed.file) {
+        return notFoundError(parsed.original, "spawnSync");
+      }
+      return null;
+    }
+    module2.exports = {
+      hookChildProcess,
+      verifyENOENT,
+      verifyENOENTSync,
+      notFoundError
+    };
+  }
+});
+
+// mcp/node_modules/cross-spawn/index.js
+var require_cross_spawn = __commonJS({
+  "mcp/node_modules/cross-spawn/index.js"(exports2, module2) {
+    "use strict";
+    var cp = require("child_process");
+    var parse3 = require_parse();
+    var enoent = require_enoent();
+    function spawn2(command, args, options) {
+      const parsed = parse3(command, args, options);
+      const spawned = cp.spawn(parsed.command, parsed.args, parsed.options);
+      enoent.hookChildProcess(spawned, parsed);
+      return spawned;
+    }
+    function spawnSync(command, args, options) {
+      const parsed = parse3(command, args, options);
+      const result = cp.spawnSync(parsed.command, parsed.args, parsed.options);
+      result.error = result.error || enoent.verifyENOENTSync(result.status, parsed);
+      return result;
+    }
+    module2.exports = spawn2;
+    module2.exports.spawn = spawn2;
+    module2.exports.sync = spawnSync;
+    module2.exports._parse = parse3;
+    module2.exports._enoent = enoent;
   }
 });
 
@@ -7765,8 +8262,8 @@ function getErrorMap() {
 
 // mcp/node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path, errorMaps, issueData } = params;
-  const fullPath = [...path, ...issueData.path || []];
+  const { data, path: path2, errorMaps, issueData } = params;
+  const fullPath = [...path2, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7881,11 +8378,11 @@ var errorUtil;
 
 // mcp/node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path, key) {
+  constructor(parent, value, path2, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path;
+    this._path = path2;
     this._key = key;
   }
   get path() {
@@ -11840,10 +12337,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path) {
-  if (!path)
+function getElementAtPath(obj, path2) {
+  if (!path2)
     return obj;
-  return path.reduce((acc, key) => acc?.[key], obj);
+  return path2.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -12183,11 +12680,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path, issues) {
+function prefixIssues(path2, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path);
+    iss.path.unshift(path2);
     return iss;
   });
 }
@@ -12649,16 +13146,16 @@ function flattenError(error62, mapper = (issue2) => issue2.message) {
 }
 function formatError(error62, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error63, path = []) => {
+  const processError = (error63, path2 = []) => {
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path2, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path2, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path2, ...issue2.path]);
       } else {
-        const fullpath = [...path, ...issue2.path];
+        const fullpath = [...path2, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -12697,17 +13194,17 @@ function formatError(error62, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error62, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error63, path = []) => {
+  const processError = (error63, path2 = []) => {
     var _a3;
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path2, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path2, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path2, ...issue2.path]);
       } else {
-        const fullpath = [...path, ...issue2.path];
+        const fullpath = [...path2, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -12746,8 +13243,8 @@ function treeifyError(error62, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path) {
+  const path2 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path2) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -28298,11 +28795,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path) {
-  if (path.length === 0) {
+function getDotPath(path2) {
+  if (path2.length === 0) {
     return "object root";
   }
-  return path.reduce((acc, seg, index) => {
+  return path2.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -30529,13 +31026,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path = ref.slice(1).split("/").filter(Boolean);
-  if (path.length === 0) {
+  const path2 = ref.slice(1).split("/").filter(Boolean);
+  if (path2.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path[0] === defsKey) {
-    const key = path[1] === void 0 ? void 0 : decodeJSONPointerSegment(path[1]);
+  if (path2[0] === defsKey) {
+    const key = path2[1] === void 0 ? void 0 : decodeJSONPointerSegment(path2[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -39560,10 +40057,10 @@ var writeExportedPdf = async (outPath, pdf) => {
   const empty = pdf.empty === true ? { empty: true } : {};
   const payload = binaryPayload(pdf);
   if (payload === null) return { nodeId: pdf.nodeId, path: null, ...empty };
-  const path = (0, import_node_path.resolve)(outPath);
-  await (0, import_promises.mkdir)((0, import_node_path.dirname)(path), { recursive: true });
-  await (0, import_promises.writeFile)(path, payload);
-  return { nodeId: pdf.nodeId, path, ...empty };
+  const path2 = (0, import_node_path.resolve)(outPath);
+  await (0, import_promises.mkdir)((0, import_node_path.dirname)(path2), { recursive: true });
+  await (0, import_promises.writeFile)(path2, payload);
+  return { nodeId: pdf.nodeId, path: path2, ...empty };
 };
 var handleExportPdf = async (dispatch, rawArgs) => {
   const args = inputSchema.parse(rawArgs);
@@ -39607,10 +40104,10 @@ var writeExportedVideo = async (outPath, video) => {
   if (payload === null) {
     return { nodeId: video.nodeId, format: video.format, path: null, ...miss };
   }
-  const path = (0, import_node_path2.resolve)(outPath);
-  await (0, import_promises2.mkdir)((0, import_node_path2.dirname)(path), { recursive: true });
-  await (0, import_promises2.writeFile)(path, payload);
-  return { nodeId: video.nodeId, format: video.format, path };
+  const path2 = (0, import_node_path2.resolve)(outPath);
+  await (0, import_promises2.mkdir)((0, import_node_path2.dirname)(path2), { recursive: true });
+  await (0, import_promises2.writeFile)(path2, payload);
+  return { nodeId: video.nodeId, format: video.format, path: path2 };
 };
 var handleExportVideo = async (dispatch, rawArgs) => {
   const { outPath, ...pluginArgs } = inputSchema2.parse(rawArgs);
@@ -39996,12 +40493,12 @@ var readImageHeader = async (file2, tool) => {
   }
 };
 var resolveImagePath = async (args, tool = IMPORT_IMAGE_TOOL_NAME) => {
-  const { path, ...rest } = args;
-  if (path === void 0) return args;
-  if (typeof path !== "string") throw new Error(`${tool}: path must be a string`);
+  const { path: path2, ...rest } = args;
+  if (path2 === void 0) return args;
+  if (typeof path2 !== "string") throw new Error(`${tool}: path must be a string`);
   if (rest.data !== void 0 || rest.url !== void 0)
     throw new Error(`${tool}: provide exactly one of path, data or url`);
-  const file2 = (0, import_node_path3.resolve)(path);
+  const file2 = (0, import_node_path3.resolve)(path2);
   const { header, size } = await readImageHeader(file2, tool);
   if (!isSupportedImage(header))
     throw new Error(`${tool}: ${file2} is not a PNG, JPEG or GIF image`);
@@ -40274,13 +40771,13 @@ var writeImageFills = async (outDir, nodes, requestedNodeIds) => {
       const buf = binaryPayload(img);
       if (buf === null || img.imageHash === null || !asked) return { ...carry(img), path: null };
       const { format, ext } = detectImageFormat(buf);
-      const path = (0, import_node_path4.join)(dir, `${contentName(buf)}.${ext}`);
-      if (!toWrite.has(path)) toWrite.set(path, buf);
-      return { ...carry(img), format, path };
+      const path2 = (0, import_node_path4.join)(dir, `${contentName(buf)}.${ext}`);
+      if (!toWrite.has(path2)) toWrite.set(path2, buf);
+      return { ...carry(img), format, path: path2 };
     });
     return { nodeId: node2.nodeId, images, ...node2.mixed === true ? { mixed: true } : {} };
   });
-  await Promise.all([...toWrite].map(([path, buf]) => (0, import_promises4.writeFile)(path, buf)));
+  await Promise.all([...toWrite].map(([path2, buf]) => (0, import_promises4.writeFile)(path2, buf)));
   return { nodes: outNodes };
 };
 var handleSaveImageFills = async (dispatch, rawArgs) => {
@@ -40333,9 +40830,9 @@ var writeScreenshots = async (outDir, images, request) => {
       if (payload === null || !answersRequest) {
         return { nodeId: img.nodeId, format: img.format, path: null, ...flags };
       }
-      const path = (0, import_node_path5.join)(dir, `${sanitize(img.nodeId)}.${ext}`);
-      await (0, import_promises5.writeFile)(path, payload);
-      return { nodeId: img.nodeId, format: img.format, path, ...flags };
+      const path2 = (0, import_node_path5.join)(dir, `${sanitize(img.nodeId)}.${ext}`);
+      await (0, import_promises5.writeFile)(path2, payload);
+      return { nodeId: img.nodeId, format: img.format, path: path2, ...flags };
     })
   );
   return { saved };
@@ -41154,12 +41651,3154 @@ function json2(value) {
   return response;
 }
 
+// mcp/src/surehand-tools.ts
+var import_node_fs = require("node:fs");
+var import_node_path6 = __toESM(require("node:path"));
+
+// mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/client.js
+var ExperimentalClientTasks = class {
+  constructor(_client) {
+    this._client = _client;
+  }
+  /**
+   * Calls a tool and returns an AsyncGenerator that yields response messages.
+   * The generator is guaranteed to end with either a 'result' or 'error' message.
+   *
+   * This method provides streaming access to tool execution, allowing you to
+   * observe intermediate task status updates for long-running tool calls.
+   * Automatically validates structured output if the tool has an outputSchema.
+   *
+   * @example
+   * ```typescript
+   * const stream = client.experimental.tasks.callToolStream({ name: 'myTool', arguments: {} });
+   * for await (const message of stream) {
+   *   switch (message.type) {
+   *     case 'taskCreated':
+   *       console.log('Tool execution started:', message.task.taskId);
+   *       break;
+   *     case 'taskStatus':
+   *       console.log('Tool status:', message.task.status);
+   *       break;
+   *     case 'result':
+   *       console.log('Tool result:', message.result);
+   *       break;
+   *     case 'error':
+   *       console.error('Tool error:', message.error);
+   *       break;
+   *   }
+   * }
+   * ```
+   *
+   * @param params - Tool call parameters (name and arguments)
+   * @param resultSchema - Zod schema for validating the result (defaults to CallToolResultSchema)
+   * @param options - Optional request options (timeout, signal, task creation params, etc.)
+   * @returns AsyncGenerator that yields ResponseMessage objects
+   *
+   * @experimental
+   */
+  async *callToolStream(params, resultSchema = CallToolResultSchema, options) {
+    const clientInternal = this._client;
+    const optionsWithTask = {
+      ...options,
+      // We check if the tool is known to be a task during auto-configuration, but assume
+      // the caller knows what they're doing if they pass this explicitly
+      task: options?.task ?? (clientInternal.isToolTask(params.name) ? {} : void 0)
+    };
+    const stream = clientInternal.requestStream({ method: "tools/call", params }, resultSchema, optionsWithTask);
+    const validator = clientInternal.getToolOutputValidator(params.name);
+    for await (const message of stream) {
+      if (message.type === "result" && validator) {
+        const result = message.result;
+        if (!result.structuredContent && !result.isError) {
+          yield {
+            type: "error",
+            error: new McpError(ErrorCode.InvalidRequest, `Tool ${params.name} has an output schema but did not return structured content`)
+          };
+          return;
+        }
+        if (result.structuredContent) {
+          try {
+            const validationResult = validator(result.structuredContent);
+            if (!validationResult.valid) {
+              yield {
+                type: "error",
+                error: new McpError(ErrorCode.InvalidParams, `Structured content does not match the tool's output schema: ${validationResult.errorMessage}`)
+              };
+              return;
+            }
+          } catch (error62) {
+            if (error62 instanceof McpError) {
+              yield { type: "error", error: error62 };
+              return;
+            }
+            yield {
+              type: "error",
+              error: new McpError(ErrorCode.InvalidParams, `Failed to validate structured content: ${error62 instanceof Error ? error62.message : String(error62)}`)
+            };
+            return;
+          }
+        }
+      }
+      yield message;
+    }
+  }
+  /**
+   * Gets the current status of a task.
+   *
+   * @param taskId - The task identifier
+   * @param options - Optional request options
+   * @returns The task status
+   *
+   * @experimental
+   */
+  async getTask(taskId, options) {
+    return this._client.getTask({ taskId }, options);
+  }
+  /**
+   * Retrieves the result of a completed task.
+   *
+   * @param taskId - The task identifier
+   * @param resultSchema - Zod schema for validating the result
+   * @param options - Optional request options
+   * @returns The task result
+   *
+   * @experimental
+   */
+  async getTaskResult(taskId, resultSchema, options) {
+    return this._client.getTaskResult({ taskId }, resultSchema, options);
+  }
+  /**
+   * Lists tasks with optional pagination.
+   *
+   * @param cursor - Optional pagination cursor
+   * @param options - Optional request options
+   * @returns List of tasks with optional next cursor
+   *
+   * @experimental
+   */
+  async listTasks(cursor, options) {
+    return this._client.listTasks(cursor ? { cursor } : void 0, options);
+  }
+  /**
+   * Cancels a running task.
+   *
+   * @param taskId - The task identifier
+   * @param options - Optional request options
+   *
+   * @experimental
+   */
+  async cancelTask(taskId, options) {
+    return this._client.cancelTask({ taskId }, options);
+  }
+  /**
+   * Sends a request and returns an AsyncGenerator that yields response messages.
+   * The generator is guaranteed to end with either a 'result' or 'error' message.
+   *
+   * This method provides streaming access to request processing, allowing you to
+   * observe intermediate task status updates for task-augmented requests.
+   *
+   * @param request - The request to send
+   * @param resultSchema - Zod schema for validating the result
+   * @param options - Optional request options (timeout, signal, task creation params, etc.)
+   * @returns AsyncGenerator that yields ResponseMessage objects
+   *
+   * @experimental
+   */
+  requestStream(request, resultSchema, options) {
+    return this._client.requestStream(request, resultSchema, options);
+  }
+};
+
+// mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
+function applyElicitationDefaults(schema, data) {
+  if (!schema || data === null || typeof data !== "object")
+    return;
+  if (schema.type === "object" && schema.properties && typeof schema.properties === "object") {
+    const obj = data;
+    const props = schema.properties;
+    for (const key of Object.keys(props)) {
+      const propSchema = props[key];
+      if (obj[key] === void 0 && Object.prototype.hasOwnProperty.call(propSchema, "default")) {
+        obj[key] = propSchema.default;
+      }
+      if (obj[key] !== void 0) {
+        applyElicitationDefaults(propSchema, obj[key]);
+      }
+    }
+  }
+  if (Array.isArray(schema.anyOf)) {
+    for (const sub of schema.anyOf) {
+      if (typeof sub !== "boolean") {
+        applyElicitationDefaults(sub, data);
+      }
+    }
+  }
+  if (Array.isArray(schema.oneOf)) {
+    for (const sub of schema.oneOf) {
+      if (typeof sub !== "boolean") {
+        applyElicitationDefaults(sub, data);
+      }
+    }
+  }
+}
+function getSupportedElicitationModes(capabilities) {
+  if (!capabilities) {
+    return { supportsFormMode: false, supportsUrlMode: false };
+  }
+  const hasFormCapability = capabilities.form !== void 0;
+  const hasUrlCapability = capabilities.url !== void 0;
+  const supportsFormMode = hasFormCapability || !hasFormCapability && !hasUrlCapability;
+  const supportsUrlMode = hasUrlCapability;
+  return { supportsFormMode, supportsUrlMode };
+}
+var Client = class extends Protocol {
+  /**
+   * Initializes this client with the given name and version information.
+   */
+  constructor(_clientInfo, options) {
+    super(options);
+    this._clientInfo = _clientInfo;
+    this._cachedToolOutputValidators = /* @__PURE__ */ new Map();
+    this._cachedKnownTaskTools = /* @__PURE__ */ new Set();
+    this._cachedRequiredTaskTools = /* @__PURE__ */ new Set();
+    this._listChangedDebounceTimers = /* @__PURE__ */ new Map();
+    this._capabilities = options?.capabilities ?? {};
+    this._jsonSchemaValidator = options?.jsonSchemaValidator ?? new AjvJsonSchemaValidator();
+    if (options?.listChanged) {
+      this._pendingListChangedConfig = options.listChanged;
+    }
+  }
+  /**
+   * Set up handlers for list changed notifications based on config and server capabilities.
+   * This should only be called after initialization when server capabilities are known.
+   * Handlers are silently skipped if the server doesn't advertise the corresponding listChanged capability.
+   * @internal
+   */
+  _setupListChangedHandlers(config2) {
+    if (config2.tools && this._serverCapabilities?.tools?.listChanged) {
+      this._setupListChangedHandler("tools", ToolListChangedNotificationSchema, config2.tools, async () => {
+        const result = await this.listTools();
+        return result.tools;
+      });
+    }
+    if (config2.prompts && this._serverCapabilities?.prompts?.listChanged) {
+      this._setupListChangedHandler("prompts", PromptListChangedNotificationSchema, config2.prompts, async () => {
+        const result = await this.listPrompts();
+        return result.prompts;
+      });
+    }
+    if (config2.resources && this._serverCapabilities?.resources?.listChanged) {
+      this._setupListChangedHandler("resources", ResourceListChangedNotificationSchema, config2.resources, async () => {
+        const result = await this.listResources();
+        return result.resources;
+      });
+    }
+  }
+  /**
+   * Access experimental features.
+   *
+   * WARNING: These APIs are experimental and may change without notice.
+   *
+   * @experimental
+   */
+  get experimental() {
+    if (!this._experimental) {
+      this._experimental = {
+        tasks: new ExperimentalClientTasks(this)
+      };
+    }
+    return this._experimental;
+  }
+  /**
+   * Registers new capabilities. This can only be called before connecting to a transport.
+   *
+   * The new capabilities will be merged with any existing capabilities previously given (e.g., at initialization).
+   */
+  registerCapabilities(capabilities) {
+    if (this.transport) {
+      throw new Error("Cannot register capabilities after connecting to transport");
+    }
+    this._capabilities = mergeCapabilities(this._capabilities, capabilities);
+  }
+  /**
+   * Override request handler registration to enforce client-side validation for elicitation.
+   */
+  setRequestHandler(requestSchema, handler) {
+    const shape = getObjectShape(requestSchema);
+    const methodSchema = shape?.method;
+    if (!methodSchema) {
+      throw new Error("Schema is missing a method literal");
+    }
+    const methodValue = getLiteralValue(methodSchema);
+    if (typeof methodValue !== "string") {
+      throw new Error("Schema method literal must be a string");
+    }
+    const method = methodValue;
+    if (method === "elicitation/create") {
+      const wrappedHandler = async (request, extra) => {
+        const validatedRequest = safeParse2(ElicitRequestSchema, request);
+        if (!validatedRequest.success) {
+          const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid elicitation request: ${errorMessage}`);
+        }
+        const { params } = validatedRequest.data;
+        params.mode = params.mode ?? "form";
+        const { supportsFormMode, supportsUrlMode } = getSupportedElicitationModes(this._capabilities.elicitation);
+        if (params.mode === "form" && !supportsFormMode) {
+          throw new McpError(ErrorCode.InvalidParams, "Client does not support form-mode elicitation requests");
+        }
+        if (params.mode === "url" && !supportsUrlMode) {
+          throw new McpError(ErrorCode.InvalidParams, "Client does not support URL-mode elicitation requests");
+        }
+        const result = await Promise.resolve(handler(request, extra));
+        if (params.task) {
+          const taskValidationResult = safeParse2(CreateTaskResultSchema, result);
+          if (!taskValidationResult.success) {
+            const errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
+            throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage}`);
+          }
+          return taskValidationResult.data;
+        }
+        const validationResult = safeParse2(ElicitResultSchema, result);
+        if (!validationResult.success) {
+          const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid elicitation result: ${errorMessage}`);
+        }
+        const validatedResult = validationResult.data;
+        const requestedSchema = params.mode === "form" ? params.requestedSchema : void 0;
+        if (params.mode === "form" && validatedResult.action === "accept" && validatedResult.content && requestedSchema) {
+          if (this._capabilities.elicitation?.form?.applyDefaults) {
+            try {
+              applyElicitationDefaults(requestedSchema, validatedResult.content);
+            } catch {
+            }
+          }
+        }
+        return validatedResult;
+      };
+      return super.setRequestHandler(requestSchema, wrappedHandler);
+    }
+    if (method === "sampling/createMessage") {
+      const wrappedHandler = async (request, extra) => {
+        const validatedRequest = safeParse2(CreateMessageRequestSchema, request);
+        if (!validatedRequest.success) {
+          const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid sampling request: ${errorMessage}`);
+        }
+        const { params } = validatedRequest.data;
+        const result = await Promise.resolve(handler(request, extra));
+        if (params.task) {
+          const taskValidationResult = safeParse2(CreateTaskResultSchema, result);
+          if (!taskValidationResult.success) {
+            const errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
+            throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage}`);
+          }
+          return taskValidationResult.data;
+        }
+        const hasTools = params.tools || params.toolChoice;
+        const resultSchema = hasTools ? CreateMessageResultWithToolsSchema : CreateMessageResultSchema;
+        const validationResult = safeParse2(resultSchema, result);
+        if (!validationResult.success) {
+          const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid sampling result: ${errorMessage}`);
+        }
+        return validationResult.data;
+      };
+      return super.setRequestHandler(requestSchema, wrappedHandler);
+    }
+    return super.setRequestHandler(requestSchema, handler);
+  }
+  assertCapability(capability, method) {
+    if (!this._serverCapabilities?.[capability]) {
+      throw new Error(`Server does not support ${capability} (required for ${method})`);
+    }
+  }
+  async connect(transport, options) {
+    await super.connect(transport);
+    if (transport.sessionId !== void 0) {
+      return;
+    }
+    try {
+      const result = await this.request({
+        method: "initialize",
+        params: {
+          protocolVersion: LATEST_PROTOCOL_VERSION,
+          capabilities: this._capabilities,
+          clientInfo: this._clientInfo
+        }
+      }, InitializeResultSchema, options);
+      if (result === void 0) {
+        throw new Error(`Server sent invalid initialize result: ${result}`);
+      }
+      if (!SUPPORTED_PROTOCOL_VERSIONS.includes(result.protocolVersion)) {
+        throw new Error(`Server's protocol version is not supported: ${result.protocolVersion}`);
+      }
+      this._serverCapabilities = result.capabilities;
+      this._serverVersion = result.serverInfo;
+      if (transport.setProtocolVersion) {
+        transport.setProtocolVersion(result.protocolVersion);
+      }
+      this._instructions = result.instructions;
+      await this.notification({
+        method: "notifications/initialized"
+      });
+      if (this._pendingListChangedConfig) {
+        this._setupListChangedHandlers(this._pendingListChangedConfig);
+        this._pendingListChangedConfig = void 0;
+      }
+    } catch (error62) {
+      void this.close();
+      throw error62;
+    }
+  }
+  /**
+   * After initialization has completed, this will be populated with the server's reported capabilities.
+   */
+  getServerCapabilities() {
+    return this._serverCapabilities;
+  }
+  /**
+   * After initialization has completed, this will be populated with information about the server's name and version.
+   */
+  getServerVersion() {
+    return this._serverVersion;
+  }
+  /**
+   * After initialization has completed, this may be populated with information about the server's instructions.
+   */
+  getInstructions() {
+    return this._instructions;
+  }
+  assertCapabilityForMethod(method) {
+    switch (method) {
+      case "logging/setLevel":
+        if (!this._serverCapabilities?.logging) {
+          throw new Error(`Server does not support logging (required for ${method})`);
+        }
+        break;
+      case "prompts/get":
+      case "prompts/list":
+        if (!this._serverCapabilities?.prompts) {
+          throw new Error(`Server does not support prompts (required for ${method})`);
+        }
+        break;
+      case "resources/list":
+      case "resources/templates/list":
+      case "resources/read":
+      case "resources/subscribe":
+      case "resources/unsubscribe":
+        if (!this._serverCapabilities?.resources) {
+          throw new Error(`Server does not support resources (required for ${method})`);
+        }
+        if (method === "resources/subscribe" && !this._serverCapabilities.resources.subscribe) {
+          throw new Error(`Server does not support resource subscriptions (required for ${method})`);
+        }
+        break;
+      case "tools/call":
+      case "tools/list":
+        if (!this._serverCapabilities?.tools) {
+          throw new Error(`Server does not support tools (required for ${method})`);
+        }
+        break;
+      case "completion/complete":
+        if (!this._serverCapabilities?.completions) {
+          throw new Error(`Server does not support completions (required for ${method})`);
+        }
+        break;
+      case "initialize":
+        break;
+      case "ping":
+        break;
+    }
+  }
+  assertNotificationCapability(method) {
+    switch (method) {
+      case "notifications/roots/list_changed":
+        if (!this._capabilities.roots?.listChanged) {
+          throw new Error(`Client does not support roots list changed notifications (required for ${method})`);
+        }
+        break;
+      case "notifications/initialized":
+        break;
+      case "notifications/cancelled":
+        break;
+      case "notifications/progress":
+        break;
+    }
+  }
+  assertRequestHandlerCapability(method) {
+    if (!this._capabilities) {
+      return;
+    }
+    switch (method) {
+      case "sampling/createMessage":
+        if (!this._capabilities.sampling) {
+          throw new Error(`Client does not support sampling capability (required for ${method})`);
+        }
+        break;
+      case "elicitation/create":
+        if (!this._capabilities.elicitation) {
+          throw new Error(`Client does not support elicitation capability (required for ${method})`);
+        }
+        break;
+      case "roots/list":
+        if (!this._capabilities.roots) {
+          throw new Error(`Client does not support roots capability (required for ${method})`);
+        }
+        break;
+      case "tasks/get":
+      case "tasks/list":
+      case "tasks/result":
+      case "tasks/cancel":
+        if (!this._capabilities.tasks) {
+          throw new Error(`Client does not support tasks capability (required for ${method})`);
+        }
+        break;
+      case "ping":
+        break;
+    }
+  }
+  assertTaskCapability(method) {
+    assertToolsCallTaskCapability(this._serverCapabilities?.tasks?.requests, method, "Server");
+  }
+  assertTaskHandlerCapability(method) {
+    if (!this._capabilities) {
+      return;
+    }
+    assertClientRequestTaskCapability(this._capabilities.tasks?.requests, method, "Client");
+  }
+  async ping(options) {
+    return this.request({ method: "ping" }, EmptyResultSchema, options);
+  }
+  async complete(params, options) {
+    return this.request({ method: "completion/complete", params }, CompleteResultSchema, options);
+  }
+  async setLoggingLevel(level, options) {
+    return this.request({ method: "logging/setLevel", params: { level } }, EmptyResultSchema, options);
+  }
+  async getPrompt(params, options) {
+    return this.request({ method: "prompts/get", params }, GetPromptResultSchema, options);
+  }
+  async listPrompts(params, options) {
+    return this.request({ method: "prompts/list", params }, ListPromptsResultSchema, options);
+  }
+  async listResources(params, options) {
+    return this.request({ method: "resources/list", params }, ListResourcesResultSchema, options);
+  }
+  async listResourceTemplates(params, options) {
+    return this.request({ method: "resources/templates/list", params }, ListResourceTemplatesResultSchema, options);
+  }
+  async readResource(params, options) {
+    return this.request({ method: "resources/read", params }, ReadResourceResultSchema, options);
+  }
+  async subscribeResource(params, options) {
+    return this.request({ method: "resources/subscribe", params }, EmptyResultSchema, options);
+  }
+  async unsubscribeResource(params, options) {
+    return this.request({ method: "resources/unsubscribe", params }, EmptyResultSchema, options);
+  }
+  /**
+   * Calls a tool and waits for the result. Automatically validates structured output if the tool has an outputSchema.
+   *
+   * For task-based execution with streaming behavior, use client.experimental.tasks.callToolStream() instead.
+   */
+  async callTool(params, resultSchema = CallToolResultSchema, options) {
+    if (this.isToolTaskRequired(params.name)) {
+      throw new McpError(ErrorCode.InvalidRequest, `Tool "${params.name}" requires task-based execution. Use client.experimental.tasks.callToolStream() instead.`);
+    }
+    const result = await this.request({ method: "tools/call", params }, resultSchema, options);
+    const validator = this.getToolOutputValidator(params.name);
+    if (validator) {
+      if (!result.structuredContent && !result.isError) {
+        throw new McpError(ErrorCode.InvalidRequest, `Tool ${params.name} has an output schema but did not return structured content`);
+      }
+      if (result.structuredContent) {
+        try {
+          const validationResult = validator(result.structuredContent);
+          if (!validationResult.valid) {
+            throw new McpError(ErrorCode.InvalidParams, `Structured content does not match the tool's output schema: ${validationResult.errorMessage}`);
+          }
+        } catch (error62) {
+          if (error62 instanceof McpError) {
+            throw error62;
+          }
+          throw new McpError(ErrorCode.InvalidParams, `Failed to validate structured content: ${error62 instanceof Error ? error62.message : String(error62)}`);
+        }
+      }
+    }
+    return result;
+  }
+  isToolTask(toolName) {
+    if (!this._serverCapabilities?.tasks?.requests?.tools?.call) {
+      return false;
+    }
+    return this._cachedKnownTaskTools.has(toolName);
+  }
+  /**
+   * Check if a tool requires task-based execution.
+   * Unlike isToolTask which includes 'optional' tools, this only checks for 'required'.
+   */
+  isToolTaskRequired(toolName) {
+    return this._cachedRequiredTaskTools.has(toolName);
+  }
+  /**
+   * Cache validators for tool output schemas.
+   * Called after listTools() to pre-compile validators for better performance.
+   */
+  cacheToolMetadata(tools) {
+    this._cachedToolOutputValidators.clear();
+    this._cachedKnownTaskTools.clear();
+    this._cachedRequiredTaskTools.clear();
+    for (const tool of tools) {
+      if (tool.outputSchema) {
+        const toolValidator = this._jsonSchemaValidator.getValidator(tool.outputSchema);
+        this._cachedToolOutputValidators.set(tool.name, toolValidator);
+      }
+      const taskSupport = tool.execution?.taskSupport;
+      if (taskSupport === "required" || taskSupport === "optional") {
+        this._cachedKnownTaskTools.add(tool.name);
+      }
+      if (taskSupport === "required") {
+        this._cachedRequiredTaskTools.add(tool.name);
+      }
+    }
+  }
+  /**
+   * Get cached validator for a tool
+   */
+  getToolOutputValidator(toolName) {
+    return this._cachedToolOutputValidators.get(toolName);
+  }
+  async listTools(params, options) {
+    const result = await this.request({ method: "tools/list", params }, ListToolsResultSchema, options);
+    this.cacheToolMetadata(result.tools);
+    return result;
+  }
+  /**
+   * Set up a single list changed handler.
+   * @internal
+   */
+  _setupListChangedHandler(listType, notificationSchema, options, fetcher) {
+    const parseResult = ListChangedOptionsBaseSchema.safeParse(options);
+    if (!parseResult.success) {
+      throw new Error(`Invalid ${listType} listChanged options: ${parseResult.error.message}`);
+    }
+    if (typeof options.onChanged !== "function") {
+      throw new Error(`Invalid ${listType} listChanged options: onChanged must be a function`);
+    }
+    const { autoRefresh, debounceMs } = parseResult.data;
+    const { onChanged } = options;
+    const refresh = async () => {
+      if (!autoRefresh) {
+        onChanged(null, null);
+        return;
+      }
+      try {
+        const items = await fetcher();
+        onChanged(null, items);
+      } catch (e) {
+        const error62 = e instanceof Error ? e : new Error(String(e));
+        onChanged(error62, null);
+      }
+    };
+    const handler = () => {
+      if (debounceMs) {
+        const existingTimer = this._listChangedDebounceTimers.get(listType);
+        if (existingTimer) {
+          clearTimeout(existingTimer);
+        }
+        const timer = setTimeout(refresh, debounceMs);
+        this._listChangedDebounceTimers.set(listType, timer);
+      } else {
+        refresh();
+      }
+    };
+    this.setNotificationHandler(notificationSchema, handler);
+  }
+  async sendRootsListChanged() {
+    return this.notification({ method: "notifications/roots/list_changed" });
+  }
+};
+
+// mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js
+var import_cross_spawn = __toESM(require_cross_spawn(), 1);
+var import_node_process2 = __toESM(require("node:process"), 1);
+var import_node_stream = require("node:stream");
+var DEFAULT_INHERITED_ENV_VARS = import_node_process2.default.platform === "win32" ? [
+  "APPDATA",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "LOCALAPPDATA",
+  "PATH",
+  "PROCESSOR_ARCHITECTURE",
+  "SYSTEMDRIVE",
+  "SYSTEMROOT",
+  "TEMP",
+  "USERNAME",
+  "USERPROFILE",
+  "PROGRAMFILES"
+] : (
+  /* list inspired by the default env inheritance of sudo */
+  ["HOME", "LOGNAME", "PATH", "SHELL", "TERM", "USER"]
+);
+function getDefaultEnvironment() {
+  const env = {};
+  for (const key of DEFAULT_INHERITED_ENV_VARS) {
+    const value = import_node_process2.default.env[key];
+    if (value === void 0) {
+      continue;
+    }
+    if (value.startsWith("()")) {
+      continue;
+    }
+    env[key] = value;
+  }
+  return env;
+}
+var StdioClientTransport = class {
+  constructor(server2) {
+    this._stderrStream = null;
+    this._serverParams = server2;
+    this._readBuffer = new ReadBuffer({ maxBufferSize: server2.maxBufferSize });
+    if (server2.stderr === "pipe" || server2.stderr === "overlapped") {
+      this._stderrStream = new import_node_stream.PassThrough();
+    }
+  }
+  /**
+   * Starts the server process and prepares to communicate with it.
+   */
+  async start() {
+    if (this._process) {
+      throw new Error("StdioClientTransport already started! If using Client class, note that connect() calls start() automatically.");
+    }
+    return new Promise((resolve6, reject) => {
+      this._process = (0, import_cross_spawn.default)(this._serverParams.command, this._serverParams.args ?? [], {
+        // merge default env with server env because mcp server needs some env vars
+        env: {
+          ...getDefaultEnvironment(),
+          ...this._serverParams.env
+        },
+        stdio: ["pipe", "pipe", this._serverParams.stderr ?? "inherit"],
+        shell: false,
+        windowsHide: import_node_process2.default.platform === "win32",
+        cwd: this._serverParams.cwd
+      });
+      this._process.on("error", (error62) => {
+        reject(error62);
+        this.onerror?.(error62);
+      });
+      this._process.on("spawn", () => {
+        resolve6();
+      });
+      this._process.on("close", (_code) => {
+        this._process = void 0;
+        this.onclose?.();
+      });
+      this._process.stdin?.on("error", (error62) => {
+        this.onerror?.(error62);
+      });
+      this._process.stdout?.on("data", (chunk) => {
+        try {
+          this._readBuffer.append(chunk);
+          this.processReadBuffer();
+        } catch (error62) {
+          this.onerror?.(error62);
+          this.close().catch(() => {
+          });
+        }
+      });
+      this._process.stdout?.on("error", (error62) => {
+        this.onerror?.(error62);
+      });
+      if (this._stderrStream && this._process.stderr) {
+        this._process.stderr.pipe(this._stderrStream);
+      }
+    });
+  }
+  /**
+   * The stderr stream of the child process, if `StdioServerParameters.stderr` was set to "pipe" or "overlapped".
+   *
+   * If stderr piping was requested, a PassThrough stream is returned _immediately_, allowing callers to
+   * attach listeners before the start method is invoked. This prevents loss of any early
+   * error output emitted by the child process.
+   */
+  get stderr() {
+    if (this._stderrStream) {
+      return this._stderrStream;
+    }
+    return this._process?.stderr ?? null;
+  }
+  /**
+   * The child process pid spawned by this transport.
+   *
+   * This is only available after the transport has been started.
+   */
+  get pid() {
+    return this._process?.pid ?? null;
+  }
+  processReadBuffer() {
+    while (true) {
+      try {
+        const message = this._readBuffer.readMessage();
+        if (message === null) {
+          break;
+        }
+        this.onmessage?.(message);
+      } catch (error62) {
+        this.onerror?.(error62);
+      }
+    }
+  }
+  async close() {
+    if (this._process) {
+      const processToClose = this._process;
+      this._process = void 0;
+      const closePromise = new Promise((resolve6) => {
+        processToClose.once("close", () => {
+          resolve6();
+        });
+      });
+      try {
+        processToClose.stdin?.end();
+      } catch {
+      }
+      await Promise.race([closePromise, new Promise((resolve6) => setTimeout(resolve6, 2e3).unref())]);
+      if (processToClose.exitCode === null) {
+        try {
+          processToClose.kill("SIGTERM");
+        } catch {
+        }
+        await Promise.race([closePromise, new Promise((resolve6) => setTimeout(resolve6, 2e3).unref())]);
+      }
+      if (processToClose.exitCode === null) {
+        try {
+          processToClose.kill("SIGKILL");
+        } catch {
+        }
+      }
+    }
+    this._readBuffer.clear();
+  }
+  send(message) {
+    return new Promise((resolve6) => {
+      if (!this._process?.stdin) {
+        throw new Error("Not connected");
+      }
+      const json3 = serializeMessage(message);
+      if (this._process.stdin.write(json3)) {
+        resolve6();
+      } else {
+        this._process.stdin.once("drain", resolve6);
+      }
+    });
+  }
+};
+
+// mcp/vendor/surehand/catalog.json
+var catalog_default = {
+  version: "1.4.1",
+  commit: "6fdc8e161b6d8480439cf9b1d80eb46c5f33a353",
+  release: "https://github.com/ConformLabs/surehand-mcp/releases/tag/v1.4.1",
+  upstreamSha256: "e60542d00fcd0b8cd33ee2d90e737ac8f42ec144b545d20dae4199afdb38ec57",
+  sha256: "7d606c20d7aba793c06849a978b39b1e493bcd3998ef9ce567ec142cc60c0efa",
+  profile: "core,ae_open_project,ae_save_project,ae_get_keyframes,ae_add_to_render_queue,ae_render_background,ae_render_jobs,ae_list_comps",
+  tools: [
+    {
+      name: "ae_run_script",
+      title: "Run ExtendScript",
+      description: "Execute JavaScript inside After Effects (its ExtendScript scripting API) and return the result. This is the most powerful tool: anything in the After Effects scripting API is available (app, app.project, CompItem, layers, properties, render queue, File/Folder, system.callSystem...).\n- The code runs as the body of a function: use `return value` to send data back. Returned AE objects (comps, layers, properties, items) are summarized to JSON automatically.\n- `args` (the JSON you pass in `args`) and `log(...)` are available; log output is returned too.\n- Modern JavaScript is fine: let/const, arrow functions, template strings, destructuring, spread, classes, ?. and ??, for...of, plus map/filter/forEach/find/includes, Object.keys/assign and JSON (converted for AE automatically). Not available: async/await, Promise, Map/Set, generators.\n- The `aemcp` helper library is available: aemcp.findComp(idOrName), aemcp.findLayer(comp, indexOrName), aemcp.findItem(ref), aemcp.resolveProp(layer, 'Transform/Position'), aemcp.color('#ff0000'), aemcp.compInfo(comp, true), aemcp.layerInfo(layer, true), aemcp.propInfo(prop, {depth:2}), aemcp.projectInfo().\n- Collections are 1-based: app.project.item(1), comp.layer(1), prop.property(1).\n- The whole script is one undo step. Errors come back with the failing line and code around it. ae_get_scripting_guide has an API cheat sheet.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          code: {
+            type: "string",
+            description: "JavaScript source; a function body, use `return` to return data."
+          },
+          args: {
+            description: "JSON object exposed to the script as `args`.",
+            type: "object",
+            propertyNames: {
+              type: "string"
+            },
+            additionalProperties: {}
+          },
+          undoGroup: {
+            description: 'Undo step name (default "Surehand MCP Script"). Pass "" to skip the undo group.',
+            type: "string"
+          },
+          depth: {
+            description: "How deep to serialize the returned value (default 4).",
+            type: "integer",
+            minimum: 0,
+            maximum: 8
+          },
+          timeoutSeconds: {
+            description: "Max seconds to wait for the result (default 120).",
+            type: "number",
+            minimum: 1,
+            maximum: 3600
+          },
+          transpile: {
+            description: "Convert modern JS for ExtendScript (default true). Set false to send the code exactly as written.",
+            type: "boolean"
+          },
+          report: {
+            description: "List what the script changed in the project (default true). Set false for read-only queries on huge projects.",
+            type: "boolean"
+          }
+        },
+        required: [
+          "code"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true
+      }
+    },
+    {
+      name: "ae_run_script_file",
+      title: "Run JSX file",
+      description: "Run an existing .jsx/.jsxbin script file from disk inside After Effects (like File > Scripts > Run Script File). `args` is exposed to the script as the global AEMCP_ARGS. Returns the value of the script's last expression.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            description: "Absolute path to the .jsx / .jsxbin file."
+          },
+          args: {
+            type: "object",
+            propertyNames: {
+              type: "string"
+            },
+            additionalProperties: {}
+          },
+          timeoutSeconds: {
+            type: "number",
+            minimum: 1,
+            maximum: 3600
+          }
+        },
+        required: [
+          "path"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true
+      }
+    },
+    {
+      name: "ae_status",
+      title: "After Effects status",
+      description: 'Check the connection to After Effects: app version, OS, open project, active item, permission mode, and whether AE is busy. Lists every running After Effects instance when several are open; pass `instance` (e.g. "2025", "2026" or a port) to choose which one this session controls. Call this first if unsure AE is reachable.',
+      inputSchema: {
+        type: "object",
+        properties: {
+          instance: {
+            description: 'Switch to another running After Effects: "2026", "26.5", or a bridge port. Omit to keep the current one.',
+            type: "string"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_render_frame",
+      title: "Preview frame",
+      description: "Render a frame of a composition and return it as an image, so you can SEE the result. Inspection options: zoom into a region, render only some layers, show transparency on a checkerboard or a color, and compare against another time or comp as a difference image (black = identical). Large frames are downscaled to maxSize.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          time: {
+            description: "Time in seconds (default: the comp's current time).",
+            type: "number"
+          },
+          maxSize: {
+            description: "Longest side in pixels of the returned image (default 1280).",
+            type: "integer",
+            minimum: 64,
+            maximum: 4096
+          },
+          region: {
+            description: "Zoom into [x, y, width, height] in comp pixels (scaled up to maxSize, at most 8x).",
+            minItems: 4,
+            maxItems: 4,
+            type: "array",
+            items: {
+              type: "number"
+            }
+          },
+          layers: {
+            description: "Render only these layers (others are hidden for the render and restored).",
+            type: "array",
+            items: {
+              anyOf: [
+                {
+                  type: "integer",
+                  minimum: -9007199254740991,
+                  maximum: 9007199254740991
+                },
+                {
+                  type: "string"
+                }
+              ],
+              description: "Layer: 1-based index (number) or exact layer name."
+            }
+          },
+          background: {
+            description: '"checkerboard" to show transparency, or a color like "#808080" behind the comp.',
+            type: "string"
+          },
+          compareWith: {
+            description: "Difference image against another time and/or comp (black where identical).",
+            type: "object",
+            properties: {
+              comp: {
+                anyOf: [
+                  {
+                    type: "integer",
+                    minimum: -9007199254740991,
+                    maximum: 9007199254740991
+                  },
+                  {
+                    type: "string"
+                  }
+                ]
+              },
+              time: {
+                type: "number"
+              }
+            }
+          },
+          outputPath: {
+            description: "Optional absolute path to also save the PNG to.",
+            type: "string"
+          },
+          overwrite: {
+            description: "Replace an existing file at outputPath (default false: refuse).",
+            type: "boolean"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_render_contact_sheet",
+      title: "Preview animation (contact sheet)",
+      description: "Render several frames of a composition into ONE image (a grid, each cell labelled with its time and frame number), so you can judge motion, timing and easing, not just a single frame. Defaults to 9 frames spread over the work area.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          frames: {
+            description: "Number of evenly spaced frames (default 9).",
+            type: "integer",
+            minimum: 2,
+            maximum: 36
+          },
+          start: {
+            description: "Start time in seconds (default: work area start).",
+            type: "number"
+          },
+          end: {
+            description: "End time in seconds (default: work area end).",
+            type: "number"
+          },
+          times: {
+            description: "Exact times (seconds) instead of evenly spaced frames.",
+            minItems: 1,
+            maxItems: 36,
+            type: "array",
+            items: {
+              type: "number"
+            }
+          },
+          columns: {
+            description: "Grid columns (default: square-ish).",
+            type: "integer",
+            minimum: 1,
+            maximum: 12
+          },
+          width: {
+            description: "Width of the returned image in pixels (default 1600).",
+            type: "integer",
+            minimum: 320,
+            maximum: 4096
+          },
+          outputPath: {
+            description: "Optional absolute path to also save the PNG to.",
+            type: "string"
+          },
+          overwrite: {
+            description: "Replace an existing file at outputPath (default false: refuse).",
+            type: "boolean"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_get_project_info",
+      title: "Get project info",
+      description: "Summary of the open project: file path, dirty state, item counts, bit depth, render queue size, active item.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_save_project",
+      title: "Save project",
+      description: "Save the project (optionally Save As to a new .aep path). Save As never replaces an existing file unless overwrite is true.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          path: {
+            description: "Absolute .aep path for Save As.",
+            type: "string"
+          },
+          overwrite: {
+            description: "Save As over an existing file at path (default false: refuse).",
+            type: "boolean"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_open_project",
+      title: "Open project",
+      description: "Open an .aep/.aet project file. Unsaved changes in the current project are discarded only if discardChanges is true.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string"
+          },
+          discardChanges: {
+            type: "boolean"
+          }
+        },
+        required: [
+          "path"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_list_comps",
+      title: "List compositions",
+      description: "List all compositions with id, size, duration, frame rate and layer count.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          nameContains: {
+            type: "string"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_get_comp_info",
+      title: "Get composition info",
+      description: "Composition settings plus a summary of its layers (index, id, name, type, timing, parent, switches). Large comps are paged: use layerOffset/layerLimit (see totalLayers / nextLayerOffset in the result).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          includeLayers: {
+            description: "Default true.",
+            type: "boolean"
+          },
+          layerOffset: {
+            description: "Skip this many layers (default 0).",
+            type: "integer",
+            minimum: 0,
+            maximum: 9007199254740991
+          },
+          layerLimit: {
+            description: "Max layers to return (default 150).",
+            type: "integer",
+            minimum: 1,
+            maximum: 1e3
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_create_comp",
+      title: "Create composition",
+      description: "Create a new composition and (by default) open it in the viewer.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          name: {
+            type: "string"
+          },
+          width: {
+            description: "Default 1920.",
+            type: "integer",
+            minimum: 4,
+            maximum: 3e4
+          },
+          height: {
+            description: "Default 1080.",
+            type: "integer",
+            minimum: 4,
+            maximum: 3e4
+          },
+          duration: {
+            description: "Seconds, default 10.",
+            type: "number",
+            minimum: 0.01
+          },
+          frameRate: {
+            description: "Default 30.",
+            type: "number",
+            minimum: 1,
+            maximum: 999
+          },
+          pixelAspect: {
+            description: "Default 1.",
+            type: "number"
+          },
+          bgColor: {
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                minItems: 3,
+                maxItems: 4,
+                type: "array",
+                items: {
+                  type: "number"
+                }
+              }
+            ],
+            description: 'Color as "#rrggbb" or [r,g,b] (0-1 or 0-255).'
+          },
+          folder: {
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ],
+            description: "Project item id (number) or exact name."
+          },
+          open: {
+            description: "Open in viewer (default true).",
+            type: "boolean"
+          }
+        },
+        required: [
+          "name"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_get_layer_info",
+      title: "Get layer info",
+      description: "Full info for one layer: switches, timing, parent, source, transform values, effects, masks count, markers, text, and every animated/expression property.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          layer: {
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ],
+            description: "Layer: 1-based index (number) or exact layer name."
+          }
+        },
+        required: [
+          "layer"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_add_layer",
+      title: "Add layer",
+      description: "Add a layer to a composition: solid, text, shape (empty, use ae_add_shape to draw), null, adjustment, camera, light, or an existing project item (footage/comp).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          type: {
+            type: "string",
+            enum: [
+              "solid",
+              "text",
+              "shape",
+              "null",
+              "adjustment",
+              "camera",
+              "light",
+              "item"
+            ]
+          },
+          name: {
+            type: "string"
+          },
+          text: {
+            description: "For text layers.",
+            type: "string"
+          },
+          boxSize: {
+            description: "Paragraph (box) text size [w,h]; omit for point text.",
+            minItems: 2,
+            maxItems: 2,
+            type: "array",
+            items: {
+              type: "number"
+            }
+          },
+          font: {
+            description: 'PostScript font name, e.g. "Arial-BoldMT", "Helvetica", "Montserrat-Bold".',
+            type: "string"
+          },
+          fontSize: {
+            type: "number"
+          },
+          fillColor: {
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                minItems: 3,
+                maxItems: 4,
+                type: "array",
+                items: {
+                  type: "number"
+                }
+              }
+            ],
+            description: 'Color as "#rrggbb" or [r,g,b] (0-1 or 0-255).'
+          },
+          strokeColor: {
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                minItems: 3,
+                maxItems: 4,
+                type: "array",
+                items: {
+                  type: "number"
+                }
+              }
+            ],
+            description: 'Color as "#rrggbb" or [r,g,b] (0-1 or 0-255).'
+          },
+          strokeWidth: {
+            type: "number"
+          },
+          tracking: {
+            type: "number"
+          },
+          leading: {
+            type: "number"
+          },
+          justification: {
+            type: "string",
+            enum: [
+              "LEFT_JUSTIFY",
+              "CENTER_JUSTIFY",
+              "RIGHT_JUSTIFY",
+              "FULL_JUSTIFY_LASTLINE_LEFT",
+              "FULL_JUSTIFY_LASTLINE_CENTER",
+              "FULL_JUSTIFY_LASTLINE_RIGHT",
+              "FULL_JUSTIFY_LASTLINE_FULL"
+            ]
+          },
+          fauxBold: {
+            type: "boolean"
+          },
+          fauxItalic: {
+            type: "boolean"
+          },
+          allCaps: {
+            type: "boolean"
+          },
+          direction: {
+            description: "Paragraph direction (AE 24+). Default: text without Hebrew/Arabic characters is set left to right whatever the user's AE type preference is.",
+            type: "string",
+            enum: [
+              "LEFT_TO_RIGHT",
+              "RIGHT_TO_LEFT"
+            ]
+          },
+          color: {
+            description: "Solid/adjustment color, or light color.",
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                minItems: 3,
+                maxItems: 4,
+                type: "array",
+                items: {
+                  type: "number"
+                }
+              }
+            ]
+          },
+          width: {
+            description: "Solid size (default comp size).",
+            type: "integer",
+            minimum: -9007199254740991,
+            maximum: 9007199254740991
+          },
+          height: {
+            type: "integer",
+            minimum: -9007199254740991,
+            maximum: 9007199254740991
+          },
+          item: {
+            description: "For type 'item': project item to add.",
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          lightType: {
+            type: "string",
+            enum: [
+              "PARALLEL",
+              "SPOT",
+              "POINT",
+              "AMBIENT"
+            ]
+          },
+          position: {
+            minItems: 2,
+            maxItems: 3,
+            type: "array",
+            items: {
+              type: "number"
+            }
+          },
+          startTime: {
+            type: "number"
+          },
+          duration: {
+            description: "Layer duration in seconds (default comp duration).",
+            type: "number"
+          },
+          threeD: {
+            type: "boolean"
+          },
+          moveToIndex: {
+            description: "Move the new layer to this 1-based index (new layers are added on top).",
+            type: "integer",
+            minimum: -9007199254740991,
+            maximum: 9007199254740991
+          }
+        },
+        required: [
+          "type"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_get_selection",
+      title: "Get selection",
+      description: "What the user has selected: project items, and in the active comp the selected layers and selected properties (with paths).",
+      inputSchema: {
+        type: "object",
+        properties: {},
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_get_properties",
+      title: "Get properties",
+      description: "Inspect the property tree of a layer (or a sub-group via path): names, match names, values, keyframe counts, expressions. Use this to discover property paths before setting values.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          layer: {
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ],
+            description: "Layer: 1-based index (number) or exact layer name."
+          },
+          path: {
+            description: "Start at this group/property (default: the whole layer).",
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                type: "array",
+                items: {
+                  anyOf: [
+                    {
+                      type: "string"
+                    },
+                    {
+                      type: "integer",
+                      minimum: -9007199254740991,
+                      maximum: 9007199254740991
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          depth: {
+            description: "Group depth to expand (default 2).",
+            type: "integer",
+            minimum: 0,
+            maximum: 10
+          },
+          keyframes: {
+            description: "Include keyframe details.",
+            type: "boolean"
+          },
+          includeHidden: {
+            description: "Include NO_VALUE properties.",
+            type: "boolean"
+          }
+        },
+        required: [
+          "layer"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_find_properties",
+      title: "Find properties",
+      description: 'Search every layer of a comp (or one layer) for properties whose name or match name contains the query, e.g. "opacity", "blur", "Source Text", "ADBE Fill Color". Returns ready-to-use paths. Filter to animated or expression properties.',
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          query: {
+            description: "Case-insensitive text to match in the property name or match name. Omit to list all matches of the filters.",
+            type: "string"
+          },
+          layer: {
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ],
+            description: "Layer: 1-based index (number) or exact layer name."
+          },
+          onlyAnimated: {
+            description: "Only properties with keyframes.",
+            type: "boolean"
+          },
+          onlyExpressions: {
+            description: "Only properties with an expression.",
+            type: "boolean"
+          },
+          limit: {
+            description: "Default 100.",
+            type: "integer",
+            minimum: 1,
+            maximum: 1e3
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_set_property",
+      title: "Set property value",
+      description: 'Set the value of any property (transform, effect parameter, shape attribute, text...). If `time` is given (or the property already has keyframes) a keyframe is set at that time. Examples: path "Transform/Opacity" value 50; "Transform/Position" [960,540]; "Transform/Scale" [50,50]; "Effects/Fill/Color" "#ff0000".',
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          layer: {
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ],
+            description: "Layer: 1-based index (number) or exact layer name."
+          },
+          path: {
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                type: "array",
+                items: {
+                  anyOf: [
+                    {
+                      type: "string"
+                    },
+                    {
+                      type: "integer",
+                      minimum: -9007199254740991,
+                      maximum: 9007199254740991
+                    }
+                  ]
+                }
+              }
+            ],
+            description: 'Property path from the layer, "/"-separated display names or match names, e.g. "Transform/Position", "Effects/Gaussian Blur/Blurriness", "ADBE Transform Group/ADBE Opacity", "Contents/Rectangle 1/Fill 1/Color".'
+          },
+          value: {
+            description: "Value: number, array ([x,y] / [x,y,z] / color), string for text, or object for text style / shape path."
+          },
+          time: {
+            type: "number"
+          }
+        },
+        required: [
+          "layer",
+          "path",
+          "value"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_set_keyframes",
+      title: "Set keyframes",
+      description: 'Create keyframes on a property in one call, with optional interpolation (linear/bezier/hold) and temporal easing. Place keys by time (seconds) or frame (whole frames). Example: path "Transform/Position", keyframes [{time:0,value:[0,540]},{frame:24,value:[960,540],easeIn:80}].',
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          layer: {
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ],
+            description: "Layer: 1-based index (number) or exact layer name."
+          },
+          path: {
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                type: "array",
+                items: {
+                  anyOf: [
+                    {
+                      type: "string"
+                    },
+                    {
+                      type: "integer",
+                      minimum: -9007199254740991,
+                      maximum: 9007199254740991
+                    }
+                  ]
+                }
+              }
+            ],
+            description: 'Property path from the layer, "/"-separated display names or match names, e.g. "Transform/Position", "Effects/Gaussian Blur/Blurriness", "ADBE Transform Group/ADBE Opacity", "Contents/Rectangle 1/Fill 1/Color".'
+          },
+          keyframes: {
+            minItems: 1,
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                time: {
+                  description: "Seconds (comp time).",
+                  type: "number"
+                },
+                frame: {
+                  description: "Whole frame from the comp's start, instead of time.",
+                  type: "integer",
+                  minimum: -9007199254740991,
+                  maximum: 9007199254740991
+                },
+                value: {
+                  description: "Value: number, array ([x,y] / [x,y,z] / color), string for text, or object for text style / shape path."
+                },
+                interpolation: {
+                  description: "Both in and out.",
+                  type: "string",
+                  enum: [
+                    "linear",
+                    "bezier",
+                    "hold"
+                  ]
+                },
+                inInterpolation: {
+                  type: "string",
+                  enum: [
+                    "linear",
+                    "bezier",
+                    "hold"
+                  ]
+                },
+                outInterpolation: {
+                  type: "string",
+                  enum: [
+                    "linear",
+                    "bezier",
+                    "hold"
+                  ]
+                },
+                easeIn: {
+                  anyOf: [
+                    {
+                      type: "number"
+                    },
+                    {
+                      type: "object",
+                      properties: {
+                        speed: {
+                          type: "number"
+                        },
+                        influence: {
+                          type: "number"
+                        }
+                      }
+                    },
+                    {
+                      minItems: 1,
+                      maxItems: 3,
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          speed: {
+                            type: "number"
+                          },
+                          influence: {
+                            type: "number"
+                          }
+                        },
+                        required: [
+                          "speed",
+                          "influence"
+                        ]
+                      }
+                    }
+                  ],
+                  description: "Temporal ease: influence % (e.g. 75 = strong easy-ease), {speed, influence}, or one {speed, influence} per dimension (2D/3D values; 1 for Position and other spatial properties)."
+                },
+                easeOut: {
+                  anyOf: [
+                    {
+                      type: "number"
+                    },
+                    {
+                      type: "object",
+                      properties: {
+                        speed: {
+                          type: "number"
+                        },
+                        influence: {
+                          type: "number"
+                        }
+                      }
+                    },
+                    {
+                      minItems: 1,
+                      maxItems: 3,
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          speed: {
+                            type: "number"
+                          },
+                          influence: {
+                            type: "number"
+                          }
+                        },
+                        required: [
+                          "speed",
+                          "influence"
+                        ]
+                      }
+                    }
+                  ],
+                  description: "Temporal ease: influence % (e.g. 75 = strong easy-ease), {speed, influence}, or one {speed, influence} per dimension (2D/3D values; 1 for Position and other spatial properties)."
+                }
+              },
+              required: [
+                "value"
+              ]
+            }
+          },
+          clearExisting: {
+            description: "Remove existing keyframes first.",
+            type: "boolean"
+          },
+          easyEase: {
+            description: "Apply easy ease (33%) to all new keyframes that don't specify easing.",
+            type: "boolean"
+          }
+        },
+        required: [
+          "layer",
+          "path",
+          "keyframes"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_set_expression",
+      title: "Set expression",
+      description: "Set (or clear with an empty string) an expression on a property. Returns any expression error AE reports.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          layer: {
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ],
+            description: "Layer: 1-based index (number) or exact layer name."
+          },
+          path: {
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                type: "array",
+                items: {
+                  anyOf: [
+                    {
+                      type: "string"
+                    },
+                    {
+                      type: "integer",
+                      minimum: -9007199254740991,
+                      maximum: 9007199254740991
+                    }
+                  ]
+                }
+              }
+            ],
+            description: 'Property path from the layer, "/"-separated display names or match names, e.g. "Transform/Position", "Effects/Gaussian Blur/Blurriness", "ADBE Transform Group/ADBE Opacity", "Contents/Rectangle 1/Fill 1/Color".'
+          },
+          expression: {
+            type: "string"
+          },
+          enabled: {
+            type: "boolean"
+          }
+        },
+        required: [
+          "layer",
+          "path",
+          "expression"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_get_effect_params",
+      title: "Inspect effect parameters",
+      description: "List an effect's parameters (names, match names, value types, defaults, min/max) WITHOUT changing your layers, so you know the exact parameter names for ae_apply_effect / ae_set_effect_params. Pass comp+layer to inspect an effect already applied (current values).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          effect: {
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              }
+            ],
+            description: 'Match name (e.g. "ADBE Glo2") or display name ("Glow"); with comp+layer, also an index in the stack.'
+          },
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          layer: {
+            description: "Inspect the effect on this layer instead of a fresh default instance.",
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          }
+        },
+        required: [
+          "effect"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_apply_effect",
+      title: "Apply effect",
+      description: `Apply an effect to a layer by match name (preferred, e.g. "ADBE Gaussian Blur 2", "ADBE Fill", "ADBE Glo2", "ADBE Drop Shadow") or display name, optionally setting parameters. Returns the effect's parameters.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          layer: {
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ],
+            description: "Layer: 1-based index (number) or exact layer name."
+          },
+          effect: {
+            type: "string"
+          },
+          name: {
+            description: "Rename the effect instance.",
+            type: "string"
+          },
+          params: {
+            description: 'Effect parameters by display name or match name, e.g. {"Blurriness": 20, "Repeat Edge Pixels": true} or {"Color": "#ff0000"}.',
+            type: "object",
+            propertyNames: {
+              type: "string"
+            },
+            additionalProperties: {}
+          }
+        },
+        required: [
+          "layer",
+          "effect"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_add_shape",
+      title: "Add shape",
+      description: "Draw a shape (rectangle, ellipse, polygon, star, or custom path) with fill and/or stroke, on a new shape layer or an existing one. Positions are relative to the layer (new layers are centered in the comp).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          layer: {
+            description: "Existing shape layer; omit to create a new one.",
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          name: {
+            type: "string"
+          },
+          shape: {
+            type: "string",
+            enum: [
+              "rectangle",
+              "ellipse",
+              "polygon",
+              "star",
+              "path"
+            ]
+          },
+          size: {
+            description: "[w,h] for rectangle/ellipse (default 400x400).",
+            minItems: 2,
+            maxItems: 2,
+            type: "array",
+            items: {
+              type: "number"
+            }
+          },
+          position: {
+            description: "Shape position within the layer (default [0,0]).",
+            minItems: 2,
+            maxItems: 2,
+            type: "array",
+            items: {
+              type: "number"
+            }
+          },
+          roundness: {
+            description: "Rectangle corner roundness.",
+            type: "number"
+          },
+          points: {
+            description: "Polygon/star points.",
+            type: "number"
+          },
+          outerRadius: {
+            type: "number"
+          },
+          innerRadius: {
+            type: "number"
+          },
+          vertices: {
+            description: "For 'path': [[x,y],...].",
+            type: "array",
+            items: {
+              minItems: 2,
+              maxItems: 2,
+              type: "array",
+              items: {
+                type: "number"
+              }
+            }
+          },
+          inTangents: {
+            type: "array",
+            items: {
+              minItems: 2,
+              maxItems: 2,
+              type: "array",
+              items: {
+                type: "number"
+              }
+            }
+          },
+          outTangents: {
+            type: "array",
+            items: {
+              minItems: 2,
+              maxItems: 2,
+              type: "array",
+              items: {
+                type: "number"
+              }
+            }
+          },
+          closed: {
+            type: "boolean"
+          },
+          fill: {
+            description: "Fill color; omit for no fill (unless no stroke either: defaults to white).",
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                minItems: 3,
+                maxItems: 4,
+                type: "array",
+                items: {
+                  type: "number"
+                }
+              }
+            ]
+          },
+          stroke: {
+            anyOf: [
+              {
+                type: "string"
+              },
+              {
+                minItems: 3,
+                maxItems: 4,
+                type: "array",
+                items: {
+                  type: "number"
+                }
+              }
+            ],
+            description: 'Color as "#rrggbb" or [r,g,b] (0-1 or 0-255).'
+          },
+          strokeWidth: {
+            type: "number"
+          }
+        },
+        required: [
+          "shape"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_add_to_render_queue",
+      title: "Add to render queue",
+      description: "Add a composition to the render queue with an output path and optional templates (see ae_list_render_queue for template names).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          outputPath: {
+            description: "Absolute output file path (extension should match the output module).",
+            type: "string"
+          },
+          renderSettingsTemplate: {
+            description: 'e.g. "Best Settings".',
+            type: "string"
+          },
+          outputModuleTemplate: {
+            description: 'e.g. "High Quality", "H.264 - Match Render Settings - 15 Mbps", "Lossless with Alpha".',
+            type: "string"
+          },
+          workAreaOnly: {
+            type: "boolean"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_undo",
+      title: "Undo",
+      description: "Undo the last action(s) in After Effects (Edit > Undo).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          steps: {
+            type: "integer",
+            minimum: 1,
+            maximum: 50
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_get_layer_bounds",
+      title: "Layer bounds",
+      description: "Exact on-screen bounding boxes of layers in composition pixels at a time, after all transforms, parenting, 3D and the active camera (via AE's own toComp()). Also reports whether each layer is visible at that time, fully/partly/not in frame, and inside action-safe (5% margin) and title-safe (10% margin). Use it to check alignment, spacing, overlaps and safe areas with numbers.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          layers: {
+            description: "Layers to measure (default: all layers, up to 300).",
+            type: "array",
+            items: {
+              anyOf: [
+                {
+                  type: "integer",
+                  minimum: -9007199254740991,
+                  maximum: 9007199254740991
+                },
+                {
+                  type: "string"
+                }
+              ],
+              description: "Layer: 1-based index (number) or exact layer name."
+            }
+          },
+          selectedOnly: {
+            description: "Measure only the layers selected in After Effects.",
+            type: "boolean"
+          },
+          time: {
+            description: "Seconds (default: the comp's current time).",
+            type: "number"
+          },
+          frame: {
+            description: "Whole frame number from the comp's start (frame 0 = time 0), instead of time.",
+            type: "integer",
+            minimum: -9007199254740991,
+            maximum: 9007199254740991
+          },
+          includeExtents: {
+            description: "Include stroke widths, effects and other extents (default false = content box).",
+            type: "boolean"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_get_comp_map",
+      title: "Composition structure map",
+      description: "Overview of how a composition is built: the tree of nested precomps (with how many times each is used), parenting chains, track mattes, and which layers/comps each expression references. Use it to understand an unfamiliar project before editing.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          depth: {
+            description: "How deep to follow nested precomps (default 4).",
+            type: "integer",
+            minimum: 1,
+            maximum: 10
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_get_keyframes",
+      title: "Keyframe table",
+      description: "Read keyframes as a table across many layers and properties in one call: for every key its whole frame number AND exact time in seconds, exact value, in/out interpolation, temporal ease per dimension (speed in the property's units per second, influence %) exactly as After Effects stores them, continuous/auto-Bezier, spatial tangents and roving (spatial properties), label. A key that is not on a whole frame is flagged with offFrame (fraction of a frame). curves: true adds, per segment between keys, the normalised curve (cubic-bezier x1,y1,x2,y2 per dimension; along the path for spatial properties). The output's properties[] can be edited and written back with ae_set_keyframe_table.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: 'Composition: item id (number) or exact name. Omit (or "active") for the active/open composition.',
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          layers: {
+            description: "Layers (default: every layer of the comp).",
+            type: "array",
+            items: {
+              anyOf: [
+                {
+                  type: "integer",
+                  minimum: -9007199254740991,
+                  maximum: 9007199254740991
+                },
+                {
+                  type: "string"
+                }
+              ],
+              description: "Layer: 1-based index (number) or exact layer name."
+            }
+          },
+          selectedOnly: {
+            description: "Only the layers selected in After Effects.",
+            type: "boolean"
+          },
+          paths: {
+            description: "Properties or groups to read on each layer (default: every animated property). The returned paths resolve in any AE language.",
+            type: "array",
+            items: {
+              anyOf: [
+                {
+                  type: "string"
+                },
+                {
+                  type: "array",
+                  items: {
+                    anyOf: [
+                      {
+                        type: "string"
+                      },
+                      {
+                        type: "integer",
+                        minimum: -9007199254740991,
+                        maximum: 9007199254740991
+                      }
+                    ]
+                  }
+                }
+              ],
+              description: 'Property path from the layer, "/"-separated display names or match names, e.g. "Transform/Position", "Effects/Gaussian Blur/Blurriness", "ADBE Transform Group/ADBE Opacity", "Contents/Rectangle 1/Fill 1/Color".'
+            }
+          },
+          startFrame: {
+            description: "Only keys at or after this frame.",
+            type: "integer",
+            minimum: -9007199254740991,
+            maximum: 9007199254740991
+          },
+          endFrame: {
+            description: "Only keys at or before this frame.",
+            type: "integer",
+            minimum: -9007199254740991,
+            maximum: 9007199254740991
+          },
+          curves: {
+            description: "Add the normalised curve numbers of every segment.",
+            type: "boolean"
+          },
+          maxKeys: {
+            description: "Stop after this many keys (default 5000).",
+            type: "integer",
+            minimum: 1,
+            maximum: 2e4
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_render_background",
+      title: "Render in background",
+      description: "Render a composition (or a render queue item) with aerender in a separate process, so After Effects stays usable. It renders the project as saved on disk: pass save:true to save the open project first (required when it has unsaved changes). Returns a job id; check progress with ae_render_jobs and cancel there.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          comp: {
+            description: "Composition to render (id or name; default: the active comp).",
+            anyOf: [
+              {
+                type: "integer",
+                minimum: -9007199254740991,
+                maximum: 9007199254740991
+              },
+              {
+                type: "string"
+              }
+            ]
+          },
+          rqIndex: {
+            description: "Render this render queue item with its own settings instead of a comp.",
+            type: "integer",
+            minimum: 1,
+            maximum: 9007199254740991
+          },
+          output: {
+            description: "Absolute output path (with comp). Extension should match the output module.",
+            type: "string"
+          },
+          renderSettingsTemplate: {
+            description: 'e.g. "Best Settings".',
+            type: "string"
+          },
+          outputModuleTemplate: {
+            description: 'e.g. "High Quality", "H.264 - Match Render Settings - 15 Mbps".',
+            type: "string"
+          },
+          startFrame: {
+            type: "integer",
+            minimum: -9007199254740991,
+            maximum: 9007199254740991
+          },
+          endFrame: {
+            type: "integer",
+            minimum: -9007199254740991,
+            maximum: 9007199254740991
+          },
+          save: {
+            description: "Save the open project first (needed if it has unsaved changes).",
+            type: "boolean"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_render_jobs",
+      title: "Background render jobs",
+      description: "Status and progress of background renders started with ae_render_background (this session), or cancel one.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: {
+            description: "Only this job.",
+            type: "string"
+          },
+          cancel: {
+            description: "Cancel this job id.",
+            type: "string"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_batch",
+      title: "Batch edits",
+      description: 'Run many steps in ONE call: each step is a tool with its arguments (any project/comp/layer/property/keyframe/effect/text/footage tool) or {tool: "ae_run_script", args: {code}}. All steps form a single undo step and return one change report. Atomic by default: if any step fails, everything is undone and you get the error of the failing step. Use it for repetitive or multi-part edits (e.g. style 30 layers, build a scene) to save round trips.',
+      inputSchema: {
+        type: "object",
+        properties: {
+          steps: {
+            minItems: 1,
+            maxItems: 200,
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                tool: {
+                  type: "string"
+                },
+                args: {
+                  type: "object",
+                  propertyNames: {
+                    type: "string"
+                  },
+                  additionalProperties: {}
+                }
+              },
+              required: [
+                "tool"
+              ]
+            }
+          },
+          atomic: {
+            description: "Undo everything if a step fails (default true). false = keep successful steps and continue.",
+            type: "boolean"
+          },
+          name: {
+            description: 'Undo step name shown in After Effects (default "Surehand MCP Batch").',
+            type: "string"
+          },
+          checkpoint: {
+            description: "Save a project checkpoint before running (see ae_checkpoint).",
+            type: "boolean"
+          },
+          verbose: {
+            description: "Return each step's full result (default: short summaries).",
+            type: "boolean"
+          }
+        },
+        required: [
+          "steps"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true
+      }
+    },
+    {
+      name: "ae_checkpoint",
+      title: "Project checkpoints",
+      description: "Safety copies of the project: save (saves the open project, then keeps a timestamped copy), list the checkpoints of this project, or restore one (opens it as a NEW file next to the original; neither the original nor an earlier restore is ever overwritten). Use before large or risky changes.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: [
+              "save",
+              "list",
+              "restore"
+            ]
+          },
+          label: {
+            description: "Short label for a new checkpoint.",
+            type: "string"
+          },
+          id: {
+            description: "Checkpoint id to restore (from list).",
+            type: "string"
+          },
+          discardChanges: {
+            description: "Restore even if the open project has unsaved changes (they are discarded).",
+            type: "boolean"
+          }
+        },
+        required: [
+          "action"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_list_scripts",
+      title: "List scripts",
+      description: `List the user's own After Effects scripts: AE's Scripts folder (and ScriptUI Panels) plus folders configured as "scriptFolders" in ~/.surehand/ae/config.json, with each script's description from its header comment. Run one with ae_run_script_file.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          nameContains: {
+            type: "string"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_prove_identical",
+      title: "Prove the render is unchanged",
+      description: "Prove a structural change (un-precompose, bake expressions, reorder effects, simplify a rig) left the render unchanged, or show which frames and areas differ. capture: render reference frames (default: active comp, 5 frames over the work area), returns a proof id. compare: render them again and compare pixel by pixel (verdict, per-frame max difference, changed pixels, \u0394E, area, difference image). run: capture, ae_batch steps, compare, in one call. For un-precompose, prove the parent comp. Only the sampled video frames are compared (alpha included; not audio, the comp background color or times between samples; 32 bpc values above 1.0 are clamped).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: [
+              "capture",
+              "compare",
+              "run"
+            ]
+          },
+          comps: {
+            description: "capture/run: comps to prove (item id or exact name; default the active comp).",
+            minItems: 1,
+            maxItems: 4,
+            type: "array",
+            items: {
+              anyOf: [
+                {
+                  type: "integer",
+                  minimum: -9007199254740991,
+                  maximum: 9007199254740991
+                },
+                {
+                  type: "string"
+                }
+              ]
+            }
+          },
+          times: {
+            description: "capture/run: exact times in seconds (snapped to frames) instead of evenly spaced frames.",
+            minItems: 1,
+            maxItems: 24,
+            type: "array",
+            items: {
+              type: "number"
+            }
+          },
+          frames: {
+            description: "capture/run: number of frames spread over each comp's work area (default 5).",
+            type: "integer",
+            minimum: 1,
+            maximum: 24
+          },
+          maxSize: {
+            description: "capture/run: longest rendered side in pixels (default 1920; larger comps are scaled down).",
+            type: "integer",
+            minimum: 64,
+            maximum: 4096
+          },
+          id: {
+            description: "compare: the proof id from capture (default the latest proof).",
+            type: "string"
+          },
+          tolerance: {
+            description: "compare/run: allowed difference per channel, 0-255 (default 0.5: less than one 8-bit step, so only 16/32 bpc rounding is allowed; 0 = bit-identical).",
+            type: "number",
+            minimum: 0,
+            maximum: 255
+          },
+          steps: {
+            description: "run: the edits, as ae_batch steps.",
+            minItems: 1,
+            maxItems: 200,
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                tool: {
+                  type: "string"
+                },
+                args: {
+                  type: "object",
+                  propertyNames: {
+                    type: "string"
+                  },
+                  additionalProperties: {}
+                }
+              },
+              required: [
+                "tool"
+              ]
+            }
+          },
+          atomic: {
+            description: "run: as ae_batch (default true: a failed step undoes everything, and nothing is compared).",
+            type: "boolean"
+          },
+          name: {
+            description: "run: undo step name.",
+            type: "string"
+          },
+          checkpoint: {
+            description: "run: save a project checkpoint before the edits.",
+            type: "boolean"
+          },
+          verbose: {
+            description: "run: full result of each step.",
+            type: "boolean"
+          }
+        },
+        required: [
+          "action"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true
+      }
+    },
+    {
+      name: "ae_get_scripting_guide",
+      title: "ExtendScript guide",
+      description: "Returns the After Effects ExtendScript cheat sheet (ES3 rules, helpers, common match names). Read before writing complex ae_run_script code.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_tools",
+      title: "More tools",
+      description: "Discover every After Effects tool, including ones not loaded in this chat: list them by category (one line each), or describe chosen tools (full parameters). Then run any of them with ae_call. Categories: status & app, scripts, project, comps, layers, properties & keyframes, effects, shapes & masks, text, 3D, audio, footage, files & export, checks, see & measure, essential graphics, render.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          describe: {
+            description: "Tool names to get full parameter details for.",
+            maxItems: 10,
+            type: "array",
+            items: {
+              type: "string"
+            }
+          },
+          category: {
+            description: "Only list this category.",
+            type: "string"
+          }
+        },
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      }
+    },
+    {
+      name: "ae_call",
+      title: "Run any tool",
+      description: "Run any After Effects tool by name with its arguments, e.g. tools listed by ae_tools that aren't loaded in this chat. Same validation, permissions, change report and activity log as calling the tool directly. Get the parameters with ae_tools {describe: [name]}.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          tool: {
+            type: "string",
+            description: 'Tool name, e.g. "ae_set_camera".'
+          },
+          args: {
+            description: "The tool's arguments.",
+            type: "object",
+            propertyNames: {
+              type: "string"
+            },
+            additionalProperties: {}
+          }
+        },
+        required: [
+          "tool"
+        ],
+        $schema: "http://json-schema.org/draft-07/schema#"
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true
+      }
+    }
+  ]
+};
+
+// mcp/src/surehand-tools.ts
+function registerSurehandTools(server2) {
+  let connection;
+  function getClient() {
+    if (connection) return connection.ready;
+    const bundle = import_node_path6.default.join(__dirname, "vendor", "surehand", "surehand-ae.mjs");
+    if (!(0, import_node_fs.existsSync)(bundle)) throw new Error("Surehand \u7EC4\u4EF6\u7F3A\u5931\uFF0C\u8BF7\u91CD\u65B0\u5B89\u88C5 F2A");
+    const client = new Client({ name: "F2A", version: "1.0.0" });
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [bundle, "--tools", catalog_default.profile],
+      // Surehand launches aerender, which needs the host's Adobe and Windows environment.
+      env: { ...process.env, SUREHAND_AE_NO_UPDATE_CHECK: "1" }
+    });
+    const reset = () => {
+      if (connection?.client === client) connection = void 0;
+    };
+    client.onclose = reset;
+    const ready = client.connect(transport, { timeout: 15e3 }).then(() => client, async (error62) => {
+      await client.close();
+      reset();
+      throw new Error("Surehand \u542F\u52A8\u5931\u8D25\uFF1A" + error62.message, { cause: error62 });
+    });
+    connection = { client, ready };
+    return ready;
+  }
+  for (const { name, title, description, inputSchema: inputSchema5, annotations } of catalog_default.tools) {
+    const schema = external_exports.fromJSONSchema(inputSchema5);
+    server2.registerTool(
+      name,
+      { title, description, inputSchema: schema, annotations },
+      async (args, { signal }) => {
+        const client = await getClient();
+        return client.request({
+          method: "tools/call",
+          params: { name, arguments: args }
+        }, CallToolResultSchema, { signal, timeout: 12e4 });
+      }
+    );
+  }
+  server2.server.onclose = () => {
+    void connection?.client.close();
+  };
+}
+
 // mcp/f2a-server.ts
 console.log = console.info = console.debug = (...args) => console.error(...args);
 (0, import_launcher.ensureRelay)((error62) => {
   if (error62) console.error("F2A MCP: " + error62.message);
 });
-var server = new McpServer({ name: "F2A", version: "1.0.0" }, { instructions: "Open F2A in Figma. A single open document connects automatically. Use get_f2a_status and join_channel only when choosing among multiple documents." });
+var instructions = [
+  "For Figma tools, open F2A in Figma. A single open document connects automatically.",
+  "Use get_f2a_status and join_channel to choose among multiple Figma documents.",
+  "For After Effects, start with ae_status to check the current project and choose the intended instance.",
+  "Use ae_list_comps and the composition item ID when editing F2A exports because folders can share composition names.",
+  "Animate with ae_* tools and preview with ae_render_frame. Save an editable .aep with ae_save_project.",
+  "For video, use an output module template installed in the target AE. Read available templates with ae_call and ae_list_render_queue when a queue item exists.",
+  "Run ae_render_background and poll ae_render_jobs in the same session, or render in AE with ae_add_to_render_queue and ae_call for ae_render_queue_start.",
+  "Discover more Surehand tools with ae_tools and ae_call."
+].join(" ");
+var server = new McpServer({ name: "F2A", version: "1.0.0" }, { instructions });
 server.tool(
   "get_document_info",
   "Get detailed information about the current Figma document",
@@ -43525,6 +47164,10 @@ server.tool("join_channel", "Select an open F2A document by session ID, file key
 var send = withFigwrightArgs(import_bridge.sendCommandToFigma);
 registerLayerTools(server, send);
 registerFigwrightTools(server, send);
+registerSurehandTools(server);
+process.stdin.once("end", () => {
+  void server.close();
+});
 server.connect(new StdioServerTransport()).catch((error62) => {
   console.error(error62);
   process.exit(1);
