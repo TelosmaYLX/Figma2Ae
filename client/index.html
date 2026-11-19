@@ -8,7 +8,7 @@
 </head>
 <body>
   <!-- Connection and activity take priority. Keep the update action secondary in the header.
-       The notice reuses the status bar and accent tokens, and appears only for a newer version. -->
+       Release notes are an inline disclosure using the status bar's surface, text and spacing. -->
   <header class="mk-header">
     <div class="mk-brand">
       <h1 class="mk-name">F2A</h1>
@@ -16,8 +16,6 @@
     </div>
     <button type="button" id="mk-update" class="mk-update" hidden>检查更新</button>
   </header>
-
-  <div id="mk-update-notice" class="mk-figbar mk-update-notice" role="status" hidden></div>
 
   <!-- Figma bridge status (updated by figmaBridge.js) -->
   <div class="mk-figbar" id="mk-figbar">
@@ -29,6 +27,14 @@
     <span class="mk-fig-dot off" id="mk-mcp-dot" aria-hidden="true"></span>
     <span class="mk-fig-label" id="mk-mcp-label">MCP 正在启动…</span>
   </div>
+
+  <details id="mk-update-notice" class="mk-figbar mk-update-notice" hidden>
+    <summary>
+      <span id="mk-update-title" class="mk-update-title" role="status"></span>
+      <span class="mk-update-toggle">更新日志</span>
+    </summary>
+    <div id="mk-update-notes" class="mk-update-notes" role="region" aria-label="更新日志" tabindex="0"></div>
+  </details>
 
   <!-- Live log: every bridge, MCP and import message lands here with a timestamp. -->
   <section class="mk-console" aria-label="运行日志">

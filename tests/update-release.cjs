@@ -11,14 +11,27 @@ const {check, install} = require('../client/updateRelease.js');
 async function verifyPanel() {
   const source = await fs.readFile(path.join(__dirname, '../client/updatePanel.js'), 'utf8');
   const extension = path.resolve('F2A test install');
-  for (const installedPackage of [false, true]) {
-    const button = {hidden: true, textContent: '检查更新'}, notice = {hidden: true}, version = {};
+  const changelog = '修复图片名称 <蒙版>\n改进 AEP 导出';
+  const available = {version: '1.2.0', url: 'fixture.zip', notes: changelog};
+  const current = {version: '1.1.0', notes: changelog};
+  for (const {installedPackage, release} of [
+    {installedPackage: false, release: available},
+    {installedPackage: true, release: available},
+    {installedPackage: true, release: current},
+    {installedPackage: true, release: {...available, notes: ''}},
+  ]) {
+    const update = !!release.url;
+    const canInstall = installedPackage && update;
+    const button = {hidden: true, textContent: '检查更新'}, notice = {hidden: true, open: false};
+    const version = {}, title = {}, notes = {set innerHTML(_) { assert.fail('Release notes must be plain text'); }};
+    const elements = {'mk-update': button, 'mk-update-notice': notice, 'mk-version': version,
+      'mk-update-title': title, 'mk-update-notes': notes};
     const reports = [], checks = [];
     let installations = 0, checkError;
     vm.runInNewContext(source, {
       window: {__adobe_cep__: {getSystemPath: () => extension}, MKReport: message => reports.push(message)},
       process: {platform: 'win32'},
-      document: {getElementById: id => ({'mk-update': button, 'mk-update-notice': notice, 'mk-version': version})[id]},
+      document: {getElementById: id => elements[id]},
       require(name) {
         if (name === 'path') return path;
         if (name === 'fs') return {
@@ -29,8 +42,8 @@ async function verifyPanel() {
         return {check: async (_, options) => {
           checks.push(options.interactive);
           if (checkError) throw checkError;
-          return {version: '1.2.0'};
-        }, install: async () => { installations++; }};
+          return release;
+        }, install: async (_, pending) => { assert.equal(pending, release); installations++; }};
       }
     });
     assert.equal(button.hidden, false, 'The update entry is visible in both package and source panels');
@@ -38,16 +51,24 @@ async function verifyPanel() {
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(checks, [false], 'Startup checks once in both installation modes');
     assert.equal(notice.hidden, false);
-    assert.equal(notice.textContent, '发现新版 v1.2.0');
-    assert.match(reports[0], /发现新版 v1\.2\.0/);
-    assert.equal(button.textContent, installedPackage ? '更新到 1.2.0' : '检查更新');
+    assert.equal(notice.open, false);
+    assert.equal(title.textContent, update ? '发现新版 v1.2.0' : 'v1.1.0');
+    assert.equal(notes.textContent, release.notes || '暂无更新日志。');
+    if (update) assert.match(reports[0], /发现新版 v1\.2\.0/);
+    else assert.deepEqual(reports, []);
+    assert.equal(button.textContent, canInstall ? '更新到 1.2.0' : '检查更新');
     await button.onclick();
-    assert.equal(installations, installedPackage ? 1 : 0);
-    if (installedPackage) {
+    assert.equal(installations, canInstall ? 1 : 0);
+    if (canInstall) {
       assert.match(reports[1], /已更新到 1\.2\.0/);
-      assert.equal(notice.hidden, true);
+      assert.equal(title.textContent, 'v1.2.0');
+      assert.equal(notes.textContent, release.notes || '暂无更新日志。');
+      assert.equal(notice.hidden, false);
+      assert.equal(notice.open, true);
     } else {
       assert.deepEqual(checks, [false, true]);
+      assert.equal(notice.open, update);
+      if (!update) assert.equal(reports.at(-1), '暂无可用更新。');
       checkError = new TypeError('The listener argument must be of type function');
       await button.onclick();
       assert.equal(reports.at(-1), '检查更新失败，请重试。');
@@ -67,6 +88,7 @@ async function verifyCepTransport() {
         assert.equal(typeof listener, 'function');
         assert.equal(options.hostname, 'api.github.com');
         assert.match(options.path, /\/releases\/latest$/);
+        assert.equal(options.headers.Accept, 'application/vnd.github.text+json');
         const request = new EventEmitter();
         request.setTimeout = () => {};
         process.nextTick(() => {
@@ -87,27 +109,37 @@ async function verify() {
   const file = 'F2A-Windows-x64-v1.10.0.zip';
   const bytes = Buffer.from('Windows ZIP fixture');
   const digest = createHash('sha256').update(bytes).digest('hex');
-  const release = {tag_name: 'v1.10.0', assets: [{name: file, id: 42}, {name: 'latest.json', id: 43}]};
+  const release = {tag_name: 'v1.10.0', body: '## Changes', body_text: '  Changes\nFix paths\n',
+    assets: [{name: file, id: 42}, {name: 'latest.json', id: 43}]};
   const replies = new Map([
     ['/releases/latest', release],
     ['/releases/assets/43', {version: '1.10.0', file, sha256: digest}]
   ]);
   const api = 'https://api.github.com/repos/TelosmaYLX/Figma2Ae';
   const credentialFor = async interactive => { assert.equal(interactive, true); return 'test-token'; };
+  const requested = [];
   const get = async (url, credential) => {
     assert.equal(credential, 'test-token');
+    requested.push(url.slice(api.length));
     const reply = replies.get(url.slice(api.length));
     if (!reply) throw Object.assign(new Error('Not found'), {status: 404});
     return Buffer.from(JSON.stringify(reply));
   };
   const options = {interactive: true, credentialFor, get};
   assert.equal(await check('1.11.0', options), null);
+  requested.length = 0;
+  assert.deepEqual(await check('1.10.0', options), {version: '1.10.0', notes: 'Changes\nFix paths'});
+  assert.deepEqual(requested, ['/releases/latest'], 'Installed release notes need no update assets');
   const update = await check('1.9.0', options);
   assert.equal(update.version, '1.10.0');
+  assert.equal(update.notes, 'Changes\nFix paths');
   assert.equal(update.url, api + '/releases/assets/42');
   const legacy = 'F2A-Windows-x64.zip';
   release.assets[0].name = replies.get('/releases/assets/43').file = legacy;
-  assert.equal((await check('1.9.0', options)).url, update.url);
+  delete release.body_text;
+  const legacyUpdate = await check('1.9.0', options);
+  assert.equal(legacyUpdate.url, update.url);
+  assert.equal(legacyUpdate.notes, release.body);
   replies.get('/releases/assets/43').file = 'F2A-Windows-x64-v1.9.0.zip';
   await assert.rejects(check('1.9.0', options), /清单无效/);
   replies.get('/releases/assets/43').file = legacy;
@@ -134,7 +166,7 @@ async function verify() {
   await assert.rejects(fs.stat(path.dirname(archive)), {code: 'ENOENT'});
   await verifyPanel();
   await verifyCepTransport();
-  console.log('PASS: private GitHub Release lookup, version comparison, manifest and archive validation, installer arguments and cleanup');
+  console.log('PASS: private GitHub Release lookup, notes before/after updating, version comparison, archive validation and installer cleanup');
 }
 
 verify().catch(error => {console.error(error); process.exitCode = 1;});

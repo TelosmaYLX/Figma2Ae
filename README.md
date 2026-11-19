@@ -78,6 +78,8 @@ flowchart LR
 
 打开 AE 的 F2A 面板时会自动检查一次更新，有新版时会显示提醒。也可手动点 **检查更新**。发现新版后，点击 `更新到 <版本号>` 安装，然后重新打开 AE 和 Figma 的 F2A 面板。私有仓库通过 Git for Windows 的 Git Credential Manager 登录。
 
+点击「更新日志」可查看 GitHub Release 的发布说明。手动检查发现新版或安装完成时，面板会自动展开本次日志。
+
 如果 v1.1.0 检查更新报 `listener` 错误，下载新版 ZIP 并按安装步骤覆盖原安装目录。该错误已在 v1.1.1 修复。[下载最新版](https://github.com/TelosmaYLX/Figma2Ae/releases/latest)
 
 ## 用 MCP 操作 Figma 和 AE

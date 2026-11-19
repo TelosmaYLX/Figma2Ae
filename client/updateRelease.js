@@ -97,7 +97,7 @@ function assetUrl(release, name) {
 
 async function check(installed, {interactive = false, credentialFor = githubCredential, get = request} = {}) {
   const credential = await credentialFor(interactive);
-  const fetchRelease = suffix => get(api + suffix, credential, 'application/vnd.github+json', 1024 * 1024);
+  const fetchRelease = suffix => get(api + suffix, credential, 'application/vnd.github.text+json', 1024 * 1024);
   let release;
   try { release = JSON.parse((await fetchRelease('/releases/latest')).toString('utf8')); }
   catch (error) {
@@ -114,13 +114,14 @@ async function check(installed, {interactive = false, credentialFor = githubCred
     throw error;
   }
   const version = String(release.tag_name || '').replace(/^v/, '');
-  if (!isNewer(version, installed)) return null;
+  const notes = (typeof release.body_text === 'string' ? release.body_text : release.body || '').trim();
+  if (!isNewer(version, installed)) return version === installed && notes ? {version, notes} : null;
   const buffer = await get(assetUrl(release, manifestName), credential, 'application/octet-stream', 16 * 1024);
   const manifest = JSON.parse(buffer.toString('utf8'));
   const releaseArchive = archiveBase + '-v' + version + '.zip';
   if (manifest.version !== version || ![releaseArchive, archiveName].includes(manifest.file) || !/^[a-f0-9]{64}$/.test(manifest.sha256))
     throw updateError('GitHub 上的更新清单无效。');
-  return {version, sha256: manifest.sha256, url: assetUrl(release, manifest.file), credential};
+  return {version, notes, sha256: manifest.sha256, url: assetUrl(release, manifest.file), credential};
 }
 
 async function install(extension, update, {get = request, execute = run} = {}) {
