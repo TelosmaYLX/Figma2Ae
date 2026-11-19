@@ -6874,7 +6874,10 @@ p = p.property("ADBE Text Document");
 var td = args.time !== undefined ? p.valueAtTime(args.time, false) : p.value;
 aemcp.applyText(td, args);
 if (args.time !== undefined) p.setValueAtTime(args.time, td); else if (p.numKeys) p.setValueAtTime(c.time, td); else p.setValue(td);
-return aemcp.textInfo(p.value);`}];init_define_AEMCP_CEP_BINARY();init_define_AEMCP_CEP_FILES();init_define_AEMCP_SKILLS();var projectTools=[{name:"ae_get_project_info",title:"Get project info",description:"Summary of the open project: file path, dirty state, item counts, bit depth, render queue size, active item.",input:{},readOnly:true,jsx:"return aemcp.projectInfo();"},{name:"ae_list_items",title:"List project items",description:"List items in the Project panel (comps, footage, solids, folders) with ids, sizes, durations and folders.",input:{type:external_exports.enum(["comp","footage","solid","folder","placeholder"]).optional().describe("Only items of this type."),nameContains:external_exports.string().optional().describe("Case-insensitive name filter."),folder:itemRef.optional().describe("Only direct children of this folder."),limit:external_exports.number().int().min(1).max(5e3).optional().describe("Max items (default 300)."),offset:external_exports.number().int().min(0).optional().describe("Skip this many matching items (paging; see nextOffset).")},readOnly:true,jsx:`
+return aemcp.textInfo(p.value);`}];init_define_AEMCP_CEP_BINARY();init_define_AEMCP_CEP_FILES();init_define_AEMCP_SKILLS();var projectFile=`
+var f = new File(/^file:/i.test(args.path) ? args.path : File.encode(args.path));
+// AE decodes the project path again when opening or saving it.
+if (f.fsName.indexOf("%") !== -1) aemcp.fail("After Effects cannot use % in project paths. Choose a folder and filename without %.");`;var projectTools=[{name:"ae_get_project_info",title:"Get project info",description:"Summary of the open project: file path, dirty state, item counts, bit depth, render queue size, active item.",input:{},readOnly:true,jsx:"return aemcp.projectInfo();"},{name:"ae_list_items",title:"List project items",description:"List items in the Project panel (comps, footage, solids, folders) with ids, sizes, durations and folders.",input:{type:external_exports.enum(["comp","footage","solid","folder","placeholder"]).optional().describe("Only items of this type."),nameContains:external_exports.string().optional().describe("Case-insensitive name filter."),folder:itemRef.optional().describe("Only direct children of this folder."),limit:external_exports.number().int().min(1).max(5e3).optional().describe("Max items (default 300)."),offset:external_exports.number().int().min(0).optional().describe("Skip this many matching items (paging; see nextOffset).")},readOnly:true,jsx:`
 var p = app.project, out = [], lim = args.limit || 300, skip = args.offset || 0, matched = 0, f = args.folder !== undefined ? aemcp.findItem(args.folder) : null;
 var q = args.nameContains ? String(args.nameContains).toLowerCase() : null, more = false;
 for (var i = 1; i <= p.numItems; i++) {
@@ -6928,7 +6931,7 @@ var f = new File(args.path); if (!f.exists) aemcp.fail("File not found: " + args
 if (args.sequence) it.replaceWithSequence(f, false); else it.replace(f);
 return aemcp.itemInfo(it);`},{name:"ae_save_project",title:"Save project",description:"Save the project (optionally Save As to a new .aep path). Save As never replaces an existing file unless overwrite is true.",input:{path:external_exports.string().optional().describe("Absolute .aep path for Save As."),overwrite:external_exports.boolean().optional().describe("Save As over an existing file at path (default false: refuse).")},destructive:true,idempotent:true,noUndo:true,jsx:`
 if (args.path) {
-  var f = new File(args.path);
+  ${projectFile}
   // saving onto the project's own file is a plain save, not an overwrite
   var own = app.project.file && app.project.file.fsName === f.fsName;
   if (f.exists && !own && !args.overwrite) aemcp.fail("A file already exists at " + f.fsName + ". Nothing was saved. To replace it, call ae_save_project again with overwrite: true (or choose another path).");
@@ -6936,7 +6939,8 @@ if (args.path) {
 } else if (app.project.file) app.project.save(); else aemcp.fail("Project has never been saved: pass a path");
 return { file: app.project.file ? app.project.file.fsName : null };`},{name:"ae_open_project",title:"Open project",description:"Open an .aep/.aet project file. Unsaved changes in the current project are discarded only if discardChanges is true.",input:{path:external_exports.string(),discardChanges:external_exports.boolean().optional()},destructive:true,noUndo:true,jsx:`
 if (app.project.dirty && !args.discardChanges) aemcp.fail("Current project has unsaved changes. Save first or pass discardChanges: true.");
-var f = new File(args.path); if (!f.exists) aemcp.fail("File not found: " + args.path);
+${projectFile}
+if (!f.exists) aemcp.fail("File not found: " + args.path);
 // with unsaved changes app.open would silently do nothing (its save prompt is suppressed)
 if (app.project.dirty) app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);
 app.open(f);

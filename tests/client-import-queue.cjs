@@ -4,8 +4,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '..'), output = path.join(root, 'artifacts/undo/client', String(process.pid));
 let testId = 0;
-function harness({rememberFolder = true, failImages = false, lockedImageName, shadowRenderer, nativeFolder, activeCompId = 101} = {}) {
-  const dir = path.join(output, String(++testId)), assets = path.join(dir, 'assets');
+function harness({rememberFolder = true, failImages = false, lockedImageName, shadowRenderer, nativeFolder, activeCompId = 101, tempSuffix = ''} = {}) {
+  const dir = path.join(output, String(++testId) + tempSuffix), assets = path.join(dir, 'assets');
   fs.mkdirSync(assets, {recursive: true});
   const native = [], pending = [], pickers = [], messages = [], folderCalls = [], elements = {}, launchCalls=[];
   let callbacks, active = 0, svgId = 0;
@@ -24,7 +24,9 @@ function harness({rememberFolder = true, failImages = false, lockedImageName, sh
     evalScript(script, callback) {
       if (script.startsWith('runImportBatch(')) {
         assert.equal(active, 0, 'Only one mutating native evaluation may run at a time'); active++;
-        const file = script.match(/\("([^"]+)"\)/)[1], job = JSON.parse(fs.readFileSync(file, 'utf8'));
+        assert.doesNotMatch(script, /[^\x00-\x7f]/, 'CEP script arguments are ASCII literals');
+        const file = JSON.parse(script.slice('runImportBatch('.length, -1));
+        const job = JSON.parse(fs.readFileSync(file, 'utf8'));
         native.push({file, job, id: JSON.parse(fs.readFileSync(job.nodesPath, 'utf8'))[0]?.id}); pending.push(callback);
       } else if (script === 'mkFigmaTargetCompId()') callback(String(activeCompId));
       else if (script.startsWith('mkChooseImageFolder(')) pickers.push(callback);
@@ -104,8 +106,9 @@ const savedReference=JSON.parse(fs.readFileSync(reference.native[0].job.imagesPa
 assert.equal(savedReference.reference,true);assert.equal(savedReference.hidden,true);reference.finish();
 const mask = 'shape/shape-17-1_蒙版';
 const safeMask = 'shape_shape-17-1_蒙版';
-const filenames = harness();
-const names = [mask, safeMask + '_2', safeMask, 'shape\\shape-17-1_蒙版', 'CON', '卡片:亮度？?'];
+const filenames = harness({tempSuffix: " %20 # & ' 路径\u2028"});
+const names = [mask, safeMask + '_2', safeMask, 'shape\\shape-17-1_蒙版', 'CON', '卡片:亮度？?',
+  "字面 %20 %2F # + [汉字] 'A&B' 💡", 'COM¹', 'LPT³.backup', 'CONOUT$', '图<>:"/\\|?*', '图层.  ', '...'];
 filenames.start('mask paths', names.length);
 filenames.callbacks.onImages(names.map(name => ({name, ext:'png', data:Buffer.from(name).toString('base64')})));
 assert.equal(filenames.native.length, 1, filenames.messages.at(-1));
@@ -114,6 +117,9 @@ assert.deepEqual(savedImages.map(image => image.name), names, 'AE receives the o
 assert.equal(savedImages[0].file, safeMask + '.png');
 assert.equal(savedImages[4].file, '_CON.png');
 assert.equal(savedImages[5].file, '卡片_亮度？_.png');
+assert.equal(savedImages[6].file, "字面 _20 _2F # + [汉字] 'A&B' 💡.png");
+assert.deepEqual(savedImages.slice(7).map(image => image.file),
+  ['_COM¹.png', '_LPT³.backup.png', '_CONOUT$.png', '图_________.png', '图层.png', 'image.png']);
 assert.equal(new Set(savedImages.map(image => image.file.toLowerCase())).size, names.length);
 for (const image of savedImages) {
   const file = path.resolve(filenames.assets, image.file);

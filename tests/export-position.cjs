@@ -38,6 +38,7 @@ async function check(name, fn) {
     class CompItem { constructor() { this.width=300;this.height=300; } }
     const files = {nodes: JSON.stringify(result.ship.nodes)};
     function File(name) { this.exists=name in files;this.open=()=>{};this.close=()=>{};this.read=()=>files[name]; }
+    File.encode = encodeURI;
     const models=[];
     const c=vm.createContext({CompItem, File, app:{project:{activeItem:new CompItem()}},
       SVGParser, AEShapeBuilder:{build(model){models.push(plain(model));return [];},getDiag(){return '';}}});

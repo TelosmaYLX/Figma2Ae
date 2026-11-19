@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
+const aeFilename = require('../host/figma/aeFilename.js');
 const {normalize, AE_VERSIONS} = require('./aep/packet.cjs');
 const root = path.resolve(__dirname, '..');
 const run = promisify(execFile);
@@ -54,9 +55,7 @@ async function exportAep(packet, directory, options = {}) {
 }
 
 function outputName(name) {
-  let base = String(name || 'Figma').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100).replace(/[. ]+$/, '') || 'Figma';
-  if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(base)) base = '_' + base;
-  return base;
+  return aeFilename(name, 'Figma', 100);
 }
 
 async function createOutputDirectory(parent, name) {

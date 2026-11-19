@@ -684,7 +684,7 @@ var AEShapeBuilder = (function () {
   // (optionally) add a solid stroke into the same group.
   function applyFillGradient(comp, lyr, sdata, ffxPath, includeSolidStroke) {
     try {
-      var g = sdata.gradient, f = new File(ffxPath);
+      var g = sdata.gradient, f = new File(File.encode(ffxPath));
       if (!f.exists) { _diag.push("no fill ffx"); return false; }
       selectForPreset(comp, lyr);
       try { lyr.applyPreset(f); } catch (ea) { _diag.push("fillApply:" + ea); return false; }
@@ -714,7 +714,7 @@ var AEShapeBuilder = (function () {
   // inject the path, and (optionally) add a solid fill into the same group.
   function applyStrokeGradient(comp, lyr, sdata, ffxPath, includeSolidFill) {
     try {
-      var g = sdata.strokeGradient, f = new File(ffxPath);
+      var g = sdata.strokeGradient, f = new File(File.encode(ffxPath));
       if (!f.exists) { _diag.push("no stroke ffx"); return false; }
       selectForPreset(comp, lyr);
       try { lyr.applyPreset(f); } catch (ea) { _diag.push("strokeApply:" + ea); return false; }
@@ -809,7 +809,7 @@ var AEShapeBuilder = (function () {
   // the gradient, and the geometry is injected into that very group so it has something to paint.
   function addExtraGradientPaint(comp, lyr, sdata, ep, ffxPath, underAt) {
     try {
-      var f = new File(ffxPath);
+      var f = new File(File.encode(ffxPath));
       if (!f.exists) { _diag.push("no extra ffx"); return false; }
       selectForPreset(comp, lyr);
       lyr.applyPreset(f);
@@ -920,7 +920,7 @@ var AEShapeBuilder = (function () {
       // trick used for gradients: apply an .ffx preset that already carries an enabled
       // Inner Shadow; afterwards the parameters are fully scriptable.
       try {
-        var tpl = new File(_MK_DIR + "/innershadow-template.ffx");
+        var tpl = new File(File.encode(_MK_DIR + "/innershadow-template.ffx"));
         if (!tpl.exists) { _diag.push("IS: template missing @" + _MK_DIR); return false; }
         selectForPreset(lyr.containingComp, lyr);
         lyr.applyPreset(tpl);
@@ -993,7 +993,7 @@ var AEShapeBuilder = (function () {
       // .ffx preset can. Falls back to the plain inner-shadow template when absent.
       var usedOverlayTpl = false;
       try {
-        var otpl = new File(_MK_DIR + "/innershadow-overlay-template.ffx");
+        var otpl = new File(File.encode(_MK_DIR + "/innershadow-overlay-template.ffx"));
         if (otpl.exists) {
           selectForPreset(lyr.containingComp, dup);
           dup.applyPreset(otpl);
@@ -1149,7 +1149,7 @@ var AEShapeBuilder = (function () {
     // by the text itself. Same result, but the geometry is exact rather than approximated.
     try {
       if (t.gradFfx && t.grad) {
-        var gf = new File(t.gradFfx);
+        var gf = new File(File.encode(t.gradFfx));
         if (gf.exists) {
           var bx = t.x, by = t.y, bw = (t.w || 0), bh = (t.h || 0);
           // Exact handle points from Figma (already in comp coords); the normalised pair is
@@ -1554,7 +1554,7 @@ var AEShapeBuilder = (function () {
     if (!stroke || !(stroke.width > 0)) return;
     var name = lyr.name;
     selectForPreset(lyr.containingComp, lyr);
-    lyr.applyPreset(new File(_MK_DIR + '/stroke-template.ffx'));
+    lyr.applyPreset(new File(File.encode(_MK_DIR + '/stroke-template.ffx')));
     lyr.name = name;
     var styles = lyr.property('ADBE Layer Styles'), style = styles.property('frameFX/enabled');
     style.property('frameFX/mode2').setValue(1);
@@ -1929,7 +1929,8 @@ var AEShapeBuilder = (function () {
   // the image overflows). AE has no crop on footage, so the frame is rebuilt as a shape layer
   // and used as an ALPHA track matte over the full-resolution footage.
   function createImageFootage(comp, im, folder) {
-    var f = new File(folder + "/" + im.file);
+    // ExtendScript decodes URI escapes even when given a filesystem path.
+    var f = new File(File.encode(folder + "/" + im.file));
     if (!f.exists) throw new Error("IMG missing " + im.file);
 
     // Reuse footage the project already holds for this exact file — importing the same

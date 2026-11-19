@@ -1,0 +1,35 @@
+diff --git a/server/src/tools/project.ts b/server/src/tools/project.ts
+index 823e65b..f958a7d 100644
+--- a/server/src/tools/project.ts
++++ b/server/src/tools/project.ts
+@@ -1,6 +1,11 @@
+ import { z } from "zod";
+ import { itemRef, type JsxTool } from "./registry.js";
+ 
++const projectFile = `
++var f = new File(/^file:/i.test(args.path) ? args.path : File.encode(args.path));
++// AE decodes the project path again when opening or saving it.
++if (f.fsName.indexOf("%") !== -1) aemcp.fail("After Effects cannot use % in project paths. Choose a folder and filename without %.");`;
++
+ export const projectTools: JsxTool[] = [
+   {
+     name: "ae_get_project_info",
+@@ -152,7 +157,7 @@ return aemcp.itemInfo(it);`,
+     noUndo: true,
+     jsx: `
+ if (args.path) {
+-  var f = new File(args.path);
++  ${projectFile}
+   // saving onto the project's own file is a plain save, not an overwrite
+   var own = app.project.file && app.project.file.fsName === f.fsName;
+   if (f.exists && !own && !args.overwrite) aemcp.fail("A file already exists at " + f.fsName + ". Nothing was saved. To replace it, call ae_save_project again with overwrite: true (or choose another path).");
+@@ -169,7 +174,8 @@ return { file: app.project.file ? app.project.file.fsName : null };`,
+     noUndo: true,
+     jsx: `
+ if (app.project.dirty && !args.discardChanges) aemcp.fail("Current project has unsaved changes. Save first or pass discardChanges: true.");
+-var f = new File(args.path); if (!f.exists) aemcp.fail("File not found: " + args.path);
++${projectFile}
++if (!f.exists) aemcp.fail("File not found: " + args.path);
+ // with unsaved changes app.open would silently do nothing (its save prompt is suppressed)
+ if (app.project.dirty) app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);
+ app.open(f);

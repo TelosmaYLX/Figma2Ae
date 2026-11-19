@@ -49,6 +49,8 @@ Windows 分发包使用本机的 Node.js 20+，MCP 依赖已打包。
 3. 用下面的工具添加动画，并通过 `ae_render_frame` 预览。对于逐字动画，在导出时指定 `textMode: "editable"`，并确认目标在 AE 中是原生文字层。
 4. 用 `ae_save_project` 保存可编辑的 AEP。调用 `ae_render_mp4`，传入主合成 ID、MP4 路径和帧范围。省略帧范围时使用工作区。工具使用本机 H.264 模板，可用 `ae_render_jobs` 查看进度。
 
+F2A 会把生成的 AEP 文件名中的半角 `%` 替换为 `_`。通过 MCP 打开或另存 AEP 时，请选择各级目录名均不含半角 `%` 的路径。
+
 | 工具 | 动效 |
 | --- | --- |
 | `ae_animate` | 淡入淡出、缩放弹出、滑入滑出、下落、旋转、缓慢推近或漂移 |
@@ -156,7 +158,7 @@ npm test
 
 `server.cjs`、`relay.cjs` 和嵌入 `figma-plugin/code.js` 的命令代码均已提交，运行时
 不依赖 `node_modules`。构建复用上游工具与命令，使用 F2A 的传输与面板。
-`vendor/surehand` 包含基于 Surehand v1.4.1 构建的服务文件、工具清单和许可证。`f2a-unicode.patch` 修正了 CEP 传递中文名称的问题。清单记录上游提交和 SHA-256，构建时会校验服务文件。
+`vendor/surehand` 包含基于 Surehand v1.4.1 构建的服务文件、工具清单和许可证。`f2a-unicode.patch` 修正 CEP 的 Unicode 传输，`f2a-paths.patch` 处理打开及另存工程时的路径编码和 `%` 限制。清单记录上游提交和 SHA-256，构建时会校验服务文件。
 `vendor/ae-motion` 保存 AE Motion v2.26.0 的预设代码和 MIT 许可证。预设通过 Surehand 执行。
 手调动效复用参考 Mark v0.3.0 的图层捕获和 JUNKDOGE v0.11.1 的工具库。对应许可证存放在 `vendor/mark-ae` 和 `vendor/junkdoge`。
 `THIRD_PARTY_LICENSES.txt` 保留打包依赖的许可证。

@@ -8,6 +8,7 @@ class CompItem { constructor(id = 1) { this.id = id; this.layers = {}; this.numL
 const comp = new CompItem();
 const files = {job: JSON.stringify({nodesPath: 'nodes', containersPath: 'groups'}), nodes: '[]', groups: '[]'};
 function File(name) { this.exists = name in files; this.open = () => {}; this.close = () => {}; this.read = () => files[name]; }
+File.encode = encodeURI;
 const app = {project: {activeItem: comp}, beginUndoGroup() { assert.equal(depth, 0, 'Native undo groups must not nest'); depth++; begins++; }, endUndoGroup() { assert.equal(depth, 1); depth--; ends++; }};
 const context = vm.createContext({app, CompItem, File, SVGParser: {fromNodes() { return {shapes: []}; }}});
 vm.runInContext(fs.readFileSync(path.join(root, 'host/figma/aeShapeBuilder.jsx'), 'utf8'), context);

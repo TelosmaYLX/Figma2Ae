@@ -91,6 +91,13 @@ async function check() {
     assert.equal(!!rendered.isError, false, firstText(rendered));
     assert.ok(jsx.includes('"outputModuleTemplate":"\\u4e2d\\u6587 \\ud83d\\ude00"'));
     assert.ok(!jsx.includes('中文 😀'));
+    const symbolicProject = path.join(directory, "工程 # 'A&B'.aep");
+    for (const name of ['ae_open_project', 'ae_save_project']) {
+      const handled = await call(name, {path: symbolicProject});
+      assert.equal(!!handled.isError, false, firstText(handled));
+      assert.ok(jsx.includes('File.encode(args.path)') && jsx.includes(" # 'A&B'.aep"));
+      assert.ok(jsx.includes('f.fsName.indexOf("%")'));
+    }
 
     const animated = await call('ae_animate', {layer_ids: [72], move: 'fade', duration: 0.4});
     assert.equal(!!animated.isError, false, firstText(animated));

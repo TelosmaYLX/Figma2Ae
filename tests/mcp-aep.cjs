@@ -41,7 +41,8 @@ async function check() {
     const page = plugin.figma.currentPage;
     await client.init();
     plugin.elements['text-mode'].value = 'vector';
-    const destination = path.join(output, '本地工程.aep');
+    const projectName = "本地工程 _20 # + [卡片] 'A&B'";
+    const destination = path.join(output, "本地工程 %20 # + [卡片] 'A&B'.aep");
     const args = {destination, textMode: 'editable', aeVersion: '25.0'};
 
     page.selection = [];
@@ -54,7 +55,7 @@ async function check() {
     const project = JSON.parse(result(await client.tool('export_aep', args)));
     assert.equal(project.composition, fixture.scene.name);
     assert.ok(Number.isInteger(project.compositionId) && project.compositionId > 0);
-    assert.equal(project.project, path.join(output, '本地工程', '本地工程.aep'));
+    assert.equal(project.project, path.join(output, projectName, projectName + '.aep'));
     assert.equal(project.counts.texts, 1);
     assert.ok(project.counts.shapes >= 3);
     assert.equal(project.counts.images, 2);
@@ -65,8 +66,10 @@ async function check() {
     assert.equal(original.subarray(0, 4).toString(), 'RIFX');
 
     const second = JSON.parse(result(await client.tool('export_aep', args)));
-    assert.equal(second.project, path.join(output, '本地工程 (2)', '本地工程 (2).aep'));
+    assert.equal(second.project, path.join(output, projectName + ' (2)', projectName + ' (2).aep'));
     assert.deepEqual(await fs.readFile(project.project), original);
+    const reserved = JSON.parse(result(await client.tool('export_aep', {...args, destination: path.join(output, 'COM¹.aep')})));
+    assert.equal(reserved.project, path.join(output, '_COM¹', '_COM¹.aep'));
     assert.equal(page.selection.length, 1);
     assert.equal(page.selection[0], fixture.scene);
     assert.equal(page.children.length, 1);

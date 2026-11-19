@@ -14,6 +14,7 @@ class Layer {
   remove(){const list=this.containingComp.items;list.splice(list.indexOf(this),1);}
 }
 function File(name){this.exists=true;this.fsName=name;}
+File.encode=encodeURI;
 function ImportOptions(file){this.file=file;}
 const comp=new CompItem(),footage=[],app={project:{activeItem:comp,get numItems(){return footage.length;},item:i=>footage[i-1],importFile(options){const item=new FootageItem(options.file);footage.push(item);return item;}},beginUndoGroup(){},endUndoGroup(){}};
 const context=vm.createContext({app,CompItem,FootageItem,File,ImportOptions});

@@ -42505,7 +42505,7 @@ var catalog_default = {
   commit: "6fdc8e161b6d8480439cf9b1d80eb46c5f33a353",
   release: "https://github.com/ConformLabs/surehand-mcp/releases/tag/v1.4.1",
   upstreamSha256: "e60542d00fcd0b8cd33ee2d90e737ac8f42ec144b545d20dae4199afdb38ec57",
-  sha256: "7d606c20d7aba793c06849a978b39b1e493bcd3998ef9ce567ec142cc60c0efa",
+  sha256: "d37a01bd6db62fbded8b823102f635028ac8b13e0b78256d73bbd9679a3a77fb",
   profile: "core,ae_open_project,ae_save_project,ae_get_keyframes,ae_add_to_render_queue,ae_render_background,ae_render_jobs,ae_list_comps",
   tools: [
     {

@@ -50,7 +50,7 @@ function runSvgToShapes(pathOrSvg, gradientPresets, effects, shiftX, shiftY, ima
     if (pathOrSvg.indexOf("<svg") !== -1) {
       svgString = pathOrSvg;
     } else {
-      var f = new File(pathOrSvg);
+      var f = new File(File.encode(pathOrSvg));
       if (!f.exists) return "ERROR: 文件不存在：" + pathOrSvg;
       svgString = _mkReadFile(f);
       name = f.name.replace(/\.svg$/i, "");
@@ -72,7 +72,7 @@ function runSvgToShapes(pathOrSvg, gradientPresets, effects, shiftX, shiftY, ima
 // textsPath -> a temp .json array of { characters, x, y, w, h, fontSize, family, color, opacity, align }.
 function _mkReadJson(pathStr) {
   if (!pathStr) return null;
-  var f = new File(pathStr);
+  var f = new File(File.encode(pathStr));
   if (!f.exists) return null;
   f.encoding = "UTF-8"; f.open("r"); var txt = f.read(); f.close();
   return eval('(' + txt + ')');            // our own JSON (ExtendScript has no JSON)

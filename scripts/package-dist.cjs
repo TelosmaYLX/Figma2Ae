@@ -21,7 +21,7 @@ const files = [
   ...['aepLauncher.js', 'ffxGradient.js', 'figmaBridge.js', 'figmaRasterEffects.js',
     'index.html', 'main.js', 'mcpBridge.js', 'mkBridgeServer.js', 'style.css', 'updatePanel.js', 'updateRelease.js'].map(f => 'client/' + f),
   ...['code.js', 'manifest.json', 'ui.html'].map(f => 'figma-plugin/' + f),
-  ...['aeShapeBuilder.jsx', 'figmaRunner.jsx', 'svgParser.js', 'grad-template.ffx',
+  ...['aeFilename.js', 'aeShapeBuilder.jsx', 'figmaRunner.jsx', 'svgParser.js', 'grad-template.ffx',
     'gradoverlay-template.ffx', 'gradstroke-template.ffx', 'innershadow-overlay-template.ffx',
     'innershadow-template.ffx', 'stroke-template.ffx'].map(f => 'host/figma/' + f),
   ...['server.cjs', 'relay.cjs', 'launcher.cjs', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/' + f),

@@ -58,7 +58,8 @@ async function build(output) {
   for (const file of scripts) await fs.copyFile(path.join(root, 'scripts', file), path.join(output, 'scripts', file));
   await fs.cp(path.join(root, 'scripts/aep'), path.join(output, 'scripts/aep'), {recursive:true, filter: source => path.basename(source) !== '__pycache__'});
   await fs.mkdir(path.join(output, 'host/figma'), {recursive:true});
-  await fs.copyFile(path.join(root, 'host/figma/svgParser.js'), path.join(output, 'host/figma/svgParser.js'));
+  for (const file of ['aeFilename.js', 'svgParser.js'])
+    await fs.copyFile(path.join(root, 'host/figma', file), path.join(output, 'host/figma', file));
   await fs.cp(path.join(root, 'figma-plugin'), path.join(output, 'figma-plugin'), {recursive:true});
   await copyCepExtension(output);
   await copyMcp(output);

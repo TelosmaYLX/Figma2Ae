@@ -74,19 +74,21 @@
     return null;
   }
 
+  function esLiteral(value) {
+    // ExtendScript has no JSON parser, so the host reads this with eval(). U+2028/U+2029 are
+    // legal inside JSON strings but TERMINATE a JS string literal ("Unterminated string
+    // constant" -> the whole text payload was lost). Escaping every non-ASCII char as \uXXXX
+    // keeps both the payload and script arguments safe across CEP's encoding boundary.
+    var NONASCII = new RegExp("[\\u0080-\\uFFFF]", "g");
+    return JSON.stringify(value).replace(NONASCII, function (c) {
+      return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
+    });
+  }
   function saveTextsTemp(texts) { return saveJsonTemp(texts, "texts"); }
   function saveJsonTemp(obj, tag) {
     var fs = require('fs'), os = require('os'), path = require('path');
     var p = path.join(os.tmpdir(), 'f2a_' + (tag || 'data') + '_' + Date.now() + '_' + (++tempSerial) + '.json');
-    // ExtendScript has no JSON parser, so the host reads this with eval(). U+2028/U+2029 are
-    // legal inside JSON strings but TERMINATE a JS string literal ("Unterminated string
-    // constant" -> the whole text payload was lost). Escaping every non-ASCII char as \uXXXX
-    // keeps the file pure ASCII and eval-safe, and preserves the characters exactly.
-    var NONASCII = new RegExp("[\\u0080-\\uFFFF]", "g");
-    var json = JSON.stringify(obj).replace(NONASCII, function (c) {
-      return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
-    });
-    fs.writeFileSync(p, json, 'utf8');
+    fs.writeFileSync(p, esLiteral(obj), 'utf8');
     return p;
   }
 
@@ -256,9 +258,9 @@
   var GRAD_READY = !!(SVGParserNode && ffxGen && GRAD_TEMPLATE);
 
   // 1) Load the SVG engine into the persistent ExtendScript engine, in dependency order.
-  evalES('$.evalFile("' + host + '/svgParser.js");');
-  evalES('$.evalFile("' + host + '/aeShapeBuilder.jsx");');
-  evalES('$.evalFile("' + host + '/figmaRunner.jsx"); "loaded";', function () {});
+  ['svgParser.js', 'aeShapeBuilder.jsx', 'figmaRunner.jsx'].forEach(function (file) {
+    evalES('$.evalFile(new File(File.encode(' + esLiteral(host + '/' + file) + ')));');
+  });
 
   // 2) Folder picker shared with the Figma plugin through the bridge routes
   function chooseImageFolder(cb, force) {
@@ -310,14 +312,9 @@
     job.images = null;
     var file = saveJsonTemp(data, 'batch').replace(/\\/g, '/');
     flash('正在导入 AE…');
-    evalES('runImportBatch("' + file + '")', function (res) {
+    evalES('runImportBatch(' + esLiteral(file) + ')', function (res) {
       finishImport('AE: ' + res, /error/i.test(res));
     });
-  }
-  function imageFileBase(name) {
-    // Figma layer names may contain path separators. Only the disk name is sanitized.
-    var base = String(name || 'image').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '') || 'image';
-    return /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(base) ? '_' + base : base;
   }
   function reserveImageFilename(base, extension, used, suffix) {
     var file = base + '.' + extension;
@@ -357,8 +354,9 @@
         if (!folder) { finishImport('已取消导入', true); return; }
         rememberImageFolder(folder);
         var fs2 = require('fs'), path2 = require('path'), list = [], used = Object.create(null);
+        var aeFilename = require(host + '/aeFilename.js');
         for (var k = 0; k < images.length; k++) {
-          var im = images[k], base = imageFileBase(im.name);
+          var im = images[k], base = aeFilename(im.name, 'image');
           var extension = String(im.ext || 'png').replace(/[^a-z0-9]/gi, '') || 'png';
           var fname = reserveImageFilename(base, extension, used, k);
           var buf = Buffer.from(im.data, 'base64'), target = path2.join(folder, fname), needWrite = true;
