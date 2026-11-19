@@ -72,7 +72,6 @@ body{
   outline:2px solid var(--accent); outline-offset:2px;
 }
 .mk-update-title{color:var(--accent-hi);}
-.mk-update-toggle{margin-left:4px;}
 .mk-update-notes{
   margin:8px 0 0; padding-top:8px; border-top:1px solid var(--border-soft);
   max-height:32vh; overflow:auto; white-space:pre-wrap; overflow-wrap:break-word;

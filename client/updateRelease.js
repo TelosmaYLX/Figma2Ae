@@ -114,8 +114,8 @@ async function check(installed, {interactive = false, credentialFor = githubCred
     throw error;
   }
   const version = String(release.tag_name || '').replace(/^v/, '');
+  if (!isNewer(version, installed)) return null;
   const notes = (typeof release.body_text === 'string' ? release.body_text : release.body || '').trim();
-  if (!isNewer(version, installed)) return version === installed && notes ? {version, notes} : null;
   const buffer = await get(assetUrl(release, manifestName), credential, 'application/octet-stream', 16 * 1024);
   const manifest = JSON.parse(buffer.toString('utf8'));
   const releaseArchive = archiveBase + '-v' + version + '.zip';

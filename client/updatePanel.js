@@ -19,27 +19,19 @@
   var updater = require(path.join(extension, 'client/updateRelease.js'));
   var pending = null;
   function report(message, failed) { window.MKReport(message, failed); }
-  function showRelease(release, title) {
-    noticeTitle.textContent = title;
-    notes.textContent = release.notes || '暂无更新日志。';
-    notice.hidden = false;
-  }
   async function check(interactive) {
     button.disabled = true;
     button.textContent = '检查中…';
     try {
-      var release = await updater.check(installed, {interactive: interactive});
-      var update = release && release.url ? release : null;
+      var update = await updater.check(installed, {interactive: interactive});
       pending = canInstall ? update : null;
-      if (release) {
-        var title = (update ? '发现新版 v' : 'v') + release.version;
-        showRelease(release, title);
-        if (update) {
-          if (interactive) notice.open = true;
-          report(title + (canInstall ? '。' : '，源码版请通过 Git 更新。'));
-        }
-      } else notice.hidden = true;
-      if (!update && interactive) report('暂无可用更新。');
+      notice.hidden = !update;
+      if (update) {
+        noticeTitle.textContent = '有可用更新 · v' + update.version;
+        notes.textContent = update.notes || '暂无发布说明。';
+        if (interactive) notice.open = true;
+        report('发现新版 v' + update.version + (canInstall ? '。' : '，源码版请通过 Git 更新。'));
+      } else if (interactive) report('暂无可用更新。');
     } catch (error) {
       if (interactive) report(error.userMessage || '检查更新失败，请重试。', true);
     } finally {
@@ -55,8 +47,8 @@
     try {
       await updater.install(extension, pending);
       button.textContent = '已更新';
-      showRelease(pending, 'v' + pending.version);
-      notice.open = true;
+      notice.hidden = true;
+      notice.open = false;
       report('已更新到 ' + pending.version + '，请重新打开 AE 和 Figma 的 F2A 面板。');
     } catch (error) {
       button.textContent = '更新到 ' + pending.version;
