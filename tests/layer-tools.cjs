@@ -22,9 +22,17 @@ class Layer {
   resize(w, h) { this.width = w; this.height = h; }
   appendChild(child) { this.insertChild(this.children.length, child); }
   insertChild(index, child) {
-    if (child.parent) child.parent.children.splice(child.parent.children.indexOf(child), 1);
+    const previousParent = child.parent;
+    if (previousParent) previousParent.children.splice(previousParent.children.indexOf(child), 1);
     this.children.splice(index, 0, child); child.parent = this;
+    // Figma removes a GROUP as soon as its last child is reparented.
+    if (previousParent?.type === 'GROUP' && previousParent.children.length === 0) previousParent.remove();
   }
+  get locked() {
+    if (this.removed) throw new Error(`The node with id '${this.id}' does not exist`);
+    return this._locked;
+  }
+  set locked(value) { this._locked = value; }
   remove() {
     if (this.parent?.type === 'INSTANCE') throw new Error('Cannot remove instance children');
     if (this.parent) this.parent.children.splice(this.parent.children.indexOf(this), 1);
@@ -74,6 +82,7 @@ conversion.run('group-to-frame');
 const frame = conversion.page.selection[0];
 assert.equal(frame.type, 'FRAME'); assert.equal(frame.name, 'Rotated group'); assert.equal(frame.opacity, 0.6); assert.equal(frame.blendMode, 'SOFT_LIGHT');
 assert.equal(frame.effects[0].radius, 2); assert.equal(frame.fills.length, 0); assert.equal(frame.clipsContent, false);
+assert.equal(group.removed, true, 'The source GROUP is automatically removed after its last child leaves');
 assert.deepEqual(parent.children.map(n => n.name), ['Before', 'Rotated group', 'After']);
 sameTransform(child.absoluteTransform, childPose); sameTransform(frame.absoluteTransform, groupPose); assert.equal(conversion.undos, 1);
 
@@ -97,10 +106,14 @@ function shiftingParent(parent) {
   return parent;
 }
 const movingChild = new Layer('RECTANGLE', 'Moving child', [], {relativeTransform: [[-1, 0.2, 5], [0, 1, 9]]});
-const movingGroup = new Layer('GROUP', 'Converted', [movingChild], {relativeTransform: [[1, 0, 30], [0, 1, 20]]});
+const movingGroup = new Layer('GROUP', 'Converted', [movingChild], {relativeTransform: [[1, 0, 30], [0, 1, 20]], locked: true});
 const shifting = shiftingParent(new Layer('GROUP', 'Dynamic parent', [movingGroup]));
-const shiftingConversion = harness([shifting], [movingGroup]), savedMovingPose = movingChild.absoluteTransform;
+const shiftingConversion = harness([shifting], [movingGroup]), savedMovingPose = movingChild.absoluteTransform, savedMovingGroupPose = movingGroup.absoluteTransform;
 shiftingConversion.run('group-to-frame'); sameTransform(movingChild.absoluteTransform, savedMovingPose);
+const shiftedFrame = shiftingConversion.page.selection[0];
+sameTransform(shiftedFrame.absoluteTransform, savedMovingGroupPose);
+assert.equal(shiftedFrame.locked, true, 'Cache locked before the source GROUP disappears');
+assert.equal(movingGroup.removed, true);
 
 const expandChild = new Layer('RECTANGLE', 'Expanded child', [], {relativeTransform: [[-1, 0.2, 5], [0, 1, 9]]});
 const expandGroup = new Layer('GROUP', 'Expanded group', [expandChild], {relativeTransform: [[1, 0, 30], [0, 1, 20]]});

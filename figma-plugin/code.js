@@ -201,25 +201,41 @@ function _relativeTransformForParent(parent, absTransform) {
 }
 function _groupToFrame(n) {
   var parent = n.parent, index = parent.children.indexOf(n), children = n.children.slice();
-  var transform = n.absoluteTransform, inverse = _inverseMatrix(transform), local = [];
-  for (var i = 0; i < children.length; i++) local.push(_matrixProduct(inverse, children[i].absoluteTransform));
+  // Cache everything before reparenting: Figma removes an empty GROUP as soon as its last
+  // child leaves, so reading n.locked / n.relativeTransform afterwards throws and strands
+  // the new frame at its default position. Keep PSD4V185's order: position and size the
+  // frame first, then derive each child's local matrix from the positioned frame.
+  var groupRT = n.relativeTransform, transform = n.absoluteTransform, locked = n.locked;
+  var groupW = n.width, groupH = n.height, absolute = [];
+  var layoutAlign = n.layoutAlign, layoutGrow = n.layoutGrow, layoutPositioning = n.layoutPositioning;
+  for (var i = 0; i < children.length; i++) absolute.push(children[i].absoluteTransform);
   var frame = figma.createFrame();
   frame.name = n.name; frame.fills = []; frame.strokes = []; frame.clipsContent = false;
-  frame.resize(Math.max(n.width, 0.01), Math.max(n.height, 0.01));
   frame.opacity = n.opacity; frame.blendMode = n.blendMode; frame.effects = n.effects;
   frame.visible = n.visible;
   parent.insertChild(index, frame);
-  if (n.layoutAlign != null) frame.layoutAlign = n.layoutAlign;
-  if (n.layoutGrow != null) frame.layoutGrow = n.layoutGrow;
-  if (n.layoutPositioning != null) frame.layoutPositioning = n.layoutPositioning;
+  if (layoutAlign != null) frame.layoutAlign = layoutAlign;
+  if (layoutGrow != null) frame.layoutGrow = layoutGrow;
+  if (layoutPositioning != null) frame.layoutPositioning = layoutPositioning;
+  // The frame shares the group's parent, so its original relative matrix can be reused
+  // directly without an absolute-bounding-box / x-y conversion.
+  frame.relativeTransform = groupRT;
+  frame.resize(Math.max(groupW, 0.01), Math.max(groupH, 0.01));
+  var inverse = _inverseMatrix(frame.absoluteTransform);
   for (i = 0; i < children.length; i++) {
-    frame.appendChild(children[i]); children[i].relativeTransform = local[i];
+    frame.appendChild(children[i]);
+    children[i].relativeTransform = _matrixProduct(inverse, absolute[i]);
   }
-  var locked = n.locked;
-  n.remove();
-  // A parent GROUP may move its origin as children are inserted/removed. Resolve against its
-  // final transform instead of reusing the old relative coordinates.
-  frame.relativeTransform = _matrixProduct(_inverseMatrix(parent.absoluteTransform), transform);
+  if (!n.removed) n.remove();
+  // A parent GROUP may move its origin as children are inserted/removed. Reassert the saved
+  // absolute pose against the final parent state; this also handles a page without a matrix.
+  frame.relativeTransform = parent.type === 'PAGE' || !parent.absoluteTransform ? transform :
+    _matrixProduct(_inverseMatrix(parent.absoluteTransform), transform);
+  // If removing the source changed a parent GROUP's origin, the frame may have moved since
+  // the first child pass. Resolve the locals once more against its final absolute transform.
+  inverse = _inverseMatrix(frame.absoluteTransform);
+  for (i = 0; i < children.length; i++)
+    children[i].relativeTransform = _matrixProduct(inverse, absolute[i]);
   frame.locked = locked;
   return frame;
 }
