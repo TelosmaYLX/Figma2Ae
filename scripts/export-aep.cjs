@@ -2,6 +2,7 @@
 
 const fs = require('node:fs/promises');
 const {existsSync} = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
@@ -33,7 +34,7 @@ async function exportAep(packet, directory, options = {}) {
   await fs.writeFile(input, JSON.stringify(model));
   try {
     await run(pythonPath(options), [path.join(__dirname, 'aep/writer.py'), input, directory],
-      {windowsHide: true, maxBuffer: 8 * 1024 * 1024, env: {...process.env, PYTHONUTF8: '1'}});
+      {windowsHide: true, maxBuffer: 8 * 1024 * 1024, signal: options.signal, env: {...process.env, PYTHONUTF8: '1'}});
   } catch (error) {
     if (error.code === 'ENOENT') throw new Error('AEP 导出组件缺少 Python，请重新安装');
     const detail = (error.stderr || error.message).trim();
@@ -52,6 +53,51 @@ async function exportAep(packet, directory, options = {}) {
   return {...result, directory, project: path.join(directory, 'project.aep')};
 }
 
+function outputName(name) {
+  let base = String(name || 'Figma').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100).replace(/[. ]+$/, '') || 'Figma';
+  if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(base)) base = '_' + base;
+  return base;
+}
+
+async function createOutputDirectory(parent, name) {
+  const base = outputName(name);
+  for (let index = 1; ; index++) {
+    const directory = path.join(parent, base + (index === 1 ? '' : ' (' + index + ')'));
+    try { await fs.mkdir(directory); return directory; }
+    catch (error) { if (error.code !== 'EEXIST') throw error; }
+  }
+}
+
+async function publishAep(packet, destinationFor, options = {}) {
+  const temporary = await fs.mkdtemp(path.join(path.resolve(options.tempRoot || os.tmpdir()), 'f2a-aep-'));
+  try {
+    const prepared = await exportAep(packet, temporary, options);
+    if (prepared.warnings.length) {
+      const issue = prepared.warnings[0];
+      throw new Error('图层「' + (issue.layer || '未知') + '」：' + (issue.detail || issue.code || '存在未导出的属性'));
+    }
+    const destination = await destinationFor(outputName(packet.name));
+    if (!destination) return {cancelled:true};
+    options.signal?.throwIfAborted();
+    const target = path.resolve(destination);
+    const parent = path.dirname(target);
+    await fs.mkdir(parent, {recursive:true});
+    const directory = await createOutputDirectory(parent, path.basename(target).replace(/\.aep$/i, ''));
+    const project = path.join(directory, path.basename(directory) + '.aep');
+    try {
+      await fs.cp(temporary, directory, {recursive:true});
+      await fs.rename(path.join(directory, 'project.aep'), project);
+      options.signal?.throwIfAborted();
+      return {...prepared, directory, project};
+    } catch (error) {
+      await fs.rm(directory, {recursive:true, force:true});
+      throw error;
+    }
+  } finally {
+    await fs.rm(temporary, {recursive:true, force:true});
+  }
+}
+
 if (require.main === module) {
   const [input, output] = process.argv.slice(2);
   if (!input || !output) {
@@ -64,4 +110,4 @@ if (require.main === module) {
       .catch(error => { console.error(error.message); process.exitCode = 1; });
   }
 }
-module.exports = {exportAep, chooseDestination, AE_VERSIONS};
+module.exports = {exportAep, publishAep, chooseDestination, AE_VERSIONS};

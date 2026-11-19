@@ -5,7 +5,7 @@
   "description": "F2A MCP with Figma tools and Surehand for After Effects",
   "scripts": {
     "build": "node ../scripts/build-mcp.cjs",
-    "test": "node ../tests/mcp.cjs && node ../tests/mcp-start.cjs && node ../tests/mcp-layer.cjs && node ../tests/mcp-figwright.cjs && node ../tests/mcp-surehand.cjs"
+    "test": "node ../tests/mcp.cjs && node ../tests/mcp-start.cjs && node ../tests/mcp-layer.cjs && node ../tests/mcp-figwright.cjs && node ../tests/mcp-surehand.cjs && node ../tests/mcp-aep.cjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

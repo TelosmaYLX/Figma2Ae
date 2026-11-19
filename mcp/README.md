@@ -1,7 +1,6 @@
 # F2A MCP
 
-F2A 提供 165 个 Figma 工具和内置的 Surehand AE 工具。打开 Figma 中的 F2A，agent 即可读写当前文档。
-同一个 `f2a` MCP 也可以连接 After Effects。 [Cursor Talk to Figma MCP](https://github.com/grab/cursor-talk-to-figma-mcp) · [Figwright](https://github.com/awdr74100/figwright) · [Surehand v1.4.1](https://github.com/ConformLabs/surehand-mcp/releases/tag/v1.4.1)
+打开 Figma 中的 F2A，agent 即可读写当前文档、导出选区，并通过同一个 `f2a` MCP 在 After Effects 中制作动画。 [Cursor Talk to Figma MCP](https://github.com/grab/cursor-talk-to-figma-mcp) · [Figwright](https://github.com/awdr74100/figwright) · [Surehand v1.4.1](https://github.com/ConformLabs/surehand-mcp/releases/tag/v1.4.1) · [AE Motion v2.26.0](https://github.com/dha-aa/ae-motion/tree/42e14e8350473ea4b246f0b4aa20f250fe168dd6)
 
 ## 本机配置
 
@@ -41,16 +40,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\Tools\F2A\scripts\install
 
 Windows 分发包使用本机的 Node.js 20+，MCP 依赖已打包。
 
-## 在 After Effects 中制作和导出动画
+## 从 Figma 选区制作和导出动画
 
 更新 F2A 后重连 `f2a`。首次调用 `ae_status` 会安装随包提供的 Surehand 扩展。按提示重启 AE 后再次调用。开着多个 AE 实例时，可用 `ae_status` 的 `instance` 参数选择目标版本或桥接端口。
 
-1. 在 AE 打开目标工程，或让 agent 用 `ae_open_project` 打开 F2A 导出的 `.aep`。
-2. 用 `ae_list_comps` 找到合成的 ID。F2A 工程中，合成和文件夹可能同名。
-3. 用 `ae_set_keyframes`、`ae_set_expression` 等工具制作动画，用 `ae_render_frame` 预览。
-4. 用 `ae_save_project` 保存可编辑的 AEP。输出视频时使用本机 AE 的输出模板，例如中文 AE 的 `H.264 - 匹配渲染设置 - 15 Mbps`。可以在 AE 渲染队列中渲染，也可以用 `ae_render_background` 启动后台渲染，并在同一会话通过 `ae_render_jobs` 查看进度。
+1. 在 Figma 打开 F2A 并选中画框或图层。调用 `export_aep`，传入 `.aep` 的绝对路径 `destination`。F2A 会创建同名目录，附带 `Assets` 和 `report.json`。遇到同名目录时自动编号。工具沿用面板设置，可用 `textMode` 和 `aeVersion` 指定文字模式和工程版本。
+2. 将返回的 `project` 路径交给 `ae_open_project`，用 `compositionId` 查看主合成的图层。通过 `ae_get_comp_info` 查看预合成图层的 `source.id`，可继续查找其中的文字、形状和素材层。已有的 AE 工程可用 `ae_list_comps` 查找合成 ID。
+3. 用下面的工具添加动画，并通过 `ae_render_frame` 预览。对于逐字动画，在导出时指定 `textMode: "editable"`，并确认目标在 AE 中是原生文字层。
+4. 用 `ae_save_project` 保存可编辑的 AEP。调用 `ae_render_mp4`，传入主合成 ID、MP4 路径和帧范围。省略帧范围时使用工作区。工具使用本机 H.264 模板，可用 `ae_render_jobs` 查看进度。
 
-可以对 agent 说：“用 F2A 打开这份 AEP，给标题做 12 帧淡入，预览首尾帧。保存为新的 AEP，再渲染成 H.264 MP4。”
+| 工具 | 动效 |
+| --- | --- |
+| `ae_animate` | 淡入淡出、缩放弹出、滑入滑出、下落、旋转、缓慢推近或漂移 |
+| `ae_stagger` | 按顺序错开多个图层已有的关键帧，保留插值和空间切线 |
+| `ae_text_reveal` | 按字、词或行揭示文字，可用打字机、淡入、位移等样式 |
+| `ae_transition` | 擦除、多条遮挡或圆形开合转场，生成 AE 形状层 |
+
+可以对 agent 说：“用 F2A 把当前选区导出到 `D:/Exports/启动页.aep`，让标题逐字上浮、卡片依次弹入。预览后保存可编辑的 AEP，再输出一段 2 秒的 H.264 MP4。”
 
 用 `ae_tools` 查找更多 Surehand 工具，例如文字动画器、交付预检和像素比对，用 `ae_call` 调用。
 
@@ -129,6 +135,8 @@ Motion 和视频导出取决于当前 Figma 提供的动画 API；动画暂不�
 
 ## 开发
 
+运行 MCP 测试前，按 F2A 安装流程准备 AEP 导出的 Python 依赖。
+
 ```powershell
 cd D:\Tools\F2A\mcp
 npm ci --ignore-scripts
@@ -139,4 +147,5 @@ npm test
 `server.cjs`、`relay.cjs` 和嵌入 `figma-plugin/code.js` 的命令代码均已提交，运行时
 不依赖 `node_modules`。构建复用上游工具与命令，使用 F2A 的传输与面板。
 `vendor/surehand` 包含基于 Surehand v1.4.1 构建的服务文件、工具清单和许可证。`f2a-unicode.patch` 修正了 CEP 传递中文名称的问题。清单记录上游提交和 SHA-256，构建时会校验服务文件。
+`vendor/ae-motion` 保存 AE Motion v2.26.0 的预设代码和 MIT 许可证。预设通过 Surehand 执行。
 `THIRD_PARTY_LICENSES.txt` 保留打包依赖的许可证。

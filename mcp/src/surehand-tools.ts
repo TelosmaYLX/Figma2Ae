@@ -35,18 +35,19 @@ export function registerSurehandTools(server: McpServer) {
     return ready;
   }
 
+  async function call(name: string, args: Record<string, unknown>, signal: AbortSignal) {
+    const client = await getClient();
+    return client.request({ method: 'tools/call', params: { name, arguments: args } },
+      CallToolResultSchema, { signal, timeout: 120_000 });
+  }
+
   // Register the pinned tool schemas before starting Surehand so Figma-only sessions work independently.
   for (const { name, title, description, inputSchema, annotations } of catalog.tools) {
     const schema = z.fromJSONSchema(inputSchema as z.core.JSONSchema.JSONSchema);
     server.registerTool(name, { title, description, inputSchema: schema, annotations },
-      async (args, { signal }) => {
-        const client = await getClient();
-        return client.request({
-          method: 'tools/call',
-          params: { name, arguments: args as Record<string, unknown> },
-        }, CallToolResultSchema, { signal, timeout: 120_000 });
-      });
+      (args, { signal }) => call(name, args as Record<string, unknown>, signal));
   }
 
   server.server.onclose = () => { void connection?.client.close(); };
+  return call;
 }

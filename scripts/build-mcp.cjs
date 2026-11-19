@@ -22,6 +22,8 @@ async function build() {
   const {sha256} = require('../mcp/vendor/surehand/catalog.json');
   const hash = createHash('sha256').update(await fs.readFile(path.join(surehand, 'surehand-ae.mjs'))).digest('hex');
   if (hash !== sha256) throw new Error('Surehand bundle checksum does not match the tool catalog.');
+  const aeMotion = path.join(mcp, 'vendor/ae-motion');
+  const aeMotionJsx = await fs.readFile(path.join(aeMotion, 'presets.jsx'), 'utf8');
   const upstream = await fs.readFile(path.join(vendor, 'server.ts'), 'utf8');
   const tools = between(upstream, '// Document Info Tool', '// Update the connectToFigma function') +
     between(upstream, '// Set Image Fill Tool', '// Update the join_channel tool');
@@ -35,17 +37,20 @@ import {ensureRelay} from './launcher.cjs';
 import {registerLayerTools} from './src/layer-tools.ts';
 import {registerFigwrightTools, withFigwrightArgs} from './src/figwright-tools.ts';
 import {registerSurehandTools} from './src/surehand-tools.ts';
+import {registerAepTools} from './src/aep-tools.ts';
+import {registerAeMotionTools} from './src/ae-motion-tools.ts';
+import {registerAeVideoTools} from './src/ae-video-tools.ts';
 // Upstream helper logging must never enter the MCP stdout stream.
 console.log = console.info = console.debug = (...args) => console.error(...args);
 ensureRelay(error => {if (error) console.error('F2A MCP: ' + error.message);});
 const instructions = [
   'For Figma tools, open F2A in Figma. A single open document connects automatically.',
   'Use get_f2a_status and join_channel to choose among multiple Figma documents.',
+  'To animate the Figma selection, export_aep to an absolute .aep destination, then pass its returned project path to ae_open_project.',
   'For After Effects, start with ae_status to check the current project and choose the intended instance.',
-  'Use ae_list_comps and the composition item ID when editing F2A exports because folders can share composition names.',
-  'Animate with ae_* tools and preview with ae_render_frame. Save an editable .aep with ae_save_project.',
-  'For video, use an output module template installed in the target AE. Read available templates with ae_call and ae_list_render_queue when a queue item exists.',
-  'Run ae_render_background and poll ae_render_jobs in the same session, or render in AE with ae_add_to_render_queue and ae_call for ae_render_queue_start.',
+  'Use the compositionId from export_aep with ae_get_comp_info. For a precomp layer, inspect its source.id the same way. Use the main compositionId for preview and render.',
+  'Use ae_animate, ae_stagger, ae_text_reveal or ae_transition for AE Motion presets. Pass the targeted comp_id for the change report, then preview and save with ae_save_project.',
+  'After saving, call ae_render_mp4 with the main comp ID, outputPath, and requested frame range. Poll ae_render_jobs in the same session.',
   'Discover more Surehand tools with ae_tools and ae_call.',
 ].join(' ');
 const server = new McpServer({name:'F2A',version:'1.0.0'}, {instructions});
@@ -59,7 +64,10 @@ server.tool('join_channel', 'Select an open F2A document by session ID, file key
 const send = withFigwrightArgs(sendCommandToFigma);
 registerLayerTools(server, send);
 registerFigwrightTools(server, send);
-registerSurehandTools(server);
+registerAepTools(server, sendCommandToFigma);
+const callAe = registerSurehandTools(server);
+registerAeMotionTools(server, callAe, ${JSON.stringify(aeMotionJsx + '\nreturn C[args.command](args.options);')});
+registerAeVideoTools(server, callAe);
 process.stdin.once('end', () => { void server.close(); });
 server.connect(new StdioServerTransport()).catch(error => {console.error(error);process.exit(1);});
 `;
@@ -101,7 +109,11 @@ export const commands = Object.keys(figwrightCommands);
       directory = path.dirname(directory);
     }
   }
-  const licenses = ['Figwright 0.7.0 (031df6a01e103c7adcc01e63d6d8aab0990001e8)\n' + figwrightLicense];
+  const aeMotionLicense = await fs.readFile(path.join(aeMotion,'LICENSE'),'utf8');
+  const licenses = [
+    'Figwright 0.7.0 (031df6a01e103c7adcc01e63d6d8aab0990001e8)\n' + figwrightLicense,
+    'AE Motion 2.26.0 (42e14e8350473ea4b246f0b4aa20f250fe168dd6)\n' + aeMotionLicense,
+  ];
   for (const directory of [...packageDirs].sort()) {
     const pkg = JSON.parse(await fs.readFile(path.join(directory,'package.json'),'utf8'));
     const files = (await fs.readdir(directory)).filter(name => /^(licen[cs]e|copying|notice)(\.|$)/i.test(name));

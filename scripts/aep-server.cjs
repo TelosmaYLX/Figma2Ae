@@ -4,27 +4,11 @@ const http = require('node:http');
 const fs = require('node:fs/promises');
 const {watchFile, unwatchFile} = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
 const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
 const {randomUUID} = require('node:crypto');
-const {exportAep, chooseDestination, AE_VERSIONS} = require('./export-aep.cjs');
+const {publishAep, chooseDestination, AE_VERSIONS} = require('./export-aep.cjs');
 const run = promisify(execFile);
-
-function outputName(name) {
-  let base = String(name || 'Figma').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100).replace(/[. ]+$/, '') || 'Figma';
-  if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(base)) base = '_' + base;
-  return base;
-}
-
-async function createOutputDirectory(parent, name) {
-  const base = outputName(name);
-  for (let index = 1; ; index++) {
-    const directory = path.join(parent, base + (index === 1 ? '' : ' (' + index + ')'));
-    try { await fs.mkdir(directory); return directory; }
-    catch (error) { if (error.code !== 'EEXIST') throw error; }
-  }
-}
 
 function start(options = {}) {
   const exports = new Map();
@@ -63,27 +47,12 @@ function start(options = {}) {
         res.end(JSON.stringify({ok:true})); return;
       }
       const result = await enqueue(async () => {
-        const temporary = await fs.mkdtemp(path.join(options.tempRoot || os.tmpdir(), 'f2a-aep-'));
-        try {
-          const prepared = await exportAep(body.packet, temporary, options);
-          if (prepared.warnings.length) {
-            const issue = prepared.warnings[0];
-            throw new Error('图层「' + (issue.layer || '未知') + '」：' + (issue.detail || issue.code || '存在未导出的属性'));
-          }
-          const destination = await (options.chooseDestination || chooseDestination)({...options, name:outputName(body.packet.name)});
-          if (!destination) return {cancelled:true};
-          const target = path.resolve(destination);
-          const directory = await createOutputDirectory(path.dirname(target), path.basename(target).replace(/\.aep$/i, ''));
-          const project = path.join(directory, path.basename(directory) + '.aep');
-          try {
-            await fs.cp(temporary, directory, {recursive:true});
-            await fs.rename(path.join(directory, 'project.aep'), project);
-          }
-          catch (error) { await fs.rm(directory, {recursive:true, force:true}); throw error; }
-          const exportId = randomUUID();
-          exports.set(exportId, directory);
-          return {...prepared, directory, project, exportId};
-        } finally { await fs.rm(temporary, {recursive:true, force:true}); }
+        const prepared = await publishAep(body.packet,
+          name => (options.chooseDestination || chooseDestination)({...options, name}), options);
+        if (prepared.cancelled) return prepared;
+        const exportId = randomUUID();
+        exports.set(exportId, prepared.directory);
+        return {...prepared, exportId};
       });
       res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8'});
       res.end(JSON.stringify(result));

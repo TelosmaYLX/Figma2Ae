@@ -87,7 +87,7 @@ async function check() {
     });
     const tools = (await client.call('tools/list')).tools;
     const names = new Set(tools.map(t=>t.name));
-    assert.equal(tools.filter(tool => !tool.name.startsWith('ae_')).length,165);
+    assert.equal(tools.filter(tool => !tool.name.startsWith('ae_')).length,166);
     assert.equal(names.size,tools.length);
     for(const name of plugin.main.F2AMCP.commands) assert.ok(names.has(name),'unadvertised handler '+name);
     for(const name of ['get_design_context','get_vector','get_variable_defs','set_auto_layout','create_paint_style','apply_manual_keyframe_track','export_video']) assert.ok(names.has(name),name);

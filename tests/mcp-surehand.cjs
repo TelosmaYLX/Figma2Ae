@@ -28,7 +28,8 @@ async function check() {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
     jsx = JSON.parse(Buffer.concat(chunks).toString('utf8')).script;
-    response.end(JSON.stringify({ok: true, result: JSON.stringify({ok: true, result: {}, logs: []})}));
+    const result = jsx.includes('C.stagger') ? {steps: [{ok: true, result: {move: 'fade'}}], failed: -1} : {};
+    response.end(JSON.stringify({ok: true, result: JSON.stringify({ok: true, result, logs: []})}));
   }).listen(0, '127.0.0.1');
   const client = new Client({name: 'F2A Surehand test', version: '1'});
   const call = (name, args = {}) => client.callTool({name, arguments: args});
@@ -54,7 +55,7 @@ async function check() {
     }));
     const {tools} = await client.listTools();
     assert.deepEqual(tools.filter(tool => tool.name.startsWith('ae_')).map(tool => tool.name).sort(),
-      catalog.tools.map(tool => tool.name).sort());
+      [...catalog.tools.map(tool => tool.name), 'ae_animate', 'ae_stagger', 'ae_text_reveal', 'ae_transition', 'ae_render_mp4'].sort());
     assert.ok(tools.find(tool => tool.name === 'ae_set_keyframes')?.inputSchema.required.includes('keyframes'));
     assert.equal(!!(await call('get_f2a_status')).isError, false);
     const absent = await call('ae_status');
@@ -78,6 +79,17 @@ async function check() {
     assert.equal(!!rendered.isError, false, firstText(rendered));
     assert.ok(jsx.includes('"outputModuleTemplate":"\\u4e2d\\u6587 \\ud83d\\ude00"'));
     assert.ok(!jsx.includes('中文 😀'));
+
+    const animated = await call('ae_animate', {layer_ids: [72], move: 'fade', duration: 0.4});
+    assert.equal(!!animated.isError, false, firstText(animated));
+    assert.match(firstText(animated), /one undo step/);
+    assert.ok(jsx.includes('"command":"animate","options":{"layer_ids":[72],"move":"fade","duration":0.4}'));
+
+    const existingMp4 = path.join(directory, 'existing.mp4');
+    await fs.writeFile(existingMp4, 'existing video');
+    const collision = await call('ae_render_mp4', {comp_id: 1, outputPath: existingMp4});
+    assert.equal(collision.isError, true);
+    assert.match(firstText(collision), /already exists/);
 
     const unavailable = await call('ae_call', {tool: 'ae_not_a_tool'});
     assert.equal(unavailable.isError, true);

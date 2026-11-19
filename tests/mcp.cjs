@@ -40,6 +40,7 @@ async function connectPlugin(port, name, configure = () => {}) {
   const elements = {};
   for (const match of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) elements[match[1]] = {checked:/\bchecked\b/.test(match[0]), disabled:/\bdisabled\b/.test(match[0])};
   elements['raster-scale'].value='1'; elements['text-mode'].value='editable'; elements['native-image-masks'].value='separate';
+  elements['aep-version'].value='26.0';
   const window = {onmessage() {}};
   const main = vm.createContext({figma,__html__:'',console:{...quiet,error(...args){startupErrors.push(args.map(String).join(' '));}},setTimeout,clearTimeout});
   vm.runInContext(source,main);

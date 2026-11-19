@@ -18,7 +18,7 @@ function png(width=64, height=64) {
   return Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',h),chunk('IDAT',zlib.deflateSync(pixels)),chunk('IEND',Buffer.alloc(0))]);
 }
 
-async function fixture() {
+function fixtureScene() {
   const rectangle = (name, extra={}) => node('RECTANGLE', name, {
     fills:[{type:'SOLID',color:{r:1,g:0.5,b:0.1}}], cornerRadius:12,
     fillGeometry:[{data:'M0 0H100V60H0Z',windingRule:'NONZERO'}], ...extra});
@@ -34,9 +34,18 @@ async function fixture() {
   function place(n,x,y,w=100,h=60){n.width=w;n.height=h;n.absoluteBoundingBox=n.absoluteRenderBounds={x,y,width:w,height:h};n.absoluteTransform=[[1,0,x],[0,1,y]];}
   place(scene.children[0],60,110);place(gradient,60,210);place(scene.children[2],60,50,240,40);
   place(clipped,240,110);place(clipped.children[0],220,100);place(picture,400,110);
-  const h=harness(scene), image=png();
+  return scene;
+}
+
+function mockFixturePng(scene) {
+  const image=png();
   // Figma API is mocked, including its PNG renderer. Packet collection uses production code.
   (function render(n){n.exportAsync=async()=>image;if(n.children)n.children.forEach(render);})(scene);
+}
+
+async function fixture() {
+  const scene=fixtureScene(), h=harness(scene);
+  mockFixturePng(scene);
   const result=await h.run(true,false,true);
   const images=h.messages.filter(m=>m.type==='image-chunk'&&m.seq===0).map((m)=>({...m.meta,
     data:h.messages.filter(c=>c.type==='image-chunk'&&c.index===m.index).map(c=>c.dataPart).join('')}));
@@ -141,4 +150,4 @@ async function check() {
   console.log('PASS: real AEP/font/image/effect checks before picker; cancel/error cleanup, relative assets after relocation, Unicode folder, unique names and open-folder IDs/errors');
 }
 if(require.main===module)check().catch(e=>{console.error(e);process.exitCode=1;});
-module.exports={fixture,png};
+module.exports={fixture,fixtureScene,mockFixturePng,png};

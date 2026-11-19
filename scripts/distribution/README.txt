@@ -47,7 +47,8 @@ DSH Desktop 用户可运行：
 
 重连 f2a。使用 Figma 工具时，在 Figma 中打开 F2A。
 使用 AE 工具时，先调用 ae_status。首次安装 Surehand 扩展后按提示重启 AE。
-agent 可以制作动画、预览、保存 AEP 和渲染视频。MCP 依赖已打包。
+agent 可以从 Figma 选区导出可编辑的 AEP，应用 AE Motion 预设，再渲染 H.264 MP4。
+MCP 依赖已打包。
 
 四、包内内容
 

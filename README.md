@@ -82,7 +82,7 @@ flowchart LR
 
 ## 用 MCP 操作 Figma 和 AE
 
-注册 `f2a` 后，agent 可以读取和编辑 Figma，也能通过内置的 Surehand 打开 AE 工程、制作动画、预览并导出 AEP 或视频。首次使用 AE 工具时，按提示重启 AE 以加载扩展。 [配置和使用 MCP](mcp/README.md)
+在 Figma 选中画框并打开 F2A，agent 可以通过 `f2a` 导出选区、应用 AE Motion 动效预设、保存可编辑的 AEP，再渲染 H.264 MP4。首次使用 AE 工具时，按提示重启 AE 以加载扩展。 [配置和使用 MCP](mcp/README.md)
 
 ## 常见问题
 

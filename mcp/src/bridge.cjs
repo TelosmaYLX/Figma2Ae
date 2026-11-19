@@ -3,13 +3,17 @@
 const {ensureRelay} = require('../launcher.cjs');
 let selectedSession = null;
 
-async function request(route, body) {
+async function request(route, body, signal) {
   await new Promise((resolve, reject) => ensureRelay(error => error ? reject(error) : resolve()));
   const response = await fetch('http://127.0.0.1:' + (process.env.F2A_MCP_PORT || 7367) + route, body === undefined ? {} : {
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal
   });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error);
+  if (!response.ok) {
+    const error = new Error(result.error);
+    error.nodeId = result.nodeId;
+    throw error;
+  }
   return result;
 }
 
@@ -28,10 +32,10 @@ async function selectSession(id = '') {
   return sessions.find(session => session.id === selectedSession);
 }
 
-async function sendCommandToFigma(command, params = {}) {
+async function sendCommandToFigma(command, params = {}, signal) {
   if (!selectedSession) await selectSession();
   // An explicitly selected session remains pinned even if it closes. Never silently retarget edits.
-  const {result} = await request('/command', {sessionId:selectedSession, command, params});
+  const {result} = await request('/command', {sessionId:selectedSession, command, params}, signal);
   return result;
 }
 

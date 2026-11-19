@@ -182,7 +182,8 @@
   var imageTasks = Promise.resolve(), processingImages = false, imageProcessingFailed = false;
   var $ = function (id) { return document.getElementById(id); };
   var toolButtons = { 'detach-instances': 'detach', 'convert-groups': 'group-to-frame', 'expand-groups': 'expand', 'delete-hidden': 'delete-hidden' };
-  var mcpSocket = null, mcpRetryTimer = null, mcpExecuting = false;
+  var mcpSocket = null, mcpRetryTimer = null, mcpExecuting = false, mcpAepParts = false;
+  var agentAep = null;
   function mcpStatus(on, text) {
     $('mcp-dot').className = 'dot ' + (on ? 'on' : 'off');
     $('mcp-status').textContent = text;
@@ -195,8 +196,13 @@
     mcpSocket.onopen = function () { parent.postMessage({pluginMessage:{type:'mcp-info'}}, '*'); };
     mcpSocket.onmessage = function (event) {
       var message = JSON.parse(event.data);
-      if (message.type === 'ready') { mcpStatus(true, 'MCP 已就绪'); return; }
-      if (message.type === 'command') parent.postMessage({pluginMessage:{type:'mcp-command', id:message.id, command:message.command, params:message.params}}, '*');
+      if (message.type === 'ready') {
+        mcpAepParts = !!message.aepParts;
+        mcpStatus(true, 'MCP 已就绪'); return;
+      }
+      if (message.type !== 'command') return;
+      if (message.command === 'f2a_export_aep' && !beginAgentAep(message)) return;
+      parent.postMessage({pluginMessage:{type:'mcp-command', id:message.id, command:message.command, params:message.params}}, '*');
     };
     mcpSocket.onerror = function () { mcpStatus(false, 'MCP 等待 agent 连接'); };
     mcpSocket.onclose = function () {
@@ -297,16 +303,42 @@
   for (var toolId in toolButtons) (function (id) {
     $(id).onclick = function () { parent.postMessage({ pluginMessage: { type: 'layer-tool', action: toolButtons[id] } }, '*'); };
   })(toolId);
+  function exportSettings(direct) {
+    var textMode = $('text-mode').value;
+    return { target: direct ? 'aep' : 'ae', useNodes: true, organize: $('organize').checked,
+      rasterScale: Number($('raster-scale').value), nativeImageMasks: $('native-image-masks').value === 'separate',
+      ignoreHidden: $('ignorehidden').checked, convertMasks: true,
+      rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked,
+        masks: $('raster-masks').checked, booleans: $('raster-booleans').checked},
+      mergeBlends: $('mergeblends').checked, outlineTexts: textMode === 'vector', rasterTexts: textMode === 'png',
+      rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked };
+  }
+  function beginAgentAep(message) {
+    if (exporting || aepBusy || folderBusy || processingImages || mcpExecuting || bridgePending || locatingLayer) {
+      mcpSend({type:'result', id:message.id, error:'F2A 正在处理，请稍后重试。'});
+      return false;
+    }
+    var params = message.params || {}, settings = exportSettings(true);
+    if (params.textMode) {
+      settings.outlineTexts = params.textMode === 'vector';
+      settings.rasterTexts = params.textMode === 'png';
+    }
+    agentAep = {id:message.id, socket:mcpSocket, parts:mcpAepParts, aeVersion:params.aeVersion || $('aep-version').value};
+    aepMode = aepBusy = true; aepPacket = imgAsm = null;
+    message.params = settings;
+    updateButton(); say('正在导出选区…');
+    return true;
+  }
   function beginExport(direct) {
-    // Nodes and mask conversion are standard for both destinations.
-    organize = $('organize').checked;
+    var settings = exportSettings(direct);
+    organize = settings.organize;
     aepMode = direct; aepPacket = null; imgAsm = null;
     imageTasks = Promise.resolve(); processingImages = imageProcessingFailed = false;
     aepResultId = null; $('open-aep-folder').hidden = true;
     exporting = true; updateButton();
     blendNotice = '';
     say(organize ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: { type: 'ship-selection', target: direct ? 'aep' : 'ae', useNodes: true, organize: organize, rasterScale: Number($('raster-scale').value), nativeImageMasks: $('native-image-masks').value === 'separate', ignoreHidden: $('ignorehidden').checked, convertMasks: true, rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked, masks: $('raster-masks').checked, booleans: $('raster-booleans').checked}, mergeBlends: $('mergeblends').checked, outlineTexts: $('text-mode').value === 'vector', rasterTexts: $('text-mode').value === 'png', rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked } }, '*');
+    parent.postMessage({ pluginMessage: Object.assign({type:'ship-selection'}, settings) }, '*');
   }
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;
@@ -475,11 +507,33 @@
       var failure = new Error((image.shadowBase ? '投影' : '图片') + '「' + image.name + '」处理失败：' + error.message); failure.nodeId = image.sourceId; throw failure;
     });
   }
+  function sendAgentAep(job, packet) {
+    if (job.socket !== mcpSocket || job.socket.readyState !== 1) throw new Error('MCP 连接已断开。');
+    if (!job.parts) {
+      mcpSend({type:'result', id:job.id, result:packet});
+      return;
+    }
+    var json = JSON.stringify(packet), size = 1024 * 1024;
+    for (var offset = 0; offset < json.length; offset += size) {
+      mcpSend({type:'aep-part', id:job.id, data:json.slice(offset, offset + size)});
+    }
+    mcpSend({type:'result', id:job.id, aepParts:true});
+  }
+  function endAgentAep(job, error) {
+    if (agentAep !== job) return;
+    if (error && job.socket === mcpSocket)
+      mcpSend({type:'result', id:job.id, error:error.message, nodeId:error.nodeId});
+    agentAep = aepPacket = imgAsm = null;
+    aepMode = aepBusy = false;
+    updateButton();
+    say(error ? error.message : '选区已发送给 MCP。', error ? 'err' : 'ok', error && error.nodeId);
+  }
   function finishAep() {
     if (!aepPacket) return;
-    var packet = aepPacket; aepPacket = null;
-    packet.aeVersion = $('aep-version').value;
+    var packet = aepPacket, agent = agentAep; aepPacket = null;
+    packet.aeVersion = agent ? agent.aeVersion : $('aep-version').value;
     if (packet.images.length !== packet.imageCount) {
+      if (agent) { endAgentAep(agent, new Error('部分图片导出失败，请重试。')); return; }
       aepMode = aepBusy = false; updateButton();
       say('部分图片导出失败，请重试。', 'err'); return;
     }
@@ -489,9 +543,11 @@
       if (image.shadowBase || image.bicubic) prepared = prepared.then(function () { return prepareImage(image); });
     });
     prepared.then(function () {
+      if (agent) { sendAgentAep(agent, packet); return; }
       return aepRequest('/export', {packet:packet});
     })
       .then(function (result) {
+        if (agent) { endAgentAep(agent); return; }
         if (result.cancelled) { say('已取消导出。'); return; }
         if (result.warnings.length) {
           var issue = result.warnings[0];
@@ -499,8 +555,10 @@
         }
         say('已导出到 ' + result.directory, 'ok');
         aepResultId = result.exportId; $('open-aep-folder').hidden = false;
-      }).catch(function (err) { say('AEP 导出失败：' + err.message, 'err', err.nodeId); })
-      .then(function () { aepMode = aepBusy = false; updateButton(); });
+      }).catch(function (err) {
+        if (agent) endAgentAep(agent, err);
+        else say('AEP 导出失败：' + err.message, 'err', err.nodeId);
+      }).then(function () { if (!agent) { aepMode = aepBusy = false; updateButton(); } });
   }
 
   // messages from code.js (main thread)
@@ -512,9 +570,17 @@
       return;
     }
     if (msg.type === 'mcp-info') { mcpSend({type:'hello', name:msg.name, fileKey:msg.fileKey, pageId:msg.pageId, pageName:msg.pageName}); return; }
-    if (msg.type === 'mcp-result') { mcpSend({type:'result', id:msg.id, result:msg.result, error:msg.error}); return; }
+    if (msg.type === 'mcp-result') {
+      if (agentAep && agentAep.id === msg.id) {
+        var error = new Error(msg.error || '请重新打开 Figma 中的 F2A。');
+        error.nodeId = msg.nodeId;
+        endAgentAep(agentAep, error);
+      } else mcpSend({type:'result', id:msg.id, result:msg.result, error:msg.error, nodeId:msg.nodeId});
+      return;
+    }
     if (msg.type === 'command_progress') { mcpSend({type:'progress', id:msg.commandId}); return; }
     if (msg.type === 'mcp-busy') { mcpExecuting = msg.busy; updateButton(); return; }
+    if (msg.exportCommandId && (!agentAep || agentAep.id !== msg.exportCommandId)) return;
     if (msg.type === 'image-abort') msg = {type:'error',message:'图片导出失败，已取消导出'};
     if (msg.type === 'selection') { selCount = msg.count; frameSelected = msg.frameSelected; updateButton(); }
     if (msg.type === 'locate-result') {
@@ -525,6 +591,10 @@
     if (msg.type === 'mark-result') { say(msg.message, 'ok'); }
     if (msg.type === 'tool-result') { say(msg.message, 'ok'); }
     if (msg.type === 'error') {
+      if (agentAep) {
+        var failure = new Error(msg.message); failure.nodeId = msg.nodeId;
+        endAgentAep(agentAep, failure); return;
+      }
       processingImages = false; imageProcessingFailed = true;
       if (bridgePending) {
         var abort = {type: 'export-abort', message: msg.message};
@@ -577,7 +647,12 @@
     if (msg.type === 'ship') {
       bridgePending = !aepMode && msg.imageCount > 0;
       blendNotice = msg.blendStats && msg.blendStats.external ? ' 部分叠加依赖选区外的底图，请选择更外层画框。' : '';
-      if (!msg.svg || msg.svg.indexOf('<svg') === -1) { exporting = aepMode = aepBusy = false; updateButton(); say('没有可发送的内容——Figma 导出的 SVG 为空。', 'err'); return; }
+      if (!msg.svg || msg.svg.indexOf('<svg') === -1) {
+        var empty = '没有可发送的内容——Figma 导出的 SVG 为空。';
+        if (agentAep) endAgentAep(agentAep, new Error(empty));
+        else { exporting = aepMode = aepBusy = false; updateButton(); say(empty, 'err'); }
+        return;
+      }
       if (aepMode) {
         aepPacket = {name: msg.name, frame: msg.frame, svg: msg.svg, nodes: msg.nodes, texts: msg.texts,
           effects: msg.effects, shift: msg.shift, containers: msg.containers, organize: msg.organize,

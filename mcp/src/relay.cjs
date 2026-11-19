@@ -11,12 +11,12 @@ function start({port = 7367, commandTimeout = 60000, idleTimeout = 60000} = {}) 
     res.writeHead(status, {'Content-Type': 'application/json; charset=utf-8'});
     res.end(JSON.stringify(body));
   }
-  function settle(id, error, result) {
+  function settle(id, error, result, nodeId) {
     const job = pending.get(id);
     if (!job) return;
     clearTimeout(job.timer);
     pending.delete(id);
-    if (!job.res.destroyed) reply(job.res, error ? 400 : 200, error ? {error} : {result});
+    if (!job.res.destroyed) reply(job.res, error ? 400 : 200, error ? {error, nodeId} : {result});
   }
   function arm(id, job) {
     clearTimeout(job.timer);
@@ -46,6 +46,7 @@ function start({port = 7367, commandTimeout = 60000, idleTimeout = 60000} = {}) 
       if (!session || session.socket.readyState !== WebSocket.OPEN) throw new Error('F2A 文档已断开，请重新打开 Figma 中的 F2A');
       if (typeof body.command !== 'string') throw new Error('缺少 MCP 命令');
       const id = randomUUID(), job = {res, socket:session.socket};
+      if (body.command === 'f2a_export_aep') { job.parts = []; job.bytes = 0; }
       pending.set(id, job);
       arm(id, job);
       res.on('close', () => { clearTimeout(job.timer); pending.delete(id); });
@@ -63,12 +64,26 @@ function start({port = 7367, commandTimeout = 60000, idleTimeout = 60000} = {}) 
         if (message.type === 'hello') {
           const info = {id:sessionId, name:String(message.name || 'Figma'), fileKey:message.fileKey || null, pageId:message.pageId || null, pageName:message.pageName || null};
           sessions.set(sessionId, {socket, info});
-          socket.send(JSON.stringify({type:'ready', sessionId}));
-        } else if (message.type === 'result' || message.type === 'progress') {
+          socket.send(JSON.stringify({type:'ready', sessionId, aepParts:true}));
+        } else if (message.type === 'result' || message.type === 'progress' || message.type === 'aep-part') {
           const job = pending.get(message.id);
           if (!job || job.socket !== socket) return;
-          if (message.type === 'progress') arm(message.id, job);
-          else settle(message.id, message.error, message.result);
+          if (message.type === 'progress') {
+            arm(message.id, job);
+          } else if (message.type === 'aep-part') {
+            if (!job.parts || typeof message.data !== 'string') return;
+            job.bytes += Buffer.byteLength(message.data);
+            if (job.bytes > 512 * 1024 * 1024) { settle(message.id, '导出数据超过 512 MB'); return; }
+            job.parts.push(message.data);
+            arm(message.id, job);
+          } else if (message.aepParts && job.parts && !message.error) {
+            let result;
+            try { result = JSON.parse(job.parts.join('')); }
+            catch { settle(message.id, 'AEP 导出数据不完整'); return; }
+            settle(message.id, undefined, result);
+          } else {
+            settle(message.id, message.error, message.result, message.nodeId);
+          }
         }
       } catch (error) { socket.send(JSON.stringify({type:'error', error:error.message})); }
     });

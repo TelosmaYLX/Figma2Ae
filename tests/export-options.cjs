@@ -49,7 +49,7 @@ function mockClone(n) {
   }
   return copy;
 }
-function harness(root, code = source) {
+function mockFigma(root) {
   const messages = [], calls = {svg: 0, png: 0, fonts: 0, undo: 0};
   function attach(n) {
     n.exportAsync = async options => {
@@ -80,6 +80,11 @@ function harness(root, code = source) {
     },
     group(nodes,parent) {const g=group('temporary selection',nodes);g.exportAsync=root.exportAsync;g.clone=function(){return mockClone(this);};g.remove=function(){this.removed=true;this.children.slice().forEach(c=>c.remove());};parent.appendChild(g);return g;}
   };
+  return {figma, messages, calls};
+}
+
+function harness(root, code = source) {
+  const {figma, messages, calls} = mockFigma(root);
   const context = vm.createContext({__html__: '', figma});
   vm.runInContext(code, context);
   return {context, figma, messages, calls, async run(useNodes = true, rasterGroups = true, organize = true, rasterTexts = false, options = {}) {
@@ -260,5 +265,5 @@ async function check() {
   assert.equal(bh.context._contentBounds(boundsRoot).x, 20, 'Origin rebasing must not mutate cached bounds');
   console.log('PASS: marking, clearing, raster boundaries, selected root, legacy mode, repeated export, no redundant SVG/font/fill work, image completion');
 }
-module.exports = {node, group, harness};
+module.exports = {node, group, mockFigma, harness};
 if (require.main === module) check().catch(e => { console.error(e); process.exitCode = 1; });

@@ -50,6 +50,9 @@ async function checkMcp(target) {
     const result = await call('tools/list', {});
     assert.ok(result.tools.length >= 165);
     assert.ok(result.tools.some(tool => tool.name === 'get_f2a_status'));
+    assert.ok(result.tools.some(tool => tool.name === 'export_aep'));
+    assert.ok(result.tools.some(tool => tool.name === 'ae_animate'));
+    assert.ok(result.tools.some(tool => tool.name === 'ae_render_mp4'));
     assert.ok(result.tools.some(tool => tool.name === 'ae_render_background'));
     return result.tools.length;
   } finally {

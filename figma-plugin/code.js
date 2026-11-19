@@ -1231,11 +1231,13 @@ function _disableExportClipping(root, changed) {
   for (var p = root.parent; p && p.type !== 'PAGE'; p = p.parent) disable(p);
 }
 
-async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks, rasterGroups, rasterTexts, options) {
-  if (_exporting || mcpBusy) {
-    figma.ui.postMessage({ type: 'error', message: '上一次导出仍在进行，请稍候。' });
-    return;
+async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks, rasterGroups, rasterTexts, options, commandId) {
+  function failure(error) {
+    if (commandId) throw error;
+    figma.ui.postMessage({ type: 'error', message: error.message, nodeId: error.nodeId || null });
   }
+  if (_exporting || (mcpBusy && commandId !== mcpCommandId))
+    return failure(new Error('上一次导出仍在进行，请稍候。'));
   _ignoreHidden = (ignoreHidden !== false);       // default: hidden Figma layers stay out of AE
   _rasterTexts = (rasterTexts === true);
   options = options || {};
@@ -1258,10 +1260,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _rasterInstances = options.rasterInstances === true;
   _includeRootContainer = !!organize && !!useNodes;
   var sel = figma.currentPage.selection;
-  if (!sel || sel.length === 0) {
-    figma.ui.postMessage({ type: 'error', message: '请至少选择一个图层或画框。' });
-    return;
-  }
+  if (!sel || sel.length === 0) return failure(new Error('请至少选择一个图层或画框。'));
   _exporting = true;
   _exportSourceIds = {};
   _exportInstanceNodes = {};
@@ -1322,8 +1321,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     if (copies.length > 1) { node.name = 'f2a Export'; _temporaryExportRoot = node; }
     if (options.enableClip === false) _disableExportClipping(node, disabledClips);
     if (typeof node.exportAsync !== 'function') {
-      figma.ui.postMessage({ type: 'error', message: '此图层类型无法导出为 SVG。' });
-      return;
+      return failure(new Error('此图层类型无法导出为 SVG。'));
     }
 
     // Collect editable text (string, font, size, colour, position) BEFORE export,
@@ -1573,15 +1571,18 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
 
     var frame = rootBounds || bbox;
     figma.ui.postMessage({ type: 'ship', name: rootName || name,
+                           exportCommandId: commandId,
                            svg: svg, texts: texts, effects: effects, frame: { width: frame.width, height: frame.height },
                            newComp: options.target === 'ae' && (!!rootFrame || (originals.length === 1 && originals[0].type === 'FRAME')),
                            shift: svgShift, nodes: nodeShapes, nodeOrigin: origin, bytes: svg.length,
                            containers: containers, organize: !!organize, imageCount: images.length, imageBatch: true,
                            vnStats: _vnStats, blendStats: blendBake.stats });
-    await shipImages(images);      // sequential, chunked — see shipImages for why
-    if (images.length) figma.ui.postMessage({ type: 'images-done' });
+    await shipImages(images, commandId);      // sequential, chunked — see shipImages for why
+    if (images.length) figma.ui.postMessage({ type: 'images-done', exportCommandId: commandId });
   } catch (e) {
-    figma.ui.postMessage({ type: 'error', message: '导出失败：' + (e && e.message ? e.message : e), nodeId: e && e.nodeId || null });
+    var error = new Error('导出失败：' + (e && e.message ? e.message : e));
+    error.nodeId = e && e.nodeId || null;
+    failure(error);
   } finally {
     for (var rv2 = 0; rv2 < rasterHidden.length; rv2++) { try { rasterHidden[rv2][0].visible = rasterHidden[rv2][1]; } catch (erv) {} }
     for (var rr = 0; rr < restore.length; rr++) { try { restore[rr][0].opacity = restore[rr][1]; } catch (er) {} }
@@ -2085,7 +2086,7 @@ function _pngSize(bytes) {
   return null;
 }
 
-async function shipImages(images) {
+async function shipImages(images, commandId) {
   if (!images.length) return;
   if (typeof figma.base64Encode !== 'function') {
     throw new Error('当前 Figma 版本不支持图片导出');
@@ -2133,10 +2134,11 @@ async function shipImages(images) {
     var parts = Math.max(1, Math.ceil(b64.length / CHUNK));
     for (var pi = 0; pi < parts; pi++) {
       figma.ui.postMessage({
-        type: 'image-chunk', index: q, total: images.length,
+        type: 'image-chunk', index: q, total: images.length, exportCommandId: commandId,
         seq: pi, parts: parts, meta: (pi === 0 ? meta : null),
         dataPart: b64.substr(pi * CHUNK, CHUNK)
       });
+      if (commandId) figma.ui.postMessage({type:'command_progress', commandId:commandId});
     }
     b64 = null;
   }
@@ -2542,6 +2544,12 @@ function executeMcpCommand(msg) {
     mcpCommandId = msg.id;
     figma.ui.postMessage({type:'mcp-busy', busy:true});
     try {
+      if (msg.command === 'f2a_export_aep') {
+        var o = msg.params || {};
+        await exportSelectionSVG(true, !!o.organize, o.ignoreHidden !== false, true, true, o.rasterTexts === true,
+          Object.assign({}, o, {target:'aep'}), msg.id);
+        return;
+      }
       var result = await F2AMCP.execute(msg.command, msg.params || {});
       figma.ui.postMessage({type:'mcp-result', id:msg.id, result:result});
     } finally {
@@ -2551,7 +2559,7 @@ function executeMcpCommand(msg) {
       figma.ui.postMessage({type:'mcp-busy', busy:false});
     }
   }).catch(function (error) {
-    figma.ui.postMessage({type:'mcp-result', id:msg.id, error:error.message || String(error)});
+    figma.ui.postMessage({type:'mcp-result', id:msg.id, error:error.message || String(error), nodeId:error.nodeId || null});
   });
   return mcpQueue;
 }

@@ -705,6 +705,7 @@ def main():
         print(json.dumps({'error': str(error), 'nodeId': getattr(error, 'node_id', None) or writer.current_item.get('sourceId')}, ensure_ascii=False), file=sys.stderr)
         sys.exit(1)
     report = {'format': 'aep', 'writer': 'py-aep ' + py_aep.__version__, 'aeVersion': writer.ae_version,
+              'composition': writer.main.name, 'compositionId': writer.main.id,
               'width': packet['width'], 'height': packet['height'], 'frameRate': packet['frameRate'],
               'duration': packet['duration'], 'counts': writer.counts, 'warnings': writer.warnings,
               'writeMs': round((time.perf_counter() - started) * 1000)}
