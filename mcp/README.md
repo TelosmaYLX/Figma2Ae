@@ -158,7 +158,7 @@ npm test
 
 `server.cjs`、`relay.cjs` 和嵌入 `figma-plugin/code.js` 的命令代码均已提交，运行时
 不依赖 `node_modules`。构建复用上游工具与命令，使用 F2A 的传输与面板。
-`vendor/surehand` 包含基于 Surehand v1.4.1 构建的服务文件、工具清单和许可证。`f2a-unicode.patch` 修正 CEP 的 Unicode 传输，`f2a-paths.patch` 处理打开及另存工程时的路径编码和 `%` 限制。清单记录上游提交和 SHA-256，构建时会校验服务文件。
+`vendor/surehand` 包含基于 Surehand v1.4.1 构建的服务文件、工具清单和许可证。`f2a-unicode.patch` 修正 CEP 的 Unicode 传输，`f2a-paths.patch` 处理 AEP 打开、另存和 MP4 渲染的路径编码。清单记录上游提交和 SHA-256，构建时会校验服务文件。
 `vendor/ae-motion` 保存 AE Motion v2.26.0 的预设代码和 MIT 许可证。预设通过 Surehand 执行。
 手调动效复用参考 Mark v0.3.0 的图层捕获和 JUNKDOGE v0.11.1 的工具库。对应许可证存放在 `vendor/mark-ae` 和 `vendor/junkdoge`。
 `THIRD_PARTY_LICENSES.txt` 保留打包依赖的许可证。

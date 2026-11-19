@@ -33,3 +33,46 @@ index 823e65b..f958a7d 100644
  // with unsaved changes app.open would silently do nothing (its save prompt is suppressed)
  if (app.project.dirty) app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);
  app.open(f);
+diff --git a/server/src/tools/renderjobs.ts b/server/src/tools/renderjobs.ts
+index e781864..d9e6859 100644
+--- a/server/src/tools/renderjobs.ts
++++ b/server/src/tools/renderjobs.ts
+@@ -3,7 +3,8 @@
+ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+ import { closeSync, createWriteStream, existsSync, fstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+-import { dirname, join } from "node:path";
++import { dirname, isAbsolute, join } from "node:path";
++import { pathToFileURL } from "node:url";
+ import { z } from "zod";
+ import { runJsx } from "../jsx.js";
+ import { permissions, READ_ONLY_REFUSAL } from "../permissions.js";
+@@ -96,6 +97,10 @@ export function aerenderPath(appPackage: string): string | null {
+   return candidates.find((p) => existsSync(p)) ?? null;
+ }
+ 
++function renderFileUri(file: string): string {
++  return pathToFileURL(file).href.replace(/[&'+\[\]]/g, char => "%" + char.charCodeAt(0).toString(16).toUpperCase());
++}
++
+ /**
+  * renders/<id>.json for the Surehand MCP panel, kept up to date while the job runs:
+  * {id, comp, frames, done, status, output, startedAt, endedAt?} (done = frames rendered so far), plus what finds a
+@@ -451,10 +456,15 @@ return { project: p.file.fsName, comp: name, frames: frames, app: Folder.appPack
+         const info = r.result as { project: string; comp: string; frames: number; app: string };
+         const bin = aerenderPath(info.app);
+         if (!bin) return errorResult(`aerender was not found next to ${info.app}.`);
+-        const cli = ["-project", info.project, "-v", "ERRORS_AND_PROGRESS"];
++        const output = args.output;
++        const useFileUri = process.platform === "win32" && output && isAbsolute(output) && /\.mp4$/i.test(output);
++        const cli = ["-project", useFileUri ? renderFileUri(info.project) : info.project, "-v", "ERRORS_AND_PROGRESS"];
+         if (args.rqIndex) cli.push("-rqindex", String(args.rqIndex));
+         else cli.push("-comp", info.comp);
+-        if (args.output) cli.push("-output", args.output);
++        if (output) {
++          // Windows aerender decodes the MP4 output path twice. Keep its literal percent signs.
++          cli.push("-output", useFileUri ? renderFileUri(output.replaceAll("%", "%25")) : output);
++        }
+         if (args.renderSettingsTemplate) cli.push("-RStemplate", args.renderSettingsTemplate);
+         if (args.outputModuleTemplate) cli.push("-OMtemplate", args.outputModuleTemplate);
+         if (args.startFrame !== undefined) cli.push("-s", String(args.startFrame));
