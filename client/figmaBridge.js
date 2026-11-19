@@ -314,6 +314,17 @@
       finishImport('AE: ' + res, /error/i.test(res));
     });
   }
+  function imageFileBase(name) {
+    // Figma layer names may contain path separators. Only the disk name is sanitized.
+    var base = String(name || 'image').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '') || 'image';
+    return /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(base) ? '_' + base : base;
+  }
+  function reserveImageFilename(base, extension, used, suffix) {
+    var file = base + '.' + extension;
+    while (used[file.toLowerCase()]) file = base + '_' + (suffix++) + '.' + extension;
+    used[file.toLowerCase()] = true;
+    return file;
+  }
   function pumpImport() {
     if (importing || !importQueue.length || !importQueue[0].ready || !importQueue[0].targetReady) return;
     importing = true;
@@ -345,12 +356,11 @@
         folder = (folder || '').replace(/^\s+|\s+$/g, '');
         if (!folder) { finishImport('已取消导入', true); return; }
         rememberImageFolder(folder);
-        var fs2 = require('fs'), path2 = require('path'), list = [], used = {};
+        var fs2 = require('fs'), path2 = require('path'), list = [], used = Object.create(null);
         for (var k = 0; k < images.length; k++) {
-          var im = images[k], base = im.name || 'image', ext = im.ext || 'png';
-          var fname = base + '.' + ext;
-          if (used[fname]) fname = base + '_' + k + '.' + ext;
-          used[fname] = 1;
+          var im = images[k], base = imageFileBase(im.name);
+          var extension = String(im.ext || 'png').replace(/[^a-z0-9]/gi, '') || 'png';
+          var fname = reserveImageFilename(base, extension, used, k);
           var buf = Buffer.from(im.data, 'base64'), target = path2.join(folder, fname), needWrite = true;
           try {
             if (fs2.existsSync(target)) { var cur = fs2.readFileSync(target); if (cur.length === buf.length && cur.equals(buf)) needWrite = false; }
@@ -358,7 +368,7 @@
           if (needWrite) {
             try { fs2.writeFileSync(target, buf); }
             catch (eLocked) {
-              fname = base + '_' + Date.now() + '_' + (++tempSerial) + '.' + ext;
+              fname = reserveImageFilename(base + '_' + Date.now() + '_' + (++tempSerial), extension, used, k);
               fs2.writeFileSync(path2.join(folder, fname), buf);
             }
           }

@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '..'), output = path.join(root, 'artifacts/undo/client', String(process.pid));
 let testId = 0;
-function harness({rememberFolder = true, failImages = false, shadowRenderer, nativeFolder, activeCompId = 101} = {}) {
+function harness({rememberFolder = true, failImages = false, lockedImageName, shadowRenderer, nativeFolder, activeCompId = 101} = {}) {
   const dir = path.join(output, String(++testId)), assets = path.join(dir, 'assets');
   fs.mkdirSync(assets, {recursive: true});
   const native = [], pending = [], pickers = [], messages = [], folderCalls = [], elements = {}, launchCalls=[];
@@ -12,7 +12,10 @@ function harness({rememberFolder = true, failImages = false, shadowRenderer, nat
   const storage = new Map(rememberFolder ? [['f2a.imageFolder', assets]] : []);
   const disk = Object.create(fs);
   disk.writeFileSync = (file, data, encoding) => {
-    if (failImages && path.dirname(path.resolve(file)) === assets) { const e = new Error('ENOSPC'); e.code = 'ENOSPC'; throw e; }
+    if (path.dirname(path.resolve(file)) === assets) {
+      if (failImages) { const e = new Error('ENOSPC'); e.code = 'ENOSPC'; throw e; }
+      if (path.basename(file) === lockedImageName) { const e = new Error('EBUSY'); e.code = 'EBUSY'; throw e; }
+    }
     return fs.writeFileSync(file, data, encoding);
   };
   const bridge = {start(opts) { callbacks = opts; }, saveTemp(svg) { const file = path.join(dir, 'source-' + (++svgId) + '.svg'); fs.writeFileSync(file, svg); return file; }};
@@ -99,7 +102,34 @@ aborted.abort('图片「broken」导出失败');assert.equal(aborted.native.leng
 const reference = harness();reference.start('reference job',1);reference.images('original PNG',true);
 const savedReference=JSON.parse(fs.readFileSync(reference.native[0].job.imagesPath,'utf8'))[0];
 assert.equal(savedReference.reference,true);assert.equal(savedReference.hidden,true);reference.finish();
-console.log('PASS: complete payload, single evalScript, FIFO jobs, no phase overlap, unique files, picker cancellation, disk failure, empty batch');
+const mask = 'shape/shape-17-1_蒙版';
+const safeMask = 'shape_shape-17-1_蒙版';
+const filenames = harness();
+const names = [mask, safeMask + '_2', safeMask, 'shape\\shape-17-1_蒙版', 'CON', '卡片:亮度？?'];
+filenames.start('mask paths', names.length);
+filenames.callbacks.onImages(names.map(name => ({name, ext:'png', data:Buffer.from(name).toString('base64')})));
+assert.equal(filenames.native.length, 1, filenames.messages.at(-1));
+const savedImages = JSON.parse(fs.readFileSync(filenames.native[0].job.imagesPath, 'utf8'));
+assert.deepEqual(savedImages.map(image => image.name), names, 'AE receives the original layer names');
+assert.equal(savedImages[0].file, safeMask + '.png');
+assert.equal(savedImages[4].file, '_CON.png');
+assert.equal(savedImages[5].file, '卡片_亮度？_.png');
+assert.equal(new Set(savedImages.map(image => image.file.toLowerCase())).size, names.length);
+for (const image of savedImages) {
+  const file = path.resolve(filenames.assets, image.file);
+  assert.equal(path.dirname(file), filenames.assets, 'Images are written directly to the chosen folder');
+  assert.equal(fs.readFileSync(file, 'utf8'), image.name, 'Similar names do not overwrite each other');
+}
+filenames.finish();
+const locked = harness({lockedImageName: safeMask + '.png'});
+locked.start('locked mask', 1); locked.images(mask);
+assert.equal(locked.native.length, 1, locked.messages.at(-1));
+const savedLockedImage = JSON.parse(fs.readFileSync(locked.native[0].job.imagesPath, 'utf8'))[0];
+assert.equal(savedLockedImage.name, mask);
+assert.match(savedLockedImage.file, /^shape_shape-17-1_蒙版_123456789_\d+\.png$/);
+assert.equal(fs.readFileSync(path.join(locked.assets, savedLockedImage.file), 'utf8'), mask);
+locked.finish();
+console.log('PASS: FIFO imports, safe image filenames and locked-file retries, picker cancellation, disk failure and empty batches');
 (async()=>{
   let resolveShadow;
   const h=harness({shadowRenderer:{renderShadow(){return new Promise(resolve=>{resolveShadow=resolve;});}}});
