@@ -1,10 +1,7 @@
 @echo off
-rem Extra arguments are forwarded, e.g. install.cmd -InstallDirectory "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-f2a.ps1" %*
-if errorlevel 1 (
-  echo Installation failed. Check README.txt and the error above.
-  pause
-  exit /b 1
-)
-echo Installation complete.
+setlocal
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-f2a.ps1" -PromptForMcp %*
+set "f2aExitCode=%errorlevel%"
+if not "%f2aExitCode%"=="0" echo F2A installation failed. See README.txt and the error above.
 pause
+exit /b %f2aExitCode%

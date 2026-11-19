@@ -12,7 +12,7 @@ F2A（Windows x64）
 二、安装 F2A
 
 1. 完整解压到一个文件夹，关闭 After Effects。
-2. 双击 install.cmd，等待显示 Installation complete。安装器会同步 CEP 扩展和随包的 Skill。
+2. 双击 install.cmd。安装成功后，窗口会显示 AE 扩展位置、AEP 导出状态和 Skill 同步目录，并引导配置 MCP。
 3. 在 Figma 桌面版的插件开发菜单中，选择从 manifest 导入。
    选择安装程序显示的 figma-plugin\manifest.json。
 4. 重启 After Effects，在“窗口 → 扩展”中打开 F2A。
@@ -22,7 +22,7 @@ F2A（Windows x64）
 - 系统级：C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A（需管理员运行）
 - 用户级：%APPDATA%\Adobe\CEP\extensions\F2A（install.cmd 不带参数时的默认值）
 安装程序会安装固定版本的 Python 依赖、启用 CEP 扩展调试模式，
-并为当前用户注册 f2a-aep 启动入口。不会自动配置 MCP 客户端。
+并为当前用户注册 f2a-aep 启动入口。
 装到 Program Files 时，安装、修复依赖和首次拉起 AEP 服务都需要管理员权限；
 日常以普通用户使用请给该目录授一次写权限（见 INSTALL.md）。
 如提示环境不存在，安装对应环境并重启相关应用，再运行 install.cmd。
@@ -36,6 +36,10 @@ F2A（Windows x64）
 自定义 Skill 目录可通过 install.cmd -SkillDirectory "<目录>" 指定，一并登记到后续更新。
 
 三、MCP（可选）
+
+在安装窗口选择 Codex 或 DSH Desktop，可一键注册 f2a。回车可跳过。
+Codex 需要能运行 codex 命令。DSH Desktop 需已初始化，并安装 dsh-skill-mcp-panel。
+选择手动配置时，窗口会显示可直接填写的命令和参数。
 
 在 MCP 客户端中添加 stdio 服务，名称使用 f2a：
 command：node

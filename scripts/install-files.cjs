@@ -158,7 +158,6 @@ async function install(directory, requestedSkillDirectory) {
   }
   plan.push({root: target, output, contents: JSON.stringify({...incoming, skillDirectories: directories}, null, 2) + '\n'});
   await apply(plan);
-  for (const directory of directories) console.log('Skills synchronized: ' + directory);
 }
 
 install(process.argv[2], process.argv[3]).catch(error => { console.error(error.message); process.exitCode = 1; });

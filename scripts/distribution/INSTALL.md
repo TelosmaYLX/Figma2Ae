@@ -65,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File "<扩展包中的 F2A 目录>\scripts\i
 ### 1.3 用户级安装（默认，无需管理员）
 
 1. 关闭 After Effects。
-2. 双击包根目录的 `install.cmd`，等待输出 `Installation complete`。
+2. 双击包根目录的 `install.cmd`。看到「安装成功」后，可查看扩展位置、AEP 导出状态和 Skill 同步目录。
 
 装到 `%APPDATA%\Adobe\CEP\extensions\F2A`，其余行为与上面一致。
 
@@ -132,10 +132,12 @@ Figma 桌面版 → 菜单 `Plugins` → `Development` → `Import plugin from m
 
 ## 4. 接入 MCP（让 agent 操作 Figma 和 AE）
 
+运行 `install.cmd` 后，可选择检测到的 Codex 或 DSH Desktop 一键注册 `f2a`。回车跳过。选择「手动配置」可查看按实际安装路径生成的 stdio 命令和参数。
+
 MCP 是一个 stdio 服务，入口是安装目录下的 `mcp\server.cjs`。MCP 依赖和 Surehand 随包提供。
 首次使用 `ae_status` 会安装 Surehand 扩展。重新打开 AE 后，agent 可以操作合成、制作动画、保存 AEP 和渲染视频。
 
-先设一个变量，避免路径写错（按你的实际安装位置改）：
+要在安装后单独配置 MCP，先设置实际安装路径。
 
 ```powershell
 $f2a = "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"
