@@ -53,6 +53,7 @@ async function checkMcp(target) {
     assert.ok(result.tools.some(tool => tool.name === 'export_aep'));
     assert.ok(result.tools.some(tool => tool.name === 'ae_animate'));
     assert.ok(result.tools.some(tool => tool.name === 'ae_render_mp4'));
+    assert.ok(result.tools.some(tool => tool.name === 'ae_motion_apply'));
     assert.ok(result.tools.some(tool => tool.name === 'ae_render_background'));
     return result.tools.length;
   } finally {

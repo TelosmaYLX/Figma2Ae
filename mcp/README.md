@@ -60,6 +60,16 @@ Windows 分发包使用本机的 Node.js 20+，MCP 依赖已打包。
 
 用 `ae_tools` 查找更多 Surehand 工具，例如文字动画器、交付预检和像素比对，用 `ae_call` 调用。
 
+## 复用手调动效
+
+在 AE 中选中参考图层。已有动效可以直接用 `ae_motion_save` 保存。如果要带着 agent 手调，先用 `ae_motion_record`，调完将 `recording_id` 传给 `ae_motion_save`。F2A 比较前后两次状态，只保存改过的轨道。 [Mark Watch](https://github.com/transversal-tools/mark-ae/blob/c73ed4ee8d74f48cd3da7b235018cbb30764af31/docs/TOOLS.md#watch-mode)
+
+用 `ae_motion_list` 按名称或标签找配方，再用 `ae_motion_apply` 套到当前选区或传入 `layer_ids`。多层配方按库里显示的顺序匹配图层，单层配方可一次套到多个图层。默认从播放头开始，保留目标图层的落点，记录的静态位移按相对距离应用。可以用 `time_scale` 改时长，用 `position_anchor` 改对齐方式。目标属性已含动画时，确认要替换后传 `replace: true`。
+
+配方保留可编辑的关键帧、缓动、空间切线及表达式。目标需要有相应的效果、路径或文字动画器，表达式引用的图层和控制器也需要存在。只想复用变换时可在采集时传 `scope: "transform"`。
+
+配方保存在 `%LOCALAPPDATA%/F2A/motion-library`。保存结果和库列表会返回配方 JSON 路径，另一台机器可用 `ae_motion_import` 导入。 [JUNKDOGE Tool Library](https://github.com/JUNKDOGE-JOE/after-effects-mcp/blob/10b0154ca64f5ed15096b367f160129ee9ffe503/docs/TOOL_LIBRARY.md)
+
 ## 使用
 
 - 只有一个 F2A 文档时，`get_selection`、`get_document_info`、`create_frame`、
@@ -148,4 +158,5 @@ npm test
 不依赖 `node_modules`。构建复用上游工具与命令，使用 F2A 的传输与面板。
 `vendor/surehand` 包含基于 Surehand v1.4.1 构建的服务文件、工具清单和许可证。`f2a-unicode.patch` 修正了 CEP 传递中文名称的问题。清单记录上游提交和 SHA-256，构建时会校验服务文件。
 `vendor/ae-motion` 保存 AE Motion v2.26.0 的预设代码和 MIT 许可证。预设通过 Surehand 执行。
+手调动效复用参考 Mark v0.3.0 的图层捕获和 JUNKDOGE v0.11.1 的工具库。对应许可证存放在 `vendor/mark-ae` 和 `vendor/junkdoge`。
 `THIRD_PARTY_LICENSES.txt` 保留打包依赖的许可证。

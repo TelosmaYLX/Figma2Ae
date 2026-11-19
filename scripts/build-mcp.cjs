@@ -24,6 +24,7 @@ async function build() {
   if (hash !== sha256) throw new Error('Surehand bundle checksum does not match the tool catalog.');
   const aeMotion = path.join(mcp, 'vendor/ae-motion');
   const aeMotionJsx = await fs.readFile(path.join(aeMotion, 'presets.jsx'), 'utf8');
+  const motionReuseJsx = await fs.readFile(path.join(mcp, 'src/ae-motion-reuse.jsx'), 'utf8');
   const upstream = await fs.readFile(path.join(vendor, 'server.ts'), 'utf8');
   const tools = between(upstream, '// Document Info Tool', '// Update the connectToFigma function') +
     between(upstream, '// Set Image Fill Tool', '// Update the join_channel tool');
@@ -39,6 +40,7 @@ import {registerFigwrightTools, withFigwrightArgs} from './src/figwright-tools.t
 import {registerSurehandTools} from './src/surehand-tools.ts';
 import {registerAepTools} from './src/aep-tools.ts';
 import {registerAeMotionTools} from './src/ae-motion-tools.ts';
+import {registerAeMotionReuseTools} from './src/ae-motion-reuse-tools.ts';
 import {registerAeVideoTools} from './src/ae-video-tools.ts';
 // Upstream helper logging must never enter the MCP stdout stream.
 console.log = console.info = console.debug = (...args) => console.error(...args);
@@ -50,6 +52,7 @@ const instructions = [
   'For After Effects, start with ae_status to check the current project and choose the intended instance.',
   'Use the compositionId from export_aep with ae_get_comp_info. For a precomp layer, inspect its source.id the same way. Use the main compositionId for preview and render.',
   'Use ae_animate, ae_stagger, ae_text_reveal or ae_transition for AE Motion presets. Pass the targeted comp_id for the change report, then preview and save with ae_save_project.',
+  'To reuse hand-tuned AE motion, ae_motion_save captures selected animation. Use ae_motion_record first to capture only properties changed during manual edits. Find clips with ae_motion_list and retarget them with ae_motion_apply.',
   'After saving, call ae_render_mp4 with the main comp ID, outputPath, and requested frame range. Poll ae_render_jobs in the same session.',
   'Discover more Surehand tools with ae_tools and ae_call.',
 ].join(' ');
@@ -67,6 +70,7 @@ registerFigwrightTools(server, send);
 registerAepTools(server, sendCommandToFigma);
 const callAe = registerSurehandTools(server);
 registerAeMotionTools(server, callAe, ${JSON.stringify(aeMotionJsx + '\nreturn C[args.command](args.options);')});
+registerAeMotionReuseTools(server, callAe, ${JSON.stringify(motionReuseJsx)});
 registerAeVideoTools(server, callAe);
 process.stdin.once('end', () => { void server.close(); });
 server.connect(new StdioServerTransport()).catch(error => {console.error(error);process.exit(1);});
@@ -113,6 +117,8 @@ export const commands = Object.keys(figwrightCommands);
   const licenses = [
     'Figwright 0.7.0 (031df6a01e103c7adcc01e63d6d8aab0990001e8)\n' + figwrightLicense,
     'AE Motion 2.26.0 (42e14e8350473ea4b246f0b4aa20f250fe168dd6)\n' + aeMotionLicense,
+    'Mark 0.3.0 (c73ed4ee8d74f48cd3da7b235018cbb30764af31)\n' + await fs.readFile(path.join(mcp,'vendor/mark-ae/LICENSE'),'utf8'),
+    'JUNKDOGE ae-mcp 0.11.1 (10b0154ca64f5ed15096b367f160129ee9ffe503)\n' + await fs.readFile(path.join(mcp,'vendor/junkdoge/LICENSE'),'utf8'),
   ];
   for (const directory of [...packageDirs].sort()) {
     const pkg = JSON.parse(await fs.readFile(path.join(directory,'package.json'),'utf8'));
