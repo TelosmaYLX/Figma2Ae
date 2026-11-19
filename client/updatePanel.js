@@ -27,7 +27,7 @@
       pending = canInstall ? update : null;
       notice.hidden = !update;
       if (update) {
-        noticeTitle.textContent = '有可用更新 · v' + update.version;
+        noticeTitle.textContent = 'v' + update.version + ' · 有可用更新';
         notes.textContent = update.notes || '暂无发布说明。';
         if (interactive) notice.open = true;
         report('发现新版 v' + update.version + (canInstall ? '。' : '，源码版请通过 Git 更新。'));

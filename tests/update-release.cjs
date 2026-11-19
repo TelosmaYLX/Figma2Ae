@@ -52,7 +52,7 @@ async function verifyPanel() {
     assert.equal(notice.hidden, !update);
     assert.equal(notice.open, false);
     if (update) {
-      assert.equal(title.textContent, '有可用更新 · v1.2.0');
+      assert.equal(title.textContent, 'v1.2.0 · 有可用更新');
       assert.equal(notes.textContent, release.notes || '暂无发布说明。');
       assert.match(reports[0], /发现新版 v1\.2\.0/);
     } else {
