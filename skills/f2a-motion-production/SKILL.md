@@ -16,7 +16,7 @@ description: "基于 F2A MCP 的 Figma 导出 AEP 工程与 After Effects 动画
 3. **单元素独立预合成铁律（禁止对裸图层直接加动画）**：**每个需要做动画的独立元素都必须拥有属于自己的单个预合成**，动画关键帧打在外部父合成的该预合成层上。例如：单个文本层不能直接在文本层本身打关键帧，必须先嵌套独立预合成再对预合成做动画；一个按钮包含底框与文字两层且需独立动画时，底框与文字必须各自打成独立预合成，再由外层按钮预合成组合。
 4. **严禁逐帧关键帧**：必须使用少量干净的关键帧（常规单段动作 2 个关键帧，带回弹/变速最多 3 个）配合精确时间缓动曲线（`KeyframeEase`），**绝不允许逐帧采样或烘焙关键帧**；位置关键帧空间切线必须为 `[0, 0, 0]`。
 5. **默认遵守 Web / Lottie 友好红线**：除非用户明确表示“仅输出视频”，默认只用纯关键帧驱动 `Transform`（Position / Scale / Rotation / Anchor Point）、`Opacity`、简单矢量 Mask / Trim Paths；**禁止使用表达式**（含 `ae_animate` 的 `spring`/`bounce` 表达式模式）、禁止使用第三方/重型特效、避免复杂 Parenting。
-6. **帧率默认跟随参考工程**：有参考 `.aep` 时，目标工程帧率默认与参考工程完全一致（如参考 60fps 则目标也用 60fps；若 `export_aep` 支持帧率参数则在导出时直接指定，否则打开 `.aep` 后在加动画前立即统一修改全部合成的 `frameRate`）。
+6. **帧率默认跟随参考工程**：有参考 `.aep` 时，目标工程帧率默认与参考工程完全一致（如参考 60fps 则直接在 `export_aep` 传入 `frameRate: 60`；若导入已有工程或仍存在不同帧率预合成，打开 `.aep` 后在加动画前立即统一核对并修正全部合成的 `frameRate`）。
 7. **双重视觉门禁（导出静态保真 + 动画落位一致）**：
    - 导出后、加动画前，必须渲染初始静态帧并与 Figma 原图对照做像素比对；超阈值的结构性偏差按“可局部修补则回 Figma 重导 / 疑难则中止汇报”处理。
    - 动画完成后，必须保证**最终画面停止位置与导出 `.aep` 初始静态位置一致**（宽松允许抗锯齿/极微浮点舍入），并强制通过 **12 帧过程接触表肉眼审校** 与 **关键帧规范回读**。
@@ -66,12 +66,11 @@ description: "基于 F2A MCP 的 Figma 导出 AEP 工程与 After Effects 动画
    - 默认使用 `textMode: "vector"`（矢量轮廓，不依赖本机字库、视觉保真度最高，且与多数 Web/PC 导出工程一致）。
    - 仅当需要逐字/逐词文本动效（如 `ae_text_reveal`）或用户明确要求后期改文案时，改用 `textMode: "editable"`；极少数复杂排版静态图文字可选 `png`。
 2. **执行导出**：
-   - 调用 `export_aep({ destination: "<绝对路径>/<清洗后原画框名>.aep", textMode, aeVersion: "<匹配 ae_status>" })`，记录返回的 `project` 路径与主合成 `compositionId`。
-   - （注：如果目标工程已确认与参考同帧率且未来 `export_aep` 暴露了 `frameRate` 入参，直接在此传入。）
+   - 调用 `export_aep({ destination: "<绝对路径>/<清洗后原画框名>.aep", textMode, aeVersion: "<匹配 ae_status>", duration, frameRate })`（`duration`、`frameRate` 可按需指定，省略时沿用 Figma 面板当前记住的时长与帧率；有参考工程时可直接传入匹配的 `frameRate` 与所需 `duration`），记录返回的 `project` 路径与主合成 `compositionId`。
 3. **打开工程并同步帧率**：
    - 在已妥善处理完旧工程 `dirty` 状态后，调用 `ae_open_project` 打开新导出的 `.aep`。
    - 调用 `ae_list_comps` 和 `ae_get_comp_map(comp: compositionId)` 摸清所有合成数字 ID（后续一律按数字 ID 引用，避免同名合成混淆）。
-   - **帧率同步**：若参考工程帧率（如 `60fps`）与导出帧率（`30fps`）不同，**立刻在加动画前**用 `ae_run_script`（见手册模板 1）把项目中所有 `CompItem` 的 `frameRate` 统一改为参考帧率。
+   - **帧率复核**：若导出前未指定或仍有合成与参考帧率（如 `60fps`）不一致，**立刻在加动画前**用 `ae_run_script`（见手册模板 1）把项目中所有 `CompItem` 的 `frameRate` 统一改为参考帧率。
 
 ---
 
