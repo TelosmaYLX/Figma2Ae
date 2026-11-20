@@ -23,6 +23,7 @@ STAGES = ('contrast', 'temperature', 'tint', 'highlights', 'shadows', 'exposure'
 COLOR_LUT = 'ADBE Apply Color LUT2'
 LEVELS = 'ADBE Pro Levels2'
 INPUT_PREFIX = '输入 · '
+SLIDER_LIMIT = 'clamp(value, -100, 100);'
 
 
 def lut_payload(original, table, size, precision):
@@ -87,7 +88,12 @@ def add_slider(layer, label, value):
     control = layer['ADBE Effect Parade'].add_property('ADBE Slider Control')
     control.name = label
     slider = control['ADBE Slider Control-0001']
+    # Essential Properties use the parameter hints. Effect Controls reads
+    # the instance's tdum/tduM bounds when drawing the native slider.
+    slider._slider_min, slider._slider_max = -100, 100
     slider.value = value
+    find_by_type(slider._tdbs.chunks, 'tdum').values = [-100.0]
+    find_by_type(slider._tdbs.chunks, 'tduM').values = [100.0]
     # The AE-native static Slider Control has FF FF, required for keyframing.
     slider._tdb4._value_hint_flag = 255
     slider._tdb4._cvot_flags = 255
@@ -112,9 +118,10 @@ def bind_grade_controls(layer, filters):
     for controller in layer.source.motion_graphics_controllers:
         slider = sliders[controller.name]
         label = controller.name[len(INPUT_PREFIX):]
-        slider.expression = 'thisLayer.effect(' + json.dumps(label, ensure_ascii=False) + ')(1);'
+        slider.expression = ('var control = thisLayer.effect(' + json.dumps(label, ensure_ascii=False) +
+                             ');\ncontrol.active ? control(1).value : 0;')
         override = deepcopy(slider._tdbs)
-        slider.expression = ''
+        slider.expression = SLIDER_LIMIT
         find_by_type(override.chunks, 'tdsn').chunks[0].value = controller.name
         values[-1:-1] = [TdmnChunk(value=slider.match_name), override]
         refs.chunks.append(ListChunk(list_type='CPrp', chunks=[Utf8Chunk(value=controller.uuid)]))

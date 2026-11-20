@@ -1925,16 +1925,38 @@ var AEShapeBuilder = (function () {
   }
 
   // ---- IMAGES: real footage + a shape track matte when the picture is cropped ----
+  function copyGradeControlsToPlacement(placement, grade) {
+    // AE only exposes slider display ranges through the UI. Copy the already
+    // configured stock effects from the grade, keeping the new placement's
+    // native anchor, timing and stack position.
+    var comp = placement.containingComp;
+    grade.layer('Figma 设计值').copyToComp(comp);
+    var layer = comp.layer(1);
+    layer.property('ADBE Effect Parade').property('ADBE Apply Color LUT2').remove();
+    layer.opacity.expression = '';
+    layer.opacity.setValue(100);
+    layer.replaceSource(placement.source, false);
+    layer.anchorPoint.setValue(placement.anchorPoint.value);
+    layer.position.setValue(placement.position.value);
+    layer.startTime = placement.startTime;
+    layer.inPoint = placement.inPoint;
+    layer.outPoint = placement.outPoint;
+    layer.moveBefore(placement);
+    placement.remove();
+    return layer;
+  }
+
   function bindImageGradeControls(layer, filters, publishComp) {
     var keys = ['exposure','contrast','saturation','temperature','tint','highlights','shadows'];
     var labels = ['曝光','对比度','饱和度','白平衡','着色','高光','阴影'];
     for (var i = 0; i < keys.length; i++) {
       var label = labels[i], input = '输入 · ' + label;
-      var fx = layer.property('ADBE Effect Parade').addProperty('ADBE Slider Control');
-      fx.name = label;
+      var fx = layer.property('ADBE Effect Parade').property(label);
       var slider = fx.property(1);
       slider.setValue((filters[keys[i]] || 0) * 100);
-      layer.essentialProperty.property(input).expression = 'thisLayer.effect("' + label + '")(1);';
+      slider.expression = 'clamp(value, -100, 100);';
+      layer.essentialProperty.property(input).expression =
+        'var control = thisLayer.effect("' + label + '");\ncontrol.active ? control(1).value : 0;';
       if (publishComp && !slider.addToMotionGraphicsTemplateAs(publishComp, input))
         throw new Error('无法连接图片调色属性 ' + label);
     }
@@ -1957,6 +1979,7 @@ var AEShapeBuilder = (function () {
     } catch (eScan) {}
     if (!item) item = app.project.importFile(new ImportOptions(f));
     var lyr = comp.layers.add(item);
+    if (gradeSource) lyr = copyGradeControlsToPlacement(lyr, gradeSource);
     lyr.name = im.name || "Image";
 
     // Fit the footage to the Figma box. FIT keeps it inside; everything else (FILL,
@@ -2037,7 +2060,7 @@ var AEShapeBuilder = (function () {
           if (comp.layer(cp).source === cropComp) { cropLayer = comp.layer(cp); break; }
         }
         if (!cropLayer) throw new Error("crop precomp layer not found");
-        lyr = cropLayer;
+        lyr = gradeSource ? copyGradeControlsToPlacement(cropLayer, gradeSource) : cropLayer;
         lyr.name = im.name || "Image";
         mt = null;
       } catch (eipc) { throw new Error("IMG crop precomp: " + String(eipc)); }

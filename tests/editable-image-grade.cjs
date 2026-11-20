@@ -15,7 +15,7 @@ const python = process.env.F2A_PYTHON || path.join(root, '.venv-aep',
   process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const inspect = `
 import sys, py_aep
-from py_aep.binary.utils import find_by_type
+from py_aep.binary.utils import find_by_type, index_by_identity
 from py_aep.enums import BlendingMode, TrackMatteType
 p = py_aep.parse(sys.argv[1]).project
 items = list(p.items.values())
@@ -35,21 +35,31 @@ assert levels.match_name == 'ADBE Pro Levels2' and levels['ADBE Pro Levels2-0033
 assert coverage.layers[0].source.id == stencil.source.id
 design, = [layer for layer in grade.layers if layer.name == 'Figma 设计值']
 assert design.source.id == coverage.id
-def check_sliders(layer):
+parade = design['ADBE Effect Parade']
+chunks = parade._tdgp.chunks
+lut = chunks[index_by_identity(chunks, parade['ADBE Apply Color LUT2']._tdmn) + 1]
+profile = find_by_type(lut.chunks, 'sdat').data[28:]
+assert profile[36:40] == b'acsp' and int.from_bytes(profile[:4], 'big') == len(profile)
+assert len(profile) >= 64**3 * 3 * 2
+def check_sliders(layer, front=False):
     effects = [fx for fx in layer['ADBE Effect Parade'] if fx.match_name == 'ADBE Slider Control']
     assert [e.name for e in effects] == labels
     for e, value in zip(effects, [-17,5,18,-26,21,-21,13]):
         s = e['ADBE Slider Control-0001']
-        assert abs(s.value-value) < .00001 and not s.expression
+        assert abs(s.value-value) < .00001
+        assert (s.expression or '') == ('clamp(value, -100, 100);' if front else '')
+        assert find_by_type(s._tdbs.chunks,'tdum').values == [-100]
+        assert find_by_type(s._tdbs.chunks,'tduM').values == [100]
         assert (s._tdb4._value_hint_flag, s._tdb4._cvot_flags) == (255, 255)
 def check_instance(layer):
-    check_sliders(layer)
+    check_sliders(layer, front=True)
     assert len(list(layer['ADBE Effect Parade'])) == 7
     assert layer.essential_property_uuids == [c.uuid for c in layer.source.motion_graphics_controllers]
     values = [b for b in layer['ADBE Layer Overrides']._tdgp.chunks if getattr(b, 'list_type', '') == 'tdbs']
     assert [find_by_type(v.chunks,'tdsn').chunks[0].value for v in values] == inputs
     for label, v in zip(labels, values):
-        assert find_by_type(v.chunks,'Utf8').value == 'thisLayer.effect("' + label + '")(1);'
+        assert find_by_type(v.chunks,'Utf8').value.splitlines() == [
+            'var control = thisLayer.effect("' + label + '");', 'control.active ? control(1).value : 0;']
 check_sliders(design)
 assert sum(type(i).__name__ == 'FootageItem' for i in items) == 1
 stages = [c for c in items if hasattr(c, 'layers') and c.name in labels]
