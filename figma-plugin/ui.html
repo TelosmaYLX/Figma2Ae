@@ -111,6 +111,36 @@
     </div>
   </details>
   <fieldset class="settings">
+    <legend>合成</legend>
+    <div class="setting-row">
+      <label for="aep-duration">合成时长</label>
+      <select id="aep-duration">
+        <option value="1">1 秒</option>
+        <option value="2">2 秒</option>
+        <option value="3">3 秒</option>
+        <option value="5">5 秒</option>
+        <option value="10" selected>10 秒</option>
+        <option value="15">15 秒</option>
+        <option value="20">20 秒</option>
+        <option value="30">30 秒</option>
+        <option value="60">60 秒</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label for="aep-fps">帧率</label>
+      <select id="aep-fps">
+        <option value="15">15 fps</option>
+        <option value="24">24 fps</option>
+        <option value="25">25 fps</option>
+        <option value="30" selected>30 fps</option>
+        <option value="50">50 fps</option>
+        <option value="60">60 fps</option>
+        <option value="120">120 fps</option>
+      </select>
+    </div>
+    <div class="hint">用于导出 AEP，或未打开合成时新建合成。</div>
+  </fieldset>
+  <fieldset class="settings">
     <legend>图层</legend>
     <label class="option" title="将 Figma 分组转换为 AE 预合成。"><input type="checkbox" id="organize" checked> 保留分组层级</label>
     <label class="option"><input type="checkbox" id="enableclip" checked> 保留画框裁剪</label>
@@ -210,10 +240,76 @@
       if (!mcpRetryTimer) mcpRetryTimer = setTimeout(function () { mcpRetryTimer = null; connectMcp(); }, 1500);
     };
   }
-  $('text-mode').onchange = function () {
+  var CHECKBOX_SETTINGS = [
+    'organize', 'enableclip', 'ignorehidden',
+    'raster-effects', 'raster-paints', 'raster-image-crops', 'raster-masks', 'raster-booleans',
+    'mergeblends', 'rasterallgroups', 'rasterinstances'
+  ];
+  var SELECT_SETTINGS = [
+    'aep-version', 'aep-duration', 'aep-fps', 'text-mode', 'native-image-masks', 'raster-scale'
+  ];
+  var dirtySettings = {};
+  function selectedNumber(id, fallback) {
+    var el = $(id), value = el ? Number(el.value) : NaN;
+    return isFinite(value) && value > 0 ? value : fallback;
+  }
+  function updateTextModeHint() {
     var hints = {editable:'细描边文字自动转为矢量。',vector:'无需本机字体，文字内容不可编辑。',png:'文字转为图片，内容不可编辑。'};
-    $('text-mode-hint').textContent = hints[this.value];
-  };
+    var el = $('text-mode'), hint = el && hints[el.value];
+    if (hint) $('text-mode-hint').textContent = hint;
+  }
+  function hasOption(select, value) {
+    if (!select || !select.options) return true;
+    for (var i = 0; i < select.options.length; i++) {
+      if (select.options[i].value === value) return true;
+    }
+    return false;
+  }
+  function collectPanelSettings() {
+    var data = {}, i, id, el;
+    for (i = 0; i < CHECKBOX_SETTINGS.length; i++) {
+      id = CHECKBOX_SETTINGS[i]; el = $(id);
+      if (el) data[id] = !!el.checked;
+    }
+    for (i = 0; i < SELECT_SETTINGS.length; i++) {
+      id = SELECT_SETTINGS[i]; el = $(id);
+      if (el && el.value != null) data[id] = String(el.value);
+    }
+    return data;
+  }
+  function savePanelSettings() {
+    var data = collectPanelSettings();
+    try { if (typeof localStorage !== 'undefined' && localStorage) localStorage.setItem('f2a.panelSettings', JSON.stringify(data)); } catch (e) {}
+    parent.postMessage({ pluginMessage: { type: 'save-settings', settings: data } }, '*');
+  }
+  function applyPanelSettings(saved) {
+    if (!saved || typeof saved !== 'object') return;
+    var i, id, el;
+    for (i = 0; i < CHECKBOX_SETTINGS.length; i++) {
+      id = CHECKBOX_SETTINGS[i]; el = $(id);
+      if (el && !dirtySettings[id] && typeof saved[id] === 'boolean') el.checked = saved[id];
+    }
+    for (i = 0; i < SELECT_SETTINGS.length; i++) {
+      id = SELECT_SETTINGS[i]; el = $(id);
+      if (el && !dirtySettings[id] && typeof saved[id] === 'string' && hasOption(el, saved[id])) el.value = saved[id];
+    }
+    updateTextModeHint();
+  }
+  function bindSettingPersistence() {
+    var i;
+    for (i = 0; i < CHECKBOX_SETTINGS.length; i++) (function (id) {
+      var el = $(id);
+      if (el) el.onchange = function () { dirtySettings[id] = true; savePanelSettings(); };
+    })(CHECKBOX_SETTINGS[i]);
+    for (i = 0; i < SELECT_SETTINGS.length; i++) (function (id) {
+      var el = $(id);
+      if (el) el.onchange = function () {
+        dirtySettings[id] = true;
+        if (id === 'text-mode') updateTextModeHint();
+        savePanelSettings();
+      };
+    })(SELECT_SETTINGS[i]);
+  }
 
   function setConn(state) {
     connected = state;
@@ -228,7 +324,7 @@
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
     $('open-aep-folder').disabled = busy || openingFolder;
-    var settings = ['aep-version','organize','enableclip','ignorehidden','text-mode','native-image-masks','raster-scale','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends','rasterallgroups','rasterinstances'];
+    var settings = ['aep-version','aep-duration','aep-fps','organize','enableclip','ignorehidden','text-mode','native-image-masks','raster-scale','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends','rasterallgroups','rasterinstances'];
     for (var i = 0; i < settings.length; i++) $(settings[i]).disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
@@ -323,7 +419,9 @@
       settings.outlineTexts = params.textMode === 'vector';
       settings.rasterTexts = params.textMode === 'png';
     }
-    agentAep = {id:message.id, socket:mcpSocket, parts:mcpAepParts, aeVersion:params.aeVersion || $('aep-version').value};
+    agentAep = {id:message.id, socket:mcpSocket, parts:mcpAepParts, aeVersion:params.aeVersion || $('aep-version').value,
+      duration:params.duration != null ? Number(params.duration) : selectedNumber('aep-duration', 10),
+      frameRate:params.frameRate != null ? Number(params.frameRate) : selectedNumber('aep-fps', 30)};
     aepMode = aepBusy = true; aepPacket = imgAsm = null;
     message.params = settings;
     updateButton(); say('正在导出选区…');
@@ -532,6 +630,8 @@
     if (!aepPacket) return;
     var packet = aepPacket, agent = agentAep; aepPacket = null;
     packet.aeVersion = agent ? agent.aeVersion : $('aep-version').value;
+    packet.duration = agent ? agent.duration : selectedNumber('aep-duration', 10);
+    packet.frameRate = agent ? agent.frameRate : selectedNumber('aep-fps', 30);
     if (packet.images.length !== packet.imageCount) {
       if (agent) { endAgentAep(agent, new Error('部分图片导出失败，请重试。')); return; }
       aepMode = aepBusy = false; updateButton();
@@ -569,6 +669,7 @@
       parent.postMessage({pluginMessage:{tag:msg.tag, kind:'yield-resume', id:msg.id, background:document.hidden === true}}, '*');
       return;
     }
+    if (msg.type === 'settings-loaded') { applyPanelSettings(msg.settings); return; }
     if (msg.type === 'mcp-info') { mcpSend({type:'hello', name:msg.name, fileKey:msg.fileKey, pageId:msg.pageId, pageName:msg.pageName}); return; }
     if (msg.type === 'mcp-result') {
       if (agentAep && agentAep.id === msg.id) {
@@ -662,6 +763,8 @@
       }
       var payload = { type: 'svg', name: msg.name, svg: msg.svg, texts: msg.texts || [], effects: msg.effects || [], shift: msg.shift || { x: 0, y: 0 }, nodes: msg.nodes || null,
                       compSize: msg.newComp ? msg.frame : null,
+                      compDuration: msg.newComp ? selectedNumber('aep-duration', 10) : null,
+                      compFrameRate: msg.newComp ? selectedNumber('aep-fps', 30) : null,
                       containers: msg.containers || null, organize: !!msg.organize, imageCount: msg.imageCount || 0, imageBatch: !!msg.imageBatch, vnStats: msg.vnStats || null };
       var kb = Math.round((msg.bytes || msg.svg.length) / 1024);
       if (connected && ws && ws.readyState === 1) { ws.send(JSON.stringify(payload)); say('正在向 AE 发送 ' + kb + ' KB 数据…'); }
@@ -669,6 +772,14 @@
     }
   };
 
+  bindSettingPersistence();
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage) {
+      var cachedSettings = localStorage.getItem('f2a.panelSettings');
+      if (cachedSettings) applyPanelSettings(JSON.parse(cachedSettings));
+    }
+  } catch (e) {}
+  parent.postMessage({ pluginMessage: { type: 'load-settings' } }, '*');
   connect();
   connectMcp();
 </script>

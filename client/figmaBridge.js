@@ -467,7 +467,11 @@
         evalES('mkFigmaTargetCompId()', function (id) {
           var compId = parseInt(id, 10);
           if (compId > 0) job.data.compId = compId;
-          else if (compId === 0) job.data.compSize = meta.compSize;
+          else if (compId === 0) {
+            job.data.compSize = meta.compSize;
+            if (meta.compDuration > 0) job.data.compDuration = meta.compDuration;
+            if (meta.compFrameRate >= 1) job.data.compFrameRate = meta.compFrameRate;
+          }
           job.targetReady = true; pumpImport();
         });
         if (meta.imageCount) flash('等待图片导出完成…');

@@ -77,6 +77,7 @@ async function check(){
         return{ok:true,json:async()=>({directory})};
       },parent:{postMessage(m){posts.push(m.pluginMessage);}}});
     vm.runInContext(html.match(/<script>([\s\S]*)<\/script>/)[1],context);
+    assert.deepEqual(posts.map(m=>m.type),['load-settings']);posts.length=0;
     window.onmessage({data:{pluginMessage:{type:'selection',count:1}}});socket.onopen();
     return{elements,requests,posts,context};
   }

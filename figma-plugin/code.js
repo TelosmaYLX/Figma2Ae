@@ -2555,9 +2555,33 @@ function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
   return out;
 }
 
+var SETTINGS_STORAGE_KEY = 'f2a.panelSettings';
+function _hasClientStorage() {
+  return typeof figma !== 'undefined' && figma.clientStorage &&
+    typeof figma.clientStorage.getAsync === 'function' &&
+    typeof figma.clientStorage.setAsync === 'function';
+}
+
 figma.ui.onmessage = function (msg) {
   if (typeof F2AMCP !== 'undefined' && F2AMCP.resume(msg)) {
     if (mcpCommandId) figma.ui.postMessage({type:'command_progress', commandId:mcpCommandId});
+    return;
+  }
+  if (msg.type === 'load-settings') {
+    if (!_hasClientStorage()) {
+      figma.ui.postMessage({ type: 'settings-loaded', settings: null });
+      return;
+    }
+    figma.clientStorage.getAsync(SETTINGS_STORAGE_KEY).then(function (saved) {
+      figma.ui.postMessage({ type: 'settings-loaded', settings: saved && typeof saved === 'object' ? saved : null });
+    }).catch(function () {
+      figma.ui.postMessage({ type: 'settings-loaded', settings: null });
+    });
+    return;
+  }
+  if (msg.type === 'save-settings') {
+    if (!_hasClientStorage() || !msg.settings || typeof msg.settings !== 'object') return;
+    figma.clientStorage.setAsync(SETTINGS_STORAGE_KEY, msg.settings).catch(function () {});
     return;
   }
   if (msg.type === 'mcp-info') {

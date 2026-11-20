@@ -49,8 +49,16 @@ function normalize(packet) {
       }
     }
   }
+  const duration = packet.duration == null ? 10 : Number(packet.duration);
+  if (!Number.isFinite(duration) || duration <= 0 || duration > 10800) {
+    throw new Error('合成时长须在 0–10800 秒之间');
+  }
+  const frameRate = packet.frameRate == null ? 30 : Number(packet.frameRate);
+  if (!Number.isFinite(frameRate) || frameRate < 1 || frameRate > 999) {
+    throw new Error('帧率须在 1–999 fps 之间');
+  }
   return {
-    name: packet.name || 'Figma', aeVersion, width, height, frameRate: 30, duration: 10,
+    name: packet.name || 'Figma', aeVersion, width, height, frameRate, duration,
     shapes: model.shapes, texts: packet.texts || [], images: packet.images || [],
     containers: packet.organize ? packet.containers || [] : [], effects: packet.effects || []
   };

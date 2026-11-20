@@ -41,6 +41,8 @@ async function check() {
     const page = plugin.figma.currentPage;
     await client.init();
     plugin.elements['text-mode'].value = 'vector';
+    plugin.elements['aep-duration'].value = '15';
+    plugin.elements['aep-fps'].value = '24';
     const projectName = "本地工程 _20 # + [卡片] 'A&B'";
     const destination = path.join(output, "本地工程 %20 # + [卡片] 'A&B'.aep");
     const args = {destination, textMode: 'editable', aeVersion: '25.0'};
@@ -62,12 +64,16 @@ async function check() {
     assert.equal((await fs.readdir(path.join(project.directory, 'Assets'))).length, 2);
     const report = JSON.parse(await fs.readFile(path.join(project.directory, 'report.json'), 'utf8'));
     assert.equal(report.aeVersion, '25.0');
+    assert.equal(report.duration, 15);
+    assert.equal(report.frameRate, 24);
     const original = await fs.readFile(project.project);
     assert.equal(original.subarray(0, 4).toString(), 'RIFX');
 
-    const second = JSON.parse(result(await client.tool('export_aep', args)));
+    const second = JSON.parse(result(await client.tool('export_aep', {...args, duration: 5, frameRate: 60})));
+    assert.equal(second.duration, 5);
+    assert.equal(second.frameRate, 60);
     assert.equal(second.project, path.join(output, projectName + ' (2)', projectName + ' (2).aep'));
-    assert.deepEqual(await fs.readFile(project.project), original);
+    assert.notDeepEqual(await fs.readFile(second.project), original);
     const reserved = JSON.parse(result(await client.tool('export_aep', {...args, destination: path.join(output, 'COM¹.aep')})));
     assert.equal(reserved.project, path.join(output, '_COM¹', '_COM¹.aep'));
     assert.equal(page.selection.length, 1);

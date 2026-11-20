@@ -44822,15 +44822,17 @@ function registerAepTools(server2, send2) {
     inputSchema: {
       destination: external_exports.string().refine((p) => import_node_path7.default.isAbsolute(p) && /\.aep$/i.test(p), "Supply an absolute .aep path.").describe("Absolute .aep destination. F2A makes a same-named folder and numbers it if it already exists."),
       textMode: external_exports.enum(["editable", "vector", "png"]).optional().describe("Override the Figma panel text mode."),
-      aeVersion: external_exports.enum(["24.0", "25.0", "26.0"]).optional().describe("Override the Figma panel AE version.")
+      aeVersion: external_exports.enum(["24.0", "25.0", "26.0"]).optional().describe("Override the Figma panel AE version."),
+      duration: external_exports.number().positive().max(10800).optional().describe("Override the Figma panel composition duration in seconds."),
+      frameRate: external_exports.number().min(1).max(999).optional().describe("Override the Figma panel composition frame rate.")
     },
     annotations: { destructiveHint: false, readOnlyHint: false }
-  }, async ({ destination, textMode, aeVersion }, { signal }) => {
+  }, async ({ destination, textMode, aeVersion, duration: duration3, frameRate }, { signal }) => {
     try {
       const entry = import_node_path7.default.join(__dirname, "..", "scripts", "export-aep.cjs");
       if (!(0, import_node_fs2.existsSync)(entry)) throw new Error("\u7F3A\u5C11 AEP \u5BFC\u51FA\u7EC4\u4EF6\uFF0C\u8BF7\u91CD\u65B0\u5B89\u88C5 F2A");
       const { publishAep } = require(entry);
-      const packet = await send2("f2a_export_aep", { textMode, aeVersion }, signal);
+      const packet = await send2("f2a_export_aep", { textMode, aeVersion, duration: duration3, frameRate }, signal);
       const result2 = await publishAep(packet, () => destination, { signal });
       return { content: [{ type: "text", text: JSON.stringify(result2) }] };
     } catch (error62) {

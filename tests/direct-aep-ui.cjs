@@ -13,7 +13,11 @@ function ui(packet, behavior='success') {
   elements['native-image-masks'].value='separate';
   elements['text-mode'].value=html.match(/<select id="text-mode"[^>]*>[\s\S]*?<option value="([^"]+)" selected/)[1];
   elements['aep-version'].value=html.match(/<select id="aep-version"[^>]*>[\s\S]*?<option value="([^"]+)" selected/)[1];
+  elements['aep-duration'].value=html.match(/<select id="aep-duration"[^>]*>[\s\S]*?<option value="([^"]+)" selected/)[1];
+  elements['aep-fps'].value=html.match(/<select id="aep-fps"[^>]*>[\s\S]*?<option value="([^"]+)" selected/)[1];
   assert.equal(elements['aep-version'].value,'26.0');
+  assert.equal(elements['aep-duration'].value,'10');
+  assert.equal(elements['aep-fps'].value,'30');
   let finish, clock=0, healthCalls=0;
   const done=new Promise(r=>{finish=r;});
   const launches=[];
@@ -50,7 +54,7 @@ function ui(packet, behavior='success') {
       assert.equal(elements['export-aep'].disabled,true,'Button stays locked while the server writes');
       assert.equal(elements['raster-scale'].disabled,true,'Keep the selected scale fixed until export completes');
       assert.equal(elements['native-image-masks'].disabled,true);
-      for(const id of ['aep-version','organize','enableclip','ignorehidden','text-mode',...Object.values(rasterControls),'mergeblends','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
+      for(const id of ['aep-version','aep-duration','aep-fps','organize','enableclip','ignorehidden','text-mode',...Object.values(rasterControls),'mergeblends','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
       assert.equal(posts.filter(m=>m.type==='ship-selection').length,1,'Collect and check Figma content before the server can choose a folder');
       assert.equal(elements['open-aep-folder'].hidden,true);
       if(behavior==='layer-error')return {ok:false,json:async()=>({error:'图层「shadow」无法导出：暂不支持该模糊或图层效果，请标记该层栅格化',nodeId:'original-shadow-id'})};
@@ -93,6 +97,7 @@ function ui(packet, behavior='success') {
   if(behavior==='png-text')elements['text-mode'].value='png';
   if(behavior==='ae24')elements['aep-version'].value='24.0';
   if(behavior==='ae25')elements['aep-version'].value='25.0';
+  if(behavior==='custom-comp'){elements['aep-duration'].value='5';elements['aep-fps'].value='60';}
   if(behavior==='flat'){
     elements.organize.checked=false;elements.mergeblends.checked=false;
     for(const [index,id] of Object.values(rasterControls).entries())elements[id].checked=index%2===0;
@@ -109,7 +114,7 @@ function ui(packet, behavior='success') {
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   const packet=await fixture();
-  for(const behavior of ['success','ae24','ae25','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','old-version-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
+  for(const behavior of ['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','old-version-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
@@ -119,11 +124,13 @@ const flush=()=>new Promise(r=>setImmediate(r));
     assert.equal(h.requests.some(r=>r.url.endsWith('/select-directory')),false,'The UI must not choose a folder ahead of validation');
     const selection=h.posts.find(m=>m.type==='ship-selection');
     if(selection){assert.equal(selection.outlineTexts,!['editable-text','png-text'].includes(behavior));assert.equal(selection.rasterTexts,behavior==='png-text');}
-    if(['success','ae24','ae25','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','warnings','open-error'].includes(behavior)){
+    if(['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','warnings','open-error'].includes(behavior)){
       const request=JSON.parse(h.requests.find(r=>r.url.endsWith('/export')).options.body);
       assert.deepEqual(Object.keys(request),['packet']);
       const body=request.packet;
       assert.equal(body.aeVersion,behavior==='ae24'?'24.0':behavior==='ae25'?'25.0':'26.0');
+      assert.equal(body.duration,behavior==='custom-comp'?5:10);
+      assert.equal(body.frameRate,behavior==='custom-comp'?60:30);
       assert.equal(body.images.length,packet.images.length);
       assert.equal(body.images[0].data,behavior==='shadow'?'extracted shadow PNG':packet.images[0].data);
 
@@ -163,7 +170,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
       assert.equal(h.elements['locate-layer'].disabled,false);
     }
     if(behavior==='server-error')assert.equal(h.elements['locate-layer'].hidden,true,'Errors without an original layer ID have no locate action');
-    if(['success','ae24','ae25','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','open-error'].includes(behavior)){
+    if(['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','open-error'].includes(behavior)){
       assert.equal(h.elements['open-aep-folder'].hidden,false);
       h.elements['open-aep-folder'].onclick();h.elements['open-aep-folder'].onclick();
       assert.equal(h.requests.filter(r=>r.url.endsWith('/open-directory')).length,1,'Opening has its own click lock');
@@ -186,5 +193,81 @@ const flush=()=>new Promise(r=>setImmediate(r));
     const full=composite(clean,shadow),recovered=Array.from(h.context.extractAepShadow(full,clean));
     assert.ok(composite(clean,recovered).every((v,i)=>Math.abs(v-full[i])<=1));
   }
-  console.log('PASS: launch → Figma checks/images → checked export; open-folder success/error, click lock, cancel/failure, hidden stale results, cold start and offline errors');
+
+  // Persistence round-trip across actual code.js clientStorage + ui.html
+  const clientStore = new Map();
+  function openWithStorage() {
+    const html = fs.readFileSync(require('node:path').join(__dirname, '../figma-plugin/ui.html'), 'utf8');
+    const code = fs.readFileSync(require('node:path').join(__dirname, '../figma-plugin/code.js'), 'utf8');
+    const elements = {};
+    for (const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) {
+      elements[m[1]] = { checked: /\bchecked\b/.test(m[0]), disabled: /\bdisabled\b/.test(m[0]), hidden: /\bhidden\b/.test(m[0]) };
+    }
+    elements['aep-version'].value = '26.0';
+    elements['aep-duration'].value = '10';
+    elements['aep-fps'].value = '30';
+    elements['text-mode'].value = 'vector';
+    elements['native-image-masks'].value = 'separate';
+    elements['raster-scale'].value = '1';
+    elements['aep-duration'].options = ['1','2','3','5','10','15','20','30','60'].map(v => ({value: v}));
+    elements['aep-fps'].options = ['15','24','25','30','50','60','120'].map(v => ({value: v}));
+    const uiWindow = { onmessage() {} };
+    const figma = {
+      mixed: Symbol('mixed'), showUI() {}, on() {}, notify() {}, commitUndo() {},
+      currentPage: { id: '0:1', name: 'Page 1', selection: [] }, root: { name: 'Doc' },
+      clientStorage: {
+        async getAsync(k) { return clientStore.has(k) ? JSON.parse(JSON.stringify(clientStore.get(k))) : undefined; },
+        async setAsync(k, v) { clientStore.set(k, JSON.parse(JSON.stringify(v))); }
+      },
+      ui: { postMessage(m) { uiWindow.onmessage({ data: { pluginMessage: m } }); } }
+    };
+    const mainCtx = vm.createContext({ figma, __html__: '', console, setTimeout, clearTimeout });
+    vm.runInContext(code, mainCtx);
+    vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1], {
+      window: uiWindow,
+      document: { getElementById: id => elements[id] },
+      Date, setTimeout() {}, clearTimeout() {},
+      WebSocket: function() { this.readyState = 0; this.send = () => {}; },
+      fetch: async () => ({ ok: true, json: async () => ({ directory: '' }) }),
+      parent: { postMessage(m) { figma.ui.onmessage(m.pluginMessage); } }
+    });
+    return { elements, uiWindow };
+  }
+  const firstOpen = openWithStorage();
+  await flush();
+  firstOpen.elements['aep-version'].value = '24.0'; firstOpen.elements['aep-version'].onchange();
+  firstOpen.elements['aep-duration'].value = '15'; firstOpen.elements['aep-duration'].onchange();
+  firstOpen.elements['aep-fps'].value = '60'; firstOpen.elements['aep-fps'].onchange();
+  firstOpen.elements['text-mode'].value = 'editable'; firstOpen.elements['text-mode'].onchange();
+  firstOpen.elements['native-image-masks'].value = 'merge'; firstOpen.elements['native-image-masks'].onchange();
+  firstOpen.elements['raster-scale'].value = '3'; firstOpen.elements['raster-scale'].onchange();
+  for (const id of ['organize','enableclip','ignorehidden','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends']) {
+    firstOpen.elements[id].checked = false; firstOpen.elements[id].onchange();
+  }
+  for (const id of ['rasterallgroups','rasterinstances']) {
+    firstOpen.elements[id].checked = true; firstOpen.elements[id].onchange();
+  }
+  await flush();
+  const secondOpen = openWithStorage();
+  await flush();
+  assert.equal(secondOpen.elements['aep-version'].value, '24.0');
+  assert.equal(secondOpen.elements['aep-duration'].value, '15');
+  assert.equal(secondOpen.elements['aep-fps'].value, '60');
+  assert.equal(secondOpen.elements['text-mode'].value, 'editable');
+  assert.match(secondOpen.elements['text-mode-hint'].textContent, /细描边文字自动转为矢量/);
+  assert.equal(secondOpen.elements['native-image-masks'].value, 'merge');
+  assert.equal(secondOpen.elements['raster-scale'].value, '3');
+  for (const id of ['organize','enableclip','ignorehidden','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends']) {
+    assert.equal(secondOpen.elements[id].checked, false, id + ' must restore false');
+  }
+  for (const id of ['rasterallgroups','rasterinstances']) {
+    assert.equal(secondOpen.elements[id].checked, true, id + ' must restore true');
+  }
+  // Invalid saved options or pre-load user edits must not corrupt controls
+  secondOpen.elements['aep-fps'].value = '24'; secondOpen.elements['aep-fps'].onchange();
+  secondOpen.uiWindow.onmessage({ data: { pluginMessage: { type: 'settings-loaded', settings: { 'aep-fps': '999', 'aep-duration': 'invalid' } } } });
+  assert.equal(secondOpen.elements['aep-fps'].value, '24');
+  assert.equal(secondOpen.elements['aep-duration'].value, '15');
+
+  console.log('PASS: launch → Figma checks/images → checked export; open-folder success/error, click lock, cancel/failure, hidden stale results, cold start, offline errors, duration/fps and full settings persistence');
 })().catch(e=>{console.error(e);process.exitCode=1;});

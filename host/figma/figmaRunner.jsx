@@ -183,7 +183,9 @@ function runImportBatch(jobPath) {
       var created = null, complete = false;
       try {
         if (size) {
-          created = project.items.addComp(job.name || "Figma", Math.max(4, width), Math.max(4, height), 1, 10, 30);
+          var compDuration = (typeof job.compDuration === "number" && job.compDuration > 0 && job.compDuration <= 10800) ? job.compDuration : 10;
+          var compFps = (typeof job.compFrameRate === "number" && job.compFrameRate >= 1 && job.compFrameRate <= 999) ? job.compFrameRate : 30;
+          created = project.items.addComp(job.name || "Figma", Math.max(4, width), Math.max(4, height), 1, compDuration, compFps);
           comp = created;
         }
         var status = runImport(job.svgPath, job.textsPath, job.gradMapPath, job.effectsPath,
