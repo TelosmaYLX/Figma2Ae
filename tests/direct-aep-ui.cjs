@@ -18,6 +18,18 @@ function ui(packet, behavior='success') {
   assert.equal(elements['aep-version'].value,'26.0');
   assert.equal(elements['aep-duration'].value,'10');
   assert.equal(elements['aep-fps'].value,'30');
+  // The export action is one full-width button; duration, frame rate and AEP version share one
+  // labelled row directly beneath it, each with a small caption, before the layer tools.
+  const compGroup = html.match(/<fieldset class="settings comp-settings">[\s\S]*?<\/fieldset>/);
+  assert.ok(compGroup, 'AEP composition settings share one panel');
+  assert.match(compGroup[0], /id="aep-duration"[\s\S]*id="aep-fps"[\s\S]*id="aep-version"/, 'duration, frame rate and version sit in one row in that order');
+  for (const [id, caption] of [['aep-duration','合成时长'],['aep-fps','帧率'],['aep-version','AEP 版本']]) {
+    assert.match(compGroup[0], new RegExp('<label for="' + id + '">' + caption + '</label>'), id + ' has a small caption above it');
+  }
+  const exportAt = html.indexOf('id="export-aep"'), groupAt = html.indexOf('class="settings comp-settings"'), toolsAt = html.indexOf('id="layer-tools"');
+  assert.ok(exportAt >= 0 && exportAt < groupAt && groupAt < toolsAt, 'composition settings sit between the export button and the layer tools');
+  assert.equal((html.match(/id="aep-version"/g) || []).length, 1, 'the AEP version selector appears exactly once');
+  assert.equal(/class="aep-actions"|class="aep-version"/.test(html), false, 'the version selector no longer shares the export action row');
   let finish, clock=0, healthCalls=0;
   const done=new Promise(r=>{finish=r;});
   const launches=[];

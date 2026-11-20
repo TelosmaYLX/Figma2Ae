@@ -4,11 +4,12 @@
 <!-- MCP is a secondary status line. Reuse .status/.dot, existing text colors and 8px gaps;
      importing remains the only primary action. No extra setup controls in the normal flow. -->
 <!-- Refactoring UI constraints (§2.1, §2.8, §3.6): import is primary; AEP export is secondary.
-     Layer tools are open beneath export; common settings follow, with advanced settings collapsed.
-     The compact AEP version selector shares the export action row; import and export stay adjacent.
-     It takes the folder control's --panel fill with a --line edge so the two read alike, and matches the
-     action row's 13px type so the version label is not smaller than the button beside it.
-     Keep the existing dark tokens, 8px control gaps/radii, 12px panel padding and 16px section spacing.
+     The AEP action is one full-width secondary button. Its composition settings — duration, frame rate
+     and target project version — share one labelled row directly beneath it in the "合成" panel:
+     three equal columns, each with an 11px caption above its select, so the three read as one group.
+     Import and export stay adjacent. Layer tools are open beneath that row; common settings follow,
+     with advanced settings collapsed. Keep the existing dark tokens, 8px control gaps/radii,
+     12px panel padding and 16px section spacing.
      Image and coordinate markers use paired secondary buttons with the existing --surface fill and --line edge.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
@@ -21,13 +22,7 @@
   button { width:100%; padding:10px; border:0; border-radius:8px; background:var(--accent); color:#1a1a1a;
            font-weight:600; cursor:pointer; }
   button:disabled,select:disabled { opacity:.4; cursor:not-allowed; }
-  .aep-actions { display:flex; gap:8px; margin-top:8px; }
-  .aep-export { flex:1; width:auto; min-width:0; background:var(--panel); color:var(--text); }
-  .aep-version { flex:0 0 88px; min-width:88px; padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--text); font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; }
-  .aep-version:hover:not(:disabled) { background:var(--surface); border-color:var(--line-hover); }
-  /* The global focus ring is accent purple; on this narrow control it reads as a selected box,
-     so the version selector shows focus by fill and edge instead. */
-  .aep-version:focus-visible { outline:none; background:var(--surface); border-color:var(--line-hover); }
+  .aep-export { margin-top:8px; background:var(--panel); color:var(--text); }
   .image-folder { margin-bottom:12px; }
   .image-folder-label { margin-bottom:4px; color:var(--text); }
   .image-folder-row { display:flex; align-items:flex-start; gap:8px; }
@@ -63,6 +58,13 @@
   .setting-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:36px; }
   .setting-row + .setting-row { margin-top:8px; }
   .setting-row select { min-width:88px; max-width:65%; min-height:36px; padding:8px; border:0; border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+  /* Composition settings sit directly under the export button: three equal columns, each with an
+     11px caption above its control, so duration, frame rate and AEP version read as one group. */
+  .comp-settings { margin-top:8px; }
+  .comp-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+  .comp-field { min-width:0; }
+  .comp-field label { display:block; margin-bottom:4px; color:var(--muted); font-size:11px; line-height:1.4; }
+  .comp-field select { box-sizing:border-box; width:100%; min-width:0; min-height:36px; padding:8px; border:0; border-radius:8px; background:var(--bg); color:var(--text); font:inherit; cursor:pointer; }
   input:focus-visible,select:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .advanced-group { margin-top:16px; }
   .advanced-label { margin:0 0 4px; color:var(--muted); font-size:11px; }
@@ -81,15 +83,48 @@
     </div>
   </div>
   <button id="ship" disabled>导入到 After Effects</button>
-  <div class="aep-actions">
-    <button id="export-aep" class="aep-export" disabled>导出 AEP（推荐）</button>
-    <select id="aep-version" class="aep-version" aria-label="AEP 导出版本" title="AEP 导出版本">
-      <option value="26.0" selected>26.x</option>
-      <option value="25.0">25.x</option>
-      <option value="24.0">24.x</option>
-    </select>
-  </div>
+  <button id="export-aep" class="aep-export" disabled>导出 AEP（推荐）</button>
   <div id="msg" class="msg"></div>
+  <fieldset class="settings comp-settings">
+    <legend>合成</legend>
+    <div class="comp-grid">
+      <div class="comp-field">
+        <label for="aep-duration">合成时长</label>
+        <select id="aep-duration">
+          <option value="1">1 秒</option>
+          <option value="2">2 秒</option>
+          <option value="3">3 秒</option>
+          <option value="5">5 秒</option>
+          <option value="10" selected>10 秒</option>
+          <option value="15">15 秒</option>
+          <option value="20">20 秒</option>
+          <option value="30">30 秒</option>
+          <option value="60">60 秒</option>
+        </select>
+      </div>
+      <div class="comp-field">
+        <label for="aep-fps">帧率</label>
+        <select id="aep-fps">
+          <option value="15">15 fps</option>
+          <option value="24">24 fps</option>
+          <option value="25">25 fps</option>
+          <option value="30" selected>30 fps</option>
+          <option value="50">50 fps</option>
+          <option value="60">60 fps</option>
+          <option value="120">120 fps</option>
+        </select>
+      </div>
+      <div class="comp-field">
+        <label for="aep-version">AEP 版本</label>
+        <select id="aep-version">
+          <option value="26.0" selected>26.x</option>
+          <option value="25.0">25.x</option>
+          <option value="24.0">24.x</option>
+        </select>
+      </div>
+    </div>
+    <div class="hint">用于导出 AEP，或未打开合成时新建合成。</div>
+  </fieldset>
   <button id="locate-layer" class="locate-layer" title="选中并显示出错图层" hidden>定位图层</button>
   <button type="button" id="open-aep-folder" class="open-folder" hidden>打开文件夹</button>
   <details id="layer-tools" class="layer-tools" open>
@@ -110,36 +145,6 @@
       <button id="delete-hidden" disabled>清理隐藏图层</button>
     </div>
   </details>
-  <fieldset class="settings">
-    <legend>合成</legend>
-    <div class="setting-row">
-      <label for="aep-duration">合成时长</label>
-      <select id="aep-duration">
-        <option value="1">1 秒</option>
-        <option value="2">2 秒</option>
-        <option value="3">3 秒</option>
-        <option value="5">5 秒</option>
-        <option value="10" selected>10 秒</option>
-        <option value="15">15 秒</option>
-        <option value="20">20 秒</option>
-        <option value="30">30 秒</option>
-        <option value="60">60 秒</option>
-      </select>
-    </div>
-    <div class="setting-row">
-      <label for="aep-fps">帧率</label>
-      <select id="aep-fps">
-        <option value="15">15 fps</option>
-        <option value="24">24 fps</option>
-        <option value="25">25 fps</option>
-        <option value="30" selected>30 fps</option>
-        <option value="50">50 fps</option>
-        <option value="60">60 fps</option>
-        <option value="120">120 fps</option>
-      </select>
-    </div>
-    <div class="hint">用于导出 AEP，或未打开合成时新建合成。</div>
-  </fieldset>
   <fieldset class="settings">
     <legend>图层</legend>
     <label class="option" title="将 Figma 分组转换为 AE 预合成。"><input type="checkbox" id="organize" checked> 保留分组层级</label>
