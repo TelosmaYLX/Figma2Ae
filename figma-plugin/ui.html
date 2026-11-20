@@ -57,6 +57,7 @@
   .option-stack + .option-stack { margin-top:8px; }
   .option-stack input { margin-top:2px; }
   .option-stack small { display:block; margin-top:4px; font-size:11px; line-height:1.5; color:var(--muted); }
+  .option-spaced { margin-top:8px; }
   .setting-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:36px; }
   .setting-row + .setting-row { margin-top:8px; }
   .setting-row select { min-width:88px; max-width:65%; min-height:36px; padding:8px; border:0; border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
@@ -183,13 +184,10 @@
       </select>
     </div>
     <div class="hint">倍率只影响栅格化图片。</div>
+    <label class="option option-stack option-spaced"><input type="checkbox" id="preserve-image-filters"><span>保留图片调色属性<small>将给存在调色属性的图片增加 AE 调色滑块。</small></span></label>
   </fieldset>
   <details id="advanced-options">
     <summary>高级选项</summary>
-    <div class="advanced-group">
-      <div class="advanced-label">图片填充</div>
-      <label class="option option-stack"><input type="checkbox" id="preserve-image-filters"><span>保留图片调色属性<small>在 AE 图片图层的「效果控件」中调色或打关键帧。</small></span></label>
-    </div>
     <div class="advanced-group">
       <div class="advanced-label">允许自动转为图片</div>
       <label class="option option-stack"><input type="checkbox" id="raster-effects" checked><span>模糊、阴影和特殊效果<small>投影、内阴影、图层/背景模糊、玻璃、噪点、纹理、着色器，以及未保留的图片调色。</small></span></label>

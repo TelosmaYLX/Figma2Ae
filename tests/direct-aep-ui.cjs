@@ -36,6 +36,13 @@ function ui(packet, behavior='success') {
   assert.ok(importAt >= 0 && importAt < groupAt && groupAt < toolsAt, 'composition panel sits between the import button and the layer tools');
   assert.equal((html.match(/id="aep-version"/g) || []).length, 1, 'the AEP version selector appears exactly once');
   assert.equal(/class="aep-actions"|class="aep-version"/.test(html), false, 'the version selector no longer shares the export action row');
+  // Colour preservation belongs to the image group, above advanced options, with its own caption.
+  const imageGroup = html.match(/<fieldset class="settings">\s*<legend>图片<\/legend>[\s\S]*?<\/fieldset>/);
+  assert.ok(imageGroup, 'image settings have their own group');
+  assert.match(imageGroup[0], /id="preserve-image-filters"[\s\S]*将给存在调色属性的图片增加 AE 调色滑块/, 'colour preservation sits in the image group with the new caption');
+  assert.equal(html.includes('在 AE 图片图层的「效果控件」中调色或打关键帧。'), false, 'the old advanced caption is gone');
+  assert.equal(html.includes('图片填充'), false, 'the empty advanced image group is gone');
+  assert.ok(html.indexOf('id="preserve-image-filters"') < html.indexOf('id="advanced-options"'), 'the image option no longer lives under advanced options');
   let finish, clock=0, healthCalls=0;
   const done=new Promise(r=>{finish=r;});
   const launches=[];
