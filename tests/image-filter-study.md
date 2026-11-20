@@ -54,3 +54,86 @@ node tests/sample-image-filter-lut.cjs red-car.cube
 脚本创建一张临时色卡，验证无调色读数，复制所选图片填充的 filters，再采样并移除临时图层。可传入第二个参数指定 F2A 文档连接 ID。本次重新运行得到的 262,144 行数值与样例工程使用的 LUT 完全一致。
 
 [Figma ImagePaint.filters](https://developers.figma.com/docs/plugins/api/Paint/) · [Adobe Apply Color LUT](https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/list-of-effects/utility-effects.html)
+
+## Figma 原生调色算法
+
+2026-11-20，从 Figma 桌面端 126.8.16 使用的画布渲染器还原。下面的公式适用于普通 sRGB 图片填充。七项都属于 `ImagePaint.filters`，范围是 −1 到 +1，默认值为 0。编辑器内部把饱和度记为 `vibrance`，对比度使用 −0.3 到 +0.3 的范围。从插件 API 读取时，着色器对比度为 `0.3 × contrast`，其余六项使用原值。[Figma ImageFilters](https://developers.figma.com/docs/plugins/api/Paint/#imagefilters)
+
+### 运算顺序
+
+采样后的 RGB 先逐通道做 `RGB^2.2`。用该像素的亮度算出高光和阴影的曝光补偿。随后在 Lab 坐标下改色温、着色和对比度，转回 RGB 并截到 `[0, 1]`。再应用曝光曲线和饱和度，最后做 `RGB^(1/2.2)`。这两个幂函数是调色着色器里的固定变换。颜色空间转换在支持它的渲染分支中另行执行。
+
+`Y(rgb) = dot(rgb, [0.2126, 0.7152, 0.0722])`。下面的 `clip` 逐通道截到 `[0, 1]`，`mix(a, b, t) = a + (b − a) × t`。RGB 和 XYZ 都按列向量运算。
+
+```text
+RGB_TO_XYZ = [ 0.4124564   0.3575761   0.1804375 ]
+             [ 0.2126729   0.7151522   0.0721750 ]
+             [ 0.0193339   0.1191920   0.9503041 ]
+
+XYZ_TO_RGB = [ 3.2404542  -1.5371385  -0.4985314 ]
+             [-0.9692660   1.8760108   0.0415560 ]
+             [ 0.0556434  -0.2040259   1.0572252 ]
+
+white = [0.95047, 1.0, 1.08883]
+
+# 从原像素亮度计算有效曝光
+rgb = inputRGB ^ 2.2
+d = Y(rgb) - 0.5 ^ 2.2
+weight = highlights if d > 0 else -0.999 * shadows
+e = exposure + 0.75 * d / sqrt(1 + 4 * d * d) * weight
+
+# 白平衡改 b*，着色改 a*，对比度只改 L*
+fx, fy, fz = ((RGB_TO_XYZ @ rgb) / white) ^ (1/3)
+L = 116 * fy - 16
+a = 500 * (fx - fy) + 30 * tint
+b = 200 * (fy - fz) + 30 * temperature
+c = 0.3 * contrast
+if c < 0:
+    L = mix(L, (L - 50) * 0.2 + 50, -c)
+else:
+    t = clip((L - 20) / 60)
+    L = mix(L, 100 * t^3 * (6*t^2 - 15*t + 10), c)
+fy = (L + 16) / 116
+rgb = clip(XYZ_TO_RGB @ (white * [fy + a/500, fy, fy - b/200]^3))
+
+# 曝光曲线同时作用于向灰色混合后的 RGB 和灰色参考值
+y = Y(rgb)
+negative = min(0, e)
+scale = 1 + negative / 16
+gain = 10^(2*e)
+curve(x) = x * gain / (1 + x * (gain - 1))
+mixed = curve(scale * mix(rgb, y, 0.75))
+chroma = 3 * (1 + y*y * negative / (0.2 - negative))
+rgb = clip(mixed + (mixed - curve(scale * y)) * chroma)
+
+# 减饱和向等亮灰色混合，增饱和按 RGB 边界限幅
+y = Y(rgb)
+s = clamp(saturation, -1, 1)
+if s <= 0:
+    k = 1 + s
+else:
+    limit = min(y / (y - min(rgb) + 1e-6),
+                (1 - y) / (max(rgb) - y + 1e-6))
+    k = min(2, mix(1, limit, s))
+outputRGB = (y + (rgb - y) * k) ^ (1/2.2)
+```
+
+高光和阴影共用固定阈值 `0.5`，在亮度判断中用 `0.5^2.2 ≈ 0.217638`，在对比度中用 `L*=50`。Lab 转换直接用立方根和立方。调色保留采样的 Alpha。普通图片填充在调色后对 RGB 做 Alpha 预乘，再乘填充不透明度。
+
+### 8 位 PNG 验证
+
+用已有的 Figma 桌面端导出样本校验独立的浮点实现。普通四舍五入时，全 RGB 色卡的平均绝对误差是 0.02665 个色阶。根据该批样本的取整边界，可以用 `q = floor(clamp(encodedRGB, 0, 1) × 4096)` 和 `byte = (255 × q + 2047) >> 12` 复现本机 8 位 PNG 的量化。量化规则来自像素对比，着色器公式来自静态分析。
+
+| Figma 导出样本 | 完全相同的 RGB 通道值 | 最大通道误差 |
+| --- | ---: | ---: |
+| 280 张单参数色卡，七个滑杆各测 40 档 | 27,524,106 / 27,525,120（99.9963%） | 1 |
+| 红车七参设置，全部 16,777,216 个 8 位 RGB 输入 | 50,329,964 / 50,331,648（99.9967%） | 1 |
+| 同一七参设置，红车原尺寸的 576,489 个不透明像素 | 1,729,462 / 1,729,467（99.9997%） | 1 |
+
+红车原图和 Figma 导出的 Alpha 逐像素相同。量化误差统计覆盖本机 sRGB PNG 导出。Display P3、HDR 和其他显卡的输出量化尚未实测。
+
+### 产物定位
+
+- REA 6.4.0 对桌面壳和编辑器脚本做了静态分析。桌面壳 Evidence 为 `ev_b4ba013996b200ef99084aa61d19b9f84a50e7caa019567eed44fd67917a49da`。编辑器脚本 Evidence 为 `ev_10a43138167ac8cbec73fc9bae7e0f81ddd422305c7de5f4c6223fdb4d45b701`。脚本解压后从 `0x3497EF` 可读到滑杆范围，从 `0x346502` 可追到 `paintFilter` 写入，从 `0x34ADFD` 可核对 `vibrance` 的饱和度标签。[编辑器脚本](https://www.figma.com/webpack-artifacts/assets/figma_app-dd2acaded0525cff.min.js.br)
+- REA 记录的 Wasm 加载脚本 Evidence 为 `ev_b14f86095bd27f355f15be56b66f49d266d420a1ecd901902b80ba562dce94e9`。REA 6.4.0 无法直接打开 `.wasm`，着色器从 Wasm 数据段读取，宿主赋值用 WABT 反汇编核对。以解压后文件为准，WebGL 和 WebGPU 的调色片元分别始于 `0x2FA9625` 和 `0x2FEEECC`。`func[17387]` 在 `0xEBCE10` 把 `0.5` 写入阈值对应的 uniform，另一处同值写入在 `0x14D37D0`。[渲染器 Wasm](https://static.figma.com/fullscreen/9047f5995fcc763e7cd63542af5cb22ff8c8a433/fullscreen-wasm/compiled_wasm.wasm.br)
+- 本机缓存的编辑器脚本 `f_00272c` 和 Wasm `f_00272f` 与上述发布文件逐字节相同。解压后的 Wasm SHA-256 为 `857bd3c9275fe6226873c471402e0a6e23c96e33049a405475515ffe30149ad8`。
