@@ -1399,21 +1399,12 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       x: Math.min.apply(null, sel.map(function (n) { return n.absoluteBoundingBox.x; })),
       y: Math.min.apply(null, sel.map(function (n) { return n.absoluteBoundingBox.y; }))
     };
-    // Capture the untouched selection before creating or changing any temporary node.
-    // Multi-selection keeps one complete reference for each selected frame/group.
+    // Remember the geometry before moving any copy out of its original parent.
     var transforms = [], sizes = [];
     for (var ri = 0; ri < originals.length; ri++) {
       var original = originals[ri];
       transforms.push(original.absoluteTransform.map(function (row) { return row.slice(); }));
       sizes.push({ width: original.width, height: original.height });
-      var reference = _rasterMeta(original, original, false);
-      // Use the artwork's pixel grid so a fractional bound does not shift the guide.
-      try { reference.rasterBytes = await _exportRasterPng(reference); }
-      catch (referenceError) { throw _layerError(original, '图层「' + original.name + '」原图导出失败：' + referenceError.message); }
-      delete reference.rasterNode; delete reference.rasterBounds;
-      reference.name += '_原图对照'; reference.reference = true; reference.hidden = true;
-      reference.opacity = 1; reference.blend = 'NORMAL'; reference.path = [];
-      references.push(reference);
     }
     // A page-level frame keeps clipping changes away from the original ancestors.
     // Clone/reparent synchronously, then restore the original absolute transform.
@@ -1429,10 +1420,22 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
         if ((copy.width !== sizes[ci0].width || copy.height !== sizes[ci0].height) && typeof copy.resizeWithoutConstraints === 'function')
           copy.resizeWithoutConstraints(sizes[ci0].width, sizes[ci0].height);
         copy.relativeTransform = _matrixProduct(_inverseMatrix(workspace.absoluteTransform), transforms[ci0]);
-        copy = _detachExportInstances(originals[ci0], copy, options.enableClip === false);
       } catch (cloneError) { if (!copy.removed) copy.remove(); throw cloneError; }
       copies.push(copy);
     }
+    // Capture the untouched copies on the same pixel grid and in the same
+    // standalone scope as the artwork, before detaching instances or changing clips.
+    for (var ri = 0; ri < copies.length; ri++) {
+      var original = originals[ri], reference = _rasterMeta(copies[ri], copies[ri], false);
+      try { reference.rasterBytes = await _exportRasterPng(reference); }
+      catch (referenceError) { throw _layerError(original, '图层「' + original.name + '」原图导出失败：' + referenceError.message); }
+      delete reference.rasterNode; delete reference.rasterBounds;
+      reference.name += '_原图对照'; reference.reference = true; reference.hidden = true;
+      reference.opacity = 1; reference.blend = 'NORMAL'; reference.path = [];
+      references.push(reference);
+    }
+    for (var ci0 = 0; ci0 < copies.length; ci0++)
+      copies[ci0] = _detachExportInstances(originals[ci0], copies[ci0], options.enableClip === false);
     name = originals.length === 1 ? originals[0].name : 'Selection (' + originals.length + ')';
     node = copies.length === 1 ? copies[0] : figma.group(copies, workspace);
     if (copies.length > 1) { node.name = 'f2a Export'; _temporaryExportRoot = node; }

@@ -20,22 +20,24 @@ async function run({failReference=false,failClone=false,failPng=false,multi=fals
   const originalSelection=multi?[scene,other]:[scene];h.figma.currentPage.selection=originalSelection;
   for(const original of originalSelection) {
     const render=original.exportAsync,clone=original.clone;
-    original.exportAsync=async function(options) {
-      events.push('reference');assert.equal(options.format,'PNG');assert.equal(copies.length,0);
-      if(failReference)throw new Error('reference failed');return render(options);
-    };
+    original.exportAsync=async()=>{throw new Error('The guide must render in the export workspace');};
     original.clone=function(){
       events.push('clone');if(failClone&&(failClone!==2||copies.length===1))throw new Error('clone failed');
       const copy=clone.call(this);copies.push(copy);
       (function attach(n){
         const exportAsync=n.exportAsync;
         n.exportAsync=async function(options){
-          events.push('copy render');
           assert.equal(n.removed,undefined,'Copy must exist throughout rendering');
+          if(n===copy){
+            events.push('reference');
+            assert.equal(options.format,'PNG');
+            assert.equal(n.parent.name,'F2A 临时导出');
+            assert.equal(n.clipsContent,original.clipsContent);
+            if(failReference)throw new Error('reference failed');
+            return render(options);
+          }
+          events.push('copy render');
           if(failPng&&options.format==='PNG')throw new Error('copy PNG failed');
-          // The original root's exporter is deliberately read-only, so the clone has
-          // its own renderer rather than the test closure bound to that original root.
-          if(n===copy)return render(options);
           return exportAsync.call(n,options);
         };
         if(n.children)n.children.forEach(attach);
@@ -60,7 +62,8 @@ async function run({failReference=false,failClone=false,failPng=false,multi=fals
     const refs=chunks.filter(m=>m.meta.reference);
     assert.equal(refs.length,failPng?0:originalSelection.length);assert.ok(refs.every(r=>r.meta.hidden&&r.meta.path.length===0));
     assert.equal(events.filter(e=>e==='reference').length,originalSelection.length);
-    assert.ok(events.lastIndexOf('reference')<events.indexOf('clone'));
+    assert.ok(events.lastIndexOf('clone')<events.indexOf('reference'));
+    if(events.includes('copy render'))assert.ok(events.lastIndexOf('reference')<events.indexOf('copy render'));
     assert.equal(h.messages.some(m=>m.type==='images-done'),!failPng);
   }
 }
@@ -70,7 +73,12 @@ async function checkFractionalReference() {
     absoluteRenderBounds:box,absoluteTransform:[[1,0,box.x],[0,1,box.y]]};
   const baked = group('*Raster', [node('RECTANGLE','Artwork',geometry)], geometry);
   const frame = node('FRAME','Photo',{...geometry,children:[baked],clipsContent:true});
-  const h = harness(frame);
+  const parent = node('FRAME','Clipping parent',{children:[frame],clipsContent:true});
+  Object.defineProperty(frame,'absoluteRenderBounds',{enumerable:true,get(){
+    return this.parent===parent ? {...box,height:box.height-42} : box;
+  }});
+  const h = harness(parent);
+  h.figma.currentPage.selection = [frame];
   const createFrame = h.figma.createFrame;
   h.figma.createFrame = () => {
     const canvas = createFrame();
@@ -95,5 +103,5 @@ async function checkFractionalReference() {
 (async()=>{
   await run();await run({multi:true});await run({failReference:true});await run({failClone:true});await run({multi:true,failClone:2});await run({failPng:true});
   await checkFractionalReference();
-  console.log('PASS: untouched originals and ancestors, hidden references aligned to the raster grid, multi-selection and cleanup');
+  console.log('PASS: untouched originals, references share the artwork scope and pixel grid, multi-selection and cleanup');
 })().catch(e=>{console.error(e);process.exitCode=1;});
