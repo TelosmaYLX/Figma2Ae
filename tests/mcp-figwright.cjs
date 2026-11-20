@@ -19,6 +19,7 @@ async function check() {
   const port = relay.server.address().port;
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'f2a-figwright-'));
   let plugin, client, undo = 0, yieldReplies = 0;
+  let imageUploads = 0;
   const styles = new Map(), collections = new Map(), variables = new Map();
   const exports = [];
   try {
@@ -72,8 +73,12 @@ async function check() {
       figma.getLocalPaintStylesAsync = async () => [...styles.values()];
       for(const type of ['Text','Effect','Grid']) figma['getLocal'+type+'StylesAsync']=async()=>[];
       figma.getStyleByIdAsync = async id => styles.get(id) || null;
-      figma.getImageByHash = hash => hash==='image-hash' ? {getBytesAsync:async()=>new Uint8Array(png),getSizeAsync:async()=>({width:1,height:1})} : null;
-      figma.createImage = bytes => {assert.deepEqual(Buffer.from(bytes),png);return {hash:'image-hash',getSizeAsync:async()=>({width:1,height:1})};};
+      figma.getImageByHash = hash => hash==='image-hash' ? {hash,getBytesAsync:async()=>new Uint8Array(png),getSizeAsync:async()=>({width:1,height:1})} : null;
+      figma.createImage = bytes => {
+        assert.deepEqual(Buffer.from(bytes),png);
+        imageUploads++;
+        return figma.getImageByHash('image-hash');
+      };
       figma.variables = {
         createVariableCollection(name) {const c={id:'C:'+ ++id,name,defaultModeId:'m:1',modes:[{modeId:'m:1',name:'Light'}],variableIds:[],remote:false};collections.set(c.id,c);return c;},
         getVariableCollectionByIdAsync:async id=>collections.get(id)||null,
@@ -138,6 +143,34 @@ async function check() {
     const image=await call('import_image',{path:imagePath,name:'Original'});
     assert.equal(plugin.nodes.get(image.nodeId).fills[0].imageHash,'image-hash');
     await call('set_design_image_fill',{nodeId:frame.id,path:imagePath});
+    const filters={exposure:-.2,contrast:.12,saturation:.3,temperature:-.18,tint:.1,highlights:-.24,shadows:.2};
+    const graded=await call('set_design_image_fill',{nodeId:frame.id,path:imagePath,scaleMode:'CROP',filters});
+    assert.equal(graded.index,1);
+    assert.deepEqual(graded.filters,filters);
+    const crop=[[.7,0,.1],[0,.8,.15]];
+    Object.assign(f.fills[1],{imageTransform:crop,opacity:.58,blendMode:'MULTIPLY'});
+    const uploadsBeforeEdit=imageUploads;
+    const adjusted=await call('set_design_image_fill',{nodeId:frame.id,filters:{contrast:0,shadows:-.4}});
+    assert.equal(imageUploads,uploadsBeforeEdit,'Editing filters reuses the existing asset');
+    assert.deepEqual(adjusted,{ok:true,nodeId:frame.id,index:1,imageHash:'image-hash',width:1,height:1,
+      filters:{...filters,contrast:0,shadows:-.4}});
+    assert.deepEqual(JSON.parse(JSON.stringify(f.fills[1])),{type:'IMAGE',imageHash:'image-hash',scaleMode:'CROP',
+      imageTransform:crop,opacity:.58,blendMode:'MULTIPLY',filters:adjusted.filters});
+    assert.equal(f.fills[0].type,'GRADIENT_LINEAR');
+    const savedFills=JSON.stringify(f.fills);
+    for(const invalid of [{index:0,filters:{tint:.5}}, {filters:{}}, {filters:{tint:1.1}}, {filters:{saturaton:.5}}]) {
+      const response=await client.tool('set_design_image_fill',{nodeId:frame.id,...invalid});
+      assert.equal(response.isError,true,JSON.stringify(invalid));
+    }
+    const invalidBatch=await call('batch',{ops:[{tool:'set_design_image_fill',params:{nodeId:frame.id,filters:{contrast:-2}}}]});
+    assert.equal(invalidBatch.ok,false);
+    assert.equal(JSON.stringify(f.fills),savedFills);
+    const validBatch=await call('batch',{ops:[{tool:'set_design_image_fill',params:{nodeId:frame.id,index:1,filters:{exposure:1}}}]});
+    assert.equal(validBatch.results[0].result.filters.exposure,1);
+    assert.equal(validBatch.results[0].result.filters.contrast,0);
+    const editedFills=JSON.stringify(f.fills);
+    await call('set_design_image_fill',{nodeId:frame.id,path:imagePath});
+    assert.equal(JSON.stringify(f.fills),editedFills,'Replacing an image preserves its adjustments and crop by default');
     const originals=await call('save_image_fills',{nodeIds:[image.nodeId,frame.id],outDir:path.join(temp,'originals')});
     assert.deepEqual(await fs.readFile(originals.nodes[0].images[0].path),png);
     assert.equal(originals.nodes[0].images[0].path,originals.nodes[1].images[0].path,'shared images reuse one asset');
@@ -164,7 +197,7 @@ async function check() {
       assert.equal(tree.node.children.length,6);
       assert.ok(yieldReplies>0,'serialization must yield and complete through the real UI script');
     } finally {vm.runInContext('Date.now = savedDateNow;',plugin.main);}
-    console.log('PASS: 109 Figwright tools in relocated F2A runtime; schemas, full design context, gradients/effects/layout, styles, variables/bindings, mixed batch/undo, vector geometry, local image import, original assets, screenshots, PDF/video bytes, failure reporting and cooperative UI round-trip');
+    console.log('PASS: 109 Figwright tools in relocated F2A runtime; schemas, full design context, gradients/effects/layout, styles, variables/bindings, mixed batch/undo, vector geometry, local image import and filters, original assets, screenshots, PDF/video bytes, failure reporting and cooperative UI round-trip');
   } finally {
     if(client)await client.close();if(plugin)await plugin.close();
     relay.server.closeAllConnections();await new Promise(resolve=>relay.server.close(resolve));

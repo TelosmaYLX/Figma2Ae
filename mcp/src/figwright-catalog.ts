@@ -82,7 +82,7 @@ import {setComplexStrokeTool} from '../vendor/figwright/packages/mcp/src/tools/s
 import {setConstraintsTool} from '../vendor/figwright/packages/mcp/src/tools/set-constraints.js';
 import {setEffectsTool} from '../vendor/figwright/packages/mcp/src/tools/set-effects.js';
 import {setFillsTool} from '../vendor/figwright/packages/mcp/src/tools/set-fills.js';
-import {setImageFillTool} from '../vendor/figwright/packages/mcp/src/tools/set-image-fill.js';
+import {setDesignImageFillTool} from './figwright-image-fill.js';
 import {setInstancePropertiesTool} from '../vendor/figwright/packages/mcp/src/tools/set-instance-properties.js';
 import {setLayoutGridsTool} from '../vendor/figwright/packages/mcp/src/tools/set-layout-grids.js';
 import {setLayoutPropsTool} from '../vendor/figwright/packages/mcp/src/tools/set-layout-props.js';
@@ -193,7 +193,7 @@ export const figwrightTools = [
   {spec:setConstraintsTool, name:'set_constraints'},
   {spec:setEffectsTool, name:'set_effects'},
   {spec:setFillsTool, name:'set_fills'},
-  {spec:setImageFillTool, name:'set_design_image_fill'},
+  {spec:setDesignImageFillTool, name:'set_design_image_fill'},
   {spec:setInstancePropertiesTool, name:'set_instance_properties'},
   {spec:setLayoutGridsTool, name:'set_layout_grids'},
   {spec:setLayoutPropsTool, name:'set_layout_props'},

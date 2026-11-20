@@ -40994,6 +40994,28 @@ var setFillsTool = {
   kind: "write"
 };
 
+// mcp/src/figwright-image-fill.ts
+var adjustment = external_exports.number().min(-1).max(1).optional();
+var imageFilterSchema = external_exports.object({
+  exposure: adjustment,
+  contrast: adjustment,
+  saturation: adjustment,
+  temperature: adjustment,
+  tint: adjustment,
+  highlights: adjustment,
+  shadows: adjustment
+}).strict();
+var setDesignImageFillTool = {
+  ...setImageFillTool,
+  description: "Replace an image fill or edit its color adjustments on a frame, shape or text layer. Use one of path, data or url to place an image. Omit the image source to edit filters on an existing IMAGE fill. Index 0 is the bottom fill. The default targets the topmost IMAGE fill, or adds one if an image source is provided. The crop and other adjustments are kept by default. Setting fills unlinks a fill style.",
+  inputSchema: setImageFillTool.inputSchema.extend({
+    filters: imageFilterSchema.optional().describe("Figma image adjustments from -1 to 1. Only supplied fields change. Set a field to 0 to reset it.")
+  })
+};
+var sandboxArgs = setDesignImageFillTool.inputSchema.omit({ path: true }).extend({
+  commandId: external_exports.string().optional()
+}).strict();
+
 // mcp/vendor/figwright/packages/mcp/src/tools/set-instance-properties.ts
 var SET_INSTANCE_PROPERTIES_TOOL_NAME = "set_instance_properties";
 var instancePropertyValue = external_exports.union([
@@ -41511,7 +41533,7 @@ var figwrightTools = [
   { spec: setConstraintsTool, name: "set_constraints" },
   { spec: setEffectsTool, name: "set_effects" },
   { spec: setFillsTool, name: "set_fills" },
-  { spec: setImageFillTool, name: "set_design_image_fill" },
+  { spec: setDesignImageFillTool, name: "set_design_image_fill" },
   { spec: setInstancePropertiesTool, name: "set_instance_properties" },
   { spec: setLayoutGridsTool, name: "set_layout_grids" },
   { spec: setLayoutPropsTool, name: "set_layout_props" },

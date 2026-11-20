@@ -81,7 +81,7 @@ import {createSetComplexStrokeHandler} from '../vendor/figwright/packages/plugin
 import {createSetConstraintsHandler} from '../vendor/figwright/packages/plugin/src/handlers/set-constraints.js';
 import {createSetEffectsHandler} from '../vendor/figwright/packages/plugin/src/handlers/set-effects.js';
 import {createSetFillsHandler} from '../vendor/figwright/packages/plugin/src/handlers/set-fills.js';
-import {createSetImageFillHandler} from '../vendor/figwright/packages/plugin/src/handlers/set-image-fill.js';
+import {createSetDesignImageFillHandler} from './figwright-image-fill.js';
 import {createSetInstancePropertiesHandler} from '../vendor/figwright/packages/plugin/src/handlers/set-instance-properties.js';
 import {createSetLayoutGridsHandler} from '../vendor/figwright/packages/plugin/src/handlers/set-layout-grids.js';
 import {createSetLayoutPropsHandler} from '../vendor/figwright/packages/plugin/src/handlers/set-layout-props.js';
@@ -193,7 +193,7 @@ export function createFigwrightCommands(figmaApi: typeof figma) {
     set_constraints: createSetConstraintsHandler(figmaCtx),
     set_effects: createSetEffectsHandler(figmaCtx),
     set_fills: createSetFillsHandler(figmaCtx),
-    set_design_image_fill: createSetImageFillHandler(figmaCtx),
+    set_design_image_fill: createSetDesignImageFillHandler(figmaCtx),
     set_instance_properties: createSetInstancePropertiesHandler(figmaCtx),
     set_layout_grids: createSetLayoutGridsHandler(figmaCtx),
     set_layout_props: createSetLayoutPropsHandler(figmaCtx),
