@@ -3,12 +3,13 @@
 <!-- Plain HTML; no Tailwind or component library. Use the existing :root tokens and dark theme. -->
 <!-- MCP is a secondary status line. Reuse .status/.dot, existing text colors and 8px gaps;
      importing remains the main workflow into AE. No extra setup controls in the normal flow. -->
-<!-- Refactoring UI constraints (§2.1, §2.8, §3.6): the AEP action shares the send button's accent
-     fill so the two adjacent actions read alike, and lives at the bottom of one compact composition
-     panel: three labelled columns (duration, frame rate, target project version) on top, then the
-     full-width 导出为 AEP 工程 button, so settings and action read as one group. The panel has no visible
+<!-- Refactoring UI constraints (§2.1, §2.8, §3.6): the two adjacent actions are both panels.
+     The send panel holds the image folder row and the 发送到 After Effects button; the composition
+     panel holds three labelled columns (duration, frame rate, target project version) and the
+     导出为 AEP 工程 button at its bottom. Both actions share the accent fill so they read alike,
+     and each panel keeps its settings and its action together. The composition panel has no visible
      heading or hint line; each control keeps its own 11px caption. Layer tools are open beneath the
-     panel; common settings follow, with advanced settings collapsed. Keep the existing dark tokens,
+     panels; common settings follow, with advanced settings collapsed. Keep the existing dark tokens,
      8px control gaps/radii, 12px panel padding and 16px section spacing.
      Image and coordinate markers use paired secondary buttons with the existing --surface fill and --line edge.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
@@ -22,16 +23,25 @@
   button { width:100%; padding:10px; border:0; border-radius:8px; background:var(--accent); color:#1a1a1a;
            font-weight:600; cursor:pointer; }
   button:disabled,select:disabled { opacity:.4; cursor:not-allowed; }
-  /* The export action shares the import button's accent fill; only its spacing from the
+  /* The export action shares the send button's accent fill; only its spacing from the
      composition fields is local. */
   .aep-export { margin-top:8px; }
-  .image-folder { margin-bottom:12px; }
+  /* The send block is a panel too: its path field and folder picker sit on a --panel surface,
+     so they take the --bg fill and a raised --surface edge instead of the panel fill they used
+     on the bare page. */
+  .send-settings { margin-top:0; }
+  .image-folder { margin-bottom:0; }
   .image-folder-label { margin-bottom:4px; color:var(--text); }
   .image-folder-row { display:flex; align-items:flex-start; gap:8px; }
-  .image-folder-path { flex:1; min-width:0; min-height:36px; padding:10px; box-sizing:border-box; border-radius:8px; background:var(--panel); overflow-wrap:anywhere; white-space:normal; user-select:text; }
-  .image-folder-choose { flex:0 0 36px; width:36px; height:36px; padding:8px; background:var(--panel); color:var(--text); }
+  .image-folder-path { flex:1; min-width:0; min-height:36px; padding:10px; box-sizing:border-box; border-radius:8px; background:var(--bg); overflow-wrap:anywhere; white-space:normal; user-select:text; }
+  /* The icon is the button's only content: centre it in the 36px square instead of relying on
+     the form control's text layout, which leaves block SVG content off-centre. */
+  .image-folder-choose { flex:0 0 36px; width:36px; height:36px; box-sizing:border-box; display:flex; align-items:center; justify-content:center; padding:0; border:1px solid var(--line); background:var(--surface); color:var(--text); }
+  .image-folder-choose:hover:not(:disabled) { background:var(--surface-hover); border-color:var(--line-hover); }
+  .image-folder-choose:active:not(:disabled) { background:var(--surface-active); }
   .image-folder-choose svg { display:block; width:20px; height:20px; }
   .image-folder-choose:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  #ship { margin-top:8px; }
   .mark-actions { display:flex; gap:8px; margin-top:12px; }
   .mark-actions button { flex:1; min-width:0; }
   details { margin-top:12px; border-radius:8px; background:var(--panel); padding:12px; }
@@ -76,16 +86,18 @@
 <div class="wrap">
   <div class="status"><span id="dot" class="dot"></span><span id="conn">正在连接 After Effects…</span></div>
   <div class="status" role="status"><span id="mcp-dot" class="dot" aria-hidden="true"></span><span id="mcp-status">MCP 正在连接…</span></div>
-  <div class="image-folder">
-    <div class="image-folder-label" id="image-folder-label">图片保存位置</div>
-    <div class="image-folder-row">
-      <div id="image-folder-path" class="image-folder-path" role="status" aria-labelledby="image-folder-label">未选择</div>
-      <button type="button" id="image-folder-choose" class="image-folder-choose" title="选择图片保存位置" aria-label="选择图片保存位置" disabled>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
-      </button>
+  <div class="settings send-settings" role="group" aria-label="发送到 After Effects">
+    <div class="image-folder">
+      <div class="image-folder-label" id="image-folder-label">图片保存位置</div>
+      <div class="image-folder-row">
+        <div id="image-folder-path" class="image-folder-path" role="status" aria-labelledby="image-folder-label">未选择</div>
+        <button type="button" id="image-folder-choose" class="image-folder-choose" title="选择图片保存位置" aria-label="选择图片保存位置" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+        </button>
+      </div>
     </div>
+    <button id="ship" disabled>发送到 After Effects</button>
   </div>
-  <button id="ship" disabled>发送到 After Effects</button>
   <div class="settings comp-settings" role="group" aria-label="合成设置">
     <div class="comp-grid">
       <div class="comp-field">

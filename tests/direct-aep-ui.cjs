@@ -37,6 +37,16 @@ function ui(packet, behavior='success') {
   assert.ok(importAt >= 0 && importAt < groupAt && groupAt < toolsAt, 'composition panel sits between the import button and the layer tools');
   assert.equal((html.match(/id="aep-version"/g) || []).length, 1, 'the AEP version selector appears exactly once');
   assert.equal(/class="aep-actions"|class="aep-version"/.test(html), false, 'the version selector no longer shares the export action row');
+  // The send block is a panel too: the image folder row and the send action share one panel
+  // directly above the composition panel.
+  const sendPanel = html.match(/<div class="settings send-settings"[^>]*>[\s\S]*?id="ship"[^>]*>发送到 After Effects<\/button>\s*<\/div>/);
+  assert.ok(sendPanel, 'the folder row and the send action share one panel');
+  assert.match(sendPanel[0], /id="image-folder-path"/, 'the send panel holds the image folder path');
+  assert.match(sendPanel[0], /id="image-folder-choose"/, 'the send panel holds the folder picker');
+  assert.ok(html.indexOf('class="settings send-settings"') < html.indexOf('class="settings comp-settings"'), 'the send panel sits directly above the composition panel');
+  assert.match(html, /\.image-folder-path \{[^}]*background:var\(--bg\)/, 'the path field uses the native field fill on the panel');
+  assert.match(html, /\.image-folder-choose \{[^}]*background:var\(--surface\)/, 'the folder picker uses a raised fill on the panel');
+  assert.match(html, /\.image-folder-choose \{[^}]*display:flex; align-items:center; justify-content:center/, 'the folder picker centres its icon');
   // Colour preservation belongs to the image group, above advanced options, with its own caption.
   const imageGroup = html.match(/<fieldset class="settings">\s*<legend>图片<\/legend>[\s\S]*?<\/fieldset>/);
   assert.ok(imageGroup, 'image settings have their own group');
