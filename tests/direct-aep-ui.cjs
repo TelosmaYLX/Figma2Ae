@@ -18,16 +18,20 @@ function ui(packet, behavior='success') {
   assert.equal(elements['aep-version'].value,'26.0');
   assert.equal(elements['aep-duration'].value,'10');
   assert.equal(elements['aep-fps'].value,'30');
-  // The export action is one full-width button; duration, frame rate and AEP version share one
-  // labelled row directly beneath it, each with a small caption, before the layer tools.
-  const compGroup = html.match(/<fieldset class="settings comp-settings">[\s\S]*?<\/fieldset>/);
-  assert.ok(compGroup, 'AEP composition settings share one panel');
-  assert.match(compGroup[0], /id="aep-duration"[\s\S]*id="aep-fps"[\s\S]*id="aep-version"/, 'duration, frame rate and version sit in one row in that order');
+  // The composition panel sits directly under the import button and holds the export action: the
+  // three labelled selectors first, then the 导出 AEP button at the bottom. No visible panel
+  // heading or hint line remains.
+  const compGroup = html.match(/<div class="settings comp-settings"[\s\S]*?<div id="msg"/);
+  assert.ok(compGroup, 'AEP composition settings and the export action share one panel');
+  assert.match(compGroup[0], /id="aep-duration"[\s\S]*id="aep-fps"[\s\S]*id="aep-version"[\s\S]*id="export-aep"/, 'selectors read left to right above the export button');
   for (const [id, caption] of [['aep-duration','合成时长'],['aep-fps','帧率'],['aep-version','AEP 版本']]) {
     assert.match(compGroup[0], new RegExp('<label for="' + id + '">' + caption + '</label>'), id + ' has a small caption above it');
   }
-  const exportAt = html.indexOf('id="export-aep"'), groupAt = html.indexOf('class="settings comp-settings"'), toolsAt = html.indexOf('id="layer-tools"');
-  assert.ok(exportAt >= 0 && exportAt < groupAt && groupAt < toolsAt, 'composition settings sit between the export button and the layer tools');
+  assert.match(compGroup[0], /<button id="export-aep"[^>]*>导出 AEP<\/button>/, 'the export action is labelled 导出 AEP');
+  assert.equal(/<legend>合成<\/legend>/.test(html), false, 'the composition panel has no visible heading');
+  assert.equal(html.includes('用于导出 AEP，或未打开合成时新建合成。'), false, 'the panel has no hint line');
+  const importAt = html.indexOf('id="ship"'), groupAt = html.indexOf('class="settings comp-settings"'), toolsAt = html.indexOf('id="layer-tools"');
+  assert.ok(importAt >= 0 && importAt < groupAt && groupAt < toolsAt, 'composition panel sits between the import button and the layer tools');
   assert.equal((html.match(/id="aep-version"/g) || []).length, 1, 'the AEP version selector appears exactly once');
   assert.equal(/class="aep-actions"|class="aep-version"/.test(html), false, 'the version selector no longer shares the export action row');
   let finish, clock=0, healthCalls=0;

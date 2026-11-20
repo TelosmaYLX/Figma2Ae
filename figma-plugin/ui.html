@@ -4,12 +4,12 @@
 <!-- MCP is a secondary status line. Reuse .status/.dot, existing text colors and 8px gaps;
      importing remains the only primary action. No extra setup controls in the normal flow. -->
 <!-- Refactoring UI constraints (§2.1, §2.8, §3.6): import is primary; AEP export is secondary.
-     The AEP action is one full-width secondary button. Its composition settings — duration, frame rate
-     and target project version — share one labelled row directly beneath it in the "合成" panel:
-     three equal columns, each with an 11px caption above its select, so the three read as one group.
-     Import and export stay adjacent. Layer tools are open beneath that row; common settings follow,
-     with advanced settings collapsed. Keep the existing dark tokens, 8px control gaps/radii,
-     12px panel padding and 16px section spacing.
+     The AEP action lives at the bottom of one compact composition panel: three labelled columns
+     (duration, frame rate, target project version) on top, then the full-width 导出 AEP button, so
+     settings and action read as one group. The panel has no visible heading or hint line; each
+     control keeps its own 11px caption. Import and export stay adjacent. Layer tools are open
+     beneath the panel; common settings follow, with advanced settings collapsed. Keep the existing
+     dark tokens, 8px control gaps/radii, 12px panel padding and 16px section spacing.
      Image and coordinate markers use paired secondary buttons with the existing --surface fill and --line edge.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
@@ -22,7 +22,12 @@
   button { width:100%; padding:10px; border:0; border-radius:8px; background:var(--accent); color:#1a1a1a;
            font-weight:600; cursor:pointer; }
   button:disabled,select:disabled { opacity:.4; cursor:not-allowed; }
-  .aep-export { margin-top:8px; background:var(--panel); color:var(--text); }
+  /* The AEP action sits on the composition panel, so it takes the same raised fill and hairline
+     edge as the layer tools buttons instead of the panel fill it used beside the panel. */
+  .aep-export { margin-top:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); }
+  .aep-export:hover:not(:disabled) { background:var(--surface-hover); border-color:var(--line-hover); }
+  .aep-export:active:not(:disabled) { background:var(--surface-active); }
+  .aep-export:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .image-folder { margin-bottom:12px; }
   .image-folder-label { margin-bottom:4px; color:var(--text); }
   .image-folder-row { display:flex; align-items:flex-start; gap:8px; }
@@ -83,10 +88,7 @@
     </div>
   </div>
   <button id="ship" disabled>导入到 After Effects</button>
-  <button id="export-aep" class="aep-export" disabled>导出 AEP（推荐）</button>
-  <div id="msg" class="msg"></div>
-  <fieldset class="settings comp-settings">
-    <legend>合成</legend>
+  <div class="settings comp-settings" role="group" aria-label="合成设置">
     <div class="comp-grid">
       <div class="comp-field">
         <label for="aep-duration">合成时长</label>
@@ -123,8 +125,9 @@
         </select>
       </div>
     </div>
-    <div class="hint">用于导出 AEP，或未打开合成时新建合成。</div>
-  </fieldset>
+    <button id="export-aep" class="aep-export" disabled>导出 AEP</button>
+  </div>
+  <div id="msg" class="msg"></div>
   <button id="locate-layer" class="locate-layer" title="选中并显示出错图层" hidden>定位图层</button>
   <button type="button" id="open-aep-folder" class="open-folder" hidden>打开文件夹</button>
   <details id="layer-tools" class="layer-tools" open>
