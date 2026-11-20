@@ -68,6 +68,9 @@
   .option-stack input { margin-top:2px; }
   .option-stack small { display:block; margin-top:4px; font-size:11px; line-height:1.5; color:var(--muted); }
   .option-spaced { margin-top:8px; }
+  /* Description under a standalone option: left-aligned like the group hint above it,
+     not indented under the checkbox label. */
+  .option-hint { margin-top:4px; font-size:11px; line-height:1.5; color:var(--muted); }
   .setting-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:36px; }
   .setting-row + .setting-row { margin-top:8px; }
   .setting-row select { min-width:88px; max-width:65%; min-height:36px; padding:8px; border:0; border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
@@ -196,7 +199,10 @@
       </select>
     </div>
     <div class="hint">倍率只影响栅格化图片。</div>
-    <label class="option option-stack option-spaced"><input type="checkbox" id="preserve-image-filters"><span>保留图片调色属性<small>将给存在调色属性的图片增加 AE 调色滑块。</small></span></label>
+    <div class="option-spaced">
+      <label class="option"><input type="checkbox" id="preserve-image-filters"> 保留图片调色属性</label>
+      <div class="option-hint">将给存在调色属性的图片增加 AE 调色滑块。</div>
+    </div>
   </fieldset>
   <details id="advanced-options">
     <summary>高级选项</summary>
