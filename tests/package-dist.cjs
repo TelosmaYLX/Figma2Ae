@@ -77,6 +77,11 @@ async function check() {
     {windowsHide: true, env: {...process.env, F2A_ZIP_SOURCE: archive, F2A_ZIP_TARGET: scratch}});
     assert.deepEqual(await fs.readdir(scratch), ['F2A-Windows-x64']);
     const target = path.join(scratch, 'F2A-Windows-x64');
+    const plugin = JSON.parse(await fs.readFile(path.join(target, 'figma-plugin/manifest.json'), 'utf8'));
+    const workspacePlugin = require('../figma-plugin/manifest.json');
+    assert.equal(plugin.id, 'f2a-ship-to-ae');
+    assert.notEqual(plugin.id, workspacePlugin.id);
+    assert.notEqual(plugin.name, workspacePlugin.name);
     const manifest = JSON.parse(await fs.readFile(path.join(target, 'package-manifest.json'), 'utf8'));
     assert.equal(manifest.bundledRuntimes, false);
     const {notes, ...release} = JSON.parse(await fs.readFile(path.join(root, 'dist/latest.json'), 'utf8'));

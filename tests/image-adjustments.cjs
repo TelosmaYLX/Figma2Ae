@@ -187,6 +187,46 @@ async function check() {
   assert.equal(untouched.reads(), 1, 'Default filters preserve the exact original image');
   assert.equal(untouched.renders(), 0, 'Default filters do not re-render the photo');
 
+  const keep = maskedFixture({...zero, exposure:-.17, temperature:-.26});
+  const editable = await keep.h.run(true, true, true, false, {
+    target:'aep', nativeImageMasks:true, preserveImageFilters:true, bicubicExport:true,
+  });
+  const photoLayer = editable.images.find(item => item.sourceId === keep.image.id);
+  assert.deepEqual(photoLayer.imageFilters, {...zero, exposure:-.17, temperature:-.26});
+  assert.equal(photoLayer.rasterScale, null);
+  assert.equal(photoLayer.bicubic, undefined);
+  assert.equal(photoLayer.name, keep.image.name);
+  assert.equal(photoLayer.opacity, .84);
+  assert.equal(keep.reads(), 1);
+  assert.equal(keep.renders(), 0);
+  assert.ok(editable.images.some(item => item.maskSource === photoLayer.maskId && !item.imageFilters));
+
+  const cropped = photo('裁剪', {contrast:.25});
+  Object.assign(cropped.fills[0], {scaleMode:'CROP', imageTransform:[[.5,0,.25],[0,.75,.1]]});
+  const withCrop = harness(group('Poster', [cropped]));
+  withCrop.figma.getImageByHash = keep.h.figma.getImageByHash;
+  const cropOptions = {target:'aep', preserveImageFilters:true, rasterize:{effects:false, imageCrops:false}};
+  const crop = (await withCrop.run(true,true,true,false,cropOptions)).images[0];
+  assert.deepEqual(crop.imageFilters, {...zero, contrast:.25});
+  assert.equal(crop.rasterScale, null);
+  assert.equal(crop.matte.kind, 'rect');
+  assert.deepEqual(crop.imageMatrix.map(v => Math.round(v)), [200, 0, 0, 80, -50, -8]);
+
+  const forced = photo('*固定图片', {contrast:.3}), stacked = frameFixture({contrast:.3});
+  const fixed = (await harness(group('Marked', [forced])).run(true,true,true,false,{preserveImageFilters:true})).images[0];
+  assert.equal(fixed.rasterScale, 1);
+  assert.equal(fixed.imageFilters, undefined);
+  const stack = (await stacked.h.run(true,true,true,false,{preserveImageFilters:true})).images;
+  assert.equal(stack.length, 2);
+  assert.ok(stack[0].rasterScale && !stack[0].imageFilters);
+  assert.deepEqual(stack[1].imageFilters, {...zero, contrast:.3});
+  assert.deepEqual(Array.from(stacked.renders[0].node.fills), [stacked.frame.fills[0]]);
+  assert.deepEqual(Object.keys(stacked.renders[1].node.fills[0].filters), []);
+  assert.equal(stacked.frame.fills[1].filters.contrast, .3);
+  assert.equal(stacked.renders[1].node.fills[0].opacity, .64);
+  assert.ok(stack[0].z < stack[1].z);
+  assert.deepEqual(stack[0].path,stack[1].path);
+
   const rejected = maskedFixture({...zero, saturation:.2});
   await rejected.h.context.exportSelectionSVG(true, true, true, false, true, false, {
     target:'aep', nativeImageMasks:true,

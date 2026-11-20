@@ -44824,15 +44824,18 @@ function registerAepTools(server2, send2) {
       textMode: external_exports.enum(["editable", "vector", "png"]).optional().describe("Override the Figma panel text mode."),
       aeVersion: external_exports.enum(["24.0", "25.0", "26.0"]).optional().describe("Override the Figma panel AE version."),
       duration: external_exports.number().positive().max(10800).optional().describe("Override the Figma panel composition duration in seconds."),
-      frameRate: external_exports.number().min(1).max(999).optional().describe("Override the Figma panel composition frame rate.")
+      frameRate: external_exports.number().min(1).max(999).optional().describe("Override the Figma panel composition frame rate."),
+      preserveImageFilters: external_exports.boolean().optional().describe("Override the panel option to keep editable image-fill color adjustments.")
     },
     annotations: { destructiveHint: false, readOnlyHint: false }
-  }, async ({ destination, textMode, aeVersion, duration: duration3, frameRate }, { signal }) => {
+  }, async ({ destination, textMode, aeVersion, duration: duration3, frameRate, preserveImageFilters }, { signal }) => {
     try {
       const entry = import_node_path7.default.join(__dirname, "..", "scripts", "export-aep.cjs");
       if (!(0, import_node_fs2.existsSync)(entry)) throw new Error("\u7F3A\u5C11 AEP \u5BFC\u51FA\u7EC4\u4EF6\uFF0C\u8BF7\u91CD\u65B0\u5B89\u88C5 F2A");
       const { publishAep } = require(entry);
-      const packet = await send2("f2a_export_aep", { textMode, aeVersion, duration: duration3, frameRate }, signal);
+      const packet = await send2("f2a_export_aep", { textMode, aeVersion, duration: duration3, frameRate, preserveImageFilters }, signal);
+      if (preserveImageFilters && !packet?.preserveImageFilters)
+        throw new Error("\u5F53\u524D Figma \u63D2\u4EF6\u672A\u542F\u7528\u56FE\u7247\u8C03\u8272\u5BFC\u51FA\uFF0C\u8BF7\u91CD\u65B0\u8FD0\u884C\u65B0\u7248 F2A\u3002");
       const result2 = await publishAep(packet, () => destination, { signal });
       return { content: [{ type: "text", text: JSON.stringify(result2) }] };
     } catch (error62) {

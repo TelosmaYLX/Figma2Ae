@@ -20,6 +20,8 @@
 
 已有系统级安装时，用管理员 PowerShell 将新版安装到原目录。其他安装选项见 [Windows 安装说明](scripts/distribution/INSTALL.md)。
 
+开发时可直接从工作区导入 `figma-plugin/manifest.json`。Figma 中显示「F2A 工作区开发版」。在仓库目录运行 `node scripts/aep-server.cjs --workspace` 后，开发版的「导出 AEP」使用当前工作区的写入器。
+
 ```powershell
 .\install.cmd -InstallDirectory "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"
 ```

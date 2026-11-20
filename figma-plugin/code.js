@@ -38,6 +38,7 @@ var _zMap = null;
 var _ignoreHidden = true;
 var _convertMasks = false;      // original-compatible default: masks stay ordinary Figma layers
 var _nativeImageMasks = false;
+var _preserveImageFilters = false;
 var _directAep = false;
 var _independentMasks = {};
 var _rasterOptions = {};       // independent permissions for automatic PNG conversion
@@ -434,6 +435,48 @@ function _hasImageAdjustments(paint) {
   }
   return false;
 }
+function _imageCropPlacement(n, paint) {
+  var crop = _inverseMatrix(paint.imageTransform);
+  var m = _matrixProduct(n.absoluteTransform, [
+    [n.width * crop[0][0], n.width * crop[0][1], n.width * crop[0][2]],
+    [n.height * crop[1][0], n.height * crop[1][1], n.height * crop[1][2]]
+  ]);
+  return [m[0][0], m[1][0], m[0][1], m[1][1], m[0][2], m[1][2]];
+}
+function _canPlaceGradedOriginal(n, paint) {
+  var corners = [n.topLeftRadius, n.topRightRadius, n.bottomLeftRadius, n.bottomRightRadius];
+  if (['RECTANGLE', 'ELLIPSE', 'FRAME', 'COMPONENT', 'INSTANCE'].indexOf(n.type) < 0 ||
+      paint.scaleMode === 'TILE' || paint.rotation ||
+      n.cornerRadius === figma.mixed || corners.some(function (r) { return r !== corners[0]; }) ||
+      (n.cornerSmoothing && (n.cornerRadius || corners[0])) ||
+      (n.arcData && (n.arcData.innerRadius || Math.abs(n.arcData.endingAngle - n.arcData.startingAngle) < 2 * Math.PI - 1e-5)))
+    return false;
+  if (paint.scaleMode === 'CROP' && paint.imageTransform) {
+    var m = _imageCropPlacement(n, paint);
+    var area = Math.abs(m[0] * m[3] - m[1] * m[2]);
+    if (!area || Math.abs(m[0] * m[2] + m[1] * m[3]) > 1e-5 * area) return false;
+  }
+  return true;
+}
+function _imageGradePasses(n, organize, rootId) {
+  var paints = n.fills.filter(function (p) { return p.visible !== false; });
+  // These paints need their shared backdrop, opacity or matte applied to the stack once.
+  if (paints.some(function (p) { return p.blendMode && p.blendMode !== 'NORMAL'; })) return null;
+  if (paints.length > 1 && !(organize && _isContainer(n)) &&
+      (_maskByNode[n.id] || _opacityChain(n, organize, rootId) !== 1 || (n.blendMode && n.blendMode !== 'NORMAL')))
+    return null;
+  var passes = [];
+  paints.forEach(function (paint) {
+    if (paint.type === 'IMAGE' && _hasImageAdjustments(paint)) {
+      passes.push({ image: paint, original: _canPlaceGradedOriginal(n, paint) });
+    } else {
+      var last = passes[passes.length - 1];
+      if (!last || !last.paints) { last = { paints: [] }; passes.push(last); }
+      last.paints.push(paint);
+    }
+  });
+  return passes;
+}
 function _singleImageNeedsRaster(n) {
   if (!n || _isContainer(n) || n.type === 'TEXT' || _maskSourceByNode[n.id]) return false;
   var image = false, crop = false;
@@ -515,9 +558,12 @@ function _collectRasterCandidates(root, organize) {
     // Filters are part of the image paint. Bake a container's fill stack independently so its
     // own stroke, child artwork, effects and masks still go through their usual export paths.
     if (adjustedImageFill && n.type !== 'TEXT' && !_maskSourceByNode[n.id]) {
-      _requireRasterOption(n, 'effects', '的图片调色（曝光、对比度等）需要转为图片');
-      if (!_isContainer(n)) { add(n); return; }
-      out.push({ node: n, fillOnly: true });
+      var gradePasses = _preserveImageFilters && _imageGradePasses(n, organize, root.id);
+      if (!gradePasses) {
+        _requireRasterOption(n, 'effects', '的图片调色（曝光、对比度等）需要转为图片');
+        if (!_isContainer(n)) { add(n); return; }
+      }
+      out.push({ node: n, fillOnly: true, gradePasses: gradePasses });
     } else if (_singleImageNeedsRaster(n)) { add(n); return; }
     if (_convertMasks) {
       var runs = _maskRuns(n);
@@ -904,13 +950,32 @@ function _rasterFillMeta(n, root, organize) {
   im.name += '_填充';
   im.hidden = _isHidden(n);
   im.z -= 0.001; // below the frame's stroke, above its separate drop shadow
-  if (organize && (n !== root || _includeRootContainer)) {
+  if (organize && _isContainer(n) && (n !== root || _includeRootContainer)) {
     im.path.push(n.id);
     im.opacity = 1;
     im.blend = 'NORMAL';
     im.maskId = null;
   } else im.opacity = _opacityChain(n, organize, root.id);
   return im;
+}
+
+function _collectFillImages(candidate, root, organize) {
+  var n = candidate.node, passes = candidate.gradePasses;
+  if (!passes) return [_rasterFillMeta(n, root, organize)];
+  return passes.map(function (pass, index) {
+    var im;
+    if (pass.original) {
+      im = _imagePaintMeta(n, pass.image, root.id, organize, true);
+      delete im._node;  // The fill-only candidate already suppresses it in legacy SVG.
+    } else {
+      im = _rasterFillMeta(n, root, organize);
+      im.paints = pass.paints || [Object.assign({}, pass.image, { filters: {} })];
+      if (pass.image) im.imageFilters = pass.image.filters;
+    }
+    im.name = passes.length === 1 ? n.name : n.name + ' · 填充 ' + (index + 1);
+    im.z = _zOf(n) - .001 + .0005 * index / passes.length;
+    return im;
+  });
 }
 
 // A solid backdrop closes the blend stack inside this raster group. Keep that stack in
@@ -1057,11 +1122,16 @@ async function _exportRasterPng(im) {
 }
 
 async function _exportRasterFill(im) {
-  var n = im.rasterNode, paint = figma.createRectangle();
+  var n = im.rasterNode, isFrame = _isContainer(n) || n.type === 'RECTANGLE';
+  var paint = isFrame ? figma.createRectangle() : n.clone();
   try {
     // A rectangle with the frame's exact geometry renders the fill without copying its subtree
     // or disturbing auto layout. The full stack preserves the paint order, crop and opacity.
-    paint.resizeWithoutConstraints(n.width, n.height);
+    if (isFrame) paint.resizeWithoutConstraints(n.width, n.height);
+    else {
+      figma.currentPage.appendChild(paint);
+      paint.effects = []; paint.strokes = []; paint.opacity = 1; paint.blendMode = 'NORMAL';
+    }
     paint.relativeTransform = n.absoluteTransform;
     var corners = ['topLeftRadius', 'topRightRadius', 'bottomRightRadius', 'bottomLeftRadius', 'cornerSmoothing'];
     for (var i = 0; i < corners.length; i++) {
@@ -1073,7 +1143,7 @@ async function _exportRasterFill(im) {
       var collection = await figma.variables.getVariableCollectionByIdAsync(id);
       if (collection) paint.setExplicitVariableModeForCollection(collection, modes[id]);
     }
-    paint.fills = n.fills;
+    paint.fills = im.paints || n.fills;
     im.rasterNode = paint;
     return await _exportRasterPass(im);
   } finally {
@@ -1289,6 +1359,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _outlineTexts = options.outlineTexts === true;
   _directAep = options.target === 'aep';
   _nativeImageMasks = options.nativeImageMasks === true;
+  _preserveImageFilters = options.preserveImageFilters === true;
   // Keep the legacy API argument as the default for callers without per-category settings.
   var rasterDefaults = rasterGroups !== false, rasterOptions = options.rasterize || {};
   _rasterOptions = {};
@@ -1399,7 +1470,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     images = images.concat(blendBake.images, shadowImages, maskImages);
     for (var rci = 0; rci < rasterCandidates.length; rci++) {
       var candidate = rasterCandidates[rci], rn = candidate.node;
-      if (candidate.fillOnly) { images.push(_rasterFillMeta(rn, node, !!organize)); continue; }
+      if (candidate.fillOnly) { images = images.concat(_collectFillImages(candidate, node, !!organize)); continue; }
       var passes = _rasterWhole(rn) ? [{}] : _rasterBlendPasses(rn, candidate.members);
       for (var rpi = 0; rpi < passes.length; rpi++) {
         var rim = _rasterMeta(rn, node, !!organize), pass = passes[rpi];
@@ -1630,7 +1701,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
                            svg: svg, texts: texts, effects: effects, frame: { width: frame.width, height: frame.height },
                            newComp: options.target === 'ae' && (!!rootFrame || (originals.length === 1 && originals[0].type === 'FRAME')),
                            shift: svgShift, nodes: nodeShapes, nodeOrigin: origin, bytes: svg.length,
-                           containers: containers, organize: !!organize, imageCount: images.length, imageBatch: true,
+                           containers: containers, organize: !!organize, preserveImageFilters: _preserveImageFilters,
+                           imageCount: images.length, imageBatch: true,
                            vnStats: _vnStats, blendStats: blendBake.stats });
     await shipImages(images, commandId);      // sequential, chunked — see shipImages for why
     if (images.length) figma.ui.postMessage({ type: 'images-done', exportCommandId: commandId });
@@ -2059,6 +2131,44 @@ function _matteOf(n) {
     return { kind: 'rect', r: r || 0 };
   } catch (e) { return { kind: 'rect', r: 0 }; }
 }
+function _imagePaintMeta(n, f, rootId, organize, editable) {
+  var b = n.absoluteBoundingBox;
+  var mode = f.scaleMode || 'FILL';
+  var imageMatrix = null;
+  if (mode === 'CROP' && f.imageTransform && (editable || _usesIndependentMask(n))) {
+    imageMatrix = _imageCropPlacement(n, f);
+  }
+  var m = _matteOf(n);
+  var needsMatte = (m.kind !== 'rect') || (m.r > 0) || (mode !== 'FIT');
+  // absoluteBoundingBox is AXIS-ALIGNED, so for a rotated picture it is bigger than
+  // the frame itself. Send the node's OWN size plus its true centre (from
+  // absoluteTransform) so AE can place and crop it correctly at any angle.
+  var lw = n.width, lh = n.height, ccx = b.x + b.width / 2, ccy = b.y + b.height / 2;
+  try {
+    var mt = n.absoluteTransform;
+    ccx = mt[0][0] * (lw / 2) + mt[0][1] * (lh / 2) + mt[0][2];
+    ccy = mt[1][0] * (lw / 2) + mt[1][1] * (lh / 2) + mt[1][2];
+  } catch (etm) {}
+  return {
+    _node: n,
+    sourceId: _exportSourceIds[n.id] || n.id,
+    name: editable ? n.name || 'image' : (n.name || 'image').replace(/[^A-Za-z0-9_\-]+/g, '_'),
+    hash: f.imageHash,
+    imageMatrix: imageMatrix, preserveSource: editable || _usesIndependentMask(n),
+    imageFilters: editable ? f.filters : null,
+    cx: ccx, cy: ccy, cw: lw, ch: lh,
+    x: b.x, y: b.y, w: b.width, h: b.height,
+    cb: (n.clipsContent === true) ? { x: b.x, y: b.y, w: b.width, h: b.height } : _contentBounds(n),
+    // Was the node's OWN opacity only, so a picture inside a faded group arrived at full
+    // strength. The chain fixes that, and in organize mode it stops at the container
+    // because the precomp carries the group's opacity.
+    scaleMode: mode, opacity: (organize && _isContainer(n) ? 1 : _opacityChain(n, organize, rootId)) * (f.opacity == null ? 1 : f.opacity), hidden: _isHidden(n),
+    maskId: organize && _isContainer(n) ? null : (_maskByNode[n.id] || null),
+    blend: organize && _isContainer(n) ? 'NORMAL' : (n.blendMode || 'NORMAL'),
+    path: organize && _isContainer(n) ? _pathOf(n, rootId).concat([n.id]) : _pathOf(n, rootId), z: _zOf(n),
+    rotation: _rotOf(n), matte: needsMatte ? m : null
+  };
+}
 async function collectImages(root, rootId, organize, rasterFillByNode) {
   // METADATA ONLY. Bytes are fetched later, ONE image at a time (shipImages) — holding every
   // photo in the plugin VM at once is what blew its memory cap.
@@ -2074,48 +2184,7 @@ async function collectImages(root, rootId, organize, rasterFillByNode) {
         for (var i = 0; i < n.fills.length; i++) {
           var f = n.fills[i];
           if (f.type !== 'IMAGE' || f.visible === false || !f.imageHash) continue;
-          var b = n.absoluteBoundingBox;
-          var mode = f.scaleMode || 'FILL';
-          var imageMatrix = null;
-          if (mode === 'CROP' && f.imageTransform && _usesIndependentMask(n)) {
-            var crop = _inverseMatrix(f.imageTransform);
-            var placement = _matrixProduct(n.absoluteTransform, [
-              [n.width * crop[0][0], n.width * crop[0][1], n.width * crop[0][2]],
-              [n.height * crop[1][0], n.height * crop[1][1], n.height * crop[1][2]]
-            ]);
-            imageMatrix = [placement[0][0], placement[1][0], placement[0][1], placement[1][1], placement[0][2], placement[1][2]];
-          }
-          var m = _matteOf(n);
-          var needsMatte = (m.kind !== 'rect') || (m.r > 0) || (mode !== 'FIT');
-          // absoluteBoundingBox is AXIS-ALIGNED, so for a rotated picture it is bigger than
-          // the frame itself. Send the node's OWN size plus its true centre (from
-          // absoluteTransform) so AE can place and crop it correctly at any angle.
-          var lw = n.width, lh = n.height, ccx = b.x + b.width / 2, ccy = b.y + b.height / 2;
-          try {
-            var mt = n.absoluteTransform;
-            ccx = mt[0][0] * (lw / 2) + mt[0][1] * (lh / 2) + mt[0][2];
-            ccy = mt[1][0] * (lw / 2) + mt[1][1] * (lh / 2) + mt[1][2];
-          } catch (etm) {}
-          out.push({
-            _node: n,
-            sourceId: _exportSourceIds[n.id] || n.id,
-            name: (n.name || 'image').replace(/[^A-Za-z0-9_\-]+/g, '_'),
-            hash: f.imageHash,
-            imageMatrix: imageMatrix, preserveSource: _usesIndependentMask(n),
-            cx: ccx, cy: ccy, cw: lw, ch: lh,
-            x: b.x, y: b.y, w: b.width, h: b.height,
-          // What the precomp must be able to hold. A clipping frame hides its overflow anyway,
-          // so for it the box IS the content; everything else takes the union with its children.
-          cb: (n.clipsContent === true) ? { x: b.x, y: b.y, w: b.width, h: b.height } : _contentBounds(n),
-            // Was the node's OWN opacity only, so a picture inside a faded group arrived at full
-            // strength. The chain fixes that, and in organize mode it stops at the container
-            // because the precomp carries the group's opacity.
-            scaleMode: mode, opacity: (organize && _isContainer(n) ? 1 : _opacityChain(n, organize, rootId)) * (f.opacity == null ? 1 : f.opacity), hidden: _isHidden(n),
-            maskId: organize && _isContainer(n) ? null : (_maskByNode[n.id] || null),
-            blend: organize && _isContainer(n) ? 'NORMAL' : (n.blendMode || 'NORMAL'),
-            path: organize && _isContainer(n) ? _pathOf(n, rootId).concat([n.id]) : _pathOf(n, rootId), z: _zOf(n),
-            rotation: _rotOf(n), matte: needsMatte ? m : null
-          });
+          out.push(_imagePaintMeta(n, f, rootId, organize, false));
           break;                                              // one picture per node
         }
       }
@@ -2181,6 +2250,10 @@ async function shipImages(images, commandId) {
                  opacity: im.opacity, rotation: im.rotation, matte: im.matte,
                  blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0), maskId: im.maskId || null,
                  hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, shadowBase: im.shadowBase || null, mergedBlend: !!im.mergedBlend, external: !!im.external };
+    if (im.imageFilters) {
+      meta.imageFilters = {};
+      _imageAdjustmentNames.forEach(function (key) { meta.imageFilters[key] = im.imageFilters[key] || 0; });
+    }
     if (_bicubicExport && !(im.preserveSource && !im.rasterScale)) {
       var factor = im.rasterScale ? 0.5 : _rasterScale * (im.scaleMode === 'FIT'
         ? Math.min(im.cw / natW, im.ch / natH) : Math.max(im.cw / natW, im.ch / natH));
@@ -2604,6 +2677,7 @@ figma.ui.onmessage = function (msg) {
 function reportSelection() {
   var selection = figma.currentPage.selection;
   figma.ui.postMessage({ type: 'selection', count: selection.length,
+    workspacePlugin: figma.pluginId === 'f2a-ship-to-ae-workspace',
     frameSelected: selection.some(function (n) { return n.type === 'FRAME'; }) });
 }
 figma.on('selectionchange', reportSelection);

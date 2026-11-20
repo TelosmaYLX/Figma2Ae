@@ -57,10 +57,14 @@ async function build(output) {
   await fs.mkdir(path.join(output, 'scripts'));
   for (const file of scripts) await fs.copyFile(path.join(root, 'scripts', file), path.join(output, 'scripts', file));
   await fs.cp(path.join(root, 'scripts/aep'), path.join(output, 'scripts/aep'), {recursive:true, filter: source => path.basename(source) !== '__pycache__'});
+  await fs.mkdir(path.join(output, 'client'), {recursive:true});
+  await fs.copyFile(path.join(root, 'client/figmaImageGrade.js'), path.join(output, 'client/figmaImageGrade.js'));
   await fs.mkdir(path.join(output, 'host/figma'), {recursive:true});
   for (const file of ['aeFilename.js', 'svgParser.js'])
     await fs.copyFile(path.join(root, 'host/figma', file), path.join(output, 'host/figma', file));
   await fs.cp(path.join(root, 'figma-plugin'), path.join(output, 'figma-plugin'), {recursive:true});
+  const pluginManifest = path.join(output, 'figma-plugin/manifest.json');
+  await fs.writeFile(pluginManifest, require('./package-dist.cjs').releaseFigmaManifest(await fs.readFile(pluginManifest)));
   await copyCepExtension(output);
   await copyMcp(output);
   await fs.writeFile(path.join(output, 'install.cmd'), '@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\\install-aep-component.ps1"\r\nif errorlevel 1 (echo Installation failed. & pause & exit /b 1)\r\necho Installation complete.\r\npause\r\n');

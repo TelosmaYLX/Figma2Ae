@@ -69,7 +69,7 @@ async function check() {
     const original = await fs.readFile(project.project);
     assert.equal(original.subarray(0, 4).toString(), 'RIFX');
 
-    const second = JSON.parse(result(await client.tool('export_aep', {...args, duration: 5, frameRate: 60})));
+    const second = JSON.parse(result(await client.tool('export_aep', {...args, duration: 5, frameRate: 60, preserveImageFilters: true})));
     assert.equal(second.duration, 5);
     assert.equal(second.frameRate, 60);
     assert.equal(second.project, path.join(output, projectName + ' (2)', projectName + ' (2).aep'));

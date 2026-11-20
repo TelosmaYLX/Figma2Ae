@@ -25,7 +25,7 @@ function start(options = {}) {
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
     if (req.method === 'GET' && req.url === '/health') {
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({service: 'f2a-aep', version: 3, aeVersions: AE_VERSIONS})); return;
+      res.end(JSON.stringify({service: 'f2a-aep', version: 3, aeVersions: AE_VERSIONS, preserveImageFilters: true})); return;
     }
     if (req.method !== 'POST' || !['/export', '/open-directory'].includes(req.url)) { res.writeHead(404); res.end(); return; }
     try {
@@ -82,5 +82,6 @@ async function openDirectory(directory) {
     '-File', path.join(__dirname, 'open-aep-directory.ps1'), '-Directory', directory], {windowsHide:true, timeout:15000});
 }
 
-if (require.main === module) start({updateSignal: path.join(__dirname, '..', '.f2a-update-aep')});
+if (require.main === module) start({port: process.argv.includes('--workspace') ? 17366 : 7366,
+  updateSignal: path.join(__dirname, '..', '.f2a-update-aep')});
 module.exports = {start, openDirectory};

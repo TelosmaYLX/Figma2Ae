@@ -304,7 +304,26 @@
   var importQueue = [], importing = false;
   function finishImport(message, failed) {
     flash(message, failed);
-    importQueue.shift(); importing = false; pumpImport();
+    var done = importQueue.shift();
+    if (done && done.cleanGrades) done.cleanGrades();
+    importing = false; pumpImport();
+  }
+  function submitImageImport(job, list, folder) {
+    function submit() { submitImport(job, saveJsonTemp(list, 'images').replace(/\\/g, '/'), folder); }
+    if (!list.some(function (im) { return !!im.imageFilters; })) { submit(); return; }
+    function prepare(duration, frameRate) {
+      require(ext + '/client/figmaImageGrade.js').prepareImport(ext, list, folder, duration, frameRate, function (error, cleanup) {
+        if (error) { finishImport('图片调色导入失败：' + error.message, true); return; }
+        job.cleanGrades = cleanup;
+        try { submit(); } catch (e) { finishImport('图片导入失败：' + e.message, true); }
+      });
+    }
+    if (!job.data.compId) { prepare(job.data.compDuration || 10, job.data.compFrameRate || 30); return; }
+    evalES('(function(){var c=app.project.itemByID(' + job.data.compId + ');return c.duration+","+c.frameRate;})()', function (value) {
+      var timing = String(value).split(',');
+      if (!(Number(timing[0]) > 0 && Number(timing[1]) > 0)) { finishImport('目标合成已关闭', true); return; }
+      prepare(Number(timing[0]), Number(timing[1]));
+    });
   }
   function submitImport(job, imagesPath, folder) {
     var data = job.data;
@@ -373,11 +392,12 @@
           list.push({ file: fname, name: im.name, x: im.x, y: im.y, w: im.w, h: im.h,
                       natW: im.natW, natH: im.natH, scaleMode: im.scaleMode, rasterScale: im.rasterScale || null,
                       imageMatrix: im.imageMatrix || null, maskSource: im.maskSource || null, maskType: im.maskType || null,
+                      imageFilters: im.imageFilters || null,
                       opacity: im.opacity, rotation: im.rotation, matte: im.matte, blend: im.blend,
                       path: im.path, z: im.z, maskId: im.maskId || null,
                       cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch, hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, mergedBlend: !!im.mergedBlend, external: !!im.external });
         }
-        submitImport(job, saveJsonTemp(list, 'images').replace(/\\/g, '/'), lastImageFolder);
+        submitImageImport(job, list, lastImageFolder);
         log("已保存 " + list.length + " 张图片 → " + folder, "ok");
       } catch (e) {
         rememberImageFolder('');

@@ -40,7 +40,8 @@ const files = [
   ...['aep-server.cjs', 'export-aep.cjs', 'open-aep-directory.ps1', 'start-aep-export.ps1',
     'install-aep-launcher.ps1', 'install-mcp.ps1', 'install-mcp-dsh.cjs',
     'install-f2a.ps1', 'install-files.cjs', 'update-f2a.ps1'].map(f => 'scripts/' + f),
-  ...['choose-destination.py', 'packet.cjs', 'requirements.txt', 'writer.py'].map(f => 'scripts/aep/' + f),
+  ...['choose-destination.py', 'packet.cjs', 'requirements.txt', 'writer.py', 'image_grade.py',
+    'image-grade-effects.bin'].map(f => 'scripts/aep/' + f),
 ];
 
 function privacyIssues(buffer, identifiers) {
@@ -56,6 +57,13 @@ function privacyIssues(buffer, identifiers) {
   return rules.filter(([, re]) => texts.some(text => re.test(text))).map(([label]) => label);
 }
 
+function releaseFigmaManifest(source) {
+  const manifest = JSON.parse(source);
+  manifest.name = 'F2A — 导入到 After Effects';
+  manifest.id = 'f2a-ship-to-ae';
+  return Buffer.from(JSON.stringify(manifest, null, 2) + '\n');
+}
+
 async function stagePackage(target) {
   const identifiers = [path.basename(os.homedir()), os.hostname()];
   const entries = files.map(file => [file, file]);
@@ -65,7 +73,8 @@ async function stagePackage(target) {
   }
   const manifest = [];
   for (const [source, file] of entries.sort((a, b) => a[1].localeCompare(b[1]))) {
-    const data = await fs.readFile(path.join(root, source));
+    const input = await fs.readFile(path.join(root, source));
+    const data = file === 'figma-plugin/manifest.json' ? releaseFigmaManifest(input) : input;
     const issues = privacyIssues(data, identifiers);
     if (issues.length) throw new Error('Privacy check failed in ' + file + ': ' + issues.join(', '));
     const destination = path.join(target, file);
@@ -116,4 +125,4 @@ async function build(notesFile) {
 }
 
 if (require.main === module) build(process.argv[2]).catch(error => {console.error(error.message); process.exitCode = 1;});
-module.exports = {files, skillFiles, privacyIssues, stagePackage};
+module.exports = {files, skillFiles, privacyIssues, stagePackage, releaseFigmaManifest};

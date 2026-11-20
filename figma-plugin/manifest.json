@@ -1,12 +1,12 @@
 {
-  "name": "F2A — 导入到 After Effects",
-  "id": "f2a-ship-to-ae",
+  "name": "F2A 工作区开发版",
+  "id": "f2a-ship-to-ae-workspace",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
   "editorType": ["figma"],
   "networkAccess": {
     "allowedDomains": ["*"],
-    "reasoning": "连接本机 F2A 的 AE 导入服务（7365）、AEP 导出服务（7868）和 MCP 服务（7869）。"
+    "reasoning": "连接本机 F2A 的 AE 导入服务（7365）、AEP 导出服务（7366）和 MCP 服务（7367）。"
   }
 }

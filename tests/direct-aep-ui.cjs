@@ -33,7 +33,8 @@ function ui(packet, behavior='success') {
         healthCalls++;
         if(['offline','launch-error','bridge-offline','bridge-old','missing-component'].includes(behavior)||(behavior==='cold-start'&&healthCalls<4))throw new Error('Offline');
         return {ok:true,json:async()=>({service:'f2a-aep',version:behavior==='old-service'?2:3,
-          aeVersions:behavior==='old-version-service'?undefined:['24.0','25.0','26.0']})};
+          aeVersions:behavior==='old-version-service'?undefined:['24.0','25.0','26.0'],
+          preserveImageFilters:behavior!=='old-grade-service'})};
       }
       if(url.endsWith('/aep/start')){
         assert.equal(url,'http://127.0.0.1:7365/aep/start');assert.equal(options.method,'POST');
@@ -72,7 +73,8 @@ function ui(packet, behavior='success') {
       assert.equal(message.convertMasks,true);
       assert.equal(message.rasterGroups,undefined,'No broad hidden rasterization switch');
       for(const [key,id] of Object.entries(rasterControls))assert.equal(message.rasterize[key],elements[id].checked,key+' is independently transmitted');
-      emit({...packet,type:'ship',imageCount:packet.images.length});
+      assert.equal(message.preserveImageFilters,elements['preserve-image-filters'].checked);
+      emit({...packet,type:'ship',preserveImageFilters:message.preserveImageFilters,imageCount:packet.images.length});
       if(behavior==='export-error'){emit({type:'error',message:'Figma error'});finish();return;}
       for(let i=0;i<packet.images.length;i++){
         if(behavior==='missing-image'&&i===0)continue;
@@ -90,6 +92,8 @@ function ui(packet, behavior='success') {
   assert.equal(elements['native-image-masks'].value,'separate','Preserve original images and masks by default');
   assert.equal(elements.nodemode,undefined);assert.equal(elements.convertmask,undefined);
   assert.equal(elements.rastergroups,undefined);
+  assert.equal(elements['preserve-image-filters'].checked,false);
+  if(['image-grade','old-grade-service'].includes(behavior))elements['preserve-image-filters'].checked=true;
   assert.equal(elements.rastertexts,undefined,'Text modes are mutually exclusive');
   for(const id of Object.values(rasterControls))assert.equal(elements[id].checked,true,id+' preserves automatic handling by default');
   if(behavior==='merged-masks')elements['native-image-masks'].value='merge';
@@ -114,6 +118,19 @@ function ui(packet, behavior='success') {
 const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
   const packet=await fixture();
+  const workspace=ui(packet);
+  workspace.emit({type:'selection',count:1,workspacePlugin:true});
+  workspace.elements['export-aep'].onclick();
+  for(let i=0;i<200&&workspace.context.aepBusy;i++)await flush();
+  assert.ok(workspace.requests.some(r=>r.url==='http://127.0.0.1:17366/health'));
+  assert.ok(workspace.requests.some(r=>r.url==='http://127.0.0.1:17366/export'));
+  for(const mode of ['image-grade','old-grade-service']){
+    const h=ui(packet,mode);h.elements['export-aep'].onclick();
+    for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
+    const upload=h.requests.find(r=>r.url.endsWith('/export'));
+    if(mode==='image-grade')assert.equal(JSON.parse(upload.options.body).packet.preserveImageFilters,true);
+    else {assert.equal(upload,undefined);assert.match(h.elements.msg.textContent,/保留图片调色需要更新/);}
+  }
   for(const behavior of ['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','old-version-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();

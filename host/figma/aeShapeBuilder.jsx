@@ -1928,15 +1928,15 @@ var AEShapeBuilder = (function () {
   // Figma crops a picture with the frame it sits in (circle, rounded card, or simply a box
   // the image overflows). AE has no crop on footage, so the frame is rebuilt as a shape layer
   // and used as an ALPHA track matte over the full-resolution footage.
-  function createImageFootage(comp, im, folder) {
+  function createImageFootage(comp, im, folder, gradeSource) {
     // ExtendScript decodes URI escapes even when given a filesystem path.
     var f = new File(File.encode(folder + "/" + im.file));
     if (!f.exists) throw new Error("IMG missing " + im.file);
 
     // Reuse footage the project already holds for this exact file — importing the same
     // picture again on every run piled up duplicates in the project panel.
-    var item = null;
-    try {
+    var item = gradeSource || null;
+    if (!item) try {
       for (var pi = 1; pi <= app.project.numItems; pi++) {
         var it = app.project.item(pi);
         if (it instanceof FootageItem && it.mainSource && it.mainSource.file &&
@@ -1958,7 +1958,7 @@ var AEShapeBuilder = (function () {
     // Baked PNGs already carry the Figma scale. Integer pixel padding must not resize them.
     var sc = im.rasterScale ? 1 / im.rasterScale : (im.scaleMode === 'FIT') ? Math.min(sx, sy) : Math.max(sx, sy);
     var tg = lyr.property("ADBE Transform Group");
-    tg.property("ADBE Anchor Point").setValue([nw / 2, nh / 2, 0]);
+    tg.property("ADBE Anchor Point").setValue([gradeSource ? item.width / 2 : nw / 2, gradeSource ? item.height / 2 : nh / 2, 0]);
     tg.property("ADBE Position").setValue([fx0, fy0, 0]);
     tg.property("ADBE Scale").setValue([sc * 100, sc * 100, 100]);
     if (im.rotation) { try { tg.property("ADBE Rotate Z").setValue(im.rotation); } catch (er) {} }
@@ -2031,11 +2031,27 @@ var AEShapeBuilder = (function () {
     var made = 0;
     beginUndo("Figma -> Images");
     try {
+      var gradeSources = {}, gradeProject;
+      for (var gi = 0; gi < images.length; gi++) {
+        if (images[gi].gradeProject) { gradeProject = images[gi].gradeProject; break; }
+      }
+      if (gradeProject) {
+        var gradeFile = new File(File.encode(gradeProject));
+        var imported = app.project.importFile(new ImportOptions(gradeFile));
+        (function indexGrades(dir) {
+          for (var j = 1; j <= dir.numItems; j++) {
+            var child = dir.item(j);
+            if (child instanceof FolderItem) indexGrades(child);
+            else if (child instanceof CompItem) gradeSources[child.name] = child;
+          }
+        })(imported);
+      }
       for (var i = 0; i < images.length; i++) {
         try {
           var im = images[i];
           if (im.maskSource) { made++; continue; }
-          var lyr = createImageFootage(comp, im, folder);
+          if (im.gradeComp && !gradeSources[im.gradeComp]) throw Error("找不到图片调色合成");
+          var lyr = createImageFootage(comp, im, folder, im.gradeComp && gradeSources[im.gradeComp]);
           // References stay outside the artwork hierarchy and never consume image slots.
           if (im.reference) {
             lyr.enabled = false; lyr.moveToBeginning(); _referenceLayers.push(lyr);

@@ -32,8 +32,14 @@ async function exportAep(packet, directory, options = {}) {
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
   await fs.mkdir(directory, {recursive: true});
   const input = path.join(directory, 'packet.json');
-  await fs.writeFile(input, JSON.stringify(model));
+  let gradeTables;
   try {
+    if (model.images.some(image => image.imageFilters)) {
+      gradeTables = await fs.mkdtemp(path.join(os.tmpdir(), 'f2a-grade-'));
+      model.gradeTables = gradeTables;
+      require('../client/figmaImageGrade.js').writeTables(gradeTables, model.images);
+    }
+    await fs.writeFile(input, JSON.stringify(model));
     await run(pythonPath(options), [path.join(__dirname, 'aep/writer.py'), input, directory],
       {windowsHide: true, maxBuffer: 8 * 1024 * 1024, signal: options.signal, env: {...process.env, PYTHONUTF8: '1'}});
   } catch (error) {
@@ -46,7 +52,8 @@ async function exportAep(packet, directory, options = {}) {
     failure.nodeId = issue?.nodeId || null;
     throw failure;
   } finally {
-    await fs.unlink(input);
+    await fs.rm(input, {force: true});
+    if (gradeTables) await fs.rm(gradeTables, {recursive:true, force:true});
   }
   const result = JSON.parse(await fs.readFile(path.join(directory, 'report.json'), 'utf8'));
   result.totalMs = Math.round(performance.now() - started);

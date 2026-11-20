@@ -181,8 +181,12 @@
   <details id="advanced-options">
     <summary>高级选项</summary>
     <div class="advanced-group">
+      <div class="advanced-label">图片填充</div>
+      <label class="option option-stack"><input type="checkbox" id="preserve-image-filters"><span>保留图片调色属性<small>在 AE 图层的「基本属性」中调色或打关键帧。</small></span></label>
+    </div>
+    <div class="advanced-group">
       <div class="advanced-label">允许自动转为图片</div>
-      <label class="option option-stack"><input type="checkbox" id="raster-effects" checked><span>模糊、阴影和特殊效果<small>投影、内阴影、图层/背景模糊、玻璃、噪点、纹理、着色器，以及图片曝光、对比度等调色。</small></span></label>
+      <label class="option option-stack"><input type="checkbox" id="raster-effects" checked><span>模糊、阴影和特殊效果<small>投影、内阴影、图层/背景模糊、玻璃、噪点、纹理、着色器，以及未保留的图片调色。</small></span></label>
       <label class="option option-stack"><input type="checkbox" id="raster-paints" checked><span>特殊填充与描边<small>角度/菱形渐变、视频静帧、图案、着色器。</small></span></label>
       <label class="option option-stack"><input type="checkbox" id="raster-image-crops" checked><span>图片裁剪<small>固定自定义裁剪；独立蒙版中的原图继续保留。</small></span></label>
       <label class="option option-stack"><input type="checkbox" id="raster-masks" checked><span>复杂蒙版<small>图片、渐变或效果蒙版；图片分离时只渲染蒙版。</small></span></label>
@@ -204,6 +208,7 @@
 </div>
 <script>
   var PORT = 7365;
+  var workspacePlugin = false, aepPort = 7366;
   var ws = null, connected = false, selCount = 0, imgAsm = null, exporting = false, blendNotice = '';
   var frameSelected = false;
   var aepMode = false, aepBusy = false, aepPacket = null, aepResultId = null, openingFolder = false;
@@ -241,7 +246,7 @@
     };
   }
   var CHECKBOX_SETTINGS = [
-    'organize', 'enableclip', 'ignorehidden',
+    'organize', 'enableclip', 'ignorehidden', 'preserve-image-filters',
     'raster-effects', 'raster-paints', 'raster-image-crops', 'raster-masks', 'raster-booleans',
     'mergeblends', 'rasterallgroups', 'rasterinstances'
   ];
@@ -324,7 +329,7 @@
     $('image-folder-choose').disabled = busy || !connected;
     $('locate-layer').disabled = busy;
     $('open-aep-folder').disabled = busy || openingFolder;
-    var settings = ['aep-version','aep-duration','aep-fps','organize','enableclip','ignorehidden','text-mode','native-image-masks','raster-scale','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends','rasterallgroups','rasterinstances'];
+    var settings = CHECKBOX_SETTINGS.concat(SELECT_SETTINGS);
     for (var i = 0; i < settings.length; i++) $(settings[i]).disabled = busy;
     $('export-aep').disabled = busy || selCount === 0;
     $('mark-raster').disabled = $('unmark-raster').disabled = busy || selCount === 0;
@@ -350,8 +355,12 @@
       return response.json().then(function (result) { if (!response.ok) throw new Error(result.error); return result; });
     }).catch(function (error) { throw new Error(error instanceof SyntaxError || error instanceof TypeError ? '请重新打开 AE 的 F2A 面板，再选择图片保存位置。' : '图片保存位置不可用：' + error.message); });
   }
-  function readImageFolder() {
-    return imageFolderRequest('GET').then(function (result) { showImageFolder(result.directory); return imageFolder; });
+  function readImageFolder(forImport) {
+    return imageFolderRequest('GET').then(function (result) {
+      if (forImport && $('preserve-image-filters').checked && !result.preserveImageFilters)
+        throw new Error('保留图片调色需要更新并重新打开 AE 的 F2A 面板。');
+      showImageFolder(result.directory); return imageFolder;
+    });
   }
   function selectImageFolder() {
     return imageFolderRequest('POST').then(function (result) {
@@ -403,6 +412,7 @@
     var textMode = $('text-mode').value;
     return { target: direct ? 'aep' : 'ae', useNodes: true, organize: $('organize').checked,
       rasterScale: Number($('raster-scale').value), nativeImageMasks: $('native-image-masks').value === 'separate',
+      preserveImageFilters: $('preserve-image-filters').checked,
       ignoreHidden: $('ignorehidden').checked, convertMasks: true,
       rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked,
         masks: $('raster-masks').checked, booleans: $('raster-booleans').checked},
@@ -415,6 +425,7 @@
       return false;
     }
     var params = message.params || {}, settings = exportSettings(true);
+    if (typeof params.preserveImageFilters === 'boolean') settings.preserveImageFilters = params.preserveImageFilters;
     if (params.textMode) {
       settings.outlineTexts = params.textMode === 'vector';
       settings.rasterTexts = params.textMode === 'png';
@@ -441,17 +452,20 @@
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;
     folderBusy = true; updateButton();
-    readImageFolder().then(function (directory) { return directory || selectImageFolder(); }).then(function (directory) {
+    readImageFolder(true).then(function (directory) { return directory || selectImageFolder(); }).then(function (directory) {
       folderBusy = false; updateButton();
       if (!directory) { say('已取消导入。'); return; }
       beginExport(false);
     }).catch(function (error) { folderBusy = false; updateButton(); say(error.message, 'err'); });
   };
   function aepHealth() {
-    return fetch('http://127.0.0.1:7366/health').then(function (r) {
-      if (!r.ok) throw new Error('AEP service unavailable');
-      return r.json();
-    });
+    function probe(port) {
+      return fetch('http://127.0.0.1:' + port + '/health').then(function (r) {
+        if (!r.ok) throw new Error('AEP service unavailable');
+        return r.json();
+      }).then(function (info) { aepPort = port; return info; });
+    }
+    return workspacePlugin ? probe(17366).catch(function () { return probe(7366); }) : probe(7366);
   }
   function ensureAepService() {
     return aepHealth().catch(function () {
@@ -477,6 +491,7 @@
     }).then(function (info) {
       if (info.service !== 'f2a-aep' || info.version !== 3) throw new Error('AEP 导出服务版本不匹配，请重启服务。');
       if (!info.aeVersions || info.aeVersions.indexOf($('aep-version').value) === -1) throw new Error('请更新 AEP 导出组件后重启服务。');
+      if ($('preserve-image-filters').checked && !info.preserveImageFilters) throw new Error('保留图片调色需要更新并重启 AEP 导出组件。');
     });
   }
   $('export-aep').onclick = function () {
@@ -489,7 +504,7 @@
     });
   };
   function aepRequest(route, body) {
-    return fetch('http://127.0.0.1:7366' + route, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(function (response) {
+    return fetch('http://127.0.0.1:' + aepPort + route, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(function (response) {
       return response.json().then(function (result) {
         if (!response.ok) { var error = new Error(result.error); error.nodeId = result.nodeId || null; throw error; }
         return result;
@@ -683,7 +698,7 @@
     if (msg.type === 'mcp-busy') { mcpExecuting = msg.busy; updateButton(); return; }
     if (msg.exportCommandId && (!agentAep || agentAep.id !== msg.exportCommandId)) return;
     if (msg.type === 'image-abort') msg = {type:'error',message:'图片导出失败，已取消导出'};
-    if (msg.type === 'selection') { selCount = msg.count; frameSelected = msg.frameSelected; updateButton(); }
+    if (msg.type === 'selection') { selCount = msg.count; frameSelected = msg.frameSelected; workspacePlugin = !!msg.workspacePlugin; updateButton(); }
     if (msg.type === 'locate-result') {
       locatingLayer = false; updateButton();
       if (!msg.ok) say(msg.message, 'err');
@@ -757,7 +772,7 @@
       if (aepMode) {
         aepPacket = {name: msg.name, frame: msg.frame, svg: msg.svg, nodes: msg.nodes, texts: msg.texts,
           effects: msg.effects, shift: msg.shift, containers: msg.containers, organize: msg.organize,
-          imageCount: msg.imageCount || 0, images: []};
+          preserveImageFilters: msg.preserveImageFilters === true, imageCount: msg.imageCount || 0, images: []};
         if (!aepPacket.imageCount) finishAep();
         return;
       }

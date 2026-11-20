@@ -565,14 +565,19 @@ class Writer:
         asset.write_bytes(base64.b64decode(item['data'], validate=True))
         footage = self.project.import_file(ImportOptions(str(asset)))
         footage.parent_folder = self.assets
-        layer = context['comp'].add(footage)
+        source = footage
+        if item.get('imageFilters'):
+            from image_grade import build_grade
+            source = build_grade(self.precomps, footage, item['imageFilters'], item['gradeId'],
+                                 Path(self.data['gradeTables']), self.data['duration'], self.data['frameRate'])
+        layer = context['comp'].add(source)
         self.common(layer, item)
         nw, nh = footage.width, footage.height
         width, height = item.get('cw', item['w']), item.get('ch', item['h'])
         scales = [width / nw, height / nh]
         scale = 1 / item['rasterScale'] if item.get('rasterScale') else min(scales) if item.get('scaleMode') == 'FIT' else max(scales)
         cx, cy = item.get('cx', item['x'] + item['w'] / 2), item.get('cy', item['y'] + item['h'] / 2)
-        layer.transform.anchor_point.value = [nw / 2, nh / 2, 0]
+        layer.transform.anchor_point.value = [source.width / 2, source.height / 2, 0]
         layer.transform.position.value = [cx - context['x'], cy - context['y'], 0]
         layer.transform.scale.value = [scale * 100, scale * 100, 100]
         layer.transform.rotation.value = item.get('rotation', 0)
