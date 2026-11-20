@@ -27,6 +27,8 @@ function ui(packet, behavior='success') {
   for (const [id, caption] of [['aep-duration','合成时长'],['aep-fps','帧率'],['aep-version','AEP 版本']]) {
     assert.match(compGroup[0], new RegExp('<label for="' + id + '">' + caption + '</label>'), id + ' has a small caption above it');
   }
+  assert.match(compGroup[0], /<option value="4">4 秒<\/option>/, 'a 4-second composition can be exported');
+  assert.equal(/\.aep-export\s*\{[^}]*background/.test(html), false, 'the export action inherits the import action accent fill');
   assert.match(compGroup[0], /<button id="export-aep"[^>]*>导出 AEP<\/button>/, 'the export action is labelled 导出 AEP');
   assert.equal(/<legend>合成<\/legend>/.test(html), false, 'the composition panel has no visible heading');
   assert.equal(html.includes('用于导出 AEP，或未打开合成时新建合成。'), false, 'the panel has no hint line');
@@ -242,7 +244,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
     elements['text-mode'].value = 'vector';
     elements['native-image-masks'].value = 'separate';
     elements['raster-scale'].value = '1';
-    elements['aep-duration'].options = ['1','2','3','5','10','15','20','30','60'].map(v => ({value: v}));
+    elements['aep-duration'].options = ['1','2','3','4','5','10','15','20','30','60'].map(v => ({value: v}));
     elements['aep-fps'].options = ['15','24','25','30','50','60','120'].map(v => ({value: v}));
     const uiWindow = { onmessage() {} };
     const figma = {

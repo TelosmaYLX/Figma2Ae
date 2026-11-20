@@ -2,14 +2,14 @@
 <!-- Only the UI iframe can do network; the main thread (code.js) exports SVG and posts it here. -->
 <!-- Plain HTML; no Tailwind or component library. Use the existing :root tokens and dark theme. -->
 <!-- MCP is a secondary status line. Reuse .status/.dot, existing text colors and 8px gaps;
-     importing remains the only primary action. No extra setup controls in the normal flow. -->
-<!-- Refactoring UI constraints (§2.1, §2.8, §3.6): import is primary; AEP export is secondary.
-     The AEP action lives at the bottom of one compact composition panel: three labelled columns
-     (duration, frame rate, target project version) on top, then the full-width 导出 AEP button, so
-     settings and action read as one group. The panel has no visible heading or hint line; each
-     control keeps its own 11px caption. Import and export stay adjacent. Layer tools are open
-     beneath the panel; common settings follow, with advanced settings collapsed. Keep the existing
-     dark tokens, 8px control gaps/radii, 12px panel padding and 16px section spacing.
+     importing remains the main workflow into AE. No extra setup controls in the normal flow. -->
+<!-- Refactoring UI constraints (§2.1, §2.8, §3.6): the AEP action shares the import button's accent
+     fill so the two adjacent actions read alike, and lives at the bottom of one compact composition
+     panel: three labelled columns (duration, frame rate, target project version) on top, then the
+     full-width 导出 AEP button, so settings and action read as one group. The panel has no visible
+     heading or hint line; each control keeps its own 11px caption. Layer tools are open beneath the
+     panel; common settings follow, with advanced settings collapsed. Keep the existing dark tokens,
+     8px control gaps/radii, 12px panel padding and 16px section spacing.
      Image and coordinate markers use paired secondary buttons with the existing --surface fill and --line edge.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
@@ -22,12 +22,9 @@
   button { width:100%; padding:10px; border:0; border-radius:8px; background:var(--accent); color:#1a1a1a;
            font-weight:600; cursor:pointer; }
   button:disabled,select:disabled { opacity:.4; cursor:not-allowed; }
-  /* The AEP action sits on the composition panel, so it takes the same raised fill and hairline
-     edge as the layer tools buttons instead of the panel fill it used beside the panel. */
-  .aep-export { margin-top:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); }
-  .aep-export:hover:not(:disabled) { background:var(--surface-hover); border-color:var(--line-hover); }
-  .aep-export:active:not(:disabled) { background:var(--surface-active); }
-  .aep-export:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  /* The export action shares the import button's accent fill; only its spacing from the
+     composition fields is local. */
+  .aep-export { margin-top:8px; }
   .image-folder { margin-bottom:12px; }
   .image-folder-label { margin-bottom:4px; color:var(--text); }
   .image-folder-row { display:flex; align-items:flex-start; gap:8px; }
@@ -96,6 +93,7 @@
           <option value="1">1 秒</option>
           <option value="2">2 秒</option>
           <option value="3">3 秒</option>
+          <option value="4">4 秒</option>
           <option value="5">5 秒</option>
           <option value="10" selected>10 秒</option>
           <option value="15">15 秒</option>
