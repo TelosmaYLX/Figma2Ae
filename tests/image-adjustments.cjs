@@ -197,9 +197,16 @@ async function check() {
   assert.equal(photoLayer.bicubic, undefined);
   assert.equal(photoLayer.name, keep.image.name);
   assert.equal(photoLayer.opacity, .84);
+  assert.equal(photoLayer.matte, null, 'A rectangular fill fitting the source needs no crop matte');
   assert.equal(keep.reads(), 1);
   assert.equal(keep.renders(), 0);
   assert.ok(editable.images.some(item => item.maskSource === photoLayer.maskId && !item.imageFilters));
+
+  const cover = harness(group('Banner', [photo('Wide photo', {contrast:.25})]));
+  cover.figma.getImageByHash = () => ({...keep.h.figma.getImageByHash(),
+    getSizeAsync:async() => ({width:120,height:60})});
+  const fullWidth = (await cover.run(true,true,true,false,{target:'aep',preserveImageFilters:true})).images[0];
+  assert.equal(fullWidth.matte.kind, 'rect', 'A wider FILL source still clips to its frame');
 
   const cropped = photo('裁剪', {contrast:.25});
   Object.assign(cropped.fills[0], {scaleMode:'CROP', imageTransform:[[.5,0,.25],[0,.75,.1]]});

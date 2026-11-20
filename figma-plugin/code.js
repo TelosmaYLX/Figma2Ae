@@ -2253,6 +2253,9 @@ async function shipImages(images, commandId) {
     if (im.imageFilters) {
       meta.imageFilters = {};
       _imageAdjustmentNames.forEach(function (key) { meta.imageFilters[key] = im.imageFilters[key] || 0; });
+      // A rectangular FILL at the source aspect ratio has no overflow to crop.
+      if (im.scaleMode === 'FILL' && meta.matte && meta.matte.kind === 'rect' && !meta.matte.r &&
+          natW > 0 && natH > 0 && Math.abs(im.cw - im.ch * natW / natH) < 0.00001) meta.matte = null;
     }
     if (_bicubicExport && !(im.preserveSource && !im.rasterScale)) {
       var factor = im.rasterScale ? 0.5 : _rasterScale * (im.scaleMode === 'FIT'

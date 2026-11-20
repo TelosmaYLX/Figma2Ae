@@ -549,14 +549,24 @@ class Writer:
         return layer
 
     def image(self, context, item, index):
-        if item.get('matte') and (item.get('maskId') or item.get('maskSource')):
-            crop_comp = self.comp(item['name'] + ' crop', context['comp'].width, context['comp'].height, self.precomps)
-            self.image({**context, 'comp': crop_comp}, {**item, 'maskId': None, 'maskSource': None, 'blend': 'NORMAL'}, index)
-            layer = context['comp'].add(crop_comp)
-            self.transform(layer)
-            self.common(layer, {**item, 'opacity': 1})
-            self.counts['precomps'] += 1
-            return layer
+        filters = item.get('imageFilters')
+        wrap_crop = item.get('matte') and (filters or item.get('maskId') or item.get('maskSource'))
+        if not wrap_crop:
+            return self.image_layer(context, item, index)
+        crop_comp = self.comp(item['name'] + ' crop', context['comp'].width, context['comp'].height, self.precomps)
+        inner = self.image_layer({**context, 'comp': crop_comp}, {**item, 'blend': 'NORMAL'}, index)
+        if filters:
+            from image_grade import bind_grade_controls, publish_inputs
+            publish_inputs(crop_comp, inner)
+        layer = context['comp'].add(crop_comp)
+        if filters:
+            bind_grade_controls(layer, filters)
+        self.transform(layer)
+        self.common(layer, {**item, 'opacity': 1})
+        self.counts['precomps'] += 1
+        return layer
+
+    def image_layer(self, context, item, index):
         ext = item.get('ext', 'png').lower()
         if ext not in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
             raise ValueError('不支持的图片格式：' + ext)
@@ -567,10 +577,12 @@ class Writer:
         footage.parent_folder = self.assets
         source = footage
         if item.get('imageFilters'):
-            from image_grade import build_grade
+            from image_grade import bind_grade_controls, build_grade
             source = build_grade(self.precomps, footage, item['imageFilters'], item['gradeId'],
                                  Path(self.data['gradeTables']), self.data['duration'], self.data['frameRate'])
         layer = context['comp'].add(source)
+        if item.get('imageFilters'):
+            bind_grade_controls(layer, item['imageFilters'])
         self.common(layer, item)
         nw, nh = footage.width, footage.height
         width, height = item.get('cw', item['w']), item.get('ch', item['h'])
@@ -718,4 +730,6 @@ def main():
 
 
 if __name__ == '__main__':
+    # The bundled Python's ._pth omits the script directory and its grade module.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
     main()

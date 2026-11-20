@@ -1925,9 +1925,21 @@ var AEShapeBuilder = (function () {
   }
 
   // ---- IMAGES: real footage + a shape track matte when the picture is cropped ----
-  // Figma crops a picture with the frame it sits in (circle, rounded card, or simply a box
-  // the image overflows). AE has no crop on footage, so the frame is rebuilt as a shape layer
-  // and used as an ALPHA track matte over the full-resolution footage.
+  function bindImageGradeControls(layer, filters, publishComp) {
+    var keys = ['exposure','contrast','saturation','temperature','tint','highlights','shadows'];
+    var labels = ['曝光','对比度','饱和度','白平衡','着色','高光','阴影'];
+    for (var i = 0; i < keys.length; i++) {
+      var label = labels[i], input = '输入 · ' + label;
+      var fx = layer.property('ADBE Effect Parade').addProperty('ADBE Slider Control');
+      fx.name = label;
+      var slider = fx.property(1);
+      slider.setValue((filters[keys[i]] || 0) * 100);
+      layer.essentialProperty.property(input).expression = 'thisLayer.effect("' + label + '")(1);';
+      if (publishComp && !slider.addToMotionGraphicsTemplateAs(publishComp, input))
+        throw new Error('无法连接图片调色属性 ' + label);
+    }
+  }
+
   function createImageFootage(comp, im, folder, gradeSource) {
     // ExtendScript decodes URI escapes even when given a filesystem path.
     var f = new File(File.encode(folder + "/" + im.file));
@@ -2012,6 +2024,14 @@ var AEShapeBuilder = (function () {
       try {
         var cropIndices = [mt.index, lyr.index];
         var cropComp = comp.layers.precompose(cropIndices, (im.name || "Image") + " crop", true);
+        if (gradeSource) {
+          for (var ci = 1; ci <= cropComp.numLayers; ci++) {
+            if (cropComp.layer(ci).source === gradeSource) {
+              bindImageGradeControls(cropComp.layer(ci), im.imageFilters, cropComp);
+              break;
+            }
+          }
+        }
         var cropLayer = null;
         for (var cp = 1; cp <= comp.numLayers; cp++) {
           if (comp.layer(cp).source === cropComp) { cropLayer = comp.layer(cp); break; }
@@ -2022,6 +2042,7 @@ var AEShapeBuilder = (function () {
         mt = null;
       } catch (eipc) { throw new Error("IMG crop precomp: " + String(eipc)); }
     }
+    if (gradeSource) bindImageGradeControls(lyr, im.imageFilters);
     return lyr;
   }
 
@@ -2031,20 +2052,28 @@ var AEShapeBuilder = (function () {
     var made = 0;
     beginUndo("Figma -> Images");
     try {
-      var gradeSources = {}, gradeProject;
+      var gradeSources = {}, gradeProject, missingGrades = 0;
       for (var gi = 0; gi < images.length; gi++) {
-        if (images[gi].gradeProject) { gradeProject = images[gi].gradeProject; break; }
+        if (images[gi].gradeProject && gradeSources[images[gi].gradeComp] === undefined) {
+          gradeProject = images[gi].gradeProject;
+          gradeSources[images[gi].gradeComp] = null;
+          missingGrades++;
+        }
       }
-      if (gradeProject) {
-        var gradeFile = new File(File.encode(gradeProject));
-        var imported = app.project.importFile(new ImportOptions(gradeFile));
-        (function indexGrades(dir) {
-          for (var j = 1; j <= dir.numItems; j++) {
-            var child = dir.item(j);
-            if (child instanceof FolderItem) indexGrades(child);
-            else if (child instanceof CompItem) gradeSources[child.name] = child;
+      // Reusing a prepared source also keeps one owner for its expression links.
+      function indexGrades(items) {
+        for (var j = 1; j <= items.numItems && missingGrades; j++) {
+          var child = items.item(j);
+          if (child instanceof CompItem && gradeSources[child.name] === null) {
+            gradeSources[child.name] = child;
+            missingGrades--;
           }
-        })(imported);
+        }
+      }
+      if (missingGrades) indexGrades(app.project);
+      if (missingGrades) {
+        app.project.importFile(new ImportOptions(new File(File.encode(gradeProject))));
+        indexGrades(app.project);
       }
       for (var i = 0; i < images.length; i++) {
         try {

@@ -44,7 +44,7 @@ Windows 分发包使用本机的 Node.js 20+，MCP 依赖已打包。
 
 更新 F2A 后重连 `f2a`。首次调用 `ae_status` 会安装随包提供的 Surehand 扩展。按提示重启 AE 后再次调用。开着多个 AE 实例时，可用 `ae_status` 的 `instance` 参数选择目标版本或桥接端口。
 
-1. 在 Figma 打开 F2A 并选中画框或图层。调用 `export_aep`，传入 `.aep` 的绝对路径 `destination`。F2A 会创建同名目录，附带 `Assets` 和 `report.json`。遇到同名目录时自动编号。工具沿用面板设置，可用 `textMode`、`aeVersion`、`duration` 和 `frameRate` 分别覆盖文字模式、工程版本、合成时长（秒）和帧率。传入 `preserveImageFilters: true` 可在 AE 图片图层的「基本属性」中继续调色。
+1. 在 Figma 打开 F2A 并选中画框或图层。调用 `export_aep`，传入 `.aep` 的绝对路径 `destination`。F2A 会创建同名目录，附带 `Assets` 和 `report.json`。遇到同名目录时自动编号。工具沿用面板设置，可用 `textMode`、`aeVersion`、`duration` 和 `frameRate` 分别覆盖文字模式、工程版本、合成时长（秒）和帧率。传入 `preserveImageFilters: true` 后，选中 AE 中的图片图层，即可在「效果控件」里调色或打关键帧。
 2. 将返回的 `project` 路径交给 `ae_open_project`，用 `compositionId` 查看主合成的图层。通过 `ae_get_comp_info` 查看预合成图层的 `source.id`，可继续查找其中的文字、形状和素材层。已有的 AE 工程可用 `ae_list_comps` 查找合成 ID。
 3. 用下面的工具添加动画，并通过 `ae_render_frame` 预览。对于逐字动画，在导出时指定 `textMode: "editable"`，并确认目标在 AE 中是原生文字层。
 4. 用 `ae_save_project` 保存可编辑的 AEP。调用 `ae_render_mp4`，传入主合成 ID、MP4 路径和帧范围。省略帧范围时使用工作区。工具使用本机 H.264 模板，可用 `ae_render_jobs` 查看进度。

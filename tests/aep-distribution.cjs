@@ -9,6 +9,7 @@ const {fixture:nestedMasks} = require('./nested-image-masks.cjs');
 const {fixture:instanceCopies} = require('./export-instances.cjs');
 const {fixture:strokeStyles} = require('./stroke-styles.cjs');
 const {fixture:outlinedStrokes} = require('./outlined-dashes.cjs');
+const {gradePacket, inspect:inspectGrade} = require('./editable-image-grade.cjs');
 const run = promisify(execFile);
 
 async function check() {
@@ -31,6 +32,7 @@ async function check() {
   const parent = path.join(testRoot,'导出 位置');
   await fs.mkdir(parent);
   const child = spawn(node, ['-e', "const s=require(process.argv[1]).start({port:0,quiet:true,chooseDestination:async()=>process.argv[2]});s.on('listening',()=>process.stdout.write('PORT:'+s.address().port+'\\n'));", path.join(target,'scripts/aep-server.cjs'), path.join(parent,'自定义 工程')], {env,windowsHide:true,stdio:['ignore','pipe','pipe']});
+  const serviceClosed = new Promise(resolve => child.once('close',resolve));
   let stderr='';child.stderr.on('data',part=>{stderr+=part;});
   try {
     const port = await new Promise((resolve,reject)=>{
@@ -76,7 +78,7 @@ async function check() {
       const styleResponse=await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:styled.packet})});
       assert.equal(styleResponse.status,200,await styleResponse.clone().text());
       const styledResult=await styleResponse.json();assert.equal(styledResult.counts.texts,5);
-      if(thin)assert.equal(styledResult.counts.precomps,8);
+      if(thin)assert.equal(styledResult.counts.precomps,7);
       const styleModel=path.join(testRoot,thin?'thin-stroke-model.json':'stroke-model.json');await fs.writeFile(styleModel,JSON.stringify(styled.model));
       await run(python,[path.join(root,'tests/check-stroke-styles.py'),styledResult.project,styleModel],{env,windowsHide:true});
       styleResults.push(styledResult);
@@ -86,11 +88,17 @@ async function check() {
     assert.equal(outlinedResponse.status,200,await outlinedResponse.clone().text());
     const outlinedResult=await outlinedResponse.json();assert.equal(outlinedResult.counts.texts,0);
     await run(python,[path.join(root,'tests/check-outlined-dashes.py'),outlinedResult.project],{env,windowsHide:true});
+    const grade = gradePacket();
+    const gradedResponse = await fetch(base+'/export',{method:'POST',body:JSON.stringify({packet:grade})});
+    assert.equal(gradedResponse.status,200,await gradedResponse.clone().text());
+    const graded = await gradedResponse.json();
+    await run(python,['-c',inspectGrade,graded.project,grade.name],{env,windowsHide:true});
     await fs.writeFile(path.join(testRoot,'report.json'),JSON.stringify({passed:true,isolatedPath:true,relocated:true,cleanVm:false,runtime,result,nativeResult,nestedResult,instanceResult,styleResult:styleResults[0],thinStyleResult:styleResults[1],outlinedResult},null,2));
     console.log('PASS: relocated Windows package, no Node/Python on PATH, isolated Python/Tcl, bundled HTTP service and real AEP folder');
     console.log(process.env.F2A_KEEP_DISTRIBUTION ? 'kept package copy: ' + testRoot : 'removed the 170 MB package copy (set F2A_KEEP_DISTRIBUTION=1 to keep it)');
   } finally {
     child.kill();
+    await serviceClosed;
     if (!process.env.F2A_KEEP_DISTRIBUTION) await fs.rm(testRoot, {recursive: true, force: true});
   }
 }
