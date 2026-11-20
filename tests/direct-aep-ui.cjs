@@ -52,6 +52,7 @@ function ui(packet, behavior='success') {
   assert.ok(imageGroup, 'image settings have their own group');
   assert.match(imageGroup[0], /<div class="option-spaced">\s*<label class="option"><input[^>]*id="preserve-image-filters"[^>]*> 保留图片调色属性<\/label>\s*<div class="option-hint">将给存在调色属性的图片增加 AE 调色滑块。<\/div>/, 'colour preservation sits in the image group with its caption aligned to the group hint');
   assert.match(html, /\.option-hint \{[^}]*margin-top:4px/, 'the caption keeps a compact gap under its option');
+  assert.match(html, /select:focus,select:focus-visible \{ outline:none; \}/, 'dropdowns no longer draw the accent focus ring');
   assert.equal(html.includes('在 AE 图片图层的「效果控件」中调色或打关键帧。'), false, 'the old advanced caption is gone');
   assert.equal(html.includes('图片填充'), false, 'the empty advanced image group is gone');
   assert.ok(html.indexOf('id="preserve-image-filters"') < html.indexOf('id="advanced-options"'), 'the image option no longer lives under advanced options');
