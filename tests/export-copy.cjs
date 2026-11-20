@@ -64,7 +64,36 @@ async function run({failReference=false,failClone=false,failPng=false,multi=fals
     assert.equal(h.messages.some(m=>m.type==='images-done'),!failPng);
   }
 }
+async function checkFractionalReference() {
+  const box = {x:14788,y:3453,width:569.08,height:341.85};
+  const geometry = {width:box.width,height:box.height,absoluteBoundingBox:box,
+    absoluteRenderBounds:box,absoluteTransform:[[1,0,box.x],[0,1,box.y]]};
+  const baked = group('*Raster', [node('RECTANGLE','Artwork',geometry)], geometry);
+  const frame = node('FRAME','Photo',{...geometry,children:[baked],clipsContent:true});
+  const h = harness(frame);
+  const createFrame = h.figma.createFrame;
+  h.figma.createFrame = () => {
+    const canvas = createFrame();
+    const render = canvas.exportAsync;
+    canvas.exportAsync = function (options) {
+      if (!options.useAbsoluteBounds) return render.call(this, options);
+      const bytes = Buffer.alloc(25);
+      bytes[0] = 0x89; bytes[1] = 0x50;
+      bytes.writeUInt32BE(this.width * options.constraint.value,16);
+      bytes.writeUInt32BE(this.height * options.constraint.value,20);
+      return bytes;
+    };
+    return canvas;
+  };
+  const {images, references} = await h.run(true,true,true,false,{target:'aep'});
+  assert.equal(images.length,1);
+  assert.equal(references.length,1);
+  const placement = im => [im.x,im.y,im.w,im.h,im.cx,im.cy,im.natW,im.natH];
+  assert.deepEqual(placement(images[0]),[0,0,570,342,285,171,570,342]);
+  assert.deepEqual(placement(references[0]),placement(images[0]));
+}
 (async()=>{
   await run();await run({multi:true});await run({failReference:true});await run({failClone:true});await run({multi:true,failClone:2});await run({failPng:true});
-  console.log('PASS: untouched originals and ancestors, reference before cloning, multi-selection, hidden references, whole-copy cleanup on success and failures');
+  await checkFractionalReference();
+  console.log('PASS: untouched originals and ancestors, hidden references aligned to the raster grid, multi-selection and cleanup');
 })().catch(e=>{console.error(e);process.exitCode=1;});

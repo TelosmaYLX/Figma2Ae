@@ -1407,7 +1407,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       transforms.push(original.absoluteTransform.map(function (row) { return row.slice(); }));
       sizes.push({ width: original.width, height: original.height });
       var reference = _rasterMeta(original, original, false);
-      try { reference.rasterBytes = await original.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } }); }
+      // Use the artwork's pixel grid so a fractional bound does not shift the guide.
+      try { reference.rasterBytes = await _exportRasterPng(reference); }
       catch (referenceError) { throw _layerError(original, '图层「' + original.name + '」原图导出失败：' + referenceError.message); }
       delete reference.rasterNode; delete reference.rasterBounds;
       reference.name += '_原图对照'; reference.reference = true; reference.hidden = true;
