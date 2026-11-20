@@ -113,6 +113,41 @@ python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/after.p
 - `flatten_nodes`：不可逆，会丢失文字编辑性与布尔结构，**绝不用于可动层或带渐变/多色/特效的层**，仅限纯静态单色碎矢量合并，且必须通过像素对比。
 - `set_layout_props` / `set_mask` / `set_fills` / `set_effects` / `delete_nodes`：用于抽离容器背景（如把容器的 `GLASS` / `BACKGROUND_BLUR` 移到新建独立底层 `*bg` 矩形上，再清空容器自身的 `fills` 和 `effects`）。
 
+### 零贡献效果验证与移除（不限于模糊，对应 Step 3 策略 D）
+
+效果（`DROP_SHADOW`、`INNER_SHADOW`、`LAYER_BLUR`、`BACKGROUND_BLUR` 等，不限于模糊）如果实际没画进画面，就只是导出负担；确认零贡献后可直接移除该效果条目。
+
+```text
+# 1) 读出完整 effects 并备份（后续要整组回写）
+get_node({ nodeId: layerId })              # 或 get_nodes_info
+
+# 2) 只把目标条改成 visible:false，其余原样整组写回
+set_effects({ nodeId: layerId, effects: [ …原数组，仅目标条 visible:false… ] })
+
+# 3) 与 before.png 相同 rootId / format / scale，换一个 outDir 再导一次
+save_screenshots({ nodeIds: [rootId], format: "PNG", scale: 1, outDir: "<dir>/effect-off" })
+
+# 4) 逐像素判定（与 before.png 比对）
+python "<SKILL_DIR>/scripts/compare_pixels.py" "<dir>/before.png" "<dir>/effect-off.png" --diff "<dir>/diff-effect.png"
+
+# 5a) max_abs_diff == 0 → 从 effects 数组删掉该条后整组写回 = 移除
+# 5b) 非 0 → 有视觉贡献：写回 visible:true 的原数组，保留
+```
+
+关键约束：
+- `set_effects` 是**整组替换**，必须回传完整数组：阴影仍要 `color`+`offset`，模糊仍要 `radius`，即使 `visible:false` 也不能省略。
+- 回写时省略某条的 `boundVariables` 会清掉变量绑定 → 把 `get_node` 读到的对象原样回传最稳。
+- 写节点 `effects` 会**解除 effect style 绑定**：使用共享效果样式的图层按保守侧处理（保留 + 报告），不自行解绑。
+- `set_effects` **不在 F2A `batch` 白名单内**，无法与其他写命令打包成一次 undo，需单独调用（Figma 内仍可多步撤销）。
+- 只删效果条目，不删承载图层；每批移除后立刻与 `before.png` 快检 `max_abs_diff == 0`，Step 5 最终门禁仍必须为 0。
+
+判据与实测参考（2026-11 受控验证）：
+- 半透明玻璃 + `BACKGROUND_BLUR` 真实生效：隐藏前后整画框 `max_abs_diff = 128`、`changed_pixels = 95,781`，`changed_bbox` 正好等于该模糊层区域 → 必须保留。
+- 不透明白填充完全盖住 `BACKGROUND_BLUR`：隐藏前后整画框与图层级导出均为 `max_abs_diff == 0` → 可直接移除。
+- 带 `BACKGROUND_BLUR` 的图层单独导出时，Figma 会把模糊后的背景烘进该图层 PNG，因此**图层级导出也能用于判断**；最终视觉复核仍以根画框导出为准。两次独立导出同状态逐像素一致，门禁无渲染噪声。
+- 快速路径：已 `visible:false` 的效果导出本就被忽略，可直接移除，无需截图验证。
+- `GLASS`/`NOISE`/`TEXTURE`/`SHADER` 等当前 `set_effects` schema 不支持写入的类型，无法安全验证 → 保守保留并在报告说明。
+
 ---
 
 ## 5. 收尾清理（Step 6，门禁通过后才执行）
