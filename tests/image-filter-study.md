@@ -137,3 +137,24 @@ outputRGB = (y + (rgb - y) * k) ^ (1/2.2)
 - REA 6.4.0 对桌面壳和编辑器脚本做了静态分析。桌面壳 Evidence 为 `ev_b4ba013996b200ef99084aa61d19b9f84a50e7caa019567eed44fd67917a49da`。编辑器脚本 Evidence 为 `ev_10a43138167ac8cbec73fc9bae7e0f81ddd422305c7de5f4c6223fdb4d45b701`。脚本解压后从 `0x3497EF` 可读到滑杆范围，从 `0x346502` 可追到 `paintFilter` 写入，从 `0x34ADFD` 可核对 `vibrance` 的饱和度标签。[编辑器脚本](https://www.figma.com/webpack-artifacts/assets/figma_app-dd2acaded0525cff.min.js.br)
 - REA 记录的 Wasm 加载脚本 Evidence 为 `ev_b14f86095bd27f355f15be56b66f49d266d420a1ecd901902b80ba562dce94e9`。REA 6.4.0 无法直接打开 `.wasm`，着色器从 Wasm 数据段读取，宿主赋值用 WABT 反汇编核对。以解压后文件为准，WebGL 和 WebGPU 的调色片元分别始于 `0x2FA9625` 和 `0x2FEEECC`。`func[17387]` 在 `0xEBCE10` 把 `0.5` 写入阈值对应的 uniform，另一处同值写入在 `0x14D37D0`。[渲染器 Wasm](https://static.figma.com/fullscreen/9047f5995fcc763e7cd63542af5cb22ff8c8a433/fullscreen-wasm/compiled_wasm.wasm.br)
 - 本机缓存的编辑器脚本 `f_00272c` 和 Wasm `f_00272f` 与上述发布文件逐字节相同。解压后的 Wasm SHA-256 为 `857bd3c9275fe6226873c471402e0a6e23c96e33049a405475515ffe30149ad8`。
+
+### 独立色卡与 AE 实际渲染复核
+
+将上文公式写成 [NumPy 实现](figma_image_grade.py)，重新计算了文中的三组结果。280 张单参数色卡吻合 27,524,106 / 27,525,120 个通道值。红车设置的全部 RGB 输入吻合 50,329,964 / 50,331,648，红车不透明像素吻合 1,729,462 / 1,729,467。三项计数均复现，剩余通道差 1 个色阶。
+
+另取 24,576 个新不透明颜色，排除建模用过的色卡颜色。Figma 实测每项 10 个此前未采样的滑杆位置，再测四组混合设置。应用文中的 12 位中间量化后，单项吻合 **5,160,797 / 5,160,960** 个 RGB 通道值，四组混合吻合 **294,900 / 294,912**。所有例外都差 1 个色阶。全零设置与新色卡的 RGB 完全相同。对半透明像素应另行比较 Alpha，并将 Figma 和 AE 转成相同的预乘表示。
+
+进一步把七项全部设为端点 −1 或 +1，遍历全部 128 种组合，再补 48 组取至小数点后四位的非端点参数。两组分别有 **258 / 9,437,184** 与 **73 / 3,538,944** 个通道值相差 1，其余完全相同。所有 176 次 Figma 导出的 Alpha 与测试图一致。
+
+| 四组混合设置的实际输出 | 平均 RGB 通道误差 | P99 | 最大 |
+| --- | ---: | ---: | ---: |
+| 七个单项公式以浮点串联，按单项配对选出的顺序，仅在末端量化 | 1.17–2.64 | 22–51 | 41–66 |
+| AE 工程中七个可编辑滑杆，通过单项 32³ 表和邻档插值 | 1.86–3.05 | 22–51 | 43–68 |
+| 七项共用完整公式，生成一张组合 64³ LUT，由 AE 原生效果渲染 | **0.032–0.063** | **1** | **2–9** |
+
+用联合公式生成红车原设计的 64³ LUT，贴回原始透明图片。在 AE 26.0x67、8 bpc、工作空间 None 下，车身不透明像素的平均误差为 **0.073**，P99 为 **1**，最大为 **6**。半透明边缘按黑底预乘比较，平均为 0.18，Alpha 逐像素吻合。样例只使用一个原生「应用颜色 LUT」效果，重新打开后的帧逐像素相同。一张组合表对应一组参数，修改七个数值后可重新生成组合表。每个原生工具单独拟合的结果和关键帧工程另见[逐项标定](image-filter-calibration.md)。
+
+```powershell
+python tests/verify-image-grade.py artifacts/single-filter-analysis/evidence/measurements.npz --stress artifacts/single-filter-analysis/evidence/joint-stress.npz --full-rgb artifacts/image-filter-study/evidence/RGB8-map.png
+python tests/figma_image_grade.py red-car.cube -17 5 18 -26 21 -21 13
+```
