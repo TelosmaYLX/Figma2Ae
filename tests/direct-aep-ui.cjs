@@ -18,18 +18,19 @@ function ui(packet, behavior='success') {
   assert.equal(elements['aep-version'].value,'26.0');
   assert.equal(elements['aep-duration'].value,'10');
   assert.equal(elements['aep-fps'].value,'30');
-  // The composition panel sits directly under the import button and holds the export action: the
-  // three labelled selectors first, then the 导出 AEP button at the bottom. No visible panel
+  // The composition panel sits directly under the send button and holds the export action: the
+  // three labelled selectors first, then the 导出为 AEP 工程 button at the bottom. No visible panel
   // heading or hint line remains.
   const compGroup = html.match(/<div class="settings comp-settings"[\s\S]*?<div id="msg"/);
   assert.ok(compGroup, 'AEP composition settings and the export action share one panel');
+  assert.match(html, /<button id="ship"[^>]*>发送到 After Effects<\/button>/, 'the import action is labelled 发送到 After Effects');
   assert.match(compGroup[0], /id="aep-duration"[\s\S]*id="aep-fps"[\s\S]*id="aep-version"[\s\S]*id="export-aep"/, 'selectors read left to right above the export button');
   for (const [id, caption] of [['aep-duration','合成时长'],['aep-fps','帧率'],['aep-version','AEP 版本']]) {
     assert.match(compGroup[0], new RegExp('<label for="' + id + '">' + caption + '</label>'), id + ' has a small caption above it');
   }
   assert.match(compGroup[0], /<option value="4">4 秒<\/option>/, 'a 4-second composition can be exported');
-  assert.equal(/\.aep-export\s*\{[^}]*background/.test(html), false, 'the export action inherits the import action accent fill');
-  assert.match(compGroup[0], /<button id="export-aep"[^>]*>导出 AEP<\/button>/, 'the export action is labelled 导出 AEP');
+  assert.equal(/\.aep-export\s*\{[^}]*background/.test(html), false, 'the export action inherits the send action accent fill');
+  assert.match(compGroup[0], /<button id="export-aep"[^>]*>导出为 AEP 工程<\/button>/, 'the export action is labelled 导出为 AEP 工程');
   assert.equal(/<legend>合成<\/legend>/.test(html), false, 'the composition panel has no visible heading');
   assert.equal(html.includes('用于导出 AEP，或未打开合成时新建合成。'), false, 'the panel has no hint line');
   const importAt = html.indexOf('id="ship"'), groupAt = html.indexOf('class="settings comp-settings"'), toolsAt = html.indexOf('id="layer-tools"');
