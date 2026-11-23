@@ -759,12 +759,22 @@ async function testFidelitySuite() {
     strokeWeight: 4, strokeAlign: 'INSIDE',
   });
 
+  // 9. Multi-region vector with overlapping oppositely-wound NONZERO regions (mirrored flattened chevron) at 50% fill opacity:
+  //    Must NOT cancel out to punch a hole at the intersection, and must NOT double-blend alpha at the overlap!
+  const mirroredChevron = at(node('VECTOR', '镜像重叠矢量', {
+    fills: solid(1, 1, 1, 0.5),
+    fillGeometry: [
+      {data: 'M 0 0 L 40 0 L 40 30 L 0 30 Z', windingRule: 'NONZERO'},      // CW: x in [0, 40]
+      {data: 'M 60 0 L 60 30 L 20 30 L 20 0 Z', windingRule: 'NONZERO'},    // CCW (mirrored!): x in [20, 60], overlaps [20, 40]!
+    ],
+  }), 20, 265, 60, 30);
+
   // Simulate offset reference bounds (e.g. outer bleed shadow) to verify exact .f2a-reference placement
   const frame = at(node('FRAME', 'Fidelity', {
     clipsContent: true,
     fills: solid(0.1, 0.12, 0.16),
     fillGeometry: [{data: rectPath(420, 320), windingRule: 'NONZERO'}],
-    children: [radialRect, innerShadowRect, mixedClip, vCenterText, rotText, gradStrokeText, mixedWinding, borderedPhoto],
+    children: [radialRect, innerShadowRect, mixedClip, vCenterText, rotText, gradStrokeText, mixedWinding, borderedPhoto, mirroredChevron],
   }), 0, 0, 420, 320, {x: -12, y: -8, width: 444, height: 336});
 
   const h = harness(frame);
@@ -810,6 +820,7 @@ async function testFidelitySuite() {
     assert.match(html, /<radialGradient[^>]*gradientTransform="matrix\(/, 'Elliptical radial gradient uses affine gradientTransform');
     assert.match(html, /<filter id="f2a-fx-[^"]*".*feComposite[^>]*operator="out"/, 'SVG shape INNER_SHADOW uses native SVG filter');
     assert.match(html, /<path d="M230 220[^"]*"[^>]*\/><path d="M260 220[^"]*" fill-rule="evenodd"[^>]*\/>/, 'Per-path mixed NONZERO + EVENODD winding preserved');
+    assert.match(html, /<g opacity="0\.5"><path d="M20 265[^"]*" fill="#ffffff"\/><path d="M80 265[^"]*" fill="#ffffff"\/><\/g>/, 'Separate fillGeometry regions emit separate <path>s with isolated group opacity');
 
     // Real Edge browser pixel & DOM geometry verification!
     if (fs.existsSync(EDGE_EXE)) {
@@ -894,6 +905,11 @@ async function testFidelitySuite() {
         const borderPx = img.at(312, 250), photoPx = img.at(340, 250);
         assert.ok(borderPx[0] > 220 && borderPx[2] < 60, 'Photo INSIDE stroke paints ABOVE image: ' + borderPx);
         assert.ok(photoPx[2] > 180 && photoPx[0] < 60, 'Photo interior remains blue: ' + photoPx);
+
+        // Overlapping oppositely-wound regions at 50% fillOpacity: overlap (50, 280) has NO hole and matches single-region leg (30, 280) with zero double-blending!
+        const legPx = img.at(30, 280), overlapPx = img.at(50, 280);
+        assert.ok(overlapPx[0] > 120, 'Overlapping opposite-winding regions do not cancel into a hole: ' + overlapPx);
+        assert.ok(Math.abs(overlapPx[0] - legPx[0]) <= 3, `Isolated group opacity avoids double-blending overlap (${overlapPx}) vs leg (${legPx})`);
       } finally {
         socket?.close();
         child.kill();

@@ -876,6 +876,7 @@ var SVGParser = (function () {
         var part = parsePathData(nd.paths[k].d);
         for (var q = 0; q < part.length; q++) {
           part[q].evenOdd = !!nd.paths[k].evenOdd;
+          part[q].pathGroup = k;
           subs.push(part[q]);
         }
       }

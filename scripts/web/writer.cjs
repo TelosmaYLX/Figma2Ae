@@ -288,6 +288,32 @@ function subpathsToSvgD(subpaths) {
   return parts.join('');
 }
 
+function geometryPathGroups(item) {
+  const subs = item.subpaths || [];
+  if (!subs.length) return [];
+  if (subs.some(s => typeof s.pathGroup === 'number')) {
+    const groups = new Map();
+    for (const s of subs) {
+      const key = typeof s.pathGroup === 'number' ? s.pathGroup : -1;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(s);
+    }
+    return [...groups.values()].map(list => ({
+      subs: list,
+      evenOdd: list.some(s => s.evenOdd === true),
+    }));
+  }
+  if (subs.some(s => typeof s.evenOdd === 'boolean')) {
+    const nzSubs = subs.filter(s => s.evenOdd !== true);
+    const eoSubs = subs.filter(s => s.evenOdd === true);
+    const out = [];
+    if (nzSubs.length) out.push({subs: nzSubs, evenOdd: false});
+    if (eoSubs.length) out.push({subs: eoSubs, evenOdd: true});
+    return out;
+  }
+  return [{subs, evenOdd: item.fillRule === 2}];
+}
+
 function geometryTag(item, extraAttrs = '', options = {}) {
   if (item.prim) {
     if (item.prim.k === 'rect') {
@@ -299,36 +325,18 @@ function geometryTag(item, extraAttrs = '', options = {}) {
     }
     return `<ellipse cx="${num(item.prim.cx)}" cy="${num(item.prim.cy)}" rx="${num(item.prim.rx)}" ry="${num(item.prim.ry)}"${extraAttrs}/>`;
   }
-  const subs = item.subpaths || [];
-  if (!subs.length) return '';
+  const groups = geometryPathGroups(item);
+  if (!groups.length) return '';
   const ruleAttrName = options.clipRule ? 'clip-rule' : 'fill-rule';
   const emitRule = options.applyRule === true;
-  if (emitRule) {
-    const hasPerSub = subs.some(s => typeof s.evenOdd === 'boolean');
-    if (hasPerSub) {
-      const eoSubs = subs.filter(s => s.evenOdd === true);
-      const nzSubs = subs.filter(s => s.evenOdd !== true);
-      if (eoSubs.length && nzSubs.length) {
-        const dNz = subpathsToSvgD(nzSubs);
-        const dEo = subpathsToSvgD(eoSubs);
-        const parts = [];
-        if (dNz) parts.push(`<path d="${dNz}"${extraAttrs}/>`);
-        if (dEo) parts.push(`<path d="${dEo}" ${ruleAttrName}="evenodd"${extraAttrs}/>`);
-        return parts.join('');
-      }
-      const dAll = subpathsToSvgD(subs);
-      if (!dAll) return '';
-      const eoAttr = eoSubs.length ? ` ${ruleAttrName}="evenodd"` : '';
-      return `<path d="${dAll}"${eoAttr}${extraAttrs}/>`;
-    }
-    const dAll = subpathsToSvgD(subs);
-    if (!dAll) return '';
-    const eoAttr = item.fillRule === 2 ? ` ${ruleAttrName}="evenodd"` : '';
-    return `<path d="${dAll}"${eoAttr}${extraAttrs}/>`;
+  const parts = [];
+  for (const g of groups) {
+    const d = subpathsToSvgD(g.subs);
+    if (!d) continue;
+    const eoAttr = (emitRule && g.evenOdd) ? ` ${ruleAttrName}="evenodd"` : '';
+    parts.push(`<path d="${d}"${eoAttr}${extraAttrs}/>`);
   }
-  const d = subpathsToSvgD(subs);
-  if (!d) return '';
-  return `<path d="${d}"${extraAttrs}/>`;
+  return parts.join('');
 }
 
 function strokeCapCss(cap) {
@@ -758,7 +766,14 @@ function buildWebModel(packet) {
             fillValue = colorHex(def.fill || [1, 1, 1]);
           }
         }
-        const geom = geometryTag({subpaths: def.subpaths, fillRule: def.fillRule}, ` fill="${fillValue}" fill-opacity="${num(op)}"`, {applyRule: true});
+        const multiPath = geometryPathGroups(def).length > 1;
+        let geom;
+        if (multiPath && op < 0.9995) {
+          const innerPaths = geometryTag({subpaths: def.subpaths, fillRule: def.fillRule}, ` fill="${fillValue}"`, {applyRule: true});
+          geom = innerPaths ? `<g opacity="${num(op)}">${innerPaths}</g>` : '';
+        } else {
+          geom = geometryTag({subpaths: def.subpaths, fillRule: def.fillRule}, ` fill="${fillValue}" fill-opacity="${num(op)}"`, {applyRule: true});
+        }
         if (geom) parts.push(geom);
       }
       inner = parts.join('');
@@ -825,28 +840,32 @@ function buildWebModel(packet) {
       strokePaint = colorHex(strokeColor || [0, 0, 0]);
     }
     const op = clamp01(strokeOpacity == null ? 1 : strokeOpacity);
+    const multiPath = !item.prim && geometryPathGroups(item).length > 1;
+    const isolateOp = multiPath && op < 0.9995;
     const miterAttr = miter != null ? ` stroke-miterlimit="${num(miter)}"` : '';
     const baseAttrs =
       ` fill="none" stroke="${strokePaint}"` +
-      (op < 0.9995 ? ` stroke-opacity="${num(op)}"` : '') +
+      (!isolateOp && op < 0.9995 ? ` stroke-opacity="${num(op)}"` : '') +
       ` stroke-linecap="${strokeCapCss(cap)}" stroke-linejoin="${strokeJoinCss(join)}"${miterAttr}` +
       strokeDashAttr(dash, dashOffset);
 
+    let stroked;
     if (align === 'INSIDE') {
       const clipId = nextDef('f2a-ic-');
       localDefs.push(`<clipPath id="${clipId}">${geometryTag(item, '', {applyRule: true, clipRule: true})}</clipPath>`);
-      return geometryTag(item, `${baseAttrs} stroke-width="${num(width * 2)}" clip-path="url(#${clipId})"`);
-    }
-    if (align === 'OUTSIDE') {
+      stroked = geometryTag(item, `${baseAttrs} stroke-width="${num(width * 2)}" clip-path="url(#${clipId})"`);
+    } else if (align === 'OUTSIDE') {
       const maskId = nextDef('f2a-om-');
       localDefs.push(
         `<mask id="${maskId}" maskUnits="userSpaceOnUse" x="${num(viewBox.x)}" y="${num(viewBox.y)}" width="${num(viewBox.w)}" height="${num(viewBox.h)}">` +
         `<rect x="${num(viewBox.x)}" y="${num(viewBox.y)}" width="${num(viewBox.w)}" height="${num(viewBox.h)}" fill="#ffffff"/>` +
         `${geometryTag(item, ' fill="#000000"', {applyRule: true})}</mask>`
       );
-      return geometryTag(item, `${baseAttrs} stroke-width="${num(width * 2)}" mask="url(#${maskId})"`);
+      stroked = geometryTag(item, `${baseAttrs} stroke-width="${num(width * 2)}" mask="url(#${maskId})"`);
+    } else {
+      stroked = geometryTag(item, `${baseAttrs} stroke-width="${num(width)}"`);
     }
-    return geometryTag(item, `${baseAttrs} stroke-width="${num(width)}"`);
+    return (isolateOp && stroked) ? `<g opacity="${num(op)}">${stroked}</g>` : stroked;
   }
 
   function renderShape(item, parentCtx, indent) {
@@ -918,9 +937,15 @@ function buildWebModel(packet) {
       } else {
         return;
       }
-      const opAttr = op < 0.9995 ? ` fill-opacity="${num(op)}"` : '';
-      const tag = geometryTag(geomItem, ` fill="${fillPaint}"${opAttr}`, {applyRule: true});
-      if (tag) layers.push(tag);
+      const multiPath = !geomItem.prim && geometryPathGroups(geomItem).length > 1;
+      if (multiPath && op < 0.9995) {
+        const tag = geometryTag(geomItem, ` fill="${fillPaint}"`, {applyRule: true});
+        if (tag) layers.push(`<g opacity="${num(op)}">${tag}</g>`);
+      } else {
+        const opAttr = op < 0.9995 ? ` fill-opacity="${num(op)}"` : '';
+        const tag = geometryTag(geomItem, ` fill="${fillPaint}"${opAttr}`, {applyRule: true});
+        if (tag) layers.push(tag);
+      }
     }
 
     // 1. Extra under-fills
