@@ -458,6 +458,10 @@ var AEShapeBuilder = (function () {
         if (c.fx && c.fx.length) { try { addLayerEffects(pcLayer, c.fx); } catch (efx) {} }
         applyBlend(pcLayer, c.blend);
         if (c.hidden) { try { pcLayer.enabled = false; } catch (eh) {} }
+        if (c.singleLayer) {
+          try { pc.label = 2; } catch (elc) {}
+          try { pcLayer.label = 2; } catch (ell) {}
+        }
         try { pcLayer.collapseTransformation = c.collapseForBlends === true; } catch (ect) {}
 
         // the swallowed layers are gone; this precomp now stands in for them one level up

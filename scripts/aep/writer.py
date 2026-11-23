@@ -24,7 +24,7 @@ from py_aep.models import TextLayer
 from py_aep.cos import serializer as cos_serializer
 from py_aep.models.properties.gradient import Gradient, GradientAlphaStop, GradientColorStop
 from py_aep.models.properties.shape import Shape
-from py_aep.enums import BlendingMode, MaskMode, ParagraphJustification, TrackMatteType
+from py_aep.enums import BlendingMode, Label, MaskMode, ParagraphJustification, TrackMatteType
 from py_aep.svg.fonts import resolve_font, resolve_font_exact, resolve_postscript
 
 AE_VERSIONS = {'24.0': '24.0x0', '25.0': '25.0x0', '26.0': '26.0x67'}
@@ -656,8 +656,10 @@ class Writer:
         containers = sorted(self.data['containers'], key=lambda c: len(c.get('path') or []))
         for container in containers:
             bounds = self.comp_bounds(container)
-            self.contexts[container['id']] = {'comp': self.comp(container['name'], bounds['w'], bounds['h'], self.precomps),
-                                              'x': bounds['x'], 'y': bounds['y']}
+            comp = self.comp(container['name'], bounds['w'], bounds['h'], self.precomps)
+            if container.get('singleLayer'):
+                comp.label = Label.YELLOW
+            self.contexts[container['id']] = {'comp': comp, 'x': bounds['x'], 'y': bounds['y']}
             entries.append((container.get('z', 0), 'container', container, 0))
         for shape in self.data['shapes']:
             if shape.get('maskSource'):
@@ -678,6 +680,8 @@ class Writer:
                 child = self.contexts[item['id']]
                 layer = context['comp'].add(child['comp'])
                 self.common(layer, item)
+                if item.get('singleLayer'):
+                    layer.label = Label.YELLOW
                 layer.collapse_transformation = item.get('collapseForBlends', False)
                 self.transform(layer, child['x'] - context['x'], child['y'] - context['y'])
                 self.center_anchor(layer, layer.source_rect_at_time(0, False))

@@ -107,7 +107,9 @@ function uiHarness(bridge, main) {
   const compSize = policyBridge.imports[0].meta.compSize;
   assert.deepEqual([compSize.width, compSize.height], [810.25, 432], 'The live import uses frame bounds through the actual UI and bridge');
   assert.equal(policyBridge.batches[0].filter(im=>!im.reference).length, 2); assert.equal(policyBridge.imports[0].meta.texts.length, 0);
-  assert.equal(policyBridge.imports[0].meta.containers.length, 1); assert.equal(policyBridge.imports[0].meta.containers[0].clip, false);
+  const policyGroupContainers = policyBridge.imports[0].meta.containers.filter(c => !c.singleLayer);
+  assert.equal(policyGroupContainers.length, 1); assert.equal(policyGroupContainers[0].clip, false);
+  assert.deepEqual(Array.from(policyBridge.imports[0].meta.containers.filter(c => c.singleLayer), c => c.name).sort(), ['Group', 'Instance']);
   const at = (layer, x, y) => Object.assign(layer, {
     absoluteBoundingBox: {x,y,width:layer.width,height:layer.height},
     absoluteRenderBounds: {x,y,width:layer.width,height:layer.height}, absoluteTransform: [[1,0,x],[0,1,y]]

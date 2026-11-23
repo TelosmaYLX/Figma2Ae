@@ -1337,6 +1337,25 @@ function _freshNodeBounds(n, rasterOnly) {
   return { x: minx, y: miny, w: Math.max(1, maxx - minx), h: Math.max(1, maxy - miny) };
 }
 
+function _containerOwnBounds(n) {
+  var b = n && n.absoluteBoundingBox;
+  if (!b) return null;
+  var pad = 0;
+  try {
+    var strokes = n.strokes;
+    if (strokes && strokes !== figma.mixed && strokes.some(function (p) { return p.visible !== false; })) {
+      var w = typeof n.strokeWeight === 'number' ? n.strokeWeight :
+        Math.max(n.strokeTopWeight || 0, n.strokeRightWeight || 0, n.strokeBottomWeight || 0, n.strokeLeftWeight || 0);
+      if (w > 0) {
+        var align = n.strokeAlign || 'CENTER';
+        if (align === 'OUTSIDE') pad = w;
+        else if (align === 'CENTER') pad = w / 2;
+      }
+    }
+  } catch (e) {}
+  return { x: b.x - pad, y: b.y - pad, w: Math.max(1, b.width + pad * 2), h: Math.max(1, b.height + pad * 2) };
+}
+
 function _unionNodesBounds(nodes) {
   var left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
   for (var i = 0; i < nodes.length; i++) {
@@ -1363,12 +1382,40 @@ function _stripOwnerTags(list) {
   }
 }
 
-// Wrap each standalone leaf layer (text, shape, image, rasterized item) in its own
-// same-named precomp sized to the layer's own bounds. Container fills are skipped when
-// organize mode already created a container precomp for that frame.
+// Wrap each single layer (text, shape, image, rasterized item, and painted frame background)
+// in its own same-named minimal precomp sized to its own bounds, flagged with singleLayer so
+// AE/AEP marks every minimal precomp with a yellow label. A painted container that holds no
+// other exported content is already a minimal precomp, so flag it directly instead of doubling.
 function _wrapSingleLayers(root, organize, realContainerIds, shapes, texts, images, containers) {
   var containerById = {};
   for (var ci = 0; ci < containers.length; ci++) containerById[containers[ci].id] = containers[ci];
+
+  var hasOwnContent = {}, hasOtherContent = {};
+  function scanOwnership(list) {
+    for (var i = 0; i < list.length; i++) {
+      var row = list[i];
+      if (row.reference || row.maskSource) continue;
+      var rawPath = row.path || [];
+      for (var pi = 0; pi < rawPath.length; pi++) {
+        var cid = rawPath[pi];
+        if (!containerById[cid]) continue;
+        if (cid === row._ownerId) hasOwnContent[cid] = true;
+        else hasOtherContent[cid] = true;
+      }
+    }
+  }
+  scanOwnership(shapes || []);
+  scanOwnership(texts || []);
+  scanOwnership(images || []);
+
+  var minimalRealContainers = {};
+  for (var cid0 in realContainerIds) {
+    if (hasOwnContent[cid0] && !hasOtherContent[cid0] && containerById[cid0]) {
+      containerById[cid0].singleLayer = true;
+      minimalRealContainers[cid0] = true;
+    }
+  }
+
   var groups = [], groupByKey = {}, serial = 0;
 
   function collect(list, kind) {
@@ -1376,7 +1423,7 @@ function _wrapSingleLayers(root, organize, realContainerIds, shapes, texts, imag
       var row = list[i];
       if (row.reference || row.maskSource) continue;
       var ownerId = row._ownerId || null;
-      if (ownerId && realContainerIds[ownerId]) continue;
+      if (ownerId && minimalRealContainers[ownerId]) continue;
       var rawPath = row.path || [], parentPath = [];
       for (var pi = 0; pi < rawPath.length; pi++) {
         if (containerById[rawPath[pi]]) parentPath.push(rawPath[pi]);
@@ -1408,6 +1455,7 @@ function _wrapSingleLayers(root, organize, realContainerIds, shapes, texts, imag
     var rasterOnly = realItems.every(function (entry) {
       return entry.kind === 'image' && !entry.row.fillOnly && (entry.row.rasterNode || entry.row.rasterScale || entry.row.mergedBlend);
     });
+    var containerBg = !!(ownerNode && !rasterOnly && _isContainer(ownerNode) && ownerNode.children && ownerNode.children.length);
 
     var left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
     function includeBox(box) {
@@ -1417,7 +1465,7 @@ function _wrapSingleLayers(root, organize, realContainerIds, shapes, texts, imag
       right = Math.max(right, box.x + box.w);
       bottom = Math.max(bottom, box.y + box.h);
     }
-    if (ownerNode) includeBox(_freshNodeBounds(ownerNode, rasterOnly));
+    if (ownerNode) includeBox(containerBg ? _containerOwnBounds(ownerNode) : _freshNodeBounds(ownerNode, rasterOnly));
     for (var ii = 0; ii < g.items.length; ii++) {
       var entry = g.items[ii], row = entry.row;
       if (entry.kind === 'image') {

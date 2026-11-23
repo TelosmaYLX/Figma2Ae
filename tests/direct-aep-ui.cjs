@@ -135,7 +135,7 @@ function ui(packet, behavior='success') {
   assert.equal(elements.nodemode,undefined);assert.equal(elements.convertmask,undefined);
   assert.equal(elements.rastergroups,undefined);
   assert.equal(elements['preserve-image-filters'].checked,false);
-  assert.equal(elements['precomp-layers'].checked,false);
+  assert.equal(elements['precomp-layers'].checked,true);
   if(['image-grade','old-grade-service'].includes(behavior))elements['preserve-image-filters'].checked=true;
   assert.equal(elements.rastertexts,undefined,'Text modes are mutually exclusive');
   for(const id of Object.values(rasterControls))assert.equal(elements[id].checked,true,id+' preserves automatic handling by default');
@@ -301,10 +301,10 @@ const flush=()=>new Promise(r=>setImmediate(r));
   firstOpen.elements['text-mode'].value = 'editable'; firstOpen.elements['text-mode'].onchange();
   firstOpen.elements['native-image-masks'].value = 'merge'; firstOpen.elements['native-image-masks'].onchange();
   firstOpen.elements['raster-scale'].value = '3'; firstOpen.elements['raster-scale'].onchange();
-  for (const id of ['organize','enableclip','ignorehidden','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends']) {
+  for (const id of ['organize','precomp-layers','enableclip','ignorehidden','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends']) {
     firstOpen.elements[id].checked = false; firstOpen.elements[id].onchange();
   }
-  for (const id of ['precomp-layers','rasterallgroups','rasterinstances']) {
+  for (const id of ['rasterallgroups','rasterinstances']) {
     firstOpen.elements[id].checked = true; firstOpen.elements[id].onchange();
   }
   await flush();
@@ -317,10 +317,10 @@ const flush=()=>new Promise(r=>setImmediate(r));
   assert.match(secondOpen.elements['text-mode-hint'].textContent, /细描边文字自动转为矢量/);
   assert.equal(secondOpen.elements['native-image-masks'].value, 'merge');
   assert.equal(secondOpen.elements['raster-scale'].value, '3');
-  for (const id of ['organize','enableclip','ignorehidden','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends']) {
+  for (const id of ['organize','precomp-layers','enableclip','ignorehidden','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends']) {
     assert.equal(secondOpen.elements[id].checked, false, id + ' must restore false');
   }
-  for (const id of ['precomp-layers','rasterallgroups','rasterinstances']) {
+  for (const id of ['rasterallgroups','rasterinstances']) {
     assert.equal(secondOpen.elements[id].checked, true, id + ' must restore true');
   }
   // Invalid saved options or pre-load user edits must not corrupt controls

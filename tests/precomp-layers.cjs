@@ -64,6 +64,14 @@ function buildScene() {
     children: []
   }), 340, 130, 60, 40);
 
+  const cardOverflowChild = rect('卡片溢出子层', 460, 120, 30, 20);
+  const paintedCard = at(node('FRAME', '底色卡片', {
+    fills: solid(0.2, 0.7, 0.4),
+    strokes: solid(1, 1, 0), strokeWeight: 3, strokeAlign: 'OUTSIDE',
+    fillGeometry: [{data: 'M0 0H80V40H0Z', windingRule: 'NONZERO'}],
+    children: [cardOverflowChild]
+  }), 340, 180, 80, 40, {x: 337, y: 120, width: 153, height: 103});
+
   const photo = rect('背景图', 120, 260, 120, 80, {
     fills: [{type: 'IMAGE', imageHash: 'photo', scaleMode: 'FIT', opacity: 0.8}]
   });
@@ -97,7 +105,7 @@ function buildScene() {
   const page = at(node('FRAME', '页面', {
     fills: solid(0.1, 0.1, 0.1),
     fillGeometry: [{data: 'M0 0H400V320H0Z', windingRule: 'NONZERO'}],
-    children: [innerGroup, shapeB2, emptyBox, photo, maskGroup, cursor, hiddenLayer, sticker, shadowText]
+    children: [innerGroup, shapeB2, emptyBox, paintedCard, photo, maskGroup, cursor, hiddenLayer, sticker, shadowText]
   }), 100.25, 100.5, 400, 320);
 
   return page;
@@ -121,7 +129,7 @@ function attachMockRenders(scene, h) {
 
 const inspectAep = `
 import json, sys, py_aep
-from py_aep.enums import BlendingMode, TrackMatteType
+from py_aep.enums import BlendingMode, Label, TrackMatteType
 
 app = py_aep.parse(sys.argv[1])
 mode = sys.argv[2]
@@ -140,27 +148,56 @@ assert main.layers[0].guide_layer and not main.layers[0].enabled, 'Reference gui
 def by_name(comp, name):
     return [l for l in comp.layers if l.name == name]
 
+def assert_yellow_minimal(layer, msg=''):
+    assert hasattr(layer.source, 'layers'), f'{layer.name} must be a precomp {msg}'
+    assert layer.label == Label.YELLOW, f'{layer.name} layer label must be YELLOW, got {layer.label} {msg}'
+    assert layer.source.label == Label.YELLOW, f'{layer.name} comp label must be YELLOW, got {layer.source.label} {msg}'
+
+def assert_group_comp(layer, msg=''):
+    assert hasattr(layer.source, 'layers'), f'{layer.name} must be a precomp {msg}'
+    assert layer.label != Label.YELLOW, f'Group {layer.name} must not be YELLOW {msg}'
+    assert layer.source.label != Label.YELLOW, f'Group comp {layer.name} must not be YELLOW {msg}'
+
 if mode == 'organized':
-    # Main comp has guide + root precomp 页面
+    # Main comp has guide + root precomp 页面 (group comp, non-yellow)
     assert len(main.layers) == 2
     root_layer = main.layers[1]
-    assert root_layer.name == '页面' and hasattr(root_layer.source, 'layers')
+    assert root_layer.name == '页面'
+    assert_group_comp(root_layer)
     root_comp = root_layer.source
 
-    # Frame background is NOT double-wrapped; 空色块 is NOT double-wrapped
-    bg_layers = by_name(root_comp, '页面')
-    assert len(bg_layers) == 1 and not hasattr(bg_layers[0].source, 'layers'), 'Container fill must not be double-wrapped'
-    empty_layers = by_name(root_comp, '空色块')
-    assert len(empty_layers) == 1 and hasattr(empty_layers[0].source, 'layers')
-    assert len(empty_layers[0].source.layers) == 1 and not hasattr(empty_layers[0].source.layers[0].source, 'layers'), 'Empty painted frame must not be double-wrapped'
+    # Frame background 页面 IS wrapped in its own yellow minimal precomp at bottom of root_comp
+    bg_layer, = by_name(root_comp, '页面')
+    assert_yellow_minimal(bg_layer, 'frame background')
+    assert root_comp.layers[-1].index == bg_layer.index, 'Frame background precomp stays at bottom of its container'
+    assert len(bg_layer.source.layers) == 1 and bg_layer.source.layers[0].name == '页面'
+    assert not hasattr(bg_layer.source.layers[0].source, 'layers')
+    assert (bg_layer.source.width, bg_layer.source.height) == (400, 320)
 
-    # 分组 precomp has collapse_transformation=True because 文字A inside has MULTIPLY
+    # Empty painted frame 空色块 is directly marked as a yellow minimal precomp (not double-wrapped)
+    empty_layer, = by_name(root_comp, '空色块')
+    assert_yellow_minimal(empty_layer, 'empty painted frame')
+    assert len(empty_layer.source.layers) == 1 and not hasattr(empty_layer.source.layers[0].source, 'layers'), 'Empty painted frame must not be double-wrapped'
+
+    # Painted container 底色卡片 stays a group comp; its own fill+outside stroke gets a yellow minimal precomp sized to own box (not bloated by overflowing child)
+    card_layer, = by_name(root_comp, '底色卡片')
+    assert_group_comp(card_layer)
+    card_bg, = by_name(card_layer.source, '底色卡片')
+    assert_yellow_minimal(card_bg, 'nested frame background')
+    # Frame own box: 340-100.25=239.75 +/-3 => 236.75..322.75 => floor 236..ceil 323 => w=87
+    # y: 180-100.5=79.5 +/-3 => 76.5..122.5 => floor 76..ceil 123 => h=47 (NOT 153x103!)
+    assert (card_bg.source.width, card_bg.source.height) == (87, 47), (card_bg.source.width, card_bg.source.height)
+    card_child, = by_name(card_layer.source, '卡片溢出子层')
+    assert_yellow_minimal(card_child)
+
+    # 分组 precomp stays a group comp and has collapse_transformation=True because 文字A inside has MULTIPLY
     group_layer, = by_name(root_comp, '分组')
+    assert_group_comp(group_layer)
     assert group_layer.collapse_transformation is True
     group_comp = group_layer.source
 
     text_a_layer, = by_name(group_comp, '文字A')
-    assert hasattr(text_a_layer.source, 'layers')
+    assert_yellow_minimal(text_a_layer)
     assert text_a_layer.collapse_transformation is False
     assert text_a_layer.blending_mode == BlendingMode.MULTIPLY
     assert abs(text_a_layer.transform.opacity.value - 60.0) < 0.01
@@ -172,64 +209,66 @@ if mode == 'organized':
     assert abs(inner_text.transform.opacity.value - 100.0) < 0.01
 
     shape_b1_layer, = by_name(group_comp, '形状B')
-    assert hasattr(shape_b1_layer.source, 'layers')
+    assert_yellow_minimal(shape_b1_layer)
     # Outside stroke render bounds: 136.5-100.25=36.25 -> floor 36, right 136.5+98-100.25=134.25 -> ceil 135 -> w=99
     # y: 176.25-100.5=75.75 -> floor 75, bottom 75.75+48=123.75 -> ceil 124 -> h=49
     assert (shape_b1_layer.source.width, shape_b1_layer.source.height) == (99, 49)
     assert shape_b1_layer.source.layers[0].name == '形状B'
 
-    # Duplicate named 形状B at root level has its own distinct precomp
+    # Duplicate named 形状B at root level has its own distinct yellow precomp
     shape_b2_layer, = by_name(root_comp, '形状B')
-    assert hasattr(shape_b2_layer.source, 'layers')
+    assert_yellow_minimal(shape_b2_layer)
     assert shape_b2_layer.source.id != shape_b1_layer.source.id
     assert shape_b2_layer.source.layers[0].name == '形状B'
 
-    # Image 背景图 keeps Chinese precomp name and single precomp with lifted opacity 80%
+    # Image 背景图 keeps Chinese precomp name and single yellow precomp with lifted opacity 80%
     photo_layer, = by_name(root_comp, '背景图')
-    assert hasattr(photo_layer.source, 'layers')
+    assert_yellow_minimal(photo_layer)
     assert abs(photo_layer.transform.opacity.value - 80.0) < 0.01
     assert any(l.source and not hasattr(l.source, 'layers') for l in photo_layer.source.layers)
 
-    # Masked shape 遮罩图形 carries track matte on outer precomp
+    # Masked shape 遮罩图形 carries track matte on outer yellow precomp
     mask_group_layer, = by_name(root_comp, '遮罩组')
+    assert_group_comp(mask_group_layer)
     masked_layer, = by_name(mask_group_layer.source, '遮罩图形')
-    assert hasattr(masked_layer.source, 'layers')
+    assert_yellow_minimal(masked_layer)
     assert masked_layer.track_matte_layer is not None
     assert masked_layer.track_matte_type == TrackMatteType.ALPHA
     assert masked_layer.source.layers[0].track_matte_layer is None
 
     # Multi-region vector 光标 is wrapped once with both region layers inside
     cursor_layer, = by_name(root_comp, '光标')
-    assert hasattr(cursor_layer.source, 'layers')
+    assert_yellow_minimal(cursor_layer)
     assert len(cursor_layer.source.layers) == 2
 
-    # Hidden layer 隐藏层 has disabled outer precomp and enabled inner shape
+    # Hidden layer 隐藏层 has disabled outer yellow precomp and enabled inner shape
     hidden_layer, = by_name(root_comp, '隐藏层')
-    assert hasattr(hidden_layer.source, 'layers')
+    assert_yellow_minimal(hidden_layer)
     assert hidden_layer.enabled is False
     assert hidden_layer.source.layers[0].enabled is True
 
-    # Marked raster group *贴纸组 becomes a single-layer precomp
+    # Marked raster group *贴纸组 becomes a yellow minimal precomp
     sticker_layer, = by_name(root_comp, '*贴纸组')
-    assert hasattr(sticker_layer.source, 'layers')
+    assert_yellow_minimal(sticker_layer)
     assert len(sticker_layer.source.layers) == 1
 
     # Shadow text 投影文字 groups text + shadow image together without double opacity
     shadow_layer, = by_name(root_comp, '投影文字')
-    assert hasattr(shadow_layer.source, 'layers')
+    assert_yellow_minimal(shadow_layer)
     assert abs(shadow_layer.transform.opacity.value - 100.0) < 0.01
     assert len(shadow_layer.source.layers) == 2
     assert shadow_layer.source.width >= 106 and shadow_layer.source.height >= 42
     print('PASS_PY_ORGANIZED')
 elif mode == 'flat':
-    # organize=False + precompLayers=True: no group precomps, every artwork layer (including 页面 bg) wrapped at main comp level
+    # organize=False + precompLayers=True: no group precomps, every artwork layer (including frame fills) wrapped in a yellow minimal precomp
     mattes = {l.track_matte_layer.index for l in main.layers if l.track_matte_layer is not None}
     artwork = [l for l in main.layers if not getattr(l, 'guide_layer', False) and l.index not in mattes]
     names = [l.name for l in artwork]
     assert '分组' not in names and '遮罩组' not in names
-    assert all(hasattr(l.source, 'layers') for l in artwork), 'Every flat artwork layer is wrapped in a precomp'
+    for layer in artwork:
+        assert_yellow_minimal(layer, 'flat artwork')
     assert names.count('形状B') == 2
-    for expected in ['页面', '文字A', '空色块', '背景图', '遮罩图形', '光标', '隐藏层', '*贴纸组', '投影文字']:
+    for expected in ['页面', '文字A', '空色块', '底色卡片', '卡片溢出子层', '背景图', '遮罩图形', '光标', '隐藏层', '*贴纸组', '投影文字']:
         assert expected in names, (expected, names)
     masked_flat, = by_name(main, '遮罩图形')
     assert masked_flat.track_matte_layer is not None and masked_flat.track_matte_type == TrackMatteType.ALPHA
@@ -242,7 +281,7 @@ function testAeBuilderOrganize() {
   let nextCompId = 1;
   class CompItem {
     constructor(name = 'Main', w = 400, h = 320) {
-      this.id = nextCompId++; this.name = name; this.width = w; this.height = h; this.time = 0; this.duration = 10;
+      this.id = nextCompId++; this.name = name; this.width = w; this.height = h; this.time = 0; this.duration = 10; this.label = 15;
       this.items = [];
       this.layers = {
         add: item => { const l = new Layer(this, item); this.items.unshift(l); return l; },
@@ -257,12 +296,12 @@ function testAeBuilderOrganize() {
           for (const old of picked) {
             const copy = new Layer(pc, old.source, old.kind, old.text);
             copy.name = old.name; copy.enabled = old.enabled; copy.blendingMode = old.blendingMode;
-            copy.collapseTransformation = old.collapseTransformation;
+            copy.collapseTransformation = old.collapseTransformation; copy.label = old.label;
             copy.values = JSON.parse(JSON.stringify(old.values));
             pc.items.push(copy);
           }
           const pcLayer = new Layer(this, pc, 'precomp');
-          pcLayer.name = pcName;
+          pcLayer.name = pcName; pcLayer.label = 15;
           this.items.splice(firstPos, 0, pcLayer);
           return pc;
         }
@@ -339,7 +378,7 @@ function testAeBuilderOrganize() {
   builder.buildImages(comp, [{file: 'ref.png', name: '原图对照', natW: 400, natH: 320, cx: 200, cy: 160, cw: 400, ch: 320, w: 400, h: 320, scaleMode: 'FIT', z: 0, reference: true}], 'assets');
   const containers = [
     {id: 'grp', name: '分组', path: [], z: 1, x: 10, y: 10, w: 80, h: 40, cb: {x: 10, y: 10, w: 80, h: 40}, opacity: 1, blend: 'PASS_THROUGH', collapseForBlends: true},
-    {id: 'wrapB', name: '形状B', path: ['grp'], z: 2, x: 10, y: 10, w: 80, h: 40, cb: {x: 10, y: 10, w: 80, h: 40}, opacity: 0.7, blend: 'MULTIPLY', maskId: 'm1', collapseForBlends: false}
+    {id: 'wrapB', name: '形状B', singleLayer: true, path: ['grp'], z: 2, x: 10, y: 10, w: 80, h: 40, cb: {x: 10, y: 10, w: 80, h: 40}, opacity: 0.7, blend: 'MULTIPLY', maskId: 'm1', collapseForBlends: false}
   ];
   const made = builder.organize(comp, containers);
   assert.equal(made, 2);
@@ -347,10 +386,14 @@ function testAeBuilderOrganize() {
   assert.equal(comp.layer(1).enabled, false);
   const grpLayer = comp.layer(2);
   assert.equal(grpLayer.name, '分组');
+  assert.equal(grpLayer.label, 15, 'Group precomp keeps default non-yellow label');
+  assert.equal(grpLayer.source.label, 15);
   assert.equal(grpLayer.collapseTransformation, true);
   assert.equal(grpLayer.source.numLayers, 2, 'Outer group holds single-layer precomp + its track matte');
   const matteLayer = grpLayer.source.layer(1), wrapLayer = grpLayer.source.layer(2);
   assert.equal(wrapLayer.name, '形状B');
+  assert.equal(wrapLayer.label, 2, 'Minimal single-layer precomp layer uses AE yellow label (2)');
+  assert.equal(wrapLayer.source.label, 2, 'Minimal single-layer comp item uses AE yellow label (2)');
   assert.equal(wrapLayer.blendingMode, 'MULTIPLY');
   assert.equal(wrapLayer.values['ADBE Opacity'], 70);
   assert.equal(wrapLayer.trackMatte, matteLayer, 'Container track matte must stay linked after parent group collapse');
@@ -408,9 +451,8 @@ async function testUiBridgeFlow() {
   main.figma.ui.postMessage = m => window.onmessage({data: {pluginMessage: m}});
   socket.onopen();
   main.context.reportSelection();
-  assert.equal(elements['precomp-layers'].checked, false);
+  assert.equal(elements['precomp-layers'].checked, true, 'Single-layer precomp option is enabled by default');
   elements.organize.checked = false;
-  elements['precomp-layers'].checked = true;
   const origPost = main.figma.ui.postMessage;
   const done = new Promise(resolve => {
     main.figma.ui.postMessage = m => { origPost(m); if (m.type === 'export-state' && !m.busy) resolve(); };
