@@ -75,7 +75,8 @@ function ui(packet, behavior='success') {
         if(['offline','launch-error','bridge-offline','bridge-old','missing-component'].includes(behavior)||(behavior==='cold-start'&&healthCalls<4))throw new Error('Offline');
         return {ok:true,json:async()=>({service:'f2a-aep',version:behavior==='old-service'?2:3,
           aeVersions:behavior==='old-version-service'?undefined:['24.0','25.0','26.0'],
-          preserveImageFilters:behavior!=='old-grade-service'})};
+          preserveImageFilters:behavior!=='old-grade-service',
+          singleLayerLabel:behavior!=='old-label-service'})};
       }
       if(url.endsWith('/aep/start')){
         assert.equal(url,'http://127.0.0.1:7365/aep/start');assert.equal(options.method,'POST');
@@ -173,6 +174,24 @@ const flush=()=>new Promise(r=>setImmediate(r));
     const upload=h.requests.find(r=>r.url.endsWith('/export'));
     if(mode==='image-grade')assert.equal(JSON.parse(upload.options.body).packet.preserveImageFilters,true);
     else {assert.equal(upload,undefined);assert.match(h.elements.msg.textContent,/保留图片调色需要更新/);}
+  }
+  {
+    const stale=ui(packet,'old-label-service');stale.elements['export-aep'].onclick();
+    for(let i=0;i<200&&stale.context.aepBusy;i++)await flush();
+    assert.equal(stale.requests.some(r=>r.url.endsWith('/export')),false);
+    assert.equal(stale.posts.filter(m=>m.type==='ship-selection').length,0);
+    assert.match(stale.elements.msg.textContent,/单图层嵌套预合成标黄需要更新/);
+    assert.equal(stale.elements.msg.textContent.includes('--workspace'),false);
+    stale.emit({type:'selection',count:1,workspacePlugin:true});
+    stale.elements['export-aep'].onclick();
+    for(let i=0;i<200&&stale.context.aepBusy;i++)await flush();
+    assert.equal(stale.requests.some(r=>r.url.endsWith('/export')),false);
+    assert.match(stale.elements.msg.textContent,/node scripts\/aep-server\.cjs --workspace/);
+    stale.elements['precomp-layers'].checked=false;
+    stale.emit({type:'selection',count:1,workspacePlugin:false});
+    stale.elements['export-aep'].onclick();
+    for(let i=0;i<200&&stale.context.aepBusy;i++)await flush();
+    assert.equal(stale.requests.some(r=>r.url.endsWith('/export')),true,'Old AEP service still works when single-layer precomp is turned off');
   }
   for(const behavior of ['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','old-version-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();

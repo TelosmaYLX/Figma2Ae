@@ -95,7 +95,7 @@ async function check() {
   try {
     const base='http://127.0.0.1:'+server.address().port;
     const health=await(await fetch(base+'/health')).json();assert.equal(health.service,'f2a-aep');assert.equal(health.version,3);
-    assert.deepEqual(health.aeVersions,['24.0','25.0','26.0']);
+    assert.deepEqual(health.aeVersions,['24.0','25.0','26.0']);assert.equal(health.singleLayerLabel,true);
     const post=body=>fetch(base+'/export',{method:'POST',body:JSON.stringify(body)});
     const open=body=>fetch(base+'/open-directory',{method:'POST',body:JSON.stringify(body)});
     assert.equal((await fetch(base+'/select-directory',{method:'POST'})).status,404,'Do not expose an early picker endpoint');

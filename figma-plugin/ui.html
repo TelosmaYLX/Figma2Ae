@@ -385,6 +385,8 @@
     return imageFolderRequest('GET').then(function (result) {
       if (forImport && $('preserve-image-filters').checked && !result.preserveImageFilters)
         throw new Error('保留图片调色需要更新并重新打开 AE 的 F2A 面板。');
+      if (forImport && $('precomp-layers').checked && !result.singleLayerLabel)
+        throw new Error('单图层嵌套预合成标黄需要更新并重新打开 AE 的 F2A 面板。');
       showImageFolder(result.directory); return imageFolder;
     });
   }
@@ -519,6 +521,7 @@
       if (info.service !== 'f2a-aep' || info.version !== 3) throw new Error('AEP 导出服务版本不匹配，请重启服务。');
       if (!info.aeVersions || info.aeVersions.indexOf($('aep-version').value) === -1) throw new Error('请更新 AEP 导出组件后重启服务。');
       if ($('preserve-image-filters').checked && !info.preserveImageFilters) throw new Error('保留图片调色需要更新并重启 AEP 导出组件。');
+      if ($('precomp-layers').checked && !info.singleLayerLabel) throw new Error('单图层嵌套预合成标黄需要更新并重启 AEP 导出组件' + (workspacePlugin ? '，或运行 node scripts/aep-server.cjs --workspace。' : '。'));
     });
   }
   $('export-aep').onclick = function () {

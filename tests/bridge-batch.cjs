@@ -41,7 +41,7 @@ function uiHarness(bridge, main) {
   const window = {};
   vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1], {
     window, WebSocket, document: {getElementById: id => elements[id]},
-    fetch:async()=>({ok:true,json:async()=>({directory:'D:/Figma Assets'})}),
+    fetch:async()=>({ok:true,json:async()=>({directory:'D:/Figma Assets',singleLayerLabel:true})}),
     parent: {postMessage(m) { main.figma.ui.onmessage(m.pluginMessage); }}, setTimeout() {}
   });
   main.figma.ui.postMessage = m => window.onmessage({data: {pluginMessage: m}});

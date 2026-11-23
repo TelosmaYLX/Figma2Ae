@@ -25,7 +25,7 @@ function start(options = {}) {
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
     if (req.method === 'GET' && req.url === '/health') {
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({service: 'f2a-aep', version: 3, aeVersions: AE_VERSIONS, preserveImageFilters: true})); return;
+      res.end(JSON.stringify({service: 'f2a-aep', version: 3, aeVersions: AE_VERSIONS, preserveImageFilters: true, singleLayerLabel: true})); return;
     }
     if (req.method !== 'POST' || !['/export', '/open-directory'].includes(req.url)) { res.writeHead(404); res.end(); return; }
     try {

@@ -45,7 +45,8 @@ async function check(){
   const server=start({port:0,onGetImageFolder:endpoint.callbacks.onGetImageFolder,onChooseImageFolder:endpoint.callbacks.onChooseImageFolder});
   await once(server,'listening');const port=server.address().port,base='http://127.0.0.1:'+port;
   try{
-    assert.equal((await(await fetch(base+'/image-folder')).json()).directory,null);
+    const initial=await(await fetch(base+'/image-folder')).json();
+    assert.equal(initial.directory,null);assert.equal(initial.singleLayerLabel,true);
     const selected=fetch(base+'/image-folder',{method:'POST'});
     while(!endpoint.pickers.length)await new Promise(setImmediate);
     endpoint.pickers.shift()(endpoint.assets);
@@ -64,7 +65,7 @@ async function check(){
   }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 
   const html=fs.readFileSync(path.join(root,'figma-plugin/ui.html'),'utf8');
-  function plugin({directory=null,cancel=false,error=false}={}){
+  function plugin({directory=null,cancel=false,error=false,singleLayerLabel=true}={}){
     const elements={},requests=[],posts=[];let socket;
     for(const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g))elements[m[1]]={disabled:/\bdisabled\b/.test(m[0]),checked:/\bchecked\b/.test(m[0])};
   elements['raster-scale'].value='1';elements['native-image-masks'].value='separate';
@@ -74,7 +75,7 @@ async function check(){
         requests.push(options.method);assert.equal(url,'http://127.0.0.1:7365/image-folder');
         if(error)return{ok:false,json:async()=>({error:'目录窗口打开失败'})};
         if(options.method==='POST')directory=cancel?null:'D:/素材 文件夹';
-        return{ok:true,json:async()=>({directory})};
+        return{ok:true,json:async()=>({directory,singleLayerLabel})};
       },parent:{postMessage(m){posts.push(m.pluginMessage);}}});
     vm.runInContext(html.match(/<script>([\s\S]*)<\/script>/)[1],context);
     assert.deepEqual(posts.map(m=>m.type),['load-settings']);posts.length=0;
@@ -94,6 +95,10 @@ async function check(){
   assert.equal(abort.posts.length,0);assert.match(abort.elements.msg.textContent,/已取消/);assert.equal(abort.elements.ship.disabled,false);
   const failed=plugin({error:true});await flush();failed.elements.ship.onclick();await flush();
   assert.equal(failed.posts.length,0);assert.match(failed.elements.msg.textContent,/目录窗口打开失败/);assert.equal(failed.elements.ship.disabled,false);
+  const stalePanel=plugin({directory:'D:/已选位置',singleLayerLabel:false});await flush();stalePanel.elements.ship.onclick();await flush();
+  assert.equal(stalePanel.posts.length,0);assert.match(stalePanel.elements.msg.textContent,/单图层嵌套预合成标黄需要更新/);assert.equal(stalePanel.elements.ship.disabled,false);
+  stalePanel.elements['precomp-layers'].checked=false;stalePanel.elements.ship.onclick();await flush();
+  assert.equal(stalePanel.posts[0].type,'ship-selection');
   console.log('PASS: native folder picker with no panel widget, remembered/missing directories, real image writes, HTTP routes, Figma import preflight and the trimmed panel');
 }
 check().catch(error=>{console.error(error);process.exitCode=1;});
