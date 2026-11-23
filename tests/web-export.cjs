@@ -708,7 +708,30 @@ async function check() {
   // Test HTTP server routes (/export-web, /open-directory, /open-preview) + UI panel button flow
   await testServerAndUi(packet);
 
-  console.log('PASS: Form A web export (code.js -> HTML+CSS+JS, real Edge pixel/mask/blend/grading verification, WAAPI runtime, Inspector HUD, HTTP routes & UI panel)');
+  // Verify Windows PowerShell destination picker script compiles/initializes cleanly and preserves Unicode + leading-dash names
+  if (process.platform === 'win32') {
+    const {execFileSync} = require('node:child_process');
+    const powershell = path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe');
+    const picker = path.join(root, 'scripts/web/choose-web-destination.ps1');
+    const legacyOut = execFileSync(powershell, [
+      '-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+      '-File', picker, '-InitialName', '涂装选择', '-DryRun',
+    ], {encoding: 'utf8', windowsHide: true});
+    const legacyParsed = JSON.parse(legacyOut.trim());
+    assert.equal(legacyParsed.directory, '涂装选择');
+    assert.equal(legacyParsed.title, '保存 HTML 前端页面文件夹');
+    assert.equal(legacyParsed.filter, 'HTML 页面文件夹|*');
+    assert.equal(legacyParsed.cancelled, null);
+
+    const envOut = execFileSync(powershell, [
+      '-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+      '-File', picker, '-DryRun',
+    ], {encoding: 'utf8', windowsHide: true, env: {...process.env, F2A_WEB_INITIAL_NAME: '-涂装选择 🎨'}});
+    const envParsed = JSON.parse(envOut.trim());
+    assert.equal(envParsed.directory, '-涂装选择 🎨');
+  }
+
+  console.log('PASS: Form A web export (code.js -> HTML+CSS+JS, real Edge pixel/mask/blend/grading verification, WAAPI runtime, Inspector HUD, HTTP routes, PowerShell picker & UI panel)');
 }
 
 check().catch(error => { console.error(error); process.exitCode = 1; });

@@ -27,8 +27,10 @@ async function chooseWebDestination(options = {}) {
   const {stdout} = await run(powershell, [
     '-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
     '-File', path.join(__dirname, 'web/choose-web-destination.ps1'),
-    '-InitialName', options.name || 'Figma',
-  ], {windowsHide: true});
+  ], {
+    windowsHide: true,
+    env: {...process.env, F2A_WEB_INITIAL_NAME: options.name || 'Figma'},
+  });
   return JSON.parse(stdout.trim()).directory;
 }
 
