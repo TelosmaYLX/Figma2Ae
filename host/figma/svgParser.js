@@ -874,7 +874,10 @@ var SVGParser = (function () {
       var subs = [];
       for (k = 0; k < nd.paths.length; k++) {
         var part = parsePathData(nd.paths[k].d);
-        for (var q = 0; q < part.length; q++) subs.push(part[q]);
+        for (var q = 0; q < part.length; q++) {
+          part[q].evenOdd = !!nd.paths[k].evenOdd;
+          subs.push(part[q]);
+        }
       }
       if (!subs.length) continue;
 
@@ -938,8 +941,10 @@ var SVGParser = (function () {
       };
 
       function axis(p) {
-        return { type: p.type, stops: p.stops,
-                 start: [p.p0[0] - ox, p.p0[1] - oy], end: [p.p1[0] - ox, p.p1[1] - oy] };
+        var out = { type: p.type, stops: p.stops,
+                    start: [p.p0[0] - ox, p.p0[1] - oy], end: [p.p1[0] - ox, p.p1[1] - oy] };
+        if (p.p2) out.p2 = [p.p2[0] - ox, p.p2[1] - oy];
+        return out;
       }
 
       // The geometry is already the outlined stroke, so its paint has to go on as a FILL.

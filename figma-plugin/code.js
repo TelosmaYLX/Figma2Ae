@@ -1313,6 +1313,11 @@ function collectContainers(root) {
           // corner radius travels too: the clip is rebuilt in AE as a rounded-rect mask
           r: (typeof n.cornerRadius === 'number') ? n.cornerRadius
              : ((typeof n.topLeftRadius === 'number') ? n.topLeftRadius : 0),
+          radii: (typeof n.cornerRadius !== 'number' &&
+                  (typeof n.topLeftRadius === 'number' || typeof n.topRightRadius === 'number' ||
+                   typeof n.bottomRightRadius === 'number' || typeof n.bottomLeftRadius === 'number'))
+             ? [n.topLeftRadius || 0, n.topRightRadius || 0, n.bottomRightRadius || 0, n.bottomLeftRadius || 0]
+             : null,
           hidden: _isHidden(n),
           blur: blur, bgBlur: bgBlur, fx: effs
         });
@@ -1724,6 +1729,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       for (var rci0 = 0; rci0 < containers.length; rci0++) realContainerIds[containers[rci0].id] = true;
     }
     var texts = collectTexts(node, { x: 0, y: 0 }, node.id, !!organize, !!useNodes);
+    if (_webTarget && texts.length) await _resolveWebTextAutoLineHeight(texts, workspace);
     var effects = collectEffects(node, { x: 0, y: 0 });
     var images = await collectImages(node, node.id, !!organize, rasterFillByNode);
     images = images.concat(blendBake.images, shadowImages, maskImages);
@@ -1940,6 +1946,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
               var shifted = {}; for (var key in paint) shifted[key] = paint[key];
               shifted.p0 = [paint.p0[0] - origin.x, paint.p0[1] - origin.y];
               shifted.p1 = [paint.p1[0] - origin.x, paint.p1[1] - origin.y];
+              if (paint.p2) shifted.p2 = [paint.p2[0] - origin.x, paint.p2[1] - origin.y];
               return shifted;
             });
           }
@@ -2021,7 +2028,10 @@ function _paint(p, n) {
       stops.push({ offset: st.position, color: [st.color.r, st.color.g, st.color.b],
                    opacity: (st.color.a == null ? 1 : st.color.a) });
     }
-    var h0 = { x: 0, y: 0.5 }, h1 = { x: 1, y: 0.5 };
+    var isRadial = p.type === 'GRADIENT_RADIAL';
+    var h0 = isRadial ? { x: 0.5, y: 0.5 } : { x: 0, y: 0.5 };
+    var h1 = { x: 1, y: 0.5 };
+    var h2 = isRadial ? { x: 0.5, y: 1 } : null;
     var gt = p.gradientTransform;
     if (gt && gt[0] && gt[1]) {
       var a = gt[0][0], c = gt[0][1], e = gt[0][2];
@@ -2032,7 +2042,11 @@ function _paint(p, n) {
           var nx = x - e, ny = y - f2;
           return { x: (d * nx - c * ny) / det, y: (-b * nx + a * ny) / det };
         };
-        h0 = inv(0, 0.5); h1 = inv(1, 0.5);
+        if (isRadial) {
+          h0 = inv(0.5, 0.5); h1 = inv(1, 0.5); h2 = inv(0.5, 1);
+        } else {
+          h0 = inv(0, 0.5); h1 = inv(1, 0.5);
+        }
       }
     }
     function abs(hp) {
@@ -2042,8 +2056,10 @@ function _paint(p, n) {
         return [m[0][0] * lx + m[0][1] * ly + m[0][2], m[1][0] * lx + m[1][1] * ly + m[1][2]];
       } catch (er) { return [lx, ly]; }
     }
-    return { kind: 'grad', type: (p.type === 'GRADIENT_RADIAL' ? 'radial' : 'linear'),
-             stops: stops, opacity: op, p0: abs(h0), p1: abs(h1) };
+    var gOut = { kind: 'grad', type: (isRadial ? 'radial' : 'linear'),
+                 stops: stops, opacity: op, p0: abs(h0), p1: abs(h1) };
+    if (h2) gOut.p2 = abs(h2);
+    return gOut;
   }
   if (p.type === 'IMAGE') return { kind: 'image' };
   return null;
@@ -2338,12 +2354,18 @@ function collectShapes(root, organize, rasterFillByNode) {
 // Re-base collected absolute coordinates onto the exported SVG's origin.
 function shiftToOrigin(texts, effects, o) {
   var i;
+  function shiftGrad(gr) {
+    if (!gr || !gr.p0) return;
+    gr.p0[0] -= o.x; gr.p0[1] -= o.y; gr.p1[0] -= o.x; gr.p1[1] -= o.y;
+    if (gr.p2) { gr.p2[0] -= o.x; gr.p2[1] -= o.y; }
+  }
   for (i = 0; i < texts.length; i++) {
     texts[i].x -= o.x; texts[i].y -= o.y;
+    if (typeof texts[i].cx === 'number') texts[i].cx -= o.x;
+    if (typeof texts[i].cy === 'number') texts[i].cy -= o.y;
     if (texts[i].ink) { texts[i].ink.x -= o.x; texts[i].ink.y -= o.y; }
-    var gr = texts[i].grad;
-    if (gr && gr.p0) { gr.p0[0] -= o.x; gr.p0[1] -= o.y; gr.p1[0] -= o.x; gr.p1[1] -= o.y; }
-    if (texts[i].segs) for (var q = 0; q < texts[i].segs.length; q++) {}
+    shiftGrad(texts[i].grad);
+    if (texts[i].segs) for (var q = 0; q < texts[i].segs.length; q++) shiftGrad(texts[i].segs[q].grad);
   }
   for (i = 0; i < effects.length; i++) { effects[i].x -= o.x; effects[i].y -= o.y; }
 }
@@ -2397,10 +2419,15 @@ function _ext(bytes) {
 function _matteOf(n) {
   try {
     if (n.type === 'ELLIPSE') return { kind: 'ellipse' };
-    var r = 0;
+    var r = 0, radii = null;
     if (typeof n.cornerRadius === 'number') r = n.cornerRadius;
-    else if (n.cornerRadius === figma.mixed && typeof n.topLeftRadius === 'number') r = n.topLeftRadius;
-    return { kind: 'rect', r: r || 0 };
+    else if (n.cornerRadius === figma.mixed && typeof n.topLeftRadius === 'number') {
+      r = n.topLeftRadius;
+      radii = [n.topLeftRadius || 0, n.topRightRadius || 0, n.bottomRightRadius || 0, n.bottomLeftRadius || 0];
+    }
+    var out = { kind: 'rect', r: r || 0 };
+    if (radii) out.radii = radii;
+    return out;
   } catch (e) { return { kind: 'rect', r: 0 }; }
 }
 function _imagePaintMeta(n, f, rootId, organize, editable) {
@@ -2692,9 +2719,8 @@ function _textEffects(n) {
 }
 // Gradient text fill -> data for an AE Gradient Ramp effect. Handles are normalized (0..1)
 // to the node box; AE maps them onto the rendered text rect.
-function _gradFill(n) {
+function _gradFillFromPaints(fills, n) {
   try {
-    var fills = n.fills;
     if (!fills || fills === figma.mixed || !fills.length) return null;
     // Pick the topmost VISIBLE gradient. Blindly taking the last paint grabbed the wrong one
     // when a node carries several fills (e.g. a solid stacked over the gradient), which is how
@@ -2707,6 +2733,7 @@ function _gradFill(n) {
     }
     if (!f) return null;
     if (f.type === 'GRADIENT_LINEAR' || f.type === 'GRADIENT_RADIAL') {
+      var isRadial = f.type === 'GRADIENT_RADIAL';
       var stops = [];
       for (var i = 0; i < f.gradientStops.length; i++) {
         var s = f.gradientStops[i];
@@ -2715,10 +2742,9 @@ function _gradFill(n) {
       // The PLUGIN API describes a gradient with `gradientTransform`, not with
       // `gradientHandlePositions` (that one only exists in the REST API). Reading the missing
       // field silently produced the default left->right handles, which is why every gradient
-      // came out horizontal. Invert the matrix instead: the ramp runs (0,0)->(1,0) in gradient
-      // space, so the inverse maps those onto the node's normalised box.
+      // came out horizontal. Invert the matrix instead.
       var h = f.gradientHandlePositions || [];
-      var h0 = h[0], h1 = h[1];
+      var h0 = h[0], h1 = h[1], h2 = isRadial ? h[2] : null;
       if (!h0 || !h1) {
         var gt = f.gradientTransform;
         if (gt && gt[0] && gt[1]) {
@@ -2730,11 +2756,19 @@ function _gradFill(n) {
               var nx = x - e, ny = y - g2;
               return { x: (d * nx - c * ny) / det, y: (-b * nx + a * ny) / det };
             };
-            h0 = inv(0, 0.5); h1 = inv(1, 0.5);   // ramp runs left->right on the unit square's mid-line
+            if (isRadial) {
+              h0 = inv(0.5, 0.5); h1 = inv(1, 0.5); h2 = inv(0.5, 1);
+            } else {
+              h0 = inv(0, 0.5); h1 = inv(1, 0.5);   // ramp runs left->right on the unit square's mid-line
+            }
           }
         }
       }
-      if (!h0 || !h1) { h0 = { x: 0, y: 0.5 }; h1 = { x: 1, y: 0.5 }; }
+      if (!h0 || !h1) {
+        h0 = isRadial ? { x: 0.5, y: 0.5 } : { x: 0, y: 0.5 };
+        h1 = { x: 1, y: 0.5 };
+        if (isRadial) h2 = { x: 0.5, y: 1 };
+      }
       function abs(hp) {
         var lx = hp.x * n.width, ly = hp.y * n.height;
         try {
@@ -2745,15 +2779,21 @@ function _gradFill(n) {
           return [b.x + lx, b.y + ly];
         }
       }
-      return {
-        type: (f.type === 'GRADIENT_RADIAL') ? 'radial' : 'linear', stops: stops, opacity: f.opacity == null ? 1 : f.opacity,
+      var res = {
+        type: isRadial ? 'radial' : 'linear', stops: stops, opacity: f.opacity == null ? 1 : f.opacity,
         p0: abs(h0), p1: abs(h1),                       // absolute; re-based with everything else
         h0: { x: h0.x, y: h0.y }, h1: { x: h1.x, y: h1.y },
         nFills: fills.length, raw: [h0.x, h0.y, h1.x, h1.y]
       };
+      if (h2) { res.p2 = abs(h2); res.h2 = { x: h2.x, y: h2.y }; }
+      return res;
     }
   } catch (e) {}
   return null;
+}
+
+function _gradFill(n) {
+  return _gradFillFromPaints(n && n.fills, n);
 }
 
 // TIGHT ink bounds of the rendered glyphs (absoluteRenderBounds), relative to root.
@@ -2818,6 +2858,61 @@ function _rendersMultiline(n, fsz) {
   } catch (e) { return false; }
 }
 
+async function _resolveWebTextAutoLineHeight(texts, workspace) {
+  var cache = {};
+  async function measure(family, style, fontSize) {
+    if (!family || !fontSize || typeof figma.createText !== 'function' || typeof figma.loadFontAsync !== 'function') return null;
+    var key = family + '\0' + (style || 'Regular') + '\0' + fontSize;
+    if (Object.prototype.hasOwnProperty.call(cache, key)) return cache[key];
+    var probe = null;
+    try {
+      var fn = { family: family, style: style || 'Regular' };
+      await figma.loadFontAsync(fn);
+      probe = figma.createText();
+      if (workspace && typeof workspace.appendChild === 'function') workspace.appendChild(probe);
+      probe.fontName = fn;
+      probe.fontSize = fontSize;
+      probe.lineHeight = { unit: 'AUTO' };
+      probe.textAutoResize = 'WIDTH_AND_HEIGHT';
+      probe.characters = 'X';
+      var h = (typeof probe.height === 'number' && probe.height > 0) ? probe.height : null;
+      cache[key] = h;
+      return h;
+    } catch (e) {
+      cache[key] = null;
+      return null;
+    } finally {
+      if (probe && !probe.removed) try { probe.remove(); } catch (er) {}
+    }
+  }
+
+  for (var i = 0; i < texts.length; i++) {
+    var t = texts[i];
+    if (t.segs && t.segs.length) {
+      for (var k = 0; k < t.segs.length; k++) {
+        if (t.segs[k].leading == null) {
+          var mh = await measure(t.segs[k].family, t.segs[k].style, t.segs[k].fontSize);
+          if (mh) t.segs[k].leading = mh;
+        }
+      }
+      if (t.leading == null && t.segs[0] && t.segs[0].leading != null) t.leading = t.segs[0].leading;
+    } else if (t.leading == null) {
+      if (t.autoResize === 'WIDTH_AND_HEIGHT' && typeof t.lh === 'number' && t.lh > 0) {
+        var lineCount = String(t.characters || '').split(/\r?\n|\u2028|\u2029/).length;
+        if (lineCount > 0 && !t.paragraphSpacing) {
+          t.leading = t.lh / lineCount;
+          continue;
+        }
+      }
+      var measured = await measure(t.family, t.style, t.fontSize);
+      if (measured) t.leading = measured;
+      else if (t.autoResize === 'HEIGHT' && !t.box && !/[\r\n\u2028\u2029]/.test(t.characters || '') && typeof t.lh === 'number' && t.lh > 0) {
+        t.leading = t.lh;
+      }
+    }
+  }
+}
+
 function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
   var out = [];
   function walk(n) {
@@ -2831,12 +2926,29 @@ function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
         var b = n.absoluteBoundingBox;
         if (b) {
           var x = b.x - rootBox.x, y = b.y - rootBox.y;
+          var lw = (typeof n.width === 'number' && n.width > 0) ? n.width : b.width;
+          var lh = (typeof n.height === 'number' && n.height > 0) ? n.height : b.height;
+          var cx = x + b.width / 2, cy = y + b.height / 2;
+          try {
+            var tm = n.absoluteTransform;
+            if (tm && tm[0] && tm[1]) {
+              cx = tm[0][0] * (lw / 2) + tm[0][1] * (lh / 2) + tm[0][2] - rootBox.x;
+              cy = tm[1][0] * (lw / 2) + tm[1][1] * (lh / 2) + tm[1][2] - rootBox.y;
+            }
+          } catch (etm) {}
           var align = n.textAlignHorizontal || 'LEFT';
+          var vAlign = n.textAlignVertical || 'TOP';
+          var autoResize = n.textAutoResize || 'NONE';
+          var truncation = n.textTruncation || 'DISABLED';
+          var maxLines = (typeof n.maxLines === 'number' && n.maxLines > 0) ? n.maxLines : null;
+          var decoration = (n.textDecoration && n.textDecoration !== figma.mixed) ? n.textDecoration : 'NONE';
           var nodeOp = _opacityChain(n, organize, rootId);   // group opacity stays on the precomp in organize mode
 
           // rich text: multiple style runs (different colour/size/font per character range)
           var segs = null;
-          try { segs = n.getStyledTextSegments(['fontName', 'fontSize', 'fills', 'textCase', 'letterSpacing', 'lineHeight']); } catch (es) {}
+          try { segs = n.getStyledTextSegments(['fontName', 'fontSize', 'fills', 'textCase', 'letterSpacing', 'lineHeight', 'textDecoration']); } catch (es) {
+            try { segs = n.getStyledTextSegments(['fontName', 'fontSize', 'fills', 'textCase', 'letterSpacing', 'lineHeight']); } catch (es2) {}
+          }
 
           if (segs && segs.length > 1) {
             var runs = [];
@@ -2844,11 +2956,14 @@ function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
               var sg = segs[k], c = _solidOf(sg.fills);
               var fn = sg.fontName, fam = (fn && fn.family) ? fn.family : 'Arial', sty = (fn && fn.style) ? fn.style : 'Regular';
               var sfs = (typeof sg.fontSize === 'number') ? sg.fontSize : 16;
+              var segGrad = _gradFillFromPaints(sg.fills, n);
               runs.push({
                 characters: _applyCase(sg.characters, sg.textCase),
                 fontSize: sfs,
                 family: fam, style: sty, color: c.color, opacity: c.opacity, stroke: _textStroke(n),
-                tracking: _tracking(sg.letterSpacing, sfs), leading: _leading(sg.lineHeight || n.lineHeight, sfs)
+                tracking: _tracking(sg.letterSpacing, sfs), leading: _leading(sg.lineHeight || n.lineHeight, sfs),
+                decoration: sg.textDecoration || decoration || 'NONE',
+                grad: segGrad
               });
             }
             // Rich text wraps exactly like plain text does — without this flag AE built it as
@@ -2858,7 +2973,7 @@ function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
             var rSize = (typeof n.fontSize === 'number') ? n.fontSize : (runs.length ? runs[0].fontSize : 16);
             var rWraps = /[\n\u2028\u2029]/.test(rChars) || (rChars.length * rSize * 0.52) > (b.width * 1.05) ||
                          _rendersMultiline(n, rSize);
-            out.push({ _ownerId: n.id, _node: n, sourceId: _exportSourceIds[n.id] || n.id, runs: true, name: n.name, opacity: nodeOp, maskId: _maskByNode[n.id] || null, x: x, y: y, w: b.width, h: b.height, align: align, segs: runs,
+            out.push({ _ownerId: n.id, _node: n, sourceId: _exportSourceIds[n.id] || n.id, runs: true, name: n.name, opacity: nodeOp, maskId: _maskByNode[n.id] || null, x: x, y: y, w: b.width, h: b.height, lw: lw, lh: lh, cx: cx, cy: cy, align: align, vAlign: vAlign, autoResize: autoResize, truncation: truncation, maxLines: maxLines, decoration: decoration, segs: runs,
                        path: _pathOf(n, rootId), z: _zOf(n), box: !!(rFixed && rWraps), hidden: _hid, blur: _blurOf(n), blend: n.blendMode || 'NORMAL',
                        rotation: _rotOf(n), skewX: _skewOf(n), stroke: _textStroke(n), fx: _textEffects(n), grad: _gradFill(n), ink: _inkBounds(n, rootBox),
                        leading: _leading(n.lineHeight, rSize), paragraphSpacing: typeof n.paragraphSpacing === 'number' ? n.paragraphSpacing : null,
@@ -2872,6 +2987,7 @@ function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
             var fsz = (typeof n.fontSize === 'number') ? n.fontSize : 16;
             var tc = (n.textCase && n.textCase !== figma.mixed) ? n.textCase : 'ORIGINAL';
             var ls = (n.letterSpacing && n.letterSpacing !== figma.mixed) ? n.letterSpacing : null;
+            var dec2 = (segs && segs.length === 1 && segs[0].textDecoration) || decoration;
             // Box (wrapping) ONLY when the text actually wraps — an explicit line break, or
             // content wide enough to overflow the fixed width. A fixed-width single line
             // (very common for left-aligned button labels) is placed as reliable point text,
@@ -2886,9 +3002,9 @@ function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
             out.push({
               _ownerId: n.id, _node: n, sourceId: _exportSourceIds[n.id] || n.id, name: n.name, maskId: _maskByNode[n.id] || null, characters: _applyCase(n.characters, tc),
               path: _pathOf(n, rootId), z: _zOf(n),
-              x: x, y: y, w: b.width, h: b.height,
+              x: x, y: y, w: b.width, h: b.height, lw: lw, lh: lh, cx: cx, cy: cy,
               fontSize: fsz, family: fam2, style: sty2,
-              color: cc.color, opacity: nodeOp, fillOpacity: cc.opacity, align: align, box: !!isBox, hidden: _hid, blur: _blurOf(n),
+              color: cc.color, opacity: nodeOp, fillOpacity: cc.opacity, align: align, vAlign: vAlign, autoResize: autoResize, truncation: truncation, maxLines: maxLines, decoration: dec2, box: !!isBox, hidden: _hid, blur: _blurOf(n),
               blend: n.blendMode || 'NORMAL',
               tracking: _tracking(ls, fsz), rotation: _rotOf(n), skewX: _skewOf(n), stroke: _textStroke(n), fx: _textEffects(n), grad: _gradFill(n), ink: _inkBounds(n, rootBox),
               leading: _leading(n.lineHeight, fsz), paragraphSpacing: typeof n.paragraphSpacing === 'number' ? n.paragraphSpacing : null,

@@ -70,14 +70,17 @@ function colorCss(rgb, opacity = 1) {
 
 function fontWeightFromStyle(style = 'Regular') {
   const s = String(style).toLowerCase();
-  if (/thin|hairline/.test(s)) return 100;
-  if (/extra\s*light|ultra\s*light/.test(s)) return 200;
-  if (/light/.test(s)) return 300;
-  if (/medium/.test(s)) return 500;
-  if (/semi\s*bold|demi\s*bold/.test(s)) return 600;
-  if (/extra\s*bold|ultra\s*bold/.test(s)) return 800;
-  if (/black|heavy/.test(s)) return 900;
-  if (/bold/.test(s)) return 700;
+  if (/thin|hairline|\bw1\b|极细|超细/.test(s)) return 100;
+  if (/extra\s*light|ultra\s*light|\bw2\b|\b35\b|特细/.test(s)) return 200;
+  if (/light|\bw3\b|\b45\b|细体|纤细/.test(s)) return 300;
+  if (/medium|\bw5\b|\b65\b|中等|中黑|中粗/.test(s)) return 500;
+  if (/semi\s*bold|demi\s*bold|\bw6\b|\b75\b|半粗|准粗/.test(s)) return 600;
+  if (/extra\s*bold|ultra\s*bold|\bw8\b|\b95\b|特粗|超粗/.test(s)) return 800;
+  if (/black|heavy|\bw9\b|\b105\b|\b115\b|极粗|浓黑/.test(s)) return 900;
+  if (/bold|\bw7\b|\b85\b|粗体|加粗/.test(s)) return 700;
+  if (/regular|normal|book|roman|\bw4\b|\b55\b|常规|标准|正常/.test(s)) return 400;
+  const numMatch = s.match(/\b([1-9]00)\b/);
+  if (numMatch) return Number(numMatch[1]);
   return 400;
 }
 
@@ -85,9 +88,40 @@ function fontStyleFromStyle(style = 'Regular') {
   return /italic|oblique/i.test(String(style)) ? 'italic' : 'normal';
 }
 
+function fontStretchFromStyle(style = 'Regular') {
+  const s = String(style).replace(/\s+/g, '').toLowerCase();
+  if (s.includes('ultracondensed')) return 'ultra-condensed';
+  if (s.includes('extracondensed')) return 'extra-condensed';
+  if (s.includes('semicondensed')) return 'semi-condensed';
+  if (s.includes('condensed') || s.includes('narrow')) return 'condensed';
+  if (s.includes('ultraexpanded')) return 'ultra-expanded';
+  if (s.includes('extraexpanded')) return 'extra-expanded';
+  if (s.includes('semiexpanded')) return 'semi-expanded';
+  if (s.includes('expanded') || s.includes('extended') || s.includes('wide')) return 'expanded';
+  return 'normal';
+}
+
+function textDecorationCss(decoration) {
+  if (decoration === 'UNDERLINE') return 'underline';
+  if (decoration === 'STRIKETHROUGH') return 'line-through';
+  return null;
+}
+
 function cssFontFamily(family) {
   const clean = String(family || 'sans-serif').replaceAll('"', '\\"');
   return `"${clean}", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif`;
+}
+
+function cssBorderRadius(radii, r, w, h) {
+  const maxR = Math.max(0, Math.min(w / 2, h / 2));
+  if (Array.isArray(radii) && radii.length === 4) {
+    const vals = radii.map(v => Math.max(0, Math.min(Number(v) || 0, maxR)));
+    if (vals.every(v => v <= 0)) return null;
+    if (vals[0] === vals[1] && vals[1] === vals[2] && vals[2] === vals[3]) return px(vals[0]);
+    return vals.map(px).join(' ');
+  }
+  const single = Math.max(0, Math.min(Number(r) || 0, maxR));
+  return single > 0 ? px(single) : null;
 }
 
 function imageDimensions(buffer, ext) {
@@ -254,7 +288,7 @@ function subpathsToSvgD(subpaths) {
   return parts.join('');
 }
 
-function geometryTag(item, extraAttrs = '') {
+function geometryTag(item, extraAttrs = '', options = {}) {
   if (item.prim) {
     if (item.prim.k === 'rect') {
       const x = item.prim.cx - item.prim.w / 2;
@@ -265,7 +299,34 @@ function geometryTag(item, extraAttrs = '') {
     }
     return `<ellipse cx="${num(item.prim.cx)}" cy="${num(item.prim.cy)}" rx="${num(item.prim.rx)}" ry="${num(item.prim.ry)}"${extraAttrs}/>`;
   }
-  const d = subpathsToSvgD(item.subpaths);
+  const subs = item.subpaths || [];
+  if (!subs.length) return '';
+  const ruleAttrName = options.clipRule ? 'clip-rule' : 'fill-rule';
+  const emitRule = options.applyRule === true;
+  if (emitRule) {
+    const hasPerSub = subs.some(s => typeof s.evenOdd === 'boolean');
+    if (hasPerSub) {
+      const eoSubs = subs.filter(s => s.evenOdd === true);
+      const nzSubs = subs.filter(s => s.evenOdd !== true);
+      if (eoSubs.length && nzSubs.length) {
+        const dNz = subpathsToSvgD(nzSubs);
+        const dEo = subpathsToSvgD(eoSubs);
+        const parts = [];
+        if (dNz) parts.push(`<path d="${dNz}"${extraAttrs}/>`);
+        if (dEo) parts.push(`<path d="${dEo}" ${ruleAttrName}="evenodd"${extraAttrs}/>`);
+        return parts.join('');
+      }
+      const dAll = subpathsToSvgD(subs);
+      if (!dAll) return '';
+      const eoAttr = eoSubs.length ? ` ${ruleAttrName}="evenodd"` : '';
+      return `<path d="${dAll}"${eoAttr}${extraAttrs}/>`;
+    }
+    const dAll = subpathsToSvgD(subs);
+    if (!dAll) return '';
+    const eoAttr = item.fillRule === 2 ? ` ${ruleAttrName}="evenodd"` : '';
+    return `<path d="${dAll}"${eoAttr}${extraAttrs}/>`;
+  }
+  const d = subpathsToSvgD(subs);
   if (!d) return '';
   return `<path d="${d}"${extraAttrs}/>`;
 }
@@ -304,47 +365,145 @@ function svgGradientDef(id, gradient) {
   }).join('');
   if (gradient.type === 'radial') {
     const cx = gradient.start[0], cy = gradient.start[1];
+    if (gradient.p2) {
+      const ux = gradient.end[0] - cx, uy = gradient.end[1] - cy;
+      const vx = gradient.p2[0] - cx, vy = gradient.p2[1] - cy;
+      if (Math.hypot(ux, uy) > 1e-4 && Math.hypot(vx, vy) > 1e-4) {
+        return `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="matrix(${num(ux)} ${num(uy)} ${num(vx)} ${num(vy)} ${num(cx)} ${num(cy)})">${stops}</radialGradient>`;
+      }
+    }
     const r = Math.max(0.001, Math.hypot(gradient.end[0] - cx, gradient.end[1] - cy));
     return `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${num(cx)}" cy="${num(cy)}" r="${num(r)}">${stops}</radialGradient>`;
   }
   return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(gradient.start[0])}" y1="${num(gradient.start[1])}" x2="${num(gradient.end[0])}" y2="${num(gradient.end[1])}">${stops}</linearGradient>`;
 }
 
-function textGradientCss(item, grad) {
-  const p0 = grad.p0 || [item.x + (grad.h0 ? grad.h0.x : 0) * item.w, item.y + (grad.h0 ? grad.h0.y : 0) * item.h];
-  const p1 = grad.p1 || [item.x + (grad.h1 ? grad.h1.x : 1) * item.w, item.y + (grad.h1 ? grad.h1.y : 0) * item.h];
+function textGradientCss(item, grad, boxLeft, boxTop) {
+  const left = boxLeft != null ? boxLeft : item.x;
+  const top = boxTop != null ? boxTop : item.y;
+  const w = item.lw || item.w || 1;
+  const h = item.lh || item.h || 1;
+  const p0 = grad.p0 || [left + (grad.h0 ? grad.h0.x : 0) * w, top + (grad.h0 ? grad.h0.y : 0) * h];
+  const p1 = grad.p1 || [left + (grad.h1 ? grad.h1.x : 1) * w, top + (grad.h1 ? grad.h1.y : 0) * h];
   const paintOpacity = grad.opacity == null ? 1 : clamp01(grad.opacity);
   const stops = (grad.stops || []).map(s => {
     const a = (s.opacity == null ? 1 : clamp01(s.opacity)) * paintOpacity;
     return `${colorCss(s.color, a)} ${num(clamp01(s.offset) * 100)}%`;
   }).join(', ');
   if (grad.type === 'radial') {
-    const cx = p0[0] - item.x, cy = p0[1] - item.y;
-    const r = Math.max(1, Math.hypot(p1[0] - p0[0], p1[1] - p0[1]));
-    return `radial-gradient(circle ${px(r)} at ${px(cx)} ${px(cy)}, ${stops})`;
+    const pos = grad.h0 ? `${num(grad.h0.x * 100)}% ${num(grad.h0.y * 100)}%` : `${px(p0[0] - left)} ${px(p0[1] - top)}`;
+    const rx = Math.max(1, Math.hypot(p1[0] - p0[0], p1[1] - p0[1]));
+    if (grad.p2) {
+      const ry = Math.max(1, Math.hypot(grad.p2[0] - p0[0], grad.p2[1] - p0[1]));
+      return `radial-gradient(${px(rx)} ${px(ry)} at ${pos}, ${stops})`;
+    }
+    return `radial-gradient(circle ${px(rx)} at ${pos}, ${stops})`;
   }
   const dx = p1[0] - p0[0], dy = p1[1] - p0[1];
   const cssAngle = Math.atan2(dx, -dy) * 180 / Math.PI;
   return `linear-gradient(${num(cssAngle)}deg, ${stops})`;
 }
 
-function effectsToCss(item, isCssBox = false) {
+function needsSvgEffectFilter(item) {
+  const fxList = item.fx || [];
+  return fxList.some(fx => fx.kind === 'inner' || (fx.kind === 'drop' && Math.abs(fx.spread || 0) > 1e-4));
+}
+
+function buildSvgEffectFilter(id, fxList, viewBox) {
+  const drops = fxList.filter(fx => fx.kind === 'drop');
+  const inners = fxList.filter(fx => fx.kind === 'inner');
+  if (!drops.length && !inners.length) return '';
+  let pad = 24;
+  for (const fx of fxList) {
+    if (fx.kind === 'drop' || fx.kind === 'inner') {
+      pad = Math.max(pad, Math.ceil((fx.blur || 0) * 2 + Math.abs(fx.spread || 0) + Math.max(Math.abs(fx.dx || 0), Math.abs(fx.dy || 0))) + 8);
+    }
+  }
+  const primitives = [];
+  const dropNodes = [];
+  drops.forEach((fx, i) => {
+    const spread = fx.spread || 0;
+    let alphaSrc = 'SourceAlpha';
+    if (Math.abs(spread) > 1e-4) {
+      const op = spread > 0 ? 'dilate' : 'erode';
+      const morphId = `d_m${i}`;
+      primitives.push(`<feMorphology in="SourceAlpha" operator="${op}" radius="${num(Math.abs(spread))}" result="${morphId}"/>`);
+      alphaSrc = morphId;
+    }
+    const offId = `d_o${i}`;
+    primitives.push(`<feOffset in="${alphaSrc}" dx="${num(fx.dx || 0)}" dy="${num(fx.dy || 0)}" result="${offId}"/>`);
+    const blurId = `d_b${i}`;
+    const std = Math.max(0, (fx.blur || 0) / 2);
+    if (std > 1e-4) {
+      primitives.push(`<feGaussianBlur in="${offId}" stdDeviation="${num(std)}" result="${blurId}"/>`);
+    }
+    const floodId = `d_f${i}`;
+    const col = colorHex(fx.color || [0, 0, 0]);
+    const alpha = clamp01(fx.alpha == null ? 1 : fx.alpha);
+    primitives.push(`<feFlood flood-color="${col}" flood-opacity="${num(alpha)}" result="${floodId}"/>`);
+    const outId = `d_r${i}`;
+    primitives.push(`<feComposite in="${floodId}" in2="${std > 1e-4 ? blurId : offId}" operator="in" result="${outId}"/>`);
+    dropNodes.push(`<feMergeNode in="${outId}"/>`);
+  });
+
+  const innerNodes = [];
+  inners.forEach((fx, i) => {
+    const spread = fx.spread || 0;
+    const invFlood = `i_w${i}`;
+    const invAlpha = `i_inv${i}`;
+    primitives.push(`<feFlood flood-color="#ffffff" flood-opacity="1" result="${invFlood}"/>`);
+    primitives.push(`<feComposite in="${invFlood}" in2="SourceAlpha" operator="out" result="${invAlpha}"/>`);
+    let src = invAlpha;
+    if (Math.abs(spread) > 1e-4) {
+      const op = spread > 0 ? 'dilate' : 'erode';
+      const morphId = `i_m${i}`;
+      primitives.push(`<feMorphology in="${src}" operator="${op}" radius="${num(Math.abs(spread))}" result="${morphId}"/>`);
+      src = morphId;
+    }
+    const offId = `i_o${i}`;
+    primitives.push(`<feOffset in="${src}" dx="${num(fx.dx || 0)}" dy="${num(fx.dy || 0)}" result="${offId}"/>`);
+    const blurId = `i_b${i}`;
+    const std = Math.max(0, (fx.blur || 0) / 2);
+    if (std > 1e-4) {
+      primitives.push(`<feGaussianBlur in="${offId}" stdDeviation="${num(std)}" result="${blurId}"/>`);
+    }
+    const floodId = `i_f${i}`;
+    const col = colorHex(fx.color || [0, 0, 0]);
+    const alpha = clamp01(fx.alpha == null ? 1 : fx.alpha);
+    primitives.push(`<feFlood flood-color="${col}" flood-opacity="${num(alpha)}" result="${floodId}"/>`);
+    const tintedId = `i_t${i}`;
+    primitives.push(`<feComposite in="${floodId}" in2="${std > 1e-4 ? blurId : offId}" operator="in" result="${tintedId}"/>`);
+    const clippedId = `i_r${i}`;
+    primitives.push(`<feComposite in="${tintedId}" in2="SourceAlpha" operator="in" result="${clippedId}"/>`);
+    innerNodes.push(`<feMergeNode in="${clippedId}"/>`);
+  });
+
+  primitives.push(`<feMerge>${dropNodes.join('')}<feMergeNode in="SourceGraphic"/>${innerNodes.join('')}</feMerge>`);
+  return `<filter id="${id}" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB" x="${num(viewBox.x - pad)}" y="${num(viewBox.y - pad)}" width="${num(viewBox.w + pad * 2)}" height="${num(viewBox.h + pad * 2)}">${primitives.join('')}</filter>`;
+}
+
+function effectsToCss(item, isCssBox = false, options = {}) {
   const filters = [];
   const boxShadows = [];
+  const textShadows = [];
+  const skipShadows = !!options.skipShadows;
+  const useTextShadow = !!options.useTextShadow;
   let bgBlur = item.bgBlur || 0;
   let fxBgBlur = 0;
   let fxLayerBlur = 0;
   for (const fx of item.fx || []) {
     if (fx.kind === 'blur' && (fx.radius || 0) > fxLayerBlur) fxLayerBlur = fx.radius;
     else if (fx.kind === 'bgblur' && (fx.radius || 0) > fxBgBlur) fxBgBlur = fx.radius;
-    else if (fx.kind === 'drop') {
+    else if (!skipShadows && fx.kind === 'drop') {
       const col = colorCss(fx.color, fx.alpha == null ? 1 : fx.alpha);
       if (isCssBox) {
         boxShadows.push(`${px(fx.dx || 0)} ${px(fx.dy || 0)} ${px(fx.blur || 0)} ${px(fx.spread || 0)} ${col}`);
+      } else if (useTextShadow) {
+        textShadows.push(`${px(fx.dx || 0)} ${px(fx.dy || 0)} ${px(fx.blur || 0)} ${col}`);
       } else {
         filters.push(`drop-shadow(${px(fx.dx || 0)} ${px(fx.dy || 0)} ${px((fx.blur || 0) / 2)} ${col})`);
       }
-    } else if (fx.kind === 'inner' && isCssBox) {
+    } else if (!skipShadows && fx.kind === 'inner' && isCssBox) {
       const col = colorCss(fx.color, fx.alpha == null ? 1 : fx.alpha);
       boxShadows.push(`inset ${px(fx.dx || 0)} ${px(fx.dy || 0)} ${px(fx.blur || 0)} ${px(fx.spread || 0)} ${col}`);
     }
@@ -356,11 +515,12 @@ function effectsToCss(item, isCssBox = false) {
   if (layerBlur > 0) filters.push(`blur(${px(layerBlur / 2)})`);
   const decls = [];
   if (filters.length) decls.push(`filter: ${filters.join(' ')};`);
+  if (textShadows.length) decls.push(`text-shadow: ${textShadows.join(', ')};`);
   if (bgBlur > 0) {
     decls.push(`backdrop-filter: blur(${px(bgBlur / 2)});`);
     decls.push(`-webkit-backdrop-filter: blur(${px(bgBlur / 2)});`);
   }
-  return {decls, boxShadows};
+  return {decls, boxShadows, textShadows};
 }
 
 function maxShapeStrokeWidth(item) {
@@ -391,12 +551,43 @@ function buildWebModel(packet) {
   const counts = {containers: 0, minimal: 0, shapes: 0, texts: 0, images: 0, masks: 0};
   const assets = [];
   const cssRules = [];
+  const fontFaceRules = [];
+  const seenFontFaces = new Map();
   const rootDefs = [];
   let seq = 0;
   let defSeq = 0;
 
   const nextId = (prefix = 'f2a-n') => prefix + (++seq);
   const nextDef = (prefix = 'f2a-d') => prefix + (++defSeq);
+
+  function fontFamilyWithAlias(family, style) {
+    const fam = String(family || 'sans-serif').trim();
+    const sty = String(style || 'Regular').trim();
+    const weight = fontWeightFromStyle(sty);
+    const fStyle = fontStyleFromStyle(sty);
+    const key = `${fam}\0${sty}`;
+    if (fam && !/^(sans-serif|serif|monospace|system-ui)$/i.test(fam) && !/^regular$/i.test(sty)) {
+      let alias = seenFontFaces.get(key);
+      if (!alias) {
+        alias = `f2a-font-${seenFontFaces.size + 1}`;
+        seenFontFaces.set(key, alias);
+        const famNoSpace = fam.replace(/\s+/g, '');
+        const styNoSpace = sty.replace(/\s+/g, '');
+        const candidates = [...new Set([
+          `${fam} ${sty}`,
+          `${fam}-${sty}`,
+          `${famNoSpace}-${styNoSpace}`,
+          `${famNoSpace}${styNoSpace}`,
+          `${fam} ${styNoSpace}`,
+        ])].map(name => `local("${name.replaceAll('"', '\\"')}")`).join(', ');
+        fontFaceRules.push(
+          `@font-face { font-family: "${alias}"; font-weight: ${weight}; font-style: ${fStyle}; src: ${candidates}; }`
+        );
+      }
+      return `"${alias}", ${cssFontFamily(fam)}`;
+    }
+    return cssFontFamily(fam);
+  }
 
   // Decode all images once and reserve clean filenames
   const decodedImages = new Map();
@@ -485,19 +676,26 @@ function buildWebModel(packet) {
       entries: [],
     };
     contexts.set(container.id, ctx);
-    parent.entries.push({z: container.z || 0, kind: 'container', item: container, ctx});
+    parent.entries.push({z: container.z || 0, tie: 4, kind: 'container', item: container, ctx});
   }
 
   for (const shape of data.shapes) {
     if (shape.maskSource) continue;
-    parentOf(shape).entries.push({z: shape.z || 0, kind: 'shape', item: shape});
+    const effFillOp = shape.layerStroke ? (shape.layerFillOpacity == null ? 1 : shape.layerFillOpacity) : (shape.fillOpacity == null ? 1 : shape.fillOpacity);
+    const hasFill = (shape.fill != null && effFillOp > 0) || !!shape.gradient;
+    const hasStroke = shape.stroke != null || !!shape.strokeGradient || !!shape.layerStroke;
+    const hasExtra = !!(shape.extraPaints && shape.extraPaints.length);
+    const hasFx = !!(shape.fx && shape.fx.length) || !!shape.blur || !!shape.bgBlur;
+    if (shape.imageSlot && !hasFill && !hasStroke && !hasExtra && !hasFx) continue;
+    const tie = (shape.imageSlot && !hasFill) ? 2 : 0;
+    parentOf(shape).entries.push({z: shape.z || 0, tie, kind: 'shape', item: shape});
   }
   for (const text of data.texts) {
-    parentOf(text).entries.push({z: text.z || 0, kind: 'text', item: text});
+    parentOf(text).entries.push({z: text.z || 0, tie: 3, kind: 'text', item: text});
   }
   data.images.forEach((image, index) => {
     if (image.maskSource || image.reference) return;
-    parentOf(image).entries.push({z: image.z || 0, kind: 'image', item: image, index});
+    parentOf(image).entries.push({z: image.z || 0, tie: 1, kind: 'image', item: image, index});
   });
 
   function createMaskDef(maskId, parentCtx) {
@@ -520,18 +718,20 @@ function buildWebModel(packet) {
       const cy = image.cy ?? (image.y + image.h / 2);
       const rot = image.rotation || 0;
       const opacity = image.opacity == null ? 1 : clamp01(image.opacity);
+      const mime = asset.ext === 'jpg' ? 'jpeg' : asset.ext;
+      const maskHref = `data:image/${mime};base64,${asset.base64}`;
       let imgTag;
       if (image.imageMatrix) {
         const m = image.imageMatrix;
         const a = m[0] / nw, b = m[1] / nw, c = m[2] / nh, d = m[3] / nh;
-        imgTag = `<image href="${escapeHtml(asset.file)}" width="${num(nw)}" height="${num(nh)}" opacity="${num(opacity)}" transform="matrix(${num(a)} ${num(b)} ${num(c)} ${num(d)} ${num(m[4])} ${num(m[5])})"/>`;
+        imgTag = `<image href="${maskHref}" preserveAspectRatio="none" width="${num(nw)}" height="${num(nh)}" opacity="${num(opacity)}" transform="matrix(${num(a)} ${num(b)} ${num(c)} ${num(d)} ${num(m[4])} ${num(m[5])})"/>`;
       } else {
         const scale = image.rasterScale ? (1 / image.rasterScale) : (image.scaleMode === 'FIT' ? Math.min(w / nw, h / nh) : Math.max(w / nw, h / nh));
         const dw = nw * scale, dh = nh * scale;
         const tf = rot
           ? ` transform="translate(${num(cx)} ${num(cy)}) rotate(${num(rot)}) translate(${num(-dw / 2)} ${num(-dh / 2)})"`
           : ` x="${num(cx - dw / 2)}" y="${num(cy - dh / 2)}"`;
-        imgTag = `<image href="${escapeHtml(asset.file)}" width="${num(dw)}" height="${num(dh)}" opacity="${num(opacity)}"${tf}/>`;
+        imgTag = `<image href="${maskHref}" preserveAspectRatio="none" width="${num(dw)}" height="${num(dh)}" opacity="${num(opacity)}"${tf}/>`;
       }
       if (image.matte) {
         const clipId = nextDef('f2a-mclip-');
@@ -548,7 +748,6 @@ function buildWebModel(packet) {
       const parts = [];
       for (const def of vectorMasks) {
         const op = (def.opacity == null ? 1 : clamp01(def.opacity)) * (luma ? (def.fillOpacity == null ? 1 : clamp01(def.fillOpacity)) : 1);
-        const fillRule = def.fillRule === 2 ? ' fill-rule="evenodd"' : '';
         let fillValue = '#ffffff';
         if (luma) {
           if (def.gradient) {
@@ -559,15 +758,19 @@ function buildWebModel(packet) {
             fillValue = colorHex(def.fill || [1, 1, 1]);
           }
         }
-        const geom = geometryTag({subpaths: def.subpaths}, ` fill="${fillValue}" fill-opacity="${num(op)}"${fillRule}`);
+        const geom = geometryTag({subpaths: def.subpaths, fillRule: def.fillRule}, ` fill="${fillValue}" fill-opacity="${num(op)}"`, {applyRule: true});
         if (geom) parts.push(geom);
       }
       inner = parts.join('');
     }
     const mode = luma ? 'luminance' : 'alpha';
     const shift = (parentCtx.x || parentCtx.y) ? ` transform="translate(${num(-parentCtx.x)} ${num(-parentCtx.y)})"` : '';
+    const maskX = Math.min(0, -parentCtx.x);
+    const maskY = Math.min(0, -parentCtx.y);
+    const maskW = Math.max(parentCtx.w, data.width - parentCtx.x) - maskX;
+    const maskH = Math.max(parentCtx.h, data.height - parentCtx.y) - maskY;
     rootDefs.push(
-      `<mask id="${defId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:${mode}" x="0" y="0" width="${num(parentCtx.w)}" height="${num(parentCtx.h)}"><g${shift}>${inner}</g></mask>`
+      `<mask id="${defId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:${mode}" x="${num(maskX)}" y="${num(maskY)}" width="${num(maskW)}" height="${num(maskH)}"><g${shift}>${inner}</g></mask>`
     );
     counts.masks++;
     return {defId, mode};
@@ -585,16 +788,16 @@ function buildWebModel(packet) {
     return `${indent}<div id="${hostId}" class="f2a-mask-host" data-mask-id="${escapeHtml(item.maskId)}">\n${html}\n${indent}</div>`;
   }
 
-  function commonDecls(item, {isCssBox = false, allowOpacity = true} = {}) {
+  function commonDecls(item, {isCssBox = false, allowOpacity = true, skipShadows = false, useTextShadow = false} = {}) {
     const decls = [];
     if (allowOpacity && item.opacity != null && item.opacity < 0.9995) {
       decls.push(`opacity: ${num(clamp01(item.opacity))};`);
     }
     const blend = !item.maskId && BLEND_CSS[item.blend];
     if (blend) decls.push(`mix-blend-mode: ${blend};`);
-    const fx = effectsToCss(item, isCssBox);
+    const fx = effectsToCss(item, isCssBox, {skipShadows, useTextShadow});
     decls.push(...fx.decls);
-    return {decls, boxShadows: fx.boxShadows};
+    return {decls, boxShadows: fx.boxShadows, textShadows: fx.textShadows};
   }
 
   function dataAttrs(domId, item, pathNames, kind, extra = '') {
@@ -631,7 +834,7 @@ function buildWebModel(packet) {
 
     if (align === 'INSIDE') {
       const clipId = nextDef('f2a-ic-');
-      localDefs.push(`<clipPath id="${clipId}">${geometryTag(item)}</clipPath>`);
+      localDefs.push(`<clipPath id="${clipId}">${geometryTag(item, '', {applyRule: true, clipRule: true})}</clipPath>`);
       return geometryTag(item, `${baseAttrs} stroke-width="${num(width * 2)}" clip-path="url(#${clipId})"`);
     }
     if (align === 'OUTSIDE') {
@@ -639,7 +842,7 @@ function buildWebModel(packet) {
       localDefs.push(
         `<mask id="${maskId}" maskUnits="userSpaceOnUse" x="${num(viewBox.x)}" y="${num(viewBox.y)}" width="${num(viewBox.w)}" height="${num(viewBox.h)}">` +
         `<rect x="${num(viewBox.x)}" y="${num(viewBox.y)}" width="${num(viewBox.w)}" height="${num(viewBox.h)}" fill="#ffffff"/>` +
-        `${geometryTag(item, ' fill="#000000"')}</mask>`
+        `${geometryTag(item, ' fill="#000000"', {applyRule: true})}</mask>`
       );
       return geometryTag(item, `${baseAttrs} stroke-width="${num(width * 2)}" mask="url(#${maskId})"`);
     }
@@ -701,7 +904,6 @@ function buildWebModel(packet) {
 
     const localDefs = [];
     const layers = [];
-    const fillRuleAttr = (geomItem) => (geomItem.fillRule === 2 ? ' fill-rule="evenodd"' : '');
 
     function emitFill(geomItem, color, gradient, opacity) {
       const op = clamp01(opacity == null ? 1 : opacity);
@@ -717,7 +919,7 @@ function buildWebModel(packet) {
         return;
       }
       const opAttr = op < 0.9995 ? ` fill-opacity="${num(op)}"` : '';
-      const tag = geometryTag(geomItem, ` fill="${fillPaint}"${opAttr}${fillRuleAttr(geomItem)}`);
+      const tag = geometryTag(geomItem, ` fill="${fillPaint}"${opAttr}`, {applyRule: true});
       if (tag) layers.push(tag);
     }
 
@@ -756,7 +958,17 @@ function buildWebModel(packet) {
       }
     }
 
-    const {decls} = commonDecls(item, {isCssBox: false});
+    let svgFilterId = null;
+    if (needsSvgEffectFilter(item)) {
+      const fid = nextDef('f2a-fx-');
+      const filterDef = buildSvgEffectFilter(fid, item.fx || [], viewBox);
+      if (filterDef) {
+        localDefs.push(filterDef);
+        svgFilterId = fid;
+      }
+    }
+
+    const {decls} = commonDecls(item, {isCssBox: false, skipShadows: !!svgFilterId});
     decls.unshift(
       `left: ${px(vx - parentCtx.x)};`,
       `top: ${px(vy - parentCtx.y)};`,
@@ -765,7 +977,8 @@ function buildWebModel(packet) {
     );
     cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${decls.join(' ')} }`);
     const defsMarkup = localDefs.length ? `<defs>${localDefs.join('')}</defs>` : '';
-    const html = `${indent}<svg ${dataAttrs(domId, item, pathNames, 'shape', 'class="f2a-svg"')} viewBox="${num(vx)} ${num(vy)} ${num(vw)} ${num(vh)}" width="${num(vw)}" height="${num(vh)}" overflow="visible">${defsMarkup}${layers.join('')}</svg>`;
+    const bodyMarkup = svgFilterId ? `<g filter="url(#${svgFilterId})">${layers.join('')}</g>` : layers.join('');
+    const html = `${indent}<svg ${dataAttrs(domId, item, pathNames, 'shape', 'class="f2a-svg"')} viewBox="${num(vx)} ${num(vy)} ${num(vw)} ${num(vh)}" width="${num(vw)}" height="${num(vh)}" overflow="visible">${defsMarkup}${bodyMarkup}</svg>`;
     return {
       html: wrapMaskIfNeeded(html, item, parentCtx, indent),
       meta: {
@@ -781,40 +994,84 @@ function buildWebModel(packet) {
     const pathNames = parentCtx.pathNames.concat([item.name || 'Text']);
     counts.texts++;
 
-    const {decls} = commonDecls(item, {isCssBox: false});
-    decls.unshift(
-      `left: ${px(item.x - parentCtx.x)};`,
-      `top: ${px(item.y - parentCtx.y)};`,
-      `width: ${px(item.w)};`,
-      `min-height: ${px(item.h)};`
-    );
-
-    const alignMap = {LEFT: 'left', CENTER: 'center', RIGHT: 'right', JUSTIFIED: 'justify'};
-    decls.push(`text-align: ${alignMap[item.align] || 'left'};`);
-    decls.push(item.box ? 'white-space: pre-wrap; overflow-wrap: break-word;' : 'white-space: pre;');
+    const boxW = (typeof item.lw === 'number' && item.lw > 0) ? item.lw : item.w;
+    const boxH = (typeof item.lh === 'number' && item.lh > 0) ? item.lh : item.h;
+    const boxLeft = (typeof item.cx === 'number') ? (item.cx - boxW / 2) : item.x;
+    const boxTop = (typeof item.cy === 'number') ? (item.cy - boxH / 2) : item.y;
 
     const baseStyle = (item.segs && item.segs[0]) || item;
-    decls.push(`font-family: ${cssFontFamily(baseStyle.family)};`);
-    decls.push(`font-size: ${px(baseStyle.fontSize || 16)};`);
+    const baseFontSize = baseStyle.fontSize || 16;
+    const autoResize = item.autoResize || (item.box ? 'HEIGHT' : 'WIDTH_AND_HEIGHT');
+    const truncate = item.truncation === 'ENDING' || autoResize === 'TRUNCATE';
+    const wraps = Boolean(item.box || ((autoResize === 'HEIGHT' || autoResize === 'NONE' || autoResize === 'TRUNCATE') && truncate));
+    const trackingPx = baseStyle.tracking ? (baseStyle.tracking / 1000) * baseFontSize : 0;
+    // Slight trailing buffer on wrapping non-truncated boxes prevents premature line breaks from OS font metric differences.
+    const widthSlack = (wraps && !truncate) ? Math.max(1, trackingPx > 0 ? trackingPx : 0) : 0;
+
+    const alignMap = {LEFT: 'left', CENTER: 'center', RIGHT: 'right', JUSTIFIED: 'justify'};
+    const justifyMap = {LEFT: 'flex-start', CENTER: 'center', RIGHT: 'flex-end', JUSTIFIED: 'flex-start'};
+    const vAlignMap = {TOP: 'flex-start', CENTER: 'center', BOTTOM: 'flex-end'};
+    const hAlign = alignMap[item.align] || 'left';
+    const vAlign = vAlignMap[item.vAlign] || 'flex-start';
+
+    const hasGradient = Boolean(item.grad || (item.segs && item.segs.some(s => !!s.grad)));
+    const {decls} = commonDecls(item, {isCssBox: false, useTextShadow: !hasGradient});
+    decls.unshift(
+      `left: ${px(boxLeft - parentCtx.x)};`,
+      `top: ${px(boxTop - parentCtx.y)};`,
+      `width: ${px(boxW + widthSlack)};`,
+      `height: ${px(boxH)};`,
+      'display: flex;',
+      `align-items: ${vAlign};`,
+      `justify-content: ${justifyMap[item.align] || 'flex-start'};`
+    );
+
+    decls.push(`text-align: ${hAlign};`);
+    decls.push(`font-family: ${fontFamilyWithAlias(baseStyle.family, baseStyle.style)};`);
+    decls.push(`font-size: ${px(baseFontSize)};`);
     decls.push(`font-weight: ${fontWeightFromStyle(baseStyle.style)};`);
     const fStyle = fontStyleFromStyle(baseStyle.style);
     if (fStyle !== 'normal') decls.push(`font-style: ${fStyle};`);
-    if (item.leading != null) decls.push(`line-height: ${px(item.leading)};`);
-    else if (baseStyle.leading != null) decls.push(`line-height: ${px(baseStyle.leading)};`);
+    const fStretch = fontStretchFromStyle(baseStyle.style);
+    if (fStretch !== 'normal') decls.push(`font-stretch: ${fStretch};`);
+    const lineHeightPx = item.leading != null ? item.leading : baseStyle.leading;
+    if (lineHeightPx != null) decls.push(`line-height: ${px(lineHeightPx)};`);
     if (baseStyle.tracking) decls.push(`letter-spacing: ${num(baseStyle.tracking / 1000)}em;`);
     if (item.paragraphIndent) decls.push(`text-indent: ${px(item.paragraphIndent)};`);
+    const baseDec = textDecorationCss(item.decoration);
+    if (baseDec && (!item.segs || !item.segs.length)) decls.push(`text-decoration: ${baseDec};`);
 
-    if (item.grad) {
-      decls.push(`background: ${textGradientCss(item, item.grad)};`);
-      decls.push('-webkit-background-clip: text; background-clip: text; color: transparent;');
-    } else if (!item.segs || !item.segs.length) {
-      decls.push(`color: ${colorCss(item.color || [0, 0, 0], item.fillOpacity == null ? 1 : item.fillOpacity)};`);
+    const hasStroke = !!(item.stroke && item.stroke.width > 0);
+    const fillOpacity = item.fillOpacity == null ? 1 : clamp01(item.fillOpacity);
+    const layeredStroke = hasStroke && item.stroke.align === 'OUTSIDE' && (!!item.grad || fillOpacity < 0.9995);
+
+    const contentDecls = [];
+    if (wraps) {
+      contentDecls.push('display: block;', 'width: 100%;', 'min-width: 0;', 'white-space: pre-wrap;', 'overflow-wrap: break-word;', 'word-break: break-word;');
+    } else {
+      contentDecls.push('display: inline-block;', 'white-space: pre;');
+    }
+    if (truncate) {
+      const clampLines = item.maxLines || (lineHeightPx && boxH ? Math.max(1, Math.floor(boxH / lineHeightPx)) : 1);
+      if (clampLines <= 1) {
+        contentDecls.push('overflow: hidden;', 'text-overflow: ellipsis;', 'white-space: nowrap;', 'max-width: 100%;');
+      } else {
+        contentDecls.push('display: -webkit-box;', '-webkit-box-orient: vertical;', `-webkit-line-clamp: ${clampLines};`, 'overflow: hidden;', 'text-overflow: ellipsis;');
+      }
     }
 
-    if (item.stroke && item.stroke.width > 0) {
+    const fillDecls = [];
+    if (item.grad) {
+      fillDecls.push(`background: ${textGradientCss(item, item.grad, boxLeft, boxTop)};`);
+      fillDecls.push('-webkit-background-clip: text;', 'background-clip: text;', '-webkit-text-fill-color: transparent;', 'color: transparent;');
+    } else if (!item.segs || !item.segs.length) {
+      decls.push(`color: ${colorCss(item.color || [0, 0, 0], fillOpacity)};`);
+    }
+
+    if (hasStroke && !layeredStroke) {
       const sw = item.stroke.align === 'OUTSIDE' ? item.stroke.width * 2 : item.stroke.width;
-      decls.push(`-webkit-text-stroke: ${px(sw)} ${colorCss(item.stroke.color, item.stroke.opacity == null ? 1 : item.stroke.opacity)};`);
-      decls.push('paint-order: stroke fill;');
+      const sc = colorCss(item.stroke.color, item.stroke.opacity == null ? 1 : item.stroke.opacity);
+      (item.grad ? fillDecls : decls).push(`-webkit-text-stroke: ${px(sw)} ${sc};`, 'paint-order: stroke fill;');
     }
 
     const transforms = [];
@@ -824,37 +1081,65 @@ function buildWebModel(packet) {
 
     cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${decls.join(' ')} }`);
 
-    let contentHtml = '';
-    if (item.segs && item.segs.length) {
-      contentHtml = item.segs.map(seg => {
-        const sd = [
-          `font-family:${cssFontFamily(seg.family)}`,
-          `font-size:${px(seg.fontSize || 16)}`,
-          `font-weight:${fontWeightFromStyle(seg.style)}`,
-        ];
-        if (fontStyleFromStyle(seg.style) !== 'normal') sd.push('font-style:italic');
-        if (!item.grad) sd.push(`color:${colorCss(seg.color || [0, 0, 0], seg.opacity == null ? 1 : seg.opacity)}`);
-        if (seg.tracking) sd.push(`letter-spacing:${num(seg.tracking / 1000)}em`);
-        if (seg.leading != null) sd.push(`line-height:${px(seg.leading)}`);
-        return `<span style="${escapeHtml(sd.join(';'))}">${escapeHtml(seg.characters)}</span>`;
-      }).join('');
-    } else if (item.paragraphSpacing) {
-      const paras = String(item.characters || '').split(/\r?\n/);
-      contentHtml = paras.map((line, i) => {
-        const mb = i < paras.length - 1 ? ` style="margin-bottom:${px(item.paragraphSpacing)}"` : '';
-        return `<p class="f2a-p"${mb}>${escapeHtml(line) || '&nbsp;'}</p>`;
-      }).join('');
-    } else {
-      contentHtml = escapeHtml(item.characters || '');
+    function buildInnerContent(forStrokeBack) {
+      if (item.segs && item.segs.length) {
+        return item.segs.map(seg => {
+          const sd = [
+            `font-family:${fontFamilyWithAlias(seg.family, seg.style)}`,
+            `font-size:${px(seg.fontSize || 16)}`,
+            `font-weight:${fontWeightFromStyle(seg.style)}`,
+          ];
+          const sfStyle = fontStyleFromStyle(seg.style);
+          if (sfStyle !== 'normal') sd.push(`font-style:${sfStyle}`);
+          const sfStretch = fontStretchFromStyle(seg.style);
+          if (sfStretch !== 'normal') sd.push(`font-stretch:${sfStretch}`);
+          const sDec = textDecorationCss(seg.decoration);
+          if (sDec) sd.push(`text-decoration:${sDec}`);
+          if (!forStrokeBack) {
+            if (seg.grad && !item.grad) {
+              sd.push(`background:${textGradientCss(item, seg.grad, boxLeft, boxTop)}`, '-webkit-background-clip:text', 'background-clip:text', '-webkit-text-fill-color:transparent', 'color:transparent');
+            } else if (!item.grad) {
+              sd.push(`color:${colorCss(seg.color || [0, 0, 0], seg.opacity == null ? 1 : seg.opacity)}`);
+            }
+          }
+          if (seg.tracking) sd.push(`letter-spacing:${num(seg.tracking / 1000)}em`);
+          if (seg.leading != null) sd.push(`line-height:${px(seg.leading)}`);
+          return `<span style="${escapeHtml(sd.join(';'))}">${escapeHtml(seg.characters)}</span>`;
+        }).join('');
+      }
+      if (item.paragraphSpacing) {
+        const paras = String(item.characters || '').split(/\r?\n/);
+        return paras.map((line, i) => {
+          const mb = i < paras.length - 1 ? ` style="margin-bottom:${px(item.paragraphSpacing)}"` : '';
+          return `<p class="f2a-p"${mb}>${escapeHtml(line) || '&nbsp;'}</p>`;
+        }).join('');
+      }
+      return escapeHtml(item.characters || '');
     }
 
-    const html = `${indent}<div ${dataAttrs(domId, item, pathNames, 'text', 'class="f2a-text"')}>${contentHtml}</div>`;
+    let bodyHtml;
+    if (layeredStroke) {
+      const stackId = nextId('f2a-ts');
+      const backId = nextId('f2a-tb');
+      const frontId = nextId('f2a-tf');
+      const sc = colorCss(item.stroke.color, item.stroke.opacity == null ? 1 : item.stroke.opacity);
+      cssRules.push(`#${stackId} { position: relative; ${contentDecls.join(' ')} }`);
+      cssRules.push(`#${backId} { position: absolute; inset: 0; color: transparent; -webkit-text-fill-color: transparent; -webkit-text-stroke: ${px(item.stroke.width * 2)} ${sc}; pointer-events: none; }`);
+      cssRules.push(`#${frontId} { position: relative; display: ${wraps ? 'block' : 'inline-block'}; ${fillDecls.join(' ')} }`);
+      bodyHtml = `<span id="${stackId}" class="f2a-text-stack"><span id="${backId}" class="f2a-text-stroke" aria-hidden="true">${buildInnerContent(true)}</span><span id="${frontId}" class="f2a-text-fill">${buildInnerContent(false)}</span></span>`;
+    } else {
+      const contentId = nextId('f2a-tc');
+      cssRules.push(`#${contentId} { ${contentDecls.concat(fillDecls).join(' ')} }`);
+      bodyHtml = `<span id="${contentId}" class="f2a-text-content">${buildInnerContent(false)}</span>`;
+    }
+
+    const html = `${indent}<div ${dataAttrs(domId, item, pathNames, 'text', 'class="f2a-text"')}>${bodyHtml}</div>`;
     return {
       html: wrapMaskIfNeeded(html, item, parentCtx, indent),
       meta: {
         id: domId, sourceId: item.sourceId || null, name: item.name || 'Text', path: pathNames.join('/'),
         kind: 'text', singleLayer: false, hidden: !!item.hidden, hasMask: !!item.maskId,
-        bounds: {x: item.x, y: item.y, w: item.w, h: item.h},
+        bounds: {x: boxLeft, y: boxTop, w: boxW, h: boxH},
       },
     };
   }
@@ -887,8 +1172,12 @@ function buildWebModel(packet) {
         `height: ${px(height)};`,
         'overflow: hidden;',
       ];
-      if (item.matte.kind === 'ellipse') matteDecls.push('border-radius: 50%;');
-      else if (item.matte.r > 0) matteDecls.push(`border-radius: ${px(Math.min(item.matte.r, width / 2, height / 2))};`);
+      if (item.matte.kind === 'ellipse') {
+        matteDecls.push('border-radius: 50%;');
+      } else {
+        const rad = cssBorderRadius(item.matte.radii, item.matte.r, width, height);
+        if (rad) matteDecls.push(`border-radius: ${rad};`);
+      }
       if (rot) matteDecls.push(`transform: rotate(${num(rot)}deg);`);
       matteDecls.push(...decls);
       cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${matteDecls.join(' ')} }`);
@@ -947,7 +1236,7 @@ function buildWebModel(packet) {
   }
 
   function renderEntries(ctx, indent) {
-    const sorted = [...ctx.entries].sort((a, b) => a.z - b.z);
+    const sorted = [...ctx.entries].sort((a, b) => (a.z - b.z) || ((a.tie || 0) - (b.tie || 0)));
     const htmlParts = [];
     const childMetas = [];
     for (const entry of sorted) {
@@ -957,28 +1246,32 @@ function buildWebModel(packet) {
         counts.containers++;
         if (c.singleLayer) counts.minimal++;
 
-        const {decls} = commonDecls(c, {isCssBox: !!c.clip});
+        let clipDecls = null;
+        let clipRadius = null;
+        let exactBoxClip = false;
+        if (c.clip) {
+          const topInset = Math.max(0, c.y - childCtx.y);
+          const leftInset = Math.max(0, c.x - childCtx.x);
+          const rightInset = Math.max(0, (childCtx.x + childCtx.w) - (c.x + c.w));
+          const bottomInset = Math.max(0, (childCtx.y + childCtx.h) - (c.y + c.h));
+          clipRadius = cssBorderRadius(c.radii, c.r, c.w, c.h);
+          exactBoxClip = topInset < 1e-4 && leftInset < 1e-4 && rightInset < 1e-4 && bottomInset < 1e-4;
+          if (exactBoxClip) {
+            clipDecls = ['overflow: hidden;'];
+            if (clipRadius) clipDecls.push(`border-radius: ${clipRadius};`);
+          } else {
+            const round = clipRadius ? ` round ${clipRadius}` : '';
+            clipDecls = [`clip-path: inset(${px(topInset)} ${px(rightInset)} ${px(bottomInset)} ${px(leftInset)}${round});`];
+          }
+        }
+        const {decls, boxShadows} = commonDecls(c, {isCssBox: exactBoxClip});
+        if (boxShadows.length) decls.push(`box-shadow: ${boxShadows.join(', ')};`);
         decls.unshift(
           `left: ${px(childCtx.x - ctx.x)};`,
           `top: ${px(childCtx.y - ctx.y)};`,
           `width: ${px(childCtx.w)};`,
           `height: ${px(childCtx.h)};`
         );
-        let clipDecls = null;
-        if (c.clip) {
-          const topInset = Math.max(0, c.y - childCtx.y);
-          const leftInset = Math.max(0, c.x - childCtx.x);
-          const rightInset = Math.max(0, (childCtx.x + childCtx.w) - (c.x + c.w));
-          const bottomInset = Math.max(0, (childCtx.y + childCtx.h) - (c.y + c.h));
-          const r = Math.max(0, Math.min(c.r || 0, c.w / 2, c.h / 2));
-          if (topInset < 1e-4 && leftInset < 1e-4 && rightInset < 1e-4 && bottomInset < 1e-4) {
-            clipDecls = ['overflow: hidden;'];
-            if (r > 0) clipDecls.push(`border-radius: ${px(r)};`);
-          } else {
-            const round = r > 0 ? ` round ${px(r)}` : '';
-            clipDecls = [`clip-path: inset(${px(topInset)} ${px(rightInset)} ${px(bottomInset)} ${px(leftInset)}${round});`];
-          }
-        }
         // Preserve Figma NORMAL isolation unless collapseForBlends lets inner blends pass through.
         // Synthetic singleLayer wrappers never introduce an extra isolation/backdrop root.
         if (!c.singleLayer && !c.collapseForBlends && c.blend !== 'PASS_THROUGH') {
@@ -991,6 +1284,7 @@ function buildWebModel(packet) {
           : [];
         const splitClip = !!(clipDecls && ownEntries.length && ownEntries.length < childCtx.entries.length);
         if (clipDecls && !splitClip) decls.push(...clipDecls);
+        else if (splitClip && exactBoxClip && clipRadius) decls.push(`border-radius: ${clipRadius};`);
         cssRules.push(`/* ${escapeCssComment(childCtx.pathNames.join(' / '))} */\n#${childCtx.domId} { ${decls.join(' ')} }`);
 
         let innerHtml = '';
@@ -1055,19 +1349,36 @@ function buildWebModel(packet) {
     layers: rendered.metas,
   };
 
-  return {data, layerTree, renderedHtml: rendered.html, rootDefs, cssRules, assets, referenceAsset, counts, warnings};
+  let referenceRect = null;
+  if (referenceAsset) {
+    const rItem = referenceAsset.item;
+    const rScale = rItem.rasterScale ? (1 / rItem.rasterScale) : 1;
+    const rW = referenceAsset.natW * rScale;
+    const rH = referenceAsset.natH * rScale;
+    const rCx = rItem.cx ?? ((rItem.x || 0) + (rItem.w || rW) / 2);
+    const rCy = rItem.cy ?? ((rItem.y || 0) + (rItem.h || rH) / 2);
+    referenceRect = {left: rCx - rW / 2, top: rCy - rH / 2, width: rW, height: rH};
+  }
+
+  return {data, layerTree, renderedHtml: rendered.html, rootDefs, cssRules, fontFaceRules, assets, referenceAsset, referenceRect, counts, warnings};
 }
 
 function buildStyleCss(model, options = {}) {
-  const {data, cssRules} = model;
+  const {data, cssRules, fontFaceRules, referenceRect} = model;
   const animations = !!options.animations;
   const headerComment = animations
     ? '/* Generated by F2A Web Export (Form A — Pixel-Accurate Interactive Page) */'
     : '/* Generated by F2A Web Export (Form A — Pixel-Accurate Page) */';
+  const fontBlock = fontFaceRules && fontFaceRules.length
+    ? `\n/* Local font weight aliases */\n${fontFaceRules.join('\n')}\n`
+    : '';
+  const refCss = referenceRect
+    ? `  left: ${px(referenceRect.left)};\n  top: ${px(referenceRect.top)};\n  width: ${px(referenceRect.width)};\n  height: ${px(referenceRect.height)};`
+    : `  left: 0;\n  top: 0;\n  width: var(--f2a-width);\n  height: var(--f2a-height);`;
   const transformRule = animations
     ? `\n[data-transformed="true"] {\n  transform: translate(var(--tx, 0px), var(--ty, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, 1), var(--scale-y, 1));\n}\n`
     : '';
-  return `${headerComment}
+  return `${headerComment}${fontBlock}
 :root {
   --f2a-width: ${num(data.width)}px;
   --f2a-height: ${num(data.height)}px;
@@ -1187,10 +1498,8 @@ html[data-fit="actual"] .f2a-viewport {
 ${transformRule}
 .f2a-reference {
   position: absolute;
-  left: 0;
-  top: 0;
-  width: var(--f2a-width);
-  height: var(--f2a-height);
+${refCss}
+  max-width: none;
   pointer-events: none;
   z-index: 9999;
   opacity: 0.5;

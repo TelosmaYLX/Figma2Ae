@@ -669,6 +669,245 @@ async function testServerAndUi(packet) {
   }
 }
 
+async function testFidelitySuite() {
+  const rectPath = (w, h2) => `M 0 0 L ${w} 0 L ${w} ${h2} L 0 ${h2} Z`;
+
+  // 1. Elliptical radial gradient centered at (0.5, 0.5): bright yellow center -> dark blue edge
+  const radialRect = rectNode('径向渐变', 20, 20, 120, 80, {
+    fills: [{
+      type: 'GRADIENT_RADIAL', visible: true, opacity: 1,
+      gradientTransform: [[1, 0, 0], [0, 1, 0]],
+      gradientStops: [
+        {position: 0, color: {r: 1, g: 0.95, b: 0.1, a: 1}},
+        {position: 1, color: {r: 0.05, g: 0.1, b: 0.7, a: 1}},
+      ],
+    }],
+  });
+
+  // 2. Gradient rectangle with SVG INNER_SHADOW (top dark inset glow)
+  const innerShadowRect = rectNode('内阴影渐变', 160, 20, 100, 80, {
+    fills: [{
+      type: 'GRADIENT_LINEAR', visible: true, opacity: 1,
+      gradientTransform: [[1, 0, 0], [0, 1, 0]],
+      gradientStops: [
+        {position: 0, color: {r: 0.95, g: 0.95, b: 0.98, a: 1}},
+        {position: 1, color: {r: 0.85, g: 0.88, b: 0.95, a: 1}},
+      ],
+    }],
+    effects: [{type: 'INNER_SHADOW', visible: true, color: {r: 0, g: 0, b: 0, a: 0.9}, offset: {x: 0, y: 12}, radius: 4, spread: 0}],
+  });
+
+  // 3. Mixed 4-corner radii clipped frame
+  const mixedClip = at(node('FRAME', '异形圆角框', {
+    clipsContent: true,
+    topLeftRadius: 24, topRightRadius: 2, bottomRightRadius: 24, bottomLeftRadius: 2,
+    fills: solid(0.25, 0.3, 0.45),
+    fillGeometry: [{data: rectPath(110, 80), windingRule: 'NONZERO'}],
+    children: [],
+  }), 280, 20, 110, 80);
+
+  // 4. Vertically centered + underlined + auto line-height editable text (box height 60, single line 16px)
+  const vCenterText = at(node('TEXT', '居中文字', {
+    characters: 'Centered Label', fontSize: 16, fontName: {family: 'Segoe UI', style: 'SemiBold'},
+    textAlignHorizontal: 'CENTER', textAlignVertical: 'CENTER', textAutoResize: 'NONE',
+    textDecoration: 'UNDERLINE', lineHeight: {unit: 'AUTO'},
+    fills: solid(1, 1, 1),
+  }), 20, 120, 160, 60);
+
+  // 5. Rotated editable text (30 deg) — AABB is much larger than unrotated lw=120, lh=24!
+  const rad = 30 * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+  const rotText = at(node('TEXT', '旋转文字', {
+    characters: 'Rotated 30', fontSize: 16, fontName: {family: 'Segoe UI', style: 'Bold'},
+    textAlignHorizontal: 'LEFT', textAlignVertical: 'CENTER', textAutoResize: 'WIDTH_AND_HEIGHT',
+    lineHeight: {unit: 'PIXELS', value: 24},
+    fills: solid(0.9, 0.85, 0.3),
+  }), 200, 130, 120, 24);
+  rotText.absoluteTransform = [[cos, -sin, 210], [sin, cos, 140]];
+  rotText.absoluteBoundingBox = {x: 198, y: 140, width: 116, height: 81};
+  rotText.absoluteRenderBounds = {x: 198, y: 140, width: 116, height: 81};
+
+  // 6. Gradient text with OUTSIDE stroke (must emit layered .f2a-text-stack / .f2a-text-stroke!)
+  const gradStrokeText = at(node('TEXT', '渐变描边字', {
+    characters: 'GOLD TITLE', fontSize: 24, fontName: {family: 'Segoe UI', style: 'Heavy'},
+    textAlignHorizontal: 'LEFT', textAlignVertical: 'BOTTOM', textAutoResize: 'NONE',
+    textTruncation: 'ENDING', maxLines: 1, lineHeight: {unit: 'PIXELS', value: 28},
+    fills: [{
+      type: 'GRADIENT_LINEAR', visible: true, opacity: 1,
+      gradientTransform: [[0, 1, 0], [-1, 0, 1]],
+      gradientStops: [
+        {position: 0, color: {r: 1, g: 0.95, b: 0.5, a: 1}},
+        {position: 1, color: {r: 0.9, g: 0.5, b: 0.1, a: 1}},
+      ],
+    }],
+    strokes: solid(0.2, 0.1, 0),
+    strokeWeight: 2, strokeAlign: 'OUTSIDE',
+  }), 20, 210, 180, 36);
+
+  // 7. Mixed NONZERO + EVENODD multi-path vector shape
+  const mixedWinding = at(node('VECTOR', '混合绕向', {
+    fills: solid(0.2, 0.9, 0.6),
+    fillGeometry: [
+      {data: 'M 0 0 L 25 0 L 25 25 L 0 25 Z', windingRule: 'NONZERO'},
+      {data: 'M 30 0 L 60 0 L 60 30 L 30 30 Z M 38 8 L 52 8 L 52 22 L 38 22 Z', windingRule: 'EVENODD'},
+    ],
+  }), 230, 220, 60, 60);
+
+  // 8. Photo rectangle with INSIDE bright-red stroke — stroke must render ABOVE the photo!
+  const borderedPhoto = rectNode('带边框照片', 310, 220, 60, 60, {
+    fills: [{type: 'IMAGE', visible: true, opacity: 1, scaleMode: 'FILL', imageHash: 'blue-card'}],
+    strokes: solid(1, 0.1, 0.1),
+    strokeWeight: 4, strokeAlign: 'INSIDE',
+  });
+
+  // Simulate offset reference bounds (e.g. outer bleed shadow) to verify exact .f2a-reference placement
+  const frame = at(node('FRAME', 'Fidelity', {
+    clipsContent: true,
+    fills: solid(0.1, 0.12, 0.16),
+    fillGeometry: [{data: rectPath(420, 320), windingRule: 'NONZERO'}],
+    children: [radialRect, innerShadowRect, mixedClip, vCenterText, rotText, gradStrokeText, mixedWinding, borderedPhoto],
+  }), 0, 0, 420, 320, {x: -12, y: -8, width: 444, height: 336});
+
+  const h = harness(frame);
+  mixedClip.cornerRadius = h.figma.mixed;
+  const bluePhotoPng = makePng(60, 60, () => [20, 40, 220, 255]);
+  h.figma.getImageByHash = hash => {
+    assert.equal(hash, 'blue-card');
+    return {getBytesAsync: async () => bluePhotoPng, getSizeAsync: async () => ({width: 60, height: 60})};
+  };
+  const refPng = makePng(444, 336, () => [20, 20, 20, 255]);
+  frame.exportAsync = async opts => opts?.format === 'SVG' ? Buffer.from('<svg width="420" height="320" viewBox="0 0 420 320"></svg>') : refPng;
+  h.figma.createText = () => {
+    const t = node('TEXT', 'probe', {width: 12, height: 22});
+    t.remove = () => {};
+    return t;
+  };
+  h.figma.loadFontAsync = async () => {};
+
+  h.messages.length = 0;
+  await h.context.exportSelectionSVG(true, true, false, true, true, false, {
+    target: 'web', precompLayers: true, outlineTexts: false,
+    rasterize: {effects: false, paints: true, imageCrops: true, masks: true, booleans: true},
+  });
+  const err = h.messages.find(m => m.type === 'error');
+  assert.equal(err, undefined, err?.message);
+  const ship = h.messages.find(m => m.type === 'ship');
+  assert.ok(ship);
+  const packet = {...ship, images: collectShipImages(h.messages)};
+  const outDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'f2a-web-fidelity-'));
+  try {
+    const res = await exportWeb(packet, outDir);
+    const css = await fsp.readFile(path.join(outDir, 'style.css'), 'utf8');
+    const html = await fsp.readFile(res.entry, 'utf8');
+
+    // Static checks on CSS/HTML precision upgrades
+    assert.match(css, /\.f2a-reference\s*\{[^}]*left:\s*-12px;[^}]*top:\s*-8px;[^}]*width:\s*444px;[^}]*height:\s*336px;/, 'Reference uses exact render bounds, not stretched 0,0,W,H');
+    assert.match(css, /@font-face\s*\{[^}]*local\("Segoe UI SemiBold"\)/, 'Emits local() weight alias for non-Regular font styles');
+    assert.match(css, /border-radius:\s*24px 2px 24px 2px;/, 'Mixed 4-corner radii preserved on clipped frame');
+    assert.match(css, /text-decoration:\s*underline;/, 'textDecoration UNDERLINE preserved');
+    assert.match(css, /text-overflow:\s*ellipsis;/, 'textTruncation ENDING preserved');
+    assert.match(css, /line-height:\s*22px;/, 'AUTO line-height measured from Figma probe');
+    assert.match(html, /class="f2a-text-stack"/, 'Gradient text + OUTSIDE stroke uses layered back-stroke');
+    assert.match(html, /<radialGradient[^>]*gradientTransform="matrix\(/, 'Elliptical radial gradient uses affine gradientTransform');
+    assert.match(html, /<filter id="f2a-fx-[^"]*".*feComposite[^>]*operator="out"/, 'SVG shape INNER_SHADOW uses native SVG filter');
+    assert.match(html, /<path d="M230 220[^"]*"[^>]*\/><path d="M260 220[^"]*" fill-rule="evenodd"[^>]*\/>/, 'Per-path mixed NONZERO + EVENODD winding preserved');
+
+    // Real Edge browser pixel & DOM geometry verification!
+    if (fs.existsSync(EDGE_EXE)) {
+      const profile = await fsp.mkdtemp(path.join(os.tmpdir(), 'f2a-web-fid-edge-'));
+      const child = spawn(EDGE_EXE, [
+        '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
+        '--remote-debugging-port=0', '--remote-allow-origins=*', '--user-data-dir=' + profile, 'about:blank',
+      ], {windowsHide: true, stdio: 'ignore'});
+      let socket;
+      try {
+        let port;
+        for (let i = 0; i < 100; i++) {
+          try { port = (await fsp.readFile(path.join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; break; }
+          catch { await new Promise(r => setTimeout(r, 100)); }
+        }
+        const targets = await (await fetch('http://127.0.0.1:' + port + '/json')).json();
+        socket = new WebSocket(targets.find(t => t.type === 'page').webSocketDebuggerUrl);
+        await new Promise((r, j) => { socket.onopen = r; socket.onerror = j; });
+        let seq = 0;
+        const pending = new Map(), events = new Map();
+        socket.onmessage = e => {
+          const m = JSON.parse(e.data);
+          if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+          else if (events.has(m.method)) events.get(m.method)(m);
+        };
+        const cmd = async (method, params = {}) => {
+          const id = ++seq;
+          const done = new Promise(r => pending.set(id, r));
+          socket.send(JSON.stringify({id, method, params}));
+          const r = await done;
+          if (r.error) throw new Error(JSON.stringify(r.error));
+          return r.result;
+        };
+        await cmd('Page.enable');
+        await cmd('Emulation.setDeviceMetricsOverride', {width: 420, height: 320, deviceScaleFactor: 1, mobile: false});
+        const loaded = new Promise(r => events.set('Page.loadEventFired', r));
+        await cmd('Page.navigate', {url: pathToFileURL(res.entry).href});
+        await loaded;
+
+        const domCheck = (await cmd('Runtime.evaluate', {
+          expression: `(async function(){
+            await document.fonts.ready;
+            await new Promise(r => requestAnimationFrame(r));
+            const box = window.F2A.layer('居中文字').querySelector('.f2a-text');
+            const content = box.querySelector('.f2a-text-content');
+            const br = box.getBoundingClientRect(), cr = content.getBoundingClientRect();
+            const rotEl = window.F2A.layer('旋转文字').querySelector('.f2a-text');
+            return {
+              boxMidY: (br.top + br.bottom) / 2,
+              contentMidY: (cr.top + cr.bottom) / 2,
+              boxMidX: (br.left + br.right) / 2,
+              contentMidX: (cr.left + cr.right) / 2,
+              rotW: parseFloat(getComputedStyle(rotEl).width),
+              rotH: parseFloat(getComputedStyle(rotEl).height),
+            };
+          })()`,
+          awaitPromise: true, returnByValue: true,
+        })).result.value;
+
+        assert.ok(Math.abs(domCheck.boxMidY - domCheck.contentMidY) < 1.5, 'textAlignVertical CENTER truly centers glyphs vertically: ' + JSON.stringify(domCheck));
+        assert.ok(Math.abs(domCheck.boxMidX - domCheck.contentMidX) < 1.5, 'textAlignHorizontal CENTER truly centers glyphs horizontally: ' + JSON.stringify(domCheck));
+        assert.equal(domCheck.rotW, 120, 'Rotated text keeps unrotated width lw=120, not rotated AABB');
+        assert.equal(domCheck.rotH, 24, 'Rotated text keeps unrotated height lh=24, not rotated AABB');
+
+        const shot = await cmd('Page.captureScreenshot', {format: 'png'});
+        const img = decodePng(Buffer.from(shot.data, 'base64'));
+        // Radial gradient center (80, 60) is bright yellow; left edge (23, 60) is dark blue!
+        const radCenter = img.at(80, 60), radEdge = img.at(23, 60);
+        assert.ok(radCenter[0] > 230 && radCenter[1] > 220 && radCenter[2] < 80, 'Radial gradient center at (0.5,0.5) is yellow: ' + radCenter);
+        assert.ok(radEdge[2] > 140 && radEdge[0] < 60, 'Radial gradient left edge is blue: ' + radEdge);
+
+        // SVG INNER_SHADOW on top of gradient rect (210, 24) is significantly darker than center (210, 65)!
+        const isTop = img.at(210, 24), isMid = img.at(210, 65);
+        assert.ok(isMid[0] - isTop[0] > 90, `SVG INNER_SHADOW darkens top edge (${isTop}) vs bright interior (${isMid})`);
+
+        // Mixed winding EVENODD hole at (275, 235) shows dark frame background instead of green!
+        const holePx = img.at(275, 235), ringPx = img.at(264, 235);
+        assert.ok(ringPx[1] > 190, 'EVENODD ring is green: ' + ringPx);
+        assert.ok(holePx[1] < 60, 'EVENODD inner hole remains transparent: ' + holePx);
+
+        // Photo with INSIDE red border: border edge (312, 250) is bright red ABOVE blue photo interior (340, 250)!
+        const borderPx = img.at(312, 250), photoPx = img.at(340, 250);
+        assert.ok(borderPx[0] > 220 && borderPx[2] < 60, 'Photo INSIDE stroke paints ABOVE image: ' + borderPx);
+        assert.ok(photoPx[2] > 180 && photoPx[0] < 60, 'Photo interior remains blue: ' + photoPx);
+      } finally {
+        socket?.close();
+        child.kill();
+        for (let i = 0; i < 20; i++) {
+          try { await fsp.rm(profile, {recursive: true, force: true}); break; }
+          catch { await new Promise(r => setTimeout(r, 150)); }
+        }
+      }
+    }
+  } finally {
+    await fsp.rm(outDir, {recursive: true, force: true});
+  }
+}
+
 async function check() {
   const scene = buildDemoScene();
   const h = harness(scene);
@@ -755,10 +994,15 @@ async function check() {
     assert.ok(maskRes.counts.masks >= 1 && maskRes.counts.images >= 1);
     const maskHtml = await fsp.readFile(maskRes.entry, 'utf8');
     assert.match(maskHtml, /<mask id="f2a-mask-/);
-    assert.match(maskHtml, /<image href="assets\//);
+    assert.match(maskHtml, /<image href="data:image\//);
   } finally {
     await fsp.rm(maskDir, {recursive: true, force: true});
   }
+
+  // Test precision fidelity features (vertical text alignment, rotated text, auto line-height,
+  // underline/ellipsis, gradient+stroke back-layer, elliptical radial gradient, SVG inner shadow,
+  // mixed 4-corner radii, mixed evenodd/nonzero vector paths, and offset reference bounds) in real Edge!
+  await testFidelitySuite();
 
   // Test HTTP server routes (/export-web, /open-directory, /open-preview) + UI panel button flow
   await testServerAndUi(packet);
