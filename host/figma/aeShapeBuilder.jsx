@@ -468,8 +468,8 @@ var AEShapeBuilder = (function () {
           for (var k2 = 0; k2 < r2.path.length; k2++) if (r2.path[k2] === c.id) { inside = true; break; }
           if (inside) r2.lyr = null;
         }
-        trackLayer(pcLayer, c.path || [], c.z);
         var containerMatte = applyNodeMask(pcLayer, c);
+        trackLayer(pcLayer, c.path || [], c.z, containerMatte);
         if (containerMatte) trackLayer(containerMatte, c.path || [], c.z, null, true);
         sizes.push((c.name || "?") + "(" + members.length + ")");
         made++;

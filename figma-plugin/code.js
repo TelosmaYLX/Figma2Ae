@@ -58,6 +58,7 @@ var _bicubicExport = false;
 var _rasterOrigin = { x: 0, y: 0 };
 var _rasterAllGroups = false;
 var _rasterInstances = false;
+var _precompLayers = false;
 var _temporaryExportRoot = null;
 var _rasterByNode = {};         // rasterised group + descendants: collected by the image route
 var _mergeBlends = false;
@@ -70,6 +71,7 @@ var _exporting = false;        // one export at a time: temporary image fills mu
 var _subtreeFlagsByNode = null;
 var _contentBoundsByNode = null;
 var _exportSourceIds = {};      // temporary copy id -> original document node id
+var _exportNodesById = {};      // temporary copy id -> temporary copy node
 var _exportInstanceNodes = {}; // detached frames that originated as instances
 function _rememberExportSource(original, copy) {
   _exportSourceIds[copy.id] = original.id;
@@ -308,8 +310,10 @@ function runLayerTool(action) {
 }
 function buildZMap(root) {
   var map = {}, i = 0;
+  _exportNodesById = {};
   (function walk(n) {
     map[n.id] = i++;
+    _exportNodesById[n.id] = n;
     if ('children' in n) for (var c = 0; c < n.children.length; c++) walk(n.children[c]);
   })(root);
   return map;
@@ -844,6 +848,7 @@ async function _bakeBlendStacks(root, organize) {
         }
       }
       image.name = (ctx.name || 'Figma') + '_叠加合并'; image.blend = 'NORMAL'; image.mergedBlend = true;
+      image._ownerId = null;
       image.path = _pathOf(ctx, root.id);
       if (ctx !== root || _includeRootContainer) image.path.push(ctx.id);
       image.z = _zOf(atoms[range.end].node);
@@ -929,6 +934,7 @@ function _rasterMeta(n, root, organize) {
   // The PNG already includes the exported node's opacity; only unbaked ancestors belong in AE.
   if (typeof n.opacity === 'number' && n.opacity > 0) opacity /= n.opacity;
   return {
+    _ownerId: n.id,
     rasterNode: n,
     sourceId: _exportSourceIds[n.id] || n.id,
     rasterBounds: b,
@@ -1314,6 +1320,196 @@ function collectContainers(root) {
   return out;
 }
 
+function _freshNodeBounds(n, rasterOnly) {
+  if (!n) return null;
+  var b = n.absoluteBoundingBox, render = n.absoluteRenderBounds;
+  if (rasterOnly) {
+    var rb = render || b;
+    return rb ? { x: rb.x, y: rb.y, w: Math.max(1, rb.width), h: Math.max(1, rb.height) } : null;
+  }
+  if (!b && !render) return null;
+  var base = b || render;
+  var minx = base.x, miny = base.y, maxx = base.x + base.width, maxy = base.y + base.height;
+  if (render) {
+    minx = Math.min(minx, render.x); miny = Math.min(miny, render.y);
+    maxx = Math.max(maxx, render.x + render.width); maxy = Math.max(maxy, render.y + render.height);
+  }
+  return { x: minx, y: miny, w: Math.max(1, maxx - minx), h: Math.max(1, maxy - miny) };
+}
+
+function _unionNodesBounds(nodes) {
+  var left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  for (var i = 0; i < nodes.length; i++) {
+    var b = _freshNodeBounds(nodes[i], true);
+    if (!b) continue;
+    left = Math.min(left, b.x); top = Math.min(top, b.y);
+    right = Math.max(right, b.x + b.w); bottom = Math.max(bottom, b.y + b.h);
+  }
+  return isFinite(left) ? { x: left, y: top, w: Math.max(1, right - left), h: Math.max(1, bottom - top) } : null;
+}
+
+function _isPureImageSlot(row, kind) {
+  if (kind !== 'shape' || !row.imageFill) return false;
+  if ((row.strokes && row.strokes.length) || (row.outlinedStrokes && row.outlinedStrokes.length)) return false;
+  for (var i = 0; i < (row.fills || []).length; i++) if (row.fills[i].kind !== 'image') return false;
+  return true;
+}
+
+function _stripOwnerTags(list) {
+  if (!list) return;
+  for (var i = 0; i < list.length; i++) {
+    delete list[i]._ownerId;
+    delete list[i]._layerName;
+  }
+}
+
+// Wrap each standalone leaf layer (text, shape, image, rasterized item) in its own
+// same-named precomp sized to the layer's own bounds. Container fills are skipped when
+// organize mode already created a container precomp for that frame.
+function _wrapSingleLayers(root, organize, realContainerIds, shapes, texts, images, containers) {
+  var containerById = {};
+  for (var ci = 0; ci < containers.length; ci++) containerById[containers[ci].id] = containers[ci];
+  var groups = [], groupByKey = {}, serial = 0;
+
+  function collect(list, kind) {
+    for (var i = 0; i < list.length; i++) {
+      var row = list[i];
+      if (row.reference || row.maskSource) continue;
+      var ownerId = row._ownerId || null;
+      if (ownerId && realContainerIds[ownerId]) continue;
+      var rawPath = row.path || [], parentPath = [];
+      for (var pi = 0; pi < rawPath.length; pi++) {
+        if (containerById[rawPath[pi]]) parentPath.push(rawPath[pi]);
+      }
+      var key = (ownerId ? 'node:' + ownerId : 'item:' + (++serial)) + '\0' + parentPath.join('/');
+      var group = groupByKey[key];
+      if (!group) {
+        group = { ownerId: ownerId, parentPath: parentPath, items: [] };
+        groupByKey[key] = group;
+        groups.push(group);
+      }
+      group.items.push({ row: row, kind: kind, slot: _isPureImageSlot(row, kind) });
+    }
+  }
+
+  collect(shapes || [], 'shape');
+  collect(texts || [], 'text');
+  collect(images || [], 'image');
+
+  function normBlend(b) { return (!b || b === 'PASS_THROUGH') ? 'NORMAL' : b; }
+
+  for (var gi = 0; gi < groups.length; gi++) {
+    var g = groups[gi];
+    var realItems = g.items.filter(function (entry) { return !entry.slot; });
+    if (!realItems.length) continue;
+    if (realItems.every(function (entry) { return !!entry.row.shadow; })) continue;
+    var ownerNode = g.ownerId ? _exportNodesById[g.ownerId] : null;
+    var primary = realItems.find(function (entry) { return !entry.row.shadow; }) || realItems[0];
+    var rasterOnly = realItems.every(function (entry) {
+      return entry.kind === 'image' && !entry.row.fillOnly && (entry.row.rasterNode || entry.row.rasterScale || entry.row.mergedBlend);
+    });
+
+    var left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    function includeBox(box) {
+      if (!box) return;
+      left = Math.min(left, box.x);
+      top = Math.min(top, box.y);
+      right = Math.max(right, box.x + box.w);
+      bottom = Math.max(bottom, box.y + box.h);
+    }
+    if (ownerNode) includeBox(_freshNodeBounds(ownerNode, rasterOnly));
+    for (var ii = 0; ii < g.items.length; ii++) {
+      var entry = g.items[ii], row = entry.row;
+      if (entry.kind === 'image') {
+        if (row.rasterPass && row.rasterPass.keep && row.rasterPass.keep.length) includeBox(_unionNodesBounds(row.rasterPass.keep));
+        else if (row.rasterNode && !row.fillOnly) includeBox(_freshNodeBounds(row.rasterNode, true));
+        else if (typeof row.x === 'number' && typeof row.y === 'number')
+          includeBox({ x: row.x, y: row.y, w: Math.max(1, row.w || 0), h: Math.max(1, row.h || 0) });
+      } else if (entry.kind === 'text') {
+        if (typeof row.x === 'number' && typeof row.y === 'number')
+          includeBox({ x: row.x, y: row.y, w: Math.max(1, row.w || 0), h: Math.max(1, row.h || 0) });
+        if (row.ink) includeBox(row.ink);
+      }
+    }
+    if (!isFinite(left) || !isFinite(top)) continue;
+    var bounds = { x: left, y: top, w: Math.max(1, right - left), h: Math.max(1, bottom - top) };
+
+    var hasShadow = realItems.some(function (entry) { return !!entry.row.shadow; });
+    var outerOpacity = 1;
+    if (!hasShadow) {
+      var firstOp = realItems[0].row.opacity == null ? 1 : realItems[0].row.opacity;
+      var sameOp = realItems.every(function (entry) {
+        return Math.abs((entry.row.opacity == null ? 1 : entry.row.opacity) - firstOp) < 1e-6;
+      });
+      if (sameOp) {
+        outerOpacity = firstOp;
+        for (ii = 0; ii < g.items.length; ii++) g.items[ii].row.opacity = 1;
+      } else if (ownerNode && realItems.every(function (entry) { return !entry.row.rasterScale; })) {
+        var nodeOp = _opacityChain(ownerNode, organize, root.id);
+        if (nodeOp > 0 && nodeOp < 1 && realItems.every(function (entry) {
+          return (entry.row.opacity == null ? 1 : entry.row.opacity) <= nodeOp + 1e-6;
+        })) {
+          outerOpacity = nodeOp;
+          for (ii = 0; ii < g.items.length; ii++) {
+            var curOp = g.items[ii].row.opacity == null ? 1 : g.items[ii].row.opacity;
+            g.items[ii].row.opacity = Math.min(1, curOp / nodeOp);
+          }
+        }
+      }
+    }
+
+    var firstBlend = normBlend(realItems[0].row.blend);
+    var sameBlend = realItems.every(function (entry) { return normBlend(entry.row.blend) === firstBlend; });
+    var outerBlend = 'PASS_THROUGH';
+    if (sameBlend) {
+      outerBlend = firstBlend;
+      for (ii = 0; ii < g.items.length; ii++) g.items[ii].row.blend = 'NORMAL';
+    }
+
+    var firstMask = realItems[0].row.maskId || null;
+    var sameMask = !!firstMask && realItems.every(function (entry) { return (entry.row.maskId || null) === firstMask; });
+    var outerMaskId = null;
+    if (sameMask) {
+      outerMaskId = firstMask;
+      for (ii = 0; ii < g.items.length; ii++) g.items[ii].row.maskId = null;
+    }
+
+    var outerHidden = realItems.every(function (entry) { return !!entry.row.hidden; });
+    if (outerHidden) {
+      for (ii = 0; ii < g.items.length; ii++) g.items[ii].row.hidden = false;
+    }
+
+    var wrapId = (g.ownerId ? g.ownerId + '-layer-precomp' : root.id + '-layer-' + (++serial));
+    if (containerById[wrapId]) wrapId += '-' + (++serial);
+    var wrapName = primary.row._layerName || (ownerNode && !primary.row.mergedBlend ? ownerNode.name : primary.row.name) || 'Layer';
+    var wrapZ = ownerNode ? _zOf(ownerNode) : primary.row.z;
+    var wrapContainer = {
+      id: wrapId,
+      sourceId: primary.row.sourceId || (ownerNode ? (_exportSourceIds[ownerNode.id] || ownerNode.id) : null),
+      name: wrapName,
+      type: 'GROUP',
+      singleLayer: true,
+      root: false,
+      path: g.parentPath.slice(),
+      z: wrapZ,
+      x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h,
+      cb: { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h },
+      opacity: outerOpacity,
+      blend: outerBlend,
+      maskId: outerMaskId,
+      clip: false,
+      r: 0,
+      hidden: outerHidden,
+      blur: 0,
+      fx: []
+    };
+    containers.push(wrapContainer);
+    containerById[wrapId] = wrapContainer;
+    var innerPath = g.parentPath.concat([wrapId]);
+    for (ii = 0; ii < g.items.length; ii++) g.items[ii].row.path = innerPath.slice();
+  }
+}
+
 // Only retained blend layers need a pass-through chain. A normal/effect/matte boundary
 // composites its children locally, so the dependency stops there.
 function _markBlendPassThrough(containers, channels) {
@@ -1374,6 +1570,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _blendPaintMerged = {};
   _rasterAllGroups = options.rasterAllGroups === true;
   _rasterInstances = options.rasterInstances === true;
+  _precompLayers = options.precompLayers === true;
   _includeRootContainer = !!organize && !!useNodes;
   var sel = figma.currentPage.selection;
   if (!sel || sel.length === 0) return failure(new Error('请至少选择一个图层或画框。'));
@@ -1467,7 +1664,11 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     var rasterFillByNode = {};
     rasterCandidates.forEach(function (candidate) { if (candidate.fillOnly) rasterFillByNode[candidate.node.id] = true; });
     var nodeShapes = useNodes ? collectShapes(node, !!organize, rasterFillByNode) : null;
-    var containers = organize ? collectContainers(node) : null;
+    var containers = organize ? collectContainers(node) : (_precompLayers ? [] : null);
+    var realContainerIds = {};
+    if (organize && containers) {
+      for (var rci0 = 0; rci0 < containers.length; rci0++) realContainerIds[containers[rci0].id] = true;
+    }
     var texts = collectTexts(node, { x: 0, y: 0 }, node.id, !!organize, !!useNodes);
     var effects = collectEffects(node, { x: 0, y: 0 });
     var images = await collectImages(node, node.id, !!organize, rasterFillByNode);
@@ -1480,7 +1681,9 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
         var rim = _rasterMeta(rn, node, !!organize), pass = passes[rpi];
         if (pass.atoms) {
           rim.rasterPass = pass;
-          rim.name = (rpi === 0 ? rn.name : pass.keep[0].name).replace(/[^A-Za-z0-9_\-\u4e00-\u9fa5]+/g, '_');
+          rim._ownerId = null;
+          rim._layerName = (rpi === 0 ? rn.name : pass.keep[0].name);
+          rim.name = rim._layerName.replace(/[^A-Za-z0-9_\-\u4e00-\u9fa5]+/g, '_');
           rim.z = _zOf(pass.keep[0]);
           rim.blend = pass.blend;
         }
@@ -1489,6 +1692,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
           rim.rasterPass = { atoms: outside.concat(pass.atoms || candidate.members.slice(1)),
             keep: pass.keep || candidate.members.slice(1), blend: pass.blend || 'NORMAL', mask: candidate.mask };
           rim.name = candidate.mask.name + '_蒙版';
+          rim._ownerId = null;
+          rim._layerName = rim.name;
           rim.path = _pathOf(rn, node.id);
           if (rn !== node || _includeRootContainer) rim.path.push(rn.id);
           rim.opacity = organize ? 1 : _opacityChain(rn, false, node.id);
@@ -1499,8 +1704,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       }
     }
     _nestIndependentMasks(node, !!organize, [nodeShapes || [], texts, images, containers || []], containers);
-    if (containers) _distributeBlendMasks(node, [nodeShapes || [], texts, images], containers);
-    if (containers) _markBlendPassThrough(containers, [nodeShapes || [], texts, images]);
+    if (containers && containers.length) _distributeBlendMasks(node, [nodeShapes || [], texts, images], containers);
 
     // Disable clipping only AFTER the container table has captured it. The root is exported
     // uncut so off-frame artwork survives, then collectContainers restores that boundary as an
@@ -1509,6 +1713,10 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
       clipWasOn = true;
       try { node.clipsContent = false; } catch (ec) { clipWasOn = false; }
     }
+
+    if (_precompLayers) _wrapSingleLayers(node, !!organize, realContainerIds, nodeShapes, texts, images, containers);
+    _stripOwnerTags(nodeShapes); _stripOwnerTags(texts); _stripOwnerTags(images);
+    if (containers && containers.length) _markBlendPassThrough(containers, [nodeShapes || [], texts, images]);
 
     // In node mode a leaf carries its own shadows (nd.fx), but a shadow set on a GROUP has no
     // geometry to ride on and used to vanish. Flag which effect entries belong to leaves so the
@@ -1705,7 +1913,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
                            svg: svg, texts: texts, effects: effects, frame: { width: frame.width, height: frame.height },
                            newComp: options.target === 'ae' && (!!rootFrame || (originals.length === 1 && originals[0].type === 'FRAME')),
                            shift: svgShift, nodes: nodeShapes, nodeOrigin: origin, bytes: svg.length,
-                           containers: containers, organize: !!organize, preserveImageFilters: _preserveImageFilters,
+                           containers: containers, organize: !!(organize || (containers && containers.length)), preserveImageFilters: _preserveImageFilters,
                            imageCount: images.length, imageBatch: true,
                            vnStats: _vnStats, blendStats: blendBake.stats });
     await shipImages(images, commandId);      // sequential, chunked — see shipImages for why
@@ -1726,9 +1934,11 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     _subtreeFlagsByNode = null;
     _contentBoundsByNode = null;
     _exportSourceIds = {};
+    _exportNodesById = {};
     _exportInstanceNodes = {};
     _blendMerged = {};
     _blendPaintMerged = {};
+    _precompLayers = false;
     _exporting = false;
     figma.ui.postMessage({ type: 'export-state', busy: false });
   }
@@ -1994,6 +2204,7 @@ function collectShapes(root, organize, rasterFillByNode) {
             // one AE layer per painted region, in the network's own order (first = bottom)
             for (var pz = 0; pz < pieces.length; pz++) {
               out.push({
+                _ownerId: n.id,
                 name: n.name, id: n.id + '/' + pz, sourceId: _exportSourceIds[n.id] || n.id,
                 maskId: organize && isGroup ? null : (_maskByNode[n.id] || null), maskSource: _maskSourceByNode[n.id] || null,
                 maskType: n.maskType || 'ALPHA',
@@ -2019,6 +2230,7 @@ function collectShapes(root, organize, rasterFillByNode) {
             return;
           }
           out.push({
+            _ownerId: n.id,
             name: n.name,
             id: n.id,                        // lets group effects tell leaves apart (see exportNode)
             sourceId: _exportSourceIds[n.id] || n.id,
@@ -2154,6 +2366,7 @@ function _imagePaintMeta(n, f, rootId, organize, editable) {
     ccy = mt[1][0] * (lw / 2) + mt[1][1] * (lh / 2) + mt[1][2];
   } catch (etm) {}
   return {
+    _ownerId: n.id,
     _node: n,
     sourceId: _exportSourceIds[n.id] || n.id,
     name: editable ? n.name || 'image' : (n.name || 'image').replace(/[^A-Za-z0-9_\-]+/g, '_'),
@@ -2587,7 +2800,7 @@ function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
             var rSize = (typeof n.fontSize === 'number') ? n.fontSize : (runs.length ? runs[0].fontSize : 16);
             var rWraps = /[\n\u2028\u2029]/.test(rChars) || (rChars.length * rSize * 0.52) > (b.width * 1.05) ||
                          _rendersMultiline(n, rSize);
-            out.push({ _node: n, sourceId: _exportSourceIds[n.id] || n.id, runs: true, name: n.name, opacity: nodeOp, maskId: _maskByNode[n.id] || null, x: x, y: y, w: b.width, h: b.height, align: align, segs: runs,
+            out.push({ _ownerId: n.id, _node: n, sourceId: _exportSourceIds[n.id] || n.id, runs: true, name: n.name, opacity: nodeOp, maskId: _maskByNode[n.id] || null, x: x, y: y, w: b.width, h: b.height, align: align, segs: runs,
                        path: _pathOf(n, rootId), z: _zOf(n), box: !!(rFixed && rWraps), hidden: _hid, blur: _blurOf(n), blend: n.blendMode || 'NORMAL',
                        rotation: _rotOf(n), skewX: _skewOf(n), stroke: _textStroke(n), fx: _textEffects(n), grad: _gradFill(n), ink: _inkBounds(n, rootBox),
                        leading: _leading(n.lineHeight, rSize), paragraphSpacing: typeof n.paragraphSpacing === 'number' ? n.paragraphSpacing : null,
@@ -2613,7 +2826,7 @@ function collectTexts(root, rootBox, rootId, organize, vectorTexts) {
                         _rendersMultiline(n, fsz);
             var isBox = fixedW && wraps;
             out.push({
-              _node: n, sourceId: _exportSourceIds[n.id] || n.id, name: n.name, maskId: _maskByNode[n.id] || null, characters: _applyCase(n.characters, tc),
+              _ownerId: n.id, _node: n, sourceId: _exportSourceIds[n.id] || n.id, name: n.name, maskId: _maskByNode[n.id] || null, characters: _applyCase(n.characters, tc),
               path: _pathOf(n, rootId), z: _zOf(n),
               x: x, y: y, w: b.width, h: b.height,
               fontSize: fsz, family: fam2, style: sty2,

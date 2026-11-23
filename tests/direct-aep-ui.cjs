@@ -47,6 +47,9 @@ function ui(packet, behavior='success') {
   assert.match(html, /\.image-folder-path \{[^}]*background:var\(--bg\)/, 'the path field uses the native field fill on the panel');
   assert.match(html, /\.image-folder-choose \{[^}]*background:var\(--surface\)/, 'the folder picker uses a raised fill on the panel');
   assert.match(html, /\.image-folder-choose \{[^}]*display:flex; align-items:center; justify-content:center/, 'the folder picker centres its icon');
+  const layerGroup = html.match(/<fieldset class="settings">\s*<legend>图层<\/legend>[\s\S]*?<\/fieldset>/);
+  assert.ok(layerGroup, 'layer settings have their own group');
+  assert.match(layerGroup[0], /id="precomp-layers"[^>]*> 单图层嵌套预合成/, 'single-layer precomp option sits in the layer settings group');
   // Colour preservation belongs to the image group, above advanced options, with its own caption.
   const imageGroup = html.match(/<fieldset class="settings">\s*<legend>图片<\/legend>[\s\S]*?<\/fieldset>/);
   assert.ok(imageGroup, 'image settings have their own group');
@@ -93,7 +96,7 @@ function ui(packet, behavior='success') {
       assert.equal(elements['export-aep'].disabled,true,'Button stays locked while the server writes');
       assert.equal(elements['raster-scale'].disabled,true,'Keep the selected scale fixed until export completes');
       assert.equal(elements['native-image-masks'].disabled,true);
-      for(const id of ['aep-version','aep-duration','aep-fps','organize','enableclip','ignorehidden','text-mode',...Object.values(rasterControls),'mergeblends','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
+      for(const id of ['aep-version','aep-duration','aep-fps','organize','precomp-layers','enableclip','ignorehidden','text-mode',...Object.values(rasterControls),'mergeblends','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
       assert.equal(posts.filter(m=>m.type==='ship-selection').length,1,'Collect and check Figma content before the server can choose a folder');
       assert.equal(elements['open-aep-folder'].hidden,true);
       if(behavior==='layer-error')return {ok:false,json:async()=>({error:'图层「shadow」无法导出：暂不支持该模糊或图层效果，请标记该层栅格化',nodeId:'original-shadow-id'})};
@@ -112,6 +115,7 @@ function ui(packet, behavior='success') {
       assert.equal(message.rasterGroups,undefined,'No broad hidden rasterization switch');
       for(const [key,id] of Object.entries(rasterControls))assert.equal(message.rasterize[key],elements[id].checked,key+' is independently transmitted');
       assert.equal(message.preserveImageFilters,elements['preserve-image-filters'].checked);
+      assert.equal(message.precompLayers,elements['precomp-layers'].checked);
       emit({...packet,type:'ship',preserveImageFilters:message.preserveImageFilters,imageCount:packet.images.length});
       if(behavior==='export-error'){emit({type:'error',message:'Figma error'});finish();return;}
       for(let i=0;i<packet.images.length;i++){
@@ -131,6 +135,7 @@ function ui(packet, behavior='success') {
   assert.equal(elements.nodemode,undefined);assert.equal(elements.convertmask,undefined);
   assert.equal(elements.rastergroups,undefined);
   assert.equal(elements['preserve-image-filters'].checked,false);
+  assert.equal(elements['precomp-layers'].checked,false);
   if(['image-grade','old-grade-service'].includes(behavior))elements['preserve-image-filters'].checked=true;
   assert.equal(elements.rastertexts,undefined,'Text modes are mutually exclusive');
   for(const id of Object.values(rasterControls))assert.equal(elements[id].checked,true,id+' preserves automatic handling by default');
@@ -299,7 +304,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
   for (const id of ['organize','enableclip','ignorehidden','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends']) {
     firstOpen.elements[id].checked = false; firstOpen.elements[id].onchange();
   }
-  for (const id of ['rasterallgroups','rasterinstances']) {
+  for (const id of ['precomp-layers','rasterallgroups','rasterinstances']) {
     firstOpen.elements[id].checked = true; firstOpen.elements[id].onchange();
   }
   await flush();
@@ -315,7 +320,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
   for (const id of ['organize','enableclip','ignorehidden','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends']) {
     assert.equal(secondOpen.elements[id].checked, false, id + ' must restore false');
   }
-  for (const id of ['rasterallgroups','rasterinstances']) {
+  for (const id of ['precomp-layers','rasterallgroups','rasterinstances']) {
     assert.equal(secondOpen.elements[id].checked, true, id + ' must restore true');
   }
   // Invalid saved options or pre-load user edits must not corrupt controls

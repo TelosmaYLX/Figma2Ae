@@ -168,6 +168,7 @@
   <fieldset class="settings">
     <legend>图层</legend>
     <label class="option" title="将 Figma 分组转换为 AE 预合成。"><input type="checkbox" id="organize" checked> 保留分组层级</label>
+    <label class="option" title="为每个独立单图层外层单独嵌套一个同名预合成。"><input type="checkbox" id="precomp-layers"> 单图层嵌套预合成</label>
     <label class="option"><input type="checkbox" id="enableclip" checked> 保留画框裁剪</label>
     <label class="option"><input type="checkbox" id="ignorehidden" checked> 忽略隐藏图层</label>
   </fieldset>
@@ -271,7 +272,7 @@
     };
   }
   var CHECKBOX_SETTINGS = [
-    'organize', 'enableclip', 'ignorehidden', 'preserve-image-filters',
+    'organize', 'precomp-layers', 'enableclip', 'ignorehidden', 'preserve-image-filters',
     'raster-effects', 'raster-paints', 'raster-image-crops', 'raster-masks', 'raster-booleans',
     'mergeblends', 'rasterallgroups', 'rasterinstances'
   ];
@@ -436,6 +437,7 @@
   function exportSettings(direct) {
     var textMode = $('text-mode').value;
     return { target: direct ? 'aep' : 'ae', useNodes: true, organize: $('organize').checked,
+      precompLayers: $('precomp-layers').checked,
       rasterScale: Number($('raster-scale').value), nativeImageMasks: $('native-image-masks').value === 'separate',
       preserveImageFilters: $('preserve-image-filters').checked,
       ignoreHidden: $('ignorehidden').checked, convertMasks: true,
@@ -471,7 +473,7 @@
     aepResultId = null; $('open-aep-folder').hidden = true;
     exporting = true; updateButton();
     blendNotice = '';
-    say(organize ? '正在导出可编辑分组…' : '正在导出…');
+    say((organize || settings.precompLayers) ? '正在导出可编辑分组…' : '正在导出…');
     parent.postMessage({ pluginMessage: Object.assign({type:'ship-selection'}, settings) }, '*');
   }
   $('ship').onclick = function () {
