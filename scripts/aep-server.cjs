@@ -8,6 +8,7 @@ const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
 const {randomUUID} = require('node:crypto');
 const {publishAep, chooseDestination, AE_VERSIONS} = require('./export-aep.cjs');
+const {publishWeb, chooseWebDestination, openWebPreview} = require('./export-web.cjs');
 const run = promisify(execFile);
 
 function start(options = {}) {
@@ -25,9 +26,9 @@ function start(options = {}) {
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
     if (req.method === 'GET' && req.url === '/health') {
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({service: 'f2a-aep', version: 3, aeVersions: AE_VERSIONS, preserveImageFilters: true, singleLayerLabel: true})); return;
+      res.end(JSON.stringify({service: 'f2a-aep', version: 3, aeVersions: AE_VERSIONS, preserveImageFilters: true, singleLayerLabel: true, webExport: true})); return;
     }
-    if (req.method !== 'POST' || !['/export', '/open-directory'].includes(req.url)) { res.writeHead(404); res.end(); return; }
+    if (req.method !== 'POST' || !['/export', '/export-web', '/open-directory', '/open-preview'].includes(req.url)) { res.writeHead(404); res.end(); return; }
     try {
       const parts = [];
       let bytes = 0;
@@ -38,20 +39,45 @@ function start(options = {}) {
       }
       const body = JSON.parse(Buffer.concat(parts).toString('utf8'));
       if (req.url === '/open-directory') {
-        const directory = exports.get(body.exportId);
-        if (!directory) throw new Error('请先完成 AEP 导出');
+        const record = exports.get(body.exportId);
+        const directory = typeof record === 'string' ? record : record?.directory;
+        if (!directory) throw new Error('请先完成导出');
         try { await fs.access(directory); }
         catch (error) { if (error.code === 'ENOENT') throw new Error('导出文件夹已被移动或删除'); throw error; }
         await (options.openDirectory || openDirectory)(directory);
         res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8'});
         res.end(JSON.stringify({ok:true})); return;
       }
+      if (req.url === '/open-preview') {
+        const record = exports.get(body.exportId);
+        const entry = record && typeof record === 'object' ? record.entry : null;
+        if (!entry) throw new Error('请先完成 HTML 网页导出');
+        try { await fs.access(entry); }
+        catch (error) { if (error.code === 'ENOENT') throw new Error('导出的网页文件已被移动或删除'); throw error; }
+        await (options.openPreview || openWebPreview)(entry);
+        res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8'});
+        res.end(JSON.stringify({ok:true})); return;
+      }
+      if (req.url === '/export-web') {
+        const result = await enqueue(async () => {
+          const prepared = await publishWeb(body.packet,
+            name => (options.chooseWebDestination || options.chooseDestination || chooseWebDestination)({...options, name}), options);
+          if (prepared.cancelled) return prepared;
+          const exportId = randomUUID();
+          exports.set(exportId, {directory: prepared.directory, entry: prepared.entry});
+          return {...prepared, exportId};
+        });
+        res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8'});
+        res.end(JSON.stringify(result));
+        if (!options.quiet && !result.cancelled) console.log('Web: ' + result.entry + ' (' + result.totalMs + ' ms)');
+        return;
+      }
       const result = await enqueue(async () => {
         const prepared = await publishAep(body.packet,
           name => (options.chooseDestination || chooseDestination)({...options, name}), options);
         if (prepared.cancelled) return prepared;
         const exportId = randomUUID();
-        exports.set(exportId, prepared.directory);
+        exports.set(exportId, {directory: prepared.directory, entry: null});
         return {...prepared, exportId};
       });
       res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8'});

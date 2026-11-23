@@ -37,11 +37,12 @@ const files = [
   ...skillFiles,
   ...['server.cjs', 'relay.cjs', 'launcher.cjs', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/' + f),
   ...['surehand-ae.mjs', 'LICENSE', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/vendor/surehand/' + f),
-  ...['aep-server.cjs', 'export-aep.cjs', 'open-aep-directory.ps1', 'start-aep-export.ps1',
+  ...['aep-server.cjs', 'export-aep.cjs', 'export-web.cjs', 'open-aep-directory.ps1', 'start-aep-export.ps1',
     'install-aep-launcher.ps1', 'install-mcp.ps1', 'install-mcp-dsh.cjs',
     'install-f2a.ps1', 'install-files.cjs', 'update-f2a.ps1'].map(f => 'scripts/' + f),
   ...['choose-destination.py', 'packet.cjs', 'requirements.txt', 'writer.py', 'image_grade.py',
     'image-grade-effects.bin'].map(f => 'scripts/aep/' + f),
+  ...['writer.cjs', 'choose-web-destination.ps1'].map(f => 'scripts/web/' + f),
 ];
 
 function privacyIssues(buffer, identifiers) {

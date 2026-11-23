@@ -4,10 +4,11 @@
 
 [**下载 Windows 版**](https://github.com/TelosmaYLX/Figma2Ae/releases/latest) · [快速开始](#快速开始) · [工作原理](#工作原理) · [图层转换](#图层转换) · [MCP](#用-mcp-操作-figma-和-ae)
 
-| 你想做什么 | 在 Figma 中选择 | 在 AE 中得到 |
+| 你想做什么 | 在 Figma 中选择 | 得到的结果 |
 | --- | --- | --- |
 | 交付一个页面，或从设计稿开始做动效 | **导出为 AEP 工程** | 独立工程和配套素材，可指定 AE 2024、2025 或 2026 |
 | 给正在制作的合成补一个按钮、标题或组件 | **发送到 After Effects** | 选区图层加入活动合成，也可按画框尺寸自动建合成 |
+| 直接输出像素级前端互动/动效页面 | **导出为 HTML 网页** | 独立的 `index.html` + `style.css` + `main.js` + `animations.js` + `assets/`，无需 AE/Python |
 
 ## 快速开始
 
@@ -48,6 +49,15 @@ flowchart LR
 面板会记住上次使用的全部参数，下次打开 F2A 时沿用，不需要重新调整。
 
 保存后会得到一个同名文件夹，包含 `.aep`、`Assets/` 素材和 `report.json` 导出报告。在 AE 中打开 `.aep` 即可开始制作。移动或交付时请带上整个文件夹。
+
+### 导出像素级 HTML + CSS + JS 网页（形态 A）
+
+1. 启动本地导出服务（仓库开发模式运行 `node scripts/aep-server.cjs --workspace`，或使用已更新的 F2A 服务）。
+2. 在 Figma 选中画框或图层，点击 **导出为 HTML 网页**，选择保存文件夹即可输出完整前端项目（`index.html`、`style.css`、`main.js`、`animations.js`、`layers.json`、`assets/`）。
+3. 点击 **浏览器预览** 或直接双击 `index.html` 即可打开（支持 `file://` 本地直接预览，无需启动开发服务器）：
+   - 按 `Shift+I`（或在网址后加 `?inspector=1`）打开内置调试条，支持 **原图对照**、**差值比对**、**图层框高亮**、**1:1 像素切换** 和 **演示入场**；
+   - 在 `animations.js` 中可直接通过 `F2A.layer('图层名')`、`F2A.animate(...)`、`F2A.timeline([...])`、`F2A.on('按钮', 'click', ...)`、`F2A.setState(...)` 编排动效与交互。
+   - 也支持命令行直接转换：`node scripts/export-web.cjs packet.json output-dir`。
 
 ### 把图层送入当前合成
 

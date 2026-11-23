@@ -11,6 +11,7 @@ const context=vm.createContext({module:{exports:{}},__dirname:path.resolve(__dir
     queueMicrotask(()=>callback(failure?new Error('Explorer unavailable'):null,'',''));
   }};
   if(name==='./export-aep.cjs')return require('../scripts/export-aep.cjs');
+  if(name==='./export-web.cjs')return require('../scripts/export-web.cjs');
   return require(name);
 }});
 vm.runInContext(source,context);

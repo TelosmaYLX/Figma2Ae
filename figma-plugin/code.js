@@ -40,6 +40,7 @@ var _convertMasks = false;      // original-compatible default: masks stay ordin
 var _nativeImageMasks = false;
 var _preserveImageFilters = false;
 var _directAep = false;
+var _webTarget = false;
 var _independentMasks = {};
 var _rasterOptions = {};       // independent permissions for automatic PNG conversion
 var _rasterOptionNames = { effects: '模糊、阴影和特殊效果', paints: '特殊填充与描边', imageCrops: '图片裁剪', masks: '复杂蒙版', booleans: '布尔运算结果' };
@@ -536,7 +537,7 @@ function _collectRasterCandidates(root, organize) {
       throw _layerError(n, '图层「' + n.name + '」包含不支持的' + unsupportedPaint.join('、') + '填充或描边，请将该容器标记为图片');
     }
     var visibleEffects = (n.effects || []).filter(function (e) { return e.visible !== false; });
-    if (visibleEffects.some(function (e) { return e.type === 'BACKGROUND_BLUR'; })) {
+    if (visibleEffects.some(function (e) { return e.type === 'BACKGROUND_BLUR'; }) && (!_webTarget || _rasterOptions.effects)) {
       _requireRasterOption(n, 'effects', '的背景模糊需要转为图片');
       add(n); return;
     }
@@ -544,7 +545,8 @@ function _collectRasterCandidates(root, organize) {
       _requireRasterOption(n, 'effects', '的' + visibleEffects.map(_effectName).join('、') + '暂不能原生写入 AEP');
       if (visibleEffects.some(function (e) { return e.type !== 'DROP_SHADOW'; })) { add(n); return; }
     }
-    var unknownEffect = visibleEffects.some(function (e) { return ['DROP_SHADOW', 'INNER_SHADOW', 'LAYER_BLUR'].indexOf(e.type) === -1; });
+    var allowedEffects = _webTarget ? ['DROP_SHADOW', 'INNER_SHADOW', 'LAYER_BLUR', 'BACKGROUND_BLUR'] : ['DROP_SHADOW', 'INNER_SHADOW', 'LAYER_BLUR'];
+    var unknownEffect = visibleEffects.some(function (e) { return allowedEffects.indexOf(e.type) === -1; });
     if (unknownEffect) {
       _requireRasterOption(n, 'effects', '含无法原生转换的' + visibleEffects.map(_effectName).join('、') + '效果');
       if (!_isContainer(n)) { add(n); return; }
@@ -1274,7 +1276,7 @@ function collectContainers(root) {
     if (_isContainer(n) && (n !== root || _includeRootContainer)) {
       var b = n.absoluteBoundingBox;
       if (b) {
-        var effs = [], blur = 0, i;
+        var effs = [], blur = 0, bgBlur = 0, i;
         try {
           var es = n.effects || [];
           for (i = 0; i < es.length; i++) {
@@ -1285,8 +1287,11 @@ function collectContainers(root) {
                           color: [e.color.r, e.color.g, e.color.b], alpha: (e.color.a != null ? e.color.a : 1),
                           dx: (e.offset ? e.offset.x : 0), dy: (e.offset ? e.offset.y : 0),
                           blur: e.radius || 0, spread: e.spread || 0 });
-            } else if (e.type === 'LAYER_BLUR' || e.type === 'BACKGROUND_BLUR') {
+            } else if (e.type === 'LAYER_BLUR') {
               if ((e.radius || 0) > blur) blur = e.radius || 0;
+            } else if (e.type === 'BACKGROUND_BLUR') {
+              if (_webTarget) { if ((e.radius || 0) > bgBlur) bgBlur = e.radius || 0; }
+              else if ((e.radius || 0) > blur) blur = e.radius || 0;
             }
           }
         } catch (ee) {}
@@ -1309,7 +1314,7 @@ function collectContainers(root) {
           r: (typeof n.cornerRadius === 'number') ? n.cornerRadius
              : ((typeof n.topLeftRadius === 'number') ? n.topLeftRadius : 0),
           hidden: _isHidden(n),
-          blur: blur, fx: effs
+          blur: blur, bgBlur: bgBlur, fx: effs
         });
       }
     }
@@ -1602,6 +1607,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   options = options || {};
   _outlineTexts = options.outlineTexts === true;
   _directAep = options.target === 'aep';
+  _webTarget = options.target === 'web';
   _nativeImageMasks = options.nativeImageMasks === true;
   _preserveImageFilters = options.preserveImageFilters === true;
   // Keep the legacy API argument as the default for callers without per-category settings.
@@ -1987,6 +1993,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     _blendMerged = {};
     _blendPaintMerged = {};
     _precompLayers = false;
+    _webTarget = false;
     _exporting = false;
     figma.ui.postMessage({ type: 'export-state', busy: false });
   }
@@ -2054,6 +2061,7 @@ function _paints(list, n) {
 
 function _needsStrokeOutline(n) {
   if (!(n.strokes || []).some(function (p) { return p.visible !== false; }) || n.strokeWeight === 0) return false;
+  if (_webTarget) return typeof n.strokeWeight !== 'number';
   if (n.dashPattern && n.dashPattern.length) return true;
   if (typeof n.strokeWeight === 'number') return n.strokeWeight > 0 && n.strokeWeight < 1;
   return ['strokeTopWeight', 'strokeRightWeight', 'strokeBottomWeight', 'strokeLeftWeight'].some(function (key) {
@@ -2675,6 +2683,8 @@ function _textEffects(n) {
           dx: (e.offset ? e.offset.x : 0), dy: (e.offset ? e.offset.y : 0), blur: e.radius || 0, spread: e.spread || 0 });
       } else if (e.type === 'LAYER_BLUR') {
         out.push({ kind: 'blur', radius: e.radius || 0 });
+      } else if (_webTarget && e.type === 'BACKGROUND_BLUR') {
+        out.push({ kind: 'bgblur', radius: e.radius || 0 });
       }
     }
   } catch (er) {}

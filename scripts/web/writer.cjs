@@ -1,0 +1,1765 @@
+'use strict';
+
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const {normalize} = require('../aep/packet.cjs');
+const {controls: gradeControls} = require('../../client/figmaImageGrade.js');
+
+const BLEND_CSS = {
+  DARKEN: 'darken',
+  MULTIPLY: 'multiply',
+  LINEAR_BURN: 'color-burn',
+  COLOR_BURN: 'color-burn',
+  LIGHTEN: 'lighten',
+  SCREEN: 'screen',
+  LINEAR_DODGE: 'plus-lighter',
+  COLOR_DODGE: 'color-dodge',
+  OVERLAY: 'overlay',
+  SOFT_LIGHT: 'soft-light',
+  HARD_LIGHT: 'hard-light',
+  DIFFERENCE: 'difference',
+  EXCLUSION: 'exclusion',
+  HUE: 'hue',
+  SATURATION: 'saturation',
+  COLOR: 'color',
+  LUMINOSITY: 'luminosity',
+};
+
+const VALID_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp']);
+
+function num(value) {
+  if (!Number.isFinite(value)) return '0';
+  const rounded = Math.abs(value) < 1e-6 ? 0 : Math.round(value * 10000) / 10000;
+  return String(rounded);
+}
+
+function px(value) {
+  return num(value) + 'px';
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+}
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+function escapeCssComment(value) {
+  return String(value == null ? '' : value).replaceAll('*/', '* /');
+}
+
+function colorHex(rgb) {
+  const c = rgb || [0, 0, 0];
+  return '#' + [0, 1, 2].map(i => Math.round(clamp01(c[i]) * 255).toString(16).padStart(2, '0')).join('');
+}
+
+function colorCss(rgb, opacity = 1) {
+  const c = rgb || [0, 0, 0];
+  const a = clamp01(opacity == null ? 1 : opacity);
+  const r = Math.round(clamp01(c[0]) * 255);
+  const g = Math.round(clamp01(c[1]) * 255);
+  const b = Math.round(clamp01(c[2]) * 255);
+  if (a >= 0.9995) return colorHex(c);
+  return `rgba(${r}, ${g}, ${b}, ${num(a)})`;
+}
+
+function fontWeightFromStyle(style = 'Regular') {
+  const s = String(style).toLowerCase();
+  if (/thin|hairline/.test(s)) return 100;
+  if (/extra\s*light|ultra\s*light/.test(s)) return 200;
+  if (/light/.test(s)) return 300;
+  if (/medium/.test(s)) return 500;
+  if (/semi\s*bold|demi\s*bold/.test(s)) return 600;
+  if (/extra\s*bold|ultra\s*bold/.test(s)) return 800;
+  if (/black|heavy/.test(s)) return 900;
+  if (/bold/.test(s)) return 700;
+  return 400;
+}
+
+function fontStyleFromStyle(style = 'Regular') {
+  return /italic|oblique/i.test(String(style)) ? 'italic' : 'normal';
+}
+
+function cssFontFamily(family) {
+  const clean = String(family || 'sans-serif').replaceAll('"', '\\"');
+  return `"${clean}", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif`;
+}
+
+function imageDimensions(buffer, ext) {
+  try {
+    if (!Buffer.isBuffer(buffer) || buffer.length < 10) return null;
+    if (ext === 'png' && buffer.length >= 24 && buffer[0] === 0x89 && buffer[1] === 0x50) {
+      return {width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20)};
+    }
+    if (ext === 'gif' && buffer.length >= 10 && buffer[0] === 0x47 && buffer[1] === 0x49) {
+      return {width: buffer.readUInt16LE(6), height: buffer.readUInt16LE(8)};
+    }
+    if ((ext === 'jpg' || ext === 'jpeg') && buffer[0] === 0xff && buffer[1] === 0xd8) {
+      let offset = 2;
+      while (offset + 8 < buffer.length) {
+        if (buffer[offset] !== 0xff) { offset++; continue; }
+        const marker = buffer[offset + 1];
+        if (marker === 0xd8 || marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+          offset += 2; continue;
+        }
+        const length = buffer.readUInt16BE(offset + 2);
+        if (length < 2) break;
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+          return {height: buffer.readUInt16BE(offset + 5), width: buffer.readUInt16BE(offset + 7)};
+        }
+        offset += 2 + length;
+      }
+    }
+    if (ext === 'webp' && buffer.length >= 30 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') {
+      const chunk = buffer.toString('ascii', 12, 16);
+      if (chunk === 'VP8X') {
+        const width = 1 + buffer.readUIntLE(24, 3);
+        const height = 1 + buffer.readUIntLE(27, 3);
+        return {width, height};
+      }
+      if (chunk === 'VP8 ' && buffer.length >= 30) {
+        return {width: buffer.readUInt16LE(26) & 0x3fff, height: buffer.readUInt16LE(28) & 0x3fff};
+      }
+      if (chunk === 'VP8L' && buffer.length >= 25) {
+        const bits = buffer.readUInt32LE(21);
+        return {width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1};
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function compBounds(item) {
+  let x = item.x, y = item.y, right = item.x + item.w, bottom = item.y + item.h;
+  const content = item.cb;
+  if (!item.clip && content) {
+    x = Math.min(x, content.x);
+    y = Math.min(y, content.y);
+    right = Math.max(right, content.x + content.w);
+    bottom = Math.max(bottom, content.y + content.h);
+  }
+  const left = Math.floor(x + 1e-6);
+  const top = Math.floor(y + 1e-6);
+  return {
+    x: left,
+    y: top,
+    w: Math.max(1, Math.ceil(right - 1e-6) - left),
+    h: Math.max(1, Math.ceil(bottom - 1e-6) - top),
+  };
+}
+
+function cubicExtrema1D(p0, p1, p2, p3) {
+  let min = Math.min(p0, p3);
+  let max = Math.max(p0, p3);
+  const a = -p0 + 3 * p1 - 3 * p2 + p3;
+  const b = 2 * (p0 - 2 * p1 + p2);
+  const c = p1 - p0;
+  const evalAt = t => {
+    const u = 1 - t;
+    return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+  };
+  const roots = [];
+  if (Math.abs(a) < 1e-9) {
+    if (Math.abs(b) > 1e-9) roots.push(-c / b);
+  } else {
+    const disc = b * b - 4 * a * c;
+    if (disc >= 0) {
+      const s = Math.sqrt(disc);
+      roots.push((-b - s) / (2 * a), (-b + s) / (2 * a));
+    }
+  }
+  for (const t of roots) {
+    if (t > 0 && t < 1) {
+      const v = evalAt(t);
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+  }
+  return [min, max];
+}
+
+function shapeRect(item) {
+  const outlined = (item.extraPaints || []).filter(paint => paint.subpaths && paint.subpaths.length);
+  if (outlined.length) {
+    const boxes = outlined.map(paint => shapeRect(paint));
+    if (item.fill != null || item.gradient || item.stroke != null || item.strokeGradient || item.layerStroke) {
+      boxes.push(shapeRect({...item, extraPaints: null}));
+    }
+    const left = Math.min(...boxes.map(b => b.left));
+    const top = Math.min(...boxes.map(b => b.top));
+    const right = Math.max(...boxes.map(b => b.left + b.width));
+    const bottom = Math.max(...boxes.map(b => b.top + b.height));
+    return {left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top)};
+  }
+  if (item.prim) {
+    const width = item.prim.k === 'rect' ? item.prim.w : item.prim.rx * 2;
+    const height = item.prim.k === 'rect' ? item.prim.h : item.prim.ry * 2;
+    return {left: item.prim.cx - width / 2, top: item.prim.cy - height / 2, width, height};
+  }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const sub of item.subpaths || []) {
+    const verts = sub.verts || [];
+    if (!verts.length) continue;
+    for (const [x, y] of verts) {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    const segCount = sub.closed ? verts.length : Math.max(0, verts.length - 1);
+    for (let i = 0; i < segCount; i++) {
+      const j = (i + 1) % verts.length;
+      const p0 = verts[i], p3 = verts[j];
+      const outT = (sub.outT && sub.outT[i]) || [0, 0];
+      const inT = (sub.inT && sub.inT[j]) || [0, 0];
+      if (!outT[0] && !outT[1] && !inT[0] && !inT[1]) continue;
+      const [bx0, bx1] = cubicExtrema1D(p0[0], p0[0] + outT[0], p3[0] + inT[0], p3[0]);
+      const [by0, by1] = cubicExtrema1D(p0[1], p0[1] + outT[1], p3[1] + inT[1], p3[1]);
+      if (bx0 < minX) minX = bx0;
+      if (bx1 > maxX) maxX = bx1;
+      if (by0 < minY) minY = by0;
+      if (by1 > maxY) maxY = by1;
+    }
+  }
+  if (!Number.isFinite(minX)) return {left: 0, top: 0, width: 0, height: 0};
+  return {left: minX, top: minY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY)};
+}
+
+function subpathsToSvgD(subpaths) {
+  const parts = [];
+  for (const sub of subpaths || []) {
+    const verts = sub.verts || [];
+    if (!verts.length) continue;
+    parts.push(`M${num(verts[0][0])} ${num(verts[0][1])}`);
+    const segCount = sub.closed ? verts.length : Math.max(0, verts.length - 1);
+    for (let i = 0; i < segCount; i++) {
+      const j = (i + 1) % verts.length;
+      const p0 = verts[i], p3 = verts[j];
+      const outT = (sub.outT && sub.outT[i]) || [0, 0];
+      const inT = (sub.inT && sub.inT[j]) || [0, 0];
+      if (!outT[0] && !outT[1] && !inT[0] && !inT[1]) {
+        if (sub.closed && i === segCount - 1) continue;
+        parts.push(`L${num(p3[0])} ${num(p3[1])}`);
+      } else {
+        parts.push(`C${num(p0[0] + outT[0])} ${num(p0[1] + outT[1])} ${num(p3[0] + inT[0])} ${num(p3[1] + inT[1])} ${num(p3[0])} ${num(p3[1])}`);
+      }
+    }
+    if (sub.closed) parts.push('Z');
+  }
+  return parts.join('');
+}
+
+function geometryTag(item, extraAttrs = '') {
+  if (item.prim) {
+    if (item.prim.k === 'rect') {
+      const x = item.prim.cx - item.prim.w / 2;
+      const y = item.prim.cy - item.prim.h / 2;
+      const r = Math.max(0, Math.min(item.prim.r || 0, item.prim.w / 2, item.prim.h / 2));
+      const rx = r > 0 ? ` rx="${num(r)}" ry="${num(r)}"` : '';
+      return `<rect x="${num(x)}" y="${num(y)}" width="${num(item.prim.w)}" height="${num(item.prim.h)}"${rx}${extraAttrs}/>`;
+    }
+    return `<ellipse cx="${num(item.prim.cx)}" cy="${num(item.prim.cy)}" rx="${num(item.prim.rx)}" ry="${num(item.prim.ry)}"${extraAttrs}/>`;
+  }
+  const d = subpathsToSvgD(item.subpaths);
+  if (!d) return '';
+  return `<path d="${d}"${extraAttrs}/>`;
+}
+
+function strokeCapCss(cap) {
+  if (cap === 2 || cap === 'ROUND' || cap === 'round') return 'round';
+  if (cap === 3 || cap === 'SQUARE' || cap === 'square') return 'square';
+  return 'butt';
+}
+
+function strokeJoinCss(join) {
+  if (join === 2 || join === 'ROUND' || join === 'round') return 'round';
+  if (join === 3 || join === 'BEVEL' || join === 'bevel') return 'bevel';
+  return 'miter';
+}
+
+function strokeDashAttr(dash, dashOffset) {
+  let attr = '';
+  if (Array.isArray(dash) && dash.length) {
+    attr += ` stroke-dasharray="${dash.map(num).join(' ')}"`;
+  } else if (typeof dash === 'string' && dash.trim() && dash.trim() !== 'none') {
+    attr += ` stroke-dasharray="${escapeHtml(dash.trim())}"`;
+  }
+  if (dashOffset != null && Number.isFinite(Number(dashOffset)) && Number(dashOffset) !== 0) {
+    attr += ` stroke-dashoffset="${num(Number(dashOffset))}"`;
+  }
+  return attr;
+}
+
+function svgGradientDef(id, gradient) {
+  const stops = (gradient.stops || []).map(s => {
+    const offset = `${num(clamp01(s.offset) * 100)}%`;
+    const op = s.opacity == null ? 1 : clamp01(s.opacity);
+    const opAttr = op < 0.9995 ? ` stop-opacity="${num(op)}"` : '';
+    return `<stop offset="${offset}" stop-color="${colorHex(s.color)}"${opAttr}/>`;
+  }).join('');
+  if (gradient.type === 'radial') {
+    const cx = gradient.start[0], cy = gradient.start[1];
+    const r = Math.max(0.001, Math.hypot(gradient.end[0] - cx, gradient.end[1] - cy));
+    return `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${num(cx)}" cy="${num(cy)}" r="${num(r)}">${stops}</radialGradient>`;
+  }
+  return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(gradient.start[0])}" y1="${num(gradient.start[1])}" x2="${num(gradient.end[0])}" y2="${num(gradient.end[1])}">${stops}</linearGradient>`;
+}
+
+function textGradientCss(item, grad) {
+  const p0 = grad.p0 || [item.x + (grad.h0 ? grad.h0.x : 0) * item.w, item.y + (grad.h0 ? grad.h0.y : 0) * item.h];
+  const p1 = grad.p1 || [item.x + (grad.h1 ? grad.h1.x : 1) * item.w, item.y + (grad.h1 ? grad.h1.y : 0) * item.h];
+  const paintOpacity = grad.opacity == null ? 1 : clamp01(grad.opacity);
+  const stops = (grad.stops || []).map(s => {
+    const a = (s.opacity == null ? 1 : clamp01(s.opacity)) * paintOpacity;
+    return `${colorCss(s.color, a)} ${num(clamp01(s.offset) * 100)}%`;
+  }).join(', ');
+  if (grad.type === 'radial') {
+    const cx = p0[0] - item.x, cy = p0[1] - item.y;
+    const r = Math.max(1, Math.hypot(p1[0] - p0[0], p1[1] - p0[1]));
+    return `radial-gradient(circle ${px(r)} at ${px(cx)} ${px(cy)}, ${stops})`;
+  }
+  const dx = p1[0] - p0[0], dy = p1[1] - p0[1];
+  const cssAngle = Math.atan2(dx, -dy) * 180 / Math.PI;
+  return `linear-gradient(${num(cssAngle)}deg, ${stops})`;
+}
+
+function effectsToCss(item, isCssBox = false) {
+  const filters = [];
+  const boxShadows = [];
+  let bgBlur = item.bgBlur || 0;
+  let fxBgBlur = 0;
+  let fxLayerBlur = 0;
+  for (const fx of item.fx || []) {
+    if (fx.kind === 'blur' && (fx.radius || 0) > fxLayerBlur) fxLayerBlur = fx.radius;
+    else if (fx.kind === 'bgblur' && (fx.radius || 0) > fxBgBlur) fxBgBlur = fx.radius;
+    else if (fx.kind === 'drop') {
+      const col = colorCss(fx.color, fx.alpha == null ? 1 : fx.alpha);
+      if (isCssBox) {
+        boxShadows.push(`${px(fx.dx || 0)} ${px(fx.dy || 0)} ${px(fx.blur || 0)} ${px(fx.spread || 0)} ${col}`);
+      } else {
+        filters.push(`drop-shadow(${px(fx.dx || 0)} ${px(fx.dy || 0)} ${px((fx.blur || 0) / 2)} ${col})`);
+      }
+    } else if (fx.kind === 'inner' && isCssBox) {
+      const col = colorCss(fx.color, fx.alpha == null ? 1 : fx.alpha);
+      boxShadows.push(`inset ${px(fx.dx || 0)} ${px(fx.dy || 0)} ${px(fx.blur || 0)} ${px(fx.spread || 0)} ${col}`);
+    }
+  }
+  bgBlur = Math.max(bgBlur, fxBgBlur);
+  // svgParser folds fx bgblur into item.blur for AE; avoid double-applying it as filter: blur().
+  const rawBlur = item.blur || 0;
+  const layerBlur = fxBgBlur > 0 && rawBlur <= fxBgBlur ? fxLayerBlur : Math.max(rawBlur, fxLayerBlur);
+  if (layerBlur > 0) filters.push(`blur(${px(layerBlur / 2)})`);
+  const decls = [];
+  if (filters.length) decls.push(`filter: ${filters.join(' ')};`);
+  if (bgBlur > 0) {
+    decls.push(`backdrop-filter: blur(${px(bgBlur / 2)});`);
+    decls.push(`-webkit-backdrop-filter: blur(${px(bgBlur / 2)});`);
+  }
+  return {decls, boxShadows};
+}
+
+function maxShapeStrokeWidth(item) {
+  let maxW = 0;
+  if ((item.stroke != null || item.strokeGradient) && item.strokeWidth > 0) maxW = Math.max(maxW, item.strokeWidth);
+  if (item.layerStroke && item.layerStroke.width > 0) maxW = Math.max(maxW, item.layerStroke.width);
+  for (const p of item.extraPaints || []) {
+    if (p.kind === 'stroke' && p.width > 0) maxW = Math.max(maxW, p.width);
+  }
+  return maxW;
+}
+
+function isSimpleCssPrim(item) {
+  if (!item.prim) return false;
+  if (item.gradient || item.strokeGradient) return false;
+  if (item.extraPaints && item.extraPaints.length) return false;
+  if (item.strokeDash && item.strokeDash.length) return false;
+  const stroke = item.layerStroke || (item.stroke && item.strokeWidth > 0
+    ? {color: item.stroke, width: item.strokeWidth, opacity: item.strokeOpacity, align: item.strokeAlign || 'CENTER'}
+    : null);
+  if (stroke && stroke.align !== 'INSIDE' && stroke.align !== 'OUTSIDE') return false;
+  return true;
+}
+
+function buildWebModel(packet) {
+  const data = normalize(packet);
+  const warnings = [];
+  const counts = {containers: 0, minimal: 0, shapes: 0, texts: 0, images: 0, masks: 0};
+  const assets = [];
+  const cssRules = [];
+  const rootDefs = [];
+  let seq = 0;
+  let defSeq = 0;
+
+  const nextId = (prefix = 'f2a-n') => prefix + (++seq);
+  const nextDef = (prefix = 'f2a-d') => prefix + (++defSeq);
+
+  // Decode all images once and reserve clean filenames
+  const decodedImages = new Map();
+  let referenceAsset = null;
+  data.images.forEach((im, index) => {
+    if (im.shadowBase) {
+      const error = new Error('图层「' + (im.name || '图片') + '」无法导出：投影图片未完成处理');
+      error.nodeId = im.sourceId || null;
+      throw error;
+    }
+    const ext = String(im.ext || 'png').toLowerCase();
+    if (!VALID_IMAGE_EXTS.has(ext)) {
+      const error = new Error('不支持的图片格式：' + ext);
+      error.nodeId = im.sourceId || null;
+      throw error;
+    }
+    if (im.imageFilters) gradeControls(im.imageFilters);
+    const raw = String(im.data || '');
+    if (!raw || !/^[A-Za-z0-9+/]*={0,2}$/.test(raw) || raw.length % 4 !== 0) {
+      const error = new Error('图片「' + (im.name || 'image') + '」的 base64 数据无效');
+      error.nodeId = im.sourceId || null;
+      throw error;
+    }
+    const bytes = Buffer.from(raw, 'base64');
+    const dims = imageDimensions(bytes, ext);
+    const natW = (dims && dims.width) || im.natW || im.cw || im.w || 1;
+    const natH = (dims && dims.height) || im.natH || im.ch || im.h || 1;
+    const file = im.reference ? `assets/reference.${ext}` : `assets/${String(index).padStart(4, '0')}.${ext}`;
+    assets.push({file, bytes});
+    const record = {file, ext, bytes, base64: raw, natW, natH, item: im};
+    if (im.reference) referenceAsset = record;
+    decodedImages.set(index, record);
+  });
+
+  // Index masks (vector & image masks)
+  const maskDefs = new Map();
+  const imageMaskDefs = new Map();
+  for (const shape of data.shapes) {
+    if (shape.maskSource) {
+      if (!maskDefs.has(shape.maskSource)) maskDefs.set(shape.maskSource, []);
+      maskDefs.get(shape.maskSource).push(shape);
+    }
+  }
+  data.images.forEach((image, index) => {
+    if (image.maskSource) imageMaskDefs.set(image.maskSource, {image, index});
+  });
+
+  // Build container hierarchy
+  const rootContext = {
+    id: null,
+    domId: 'f2a-stage',
+    name: data.name,
+    pathNames: [],
+    x: 0,
+    y: 0,
+    w: data.width,
+    h: data.height,
+    entries: [],
+  };
+  const contexts = new Map([[null, rootContext]]);
+  const sortedContainers = [...data.containers].sort((a, b) => (a.path || []).length - (b.path || []).length);
+
+  function parentOf(item) {
+    const p = item.path || [];
+    for (let i = p.length - 1; i >= 0; i--) {
+      if (contexts.has(p[i])) return contexts.get(p[i]);
+    }
+    return rootContext;
+  }
+
+  for (const container of sortedContainers) {
+    const parent = parentOf(container);
+    const bounds = compBounds(container);
+    const domId = nextId();
+    const pathNames = parent.pathNames.concat([container.name || 'Group']);
+    const ctx = {
+      id: container.id,
+      domId,
+      name: container.name || 'Group',
+      pathNames,
+      container,
+      x: bounds.x,
+      y: bounds.y,
+      w: bounds.w,
+      h: bounds.h,
+      entries: [],
+    };
+    contexts.set(container.id, ctx);
+    parent.entries.push({z: container.z || 0, kind: 'container', item: container, ctx});
+  }
+
+  for (const shape of data.shapes) {
+    if (shape.maskSource) continue;
+    parentOf(shape).entries.push({z: shape.z || 0, kind: 'shape', item: shape});
+  }
+  for (const text of data.texts) {
+    parentOf(text).entries.push({z: text.z || 0, kind: 'text', item: text});
+  }
+  data.images.forEach((image, index) => {
+    if (image.maskSource || image.reference) return;
+    parentOf(image).entries.push({z: image.z || 0, kind: 'image', item: image, index});
+  });
+
+  function createMaskDef(maskId, parentCtx) {
+    const imageMask = imageMaskDefs.get(maskId);
+    const vectorMasks = maskDefs.get(maskId);
+    if (!imageMask && (!vectorMasks || !vectorMasks.length)) {
+      const error = new Error('缺少 Figma 蒙版：' + maskId);
+      throw error;
+    }
+    const defId = nextDef('f2a-mask-');
+    let luma = false;
+    let inner = '';
+    if (imageMask) {
+      const {image, index} = imageMask;
+      const asset = decodedImages.get(index);
+      luma = image.maskType === 'LUMINANCE';
+      const nw = asset.natW, nh = asset.natH;
+      const w = image.cw ?? image.w, h = image.ch ?? image.h;
+      const cx = image.cx ?? (image.x + image.w / 2);
+      const cy = image.cy ?? (image.y + image.h / 2);
+      const rot = image.rotation || 0;
+      const opacity = image.opacity == null ? 1 : clamp01(image.opacity);
+      let imgTag;
+      if (image.imageMatrix) {
+        const m = image.imageMatrix;
+        const a = m[0] / nw, b = m[1] / nw, c = m[2] / nh, d = m[3] / nh;
+        imgTag = `<image href="${escapeHtml(asset.file)}" width="${num(nw)}" height="${num(nh)}" opacity="${num(opacity)}" transform="matrix(${num(a)} ${num(b)} ${num(c)} ${num(d)} ${num(m[4])} ${num(m[5])})"/>`;
+      } else {
+        const scale = image.rasterScale ? (1 / image.rasterScale) : (image.scaleMode === 'FIT' ? Math.min(w / nw, h / nh) : Math.max(w / nw, h / nh));
+        const dw = nw * scale, dh = nh * scale;
+        const tf = rot
+          ? ` transform="translate(${num(cx)} ${num(cy)}) rotate(${num(rot)}) translate(${num(-dw / 2)} ${num(-dh / 2)})"`
+          : ` x="${num(cx - dw / 2)}" y="${num(cy - dh / 2)}"`;
+        imgTag = `<image href="${escapeHtml(asset.file)}" width="${num(dw)}" height="${num(dh)}" opacity="${num(opacity)}"${tf}/>`;
+      }
+      if (image.matte) {
+        const clipId = nextDef('f2a-mclip-');
+        const mattePrim = image.matte.kind === 'ellipse'
+          ? {k: 'ellipse', cx: 0, cy: 0, rx: w / 2, ry: h / 2}
+          : {k: 'rect', cx: 0, cy: 0, w, h, r: image.matte.r || 0};
+        const matteTf = rot ? `translate(${num(cx)} ${num(cy)}) rotate(${num(rot)})` : `translate(${num(cx)} ${num(cy)})`;
+        rootDefs.push(`<clipPath id="${clipId}">${geometryTag({prim: mattePrim}, ` transform="${matteTf}"`)}</clipPath>`);
+        imgTag = `<g clip-path="url(#${clipId})">${imgTag}</g>`;
+      }
+      inner = imgTag;
+    } else {
+      luma = vectorMasks[0].maskType === 'LUMINANCE';
+      const parts = [];
+      for (const def of vectorMasks) {
+        const op = (def.opacity == null ? 1 : clamp01(def.opacity)) * (luma ? (def.fillOpacity == null ? 1 : clamp01(def.fillOpacity)) : 1);
+        const fillRule = def.fillRule === 2 ? ' fill-rule="evenodd"' : '';
+        let fillValue = '#ffffff';
+        if (luma) {
+          if (def.gradient) {
+            const gid = nextDef('f2a-mgrad-');
+            rootDefs.push(svgGradientDef(gid, def.gradient));
+            fillValue = `url(#${gid})`;
+          } else {
+            fillValue = colorHex(def.fill || [1, 1, 1]);
+          }
+        }
+        const geom = geometryTag({subpaths: def.subpaths}, ` fill="${fillValue}" fill-opacity="${num(op)}"${fillRule}`);
+        if (geom) parts.push(geom);
+      }
+      inner = parts.join('');
+    }
+    const mode = luma ? 'luminance' : 'alpha';
+    const shift = (parentCtx.x || parentCtx.y) ? ` transform="translate(${num(-parentCtx.x)} ${num(-parentCtx.y)})"` : '';
+    rootDefs.push(
+      `<mask id="${defId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:${mode}" x="0" y="0" width="${num(parentCtx.w)}" height="${num(parentCtx.h)}"><g${shift}>${inner}</g></mask>`
+    );
+    counts.masks++;
+    return {defId, mode};
+  }
+
+  function wrapMaskIfNeeded(html, item, parentCtx, indent) {
+    if (!item.maskId) return html;
+    const {defId, mode} = createMaskDef(item.maskId, parentCtx);
+    const hostId = nextId('f2a-mh');
+    const blend = BLEND_CSS[item.blend];
+    const blendDecl = blend ? ` mix-blend-mode: ${blend};` : '';
+    cssRules.push(
+      `#${hostId} { mask-image: url(#${defId}); -webkit-mask-image: url(#${defId}); mask-mode: ${mode}; -webkit-mask-mode: ${mode};${blendDecl} }`
+    );
+    return `${indent}<div id="${hostId}" class="f2a-mask-host" data-mask-id="${escapeHtml(item.maskId)}">\n${html}\n${indent}</div>`;
+  }
+
+  function commonDecls(item, {isCssBox = false, allowOpacity = true} = {}) {
+    const decls = [];
+    if (allowOpacity && item.opacity != null && item.opacity < 0.9995) {
+      decls.push(`opacity: ${num(clamp01(item.opacity))};`);
+    }
+    const blend = !item.maskId && BLEND_CSS[item.blend];
+    if (blend) decls.push(`mix-blend-mode: ${blend};`);
+    const fx = effectsToCss(item, isCssBox);
+    decls.push(...fx.decls);
+    return {decls, boxShadows: fx.boxShadows};
+  }
+
+  function dataAttrs(domId, item, pathNames, kind, extra = '') {
+    const attrs = [
+      `id="${domId}"`,
+      `data-layer-name="${escapeHtml(item.name || 'Layer')}"`,
+      `data-layer-path="${escapeHtml(pathNames.join('/'))}"`,
+      `data-layer-kind="${kind}"`,
+    ];
+    if (item.sourceId) attrs.push(`data-source-id="${escapeHtml(item.sourceId)}"`);
+    if (item.singleLayer) attrs.push('data-minimal="true"');
+    if (item.hidden) attrs.push('data-hidden="true"');
+    if (extra) attrs.push(extra);
+    return attrs.join(' ');
+  }
+
+  function renderSvgStroke(item, strokeColor, strokeGrad, strokeOpacity, width, align, cap, join, miter, dash, dashOffset, viewBox, localDefs) {
+    if (!width || width <= 0) return '';
+    let strokePaint;
+    if (strokeGrad) {
+      const gid = nextDef('f2a-sg-');
+      localDefs.push(svgGradientDef(gid, strokeGrad));
+      strokePaint = `url(#${gid})`;
+    } else {
+      strokePaint = colorHex(strokeColor || [0, 0, 0]);
+    }
+    const op = clamp01(strokeOpacity == null ? 1 : strokeOpacity);
+    const miterAttr = miter != null ? ` stroke-miterlimit="${num(miter)}"` : '';
+    const baseAttrs =
+      ` fill="none" stroke="${strokePaint}"` +
+      (op < 0.9995 ? ` stroke-opacity="${num(op)}"` : '') +
+      ` stroke-linecap="${strokeCapCss(cap)}" stroke-linejoin="${strokeJoinCss(join)}"${miterAttr}` +
+      strokeDashAttr(dash, dashOffset);
+
+    if (align === 'INSIDE') {
+      const clipId = nextDef('f2a-ic-');
+      localDefs.push(`<clipPath id="${clipId}">${geometryTag(item)}</clipPath>`);
+      return geometryTag(item, `${baseAttrs} stroke-width="${num(width * 2)}" clip-path="url(#${clipId})"`);
+    }
+    if (align === 'OUTSIDE') {
+      const maskId = nextDef('f2a-om-');
+      localDefs.push(
+        `<mask id="${maskId}" maskUnits="userSpaceOnUse" x="${num(viewBox.x)}" y="${num(viewBox.y)}" width="${num(viewBox.w)}" height="${num(viewBox.h)}">` +
+        `<rect x="${num(viewBox.x)}" y="${num(viewBox.y)}" width="${num(viewBox.w)}" height="${num(viewBox.h)}" fill="#ffffff"/>` +
+        `${geometryTag(item, ' fill="#000000"')}</mask>`
+      );
+      return geometryTag(item, `${baseAttrs} stroke-width="${num(width * 2)}" mask="url(#${maskId})"`);
+    }
+    return geometryTag(item, `${baseAttrs} stroke-width="${num(width)}"`);
+  }
+
+  function renderShape(item, parentCtx, indent) {
+    const domId = nextId();
+    const pathNames = parentCtx.pathNames.concat([item.name || 'Shape']);
+    counts.shapes++;
+
+    if (isSimpleCssPrim(item)) {
+      const rect = shapeRect(item);
+      const {decls, boxShadows} = commonDecls(item, {isCssBox: true});
+      const fillOpacity = item.layerStroke ? (item.layerFillOpacity == null ? 1 : item.layerFillOpacity) : (item.fillOpacity == null ? 1 : item.fillOpacity);
+      if (item.fill != null && fillOpacity > 0) {
+        decls.push(`background: ${colorCss(item.fill, fillOpacity)};`);
+      }
+      if (item.prim.k === 'ellipse') {
+        decls.push('border-radius: 50%;');
+      } else if (item.prim.r > 0) {
+        decls.push(`border-radius: ${px(Math.min(item.prim.r, rect.width / 2, rect.height / 2))};`);
+      }
+      const stroke = item.layerStroke || (item.stroke && item.strokeWidth > 0
+        ? {color: item.stroke, width: item.strokeWidth, opacity: item.strokeOpacity, align: item.strokeAlign || 'CENTER'}
+        : null);
+      if (stroke && stroke.width > 0) {
+        const sc = colorCss(stroke.color, stroke.opacity == null ? 1 : stroke.opacity);
+        if (stroke.align === 'INSIDE') boxShadows.unshift(`inset 0 0 0 ${px(stroke.width)} ${sc}`);
+        else if (stroke.align === 'OUTSIDE') boxShadows.push(`0 0 0 ${px(stroke.width)} ${sc}`);
+      }
+      if (boxShadows.length) decls.push(`box-shadow: ${boxShadows.join(', ')};`);
+      decls.unshift(
+        `left: ${px(rect.left - parentCtx.x)};`,
+        `top: ${px(rect.top - parentCtx.y)};`,
+        `width: ${px(rect.width)};`,
+        `height: ${px(rect.height)};`
+      );
+      cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${decls.join(' ')} }`);
+      const html = `${indent}<div ${dataAttrs(domId, item, pathNames, 'shape', 'class="f2a-shape f2a-prim"')}></div>`;
+      return {
+        html: wrapMaskIfNeeded(html, item, parentCtx, indent),
+        meta: {
+          id: domId, sourceId: item.sourceId || null, name: item.name || 'Shape', path: pathNames.join('/'),
+          kind: 'shape', singleLayer: false, hidden: !!item.hidden, hasMask: !!item.maskId,
+          bounds: {x: rect.left, y: rect.top, w: rect.width, h: rect.height},
+        },
+      };
+    }
+
+    // Inline SVG for arbitrary paths, gradients, center strokes, multi-paints, dashes
+    const rect = shapeRect(item);
+    const strokePad = Math.ceil(maxShapeStrokeWidth(item) * 2) + 2;
+    const vx = Math.floor(rect.left - strokePad);
+    const vy = Math.floor(rect.top - strokePad);
+    const vw = Math.max(1, Math.ceil(rect.left + rect.width + strokePad) - vx);
+    const vh = Math.max(1, Math.ceil(rect.top + rect.height + strokePad) - vy);
+    const viewBox = {x: vx, y: vy, w: vw, h: vh};
+
+    const localDefs = [];
+    const layers = [];
+    const fillRuleAttr = (geomItem) => (geomItem.fillRule === 2 ? ' fill-rule="evenodd"' : '');
+
+    function emitFill(geomItem, color, gradient, opacity) {
+      const op = clamp01(opacity == null ? 1 : opacity);
+      if (op <= 0) return;
+      let fillPaint;
+      if (gradient) {
+        const gid = nextDef('f2a-fg-');
+        localDefs.push(svgGradientDef(gid, gradient));
+        fillPaint = `url(#${gid})`;
+      } else if (color != null) {
+        fillPaint = colorHex(color);
+      } else {
+        return;
+      }
+      const opAttr = op < 0.9995 ? ` fill-opacity="${num(op)}"` : '';
+      const tag = geometryTag(geomItem, ` fill="${fillPaint}"${opAttr}${fillRuleAttr(geomItem)}`);
+      if (tag) layers.push(tag);
+    }
+
+    // 1. Extra under-fills
+    for (const paint of item.extraPaints || []) {
+      if (paint.under) emitFill(item, paint.color, paint.gradient, paint.opacity);
+    }
+    // 2. Primary fill
+    const primaryFillOpacity = item.layerStroke ? (item.layerFillOpacity == null ? 1 : item.layerFillOpacity) : (item.fillOpacity == null ? 1 : item.fillOpacity);
+    if (item.fill != null || item.gradient) {
+      emitFill(item, item.fill, item.gradient, primaryFillOpacity);
+    }
+    // 3. Primary stroke
+    if (item.layerStroke && item.layerStroke.width > 0) {
+      const s = item.layerStroke;
+      const tag = renderSvgStroke(item, s.color, null, s.opacity, s.width, s.align || 'CENTER',
+        item.strokeCap, item.strokeJoin, item.strokeMiter, null, null, viewBox, localDefs);
+      if (tag) layers.push(tag);
+    } else if ((item.stroke != null || item.strokeGradient) && item.strokeWidth > 0) {
+      const tag = renderSvgStroke(item, item.stroke, item.strokeGradient, item.strokeOpacity, item.strokeWidth,
+        item.strokeAlign || 'CENTER', item.strokeCap, item.strokeJoin, item.strokeMiter, item.strokeDash, item.strokeDashOffset, viewBox, localDefs);
+      if (tag) layers.push(tag);
+    }
+    // 4. Extra top paints (additional strokes or outlined stroke subpaths)
+    for (const paint of item.extraPaints || []) {
+      if (paint.under) continue;
+      if (paint.subpaths && paint.subpaths.length) {
+        emitFill({subpaths: paint.subpaths, fillRule: paint.fillRule}, paint.color, paint.gradient, paint.opacity);
+      } else if (paint.kind === 'stroke') {
+        const tag = renderSvgStroke(item, paint.color, paint.gradient, paint.opacity, paint.width ?? item.strokeWidth,
+          paint.align || item.strokeAlign || 'CENTER', paint.cap || item.strokeCap, paint.join || item.strokeJoin,
+          paint.miter ?? item.strokeMiter, paint.dash || item.strokeDash, paint.dashOffset ?? item.strokeDashOffset, viewBox, localDefs);
+        if (tag) layers.push(tag);
+      } else {
+        emitFill(item, paint.color, paint.gradient, paint.opacity);
+      }
+    }
+
+    const {decls} = commonDecls(item, {isCssBox: false});
+    decls.unshift(
+      `left: ${px(vx - parentCtx.x)};`,
+      `top: ${px(vy - parentCtx.y)};`,
+      `width: ${px(vw)};`,
+      `height: ${px(vh)};`
+    );
+    cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${decls.join(' ')} }`);
+    const defsMarkup = localDefs.length ? `<defs>${localDefs.join('')}</defs>` : '';
+    const html = `${indent}<svg ${dataAttrs(domId, item, pathNames, 'shape', 'class="f2a-svg"')} viewBox="${num(vx)} ${num(vy)} ${num(vw)} ${num(vh)}" width="${num(vw)}" height="${num(vh)}" overflow="visible">${defsMarkup}${layers.join('')}</svg>`;
+    return {
+      html: wrapMaskIfNeeded(html, item, parentCtx, indent),
+      meta: {
+        id: domId, sourceId: item.sourceId || null, name: item.name || 'Shape', path: pathNames.join('/'),
+        kind: 'shape', singleLayer: false, hidden: !!item.hidden, hasMask: !!item.maskId,
+        bounds: {x: rect.left, y: rect.top, w: rect.width, h: rect.height},
+      },
+    };
+  }
+
+  function renderText(item, parentCtx, indent) {
+    const domId = nextId();
+    const pathNames = parentCtx.pathNames.concat([item.name || 'Text']);
+    counts.texts++;
+
+    const {decls} = commonDecls(item, {isCssBox: false});
+    decls.unshift(
+      `left: ${px(item.x - parentCtx.x)};`,
+      `top: ${px(item.y - parentCtx.y)};`,
+      `width: ${px(item.w)};`,
+      `min-height: ${px(item.h)};`
+    );
+
+    const alignMap = {LEFT: 'left', CENTER: 'center', RIGHT: 'right', JUSTIFIED: 'justify'};
+    decls.push(`text-align: ${alignMap[item.align] || 'left'};`);
+    decls.push(item.box ? 'white-space: pre-wrap; overflow-wrap: break-word;' : 'white-space: pre;');
+
+    const baseStyle = (item.segs && item.segs[0]) || item;
+    decls.push(`font-family: ${cssFontFamily(baseStyle.family)};`);
+    decls.push(`font-size: ${px(baseStyle.fontSize || 16)};`);
+    decls.push(`font-weight: ${fontWeightFromStyle(baseStyle.style)};`);
+    const fStyle = fontStyleFromStyle(baseStyle.style);
+    if (fStyle !== 'normal') decls.push(`font-style: ${fStyle};`);
+    if (item.leading != null) decls.push(`line-height: ${px(item.leading)};`);
+    else if (baseStyle.leading != null) decls.push(`line-height: ${px(baseStyle.leading)};`);
+    if (baseStyle.tracking) decls.push(`letter-spacing: ${num(baseStyle.tracking / 1000)}em;`);
+    if (item.paragraphIndent) decls.push(`text-indent: ${px(item.paragraphIndent)};`);
+
+    if (item.grad) {
+      decls.push(`background: ${textGradientCss(item, item.grad)};`);
+      decls.push('-webkit-background-clip: text; background-clip: text; color: transparent;');
+    } else if (!item.segs || !item.segs.length) {
+      decls.push(`color: ${colorCss(item.color || [0, 0, 0], item.fillOpacity == null ? 1 : item.fillOpacity)};`);
+    }
+
+    if (item.stroke && item.stroke.width > 0) {
+      const sw = item.stroke.align === 'OUTSIDE' ? item.stroke.width * 2 : item.stroke.width;
+      decls.push(`-webkit-text-stroke: ${px(sw)} ${colorCss(item.stroke.color, item.stroke.opacity == null ? 1 : item.stroke.opacity)};`);
+      decls.push('paint-order: stroke fill;');
+    }
+
+    const transforms = [];
+    if (item.rotation) transforms.push(`rotate(${num(item.rotation)}deg)`);
+    if (item.skewX) transforms.push(`skewX(${num(item.skewX)}deg)`);
+    if (transforms.length) decls.push(`transform: ${transforms.join(' ')};`);
+
+    cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${decls.join(' ')} }`);
+
+    let contentHtml = '';
+    if (item.segs && item.segs.length) {
+      contentHtml = item.segs.map(seg => {
+        const sd = [
+          `font-family:${cssFontFamily(seg.family)}`,
+          `font-size:${px(seg.fontSize || 16)}`,
+          `font-weight:${fontWeightFromStyle(seg.style)}`,
+        ];
+        if (fontStyleFromStyle(seg.style) !== 'normal') sd.push('font-style:italic');
+        if (!item.grad) sd.push(`color:${colorCss(seg.color || [0, 0, 0], seg.opacity == null ? 1 : seg.opacity)}`);
+        if (seg.tracking) sd.push(`letter-spacing:${num(seg.tracking / 1000)}em`);
+        if (seg.leading != null) sd.push(`line-height:${px(seg.leading)}`);
+        return `<span style="${escapeHtml(sd.join(';'))}">${escapeHtml(seg.characters)}</span>`;
+      }).join('');
+    } else if (item.paragraphSpacing) {
+      const paras = String(item.characters || '').split(/\r?\n/);
+      contentHtml = paras.map((line, i) => {
+        const mb = i < paras.length - 1 ? ` style="margin-bottom:${px(item.paragraphSpacing)}"` : '';
+        return `<p class="f2a-p"${mb}>${escapeHtml(line) || '&nbsp;'}</p>`;
+      }).join('');
+    } else {
+      contentHtml = escapeHtml(item.characters || '');
+    }
+
+    const html = `${indent}<div ${dataAttrs(domId, item, pathNames, 'text', 'class="f2a-text"')}>${contentHtml}</div>`;
+    return {
+      html: wrapMaskIfNeeded(html, item, parentCtx, indent),
+      meta: {
+        id: domId, sourceId: item.sourceId || null, name: item.name || 'Text', path: pathNames.join('/'),
+        kind: 'text', singleLayer: false, hidden: !!item.hidden, hasMask: !!item.maskId,
+        bounds: {x: item.x, y: item.y, w: item.w, h: item.h},
+      },
+    };
+  }
+
+  function renderImage(item, index, parentCtx, indent) {
+    const domId = nextId();
+    const pathNames = parentCtx.pathNames.concat([item.name || 'Image']);
+    const asset = decodedImages.get(index);
+    counts.images++;
+
+    const nw = asset.natW, nh = asset.natH;
+    const width = item.cw ?? item.w;
+    const height = item.ch ?? item.h;
+    const cx = item.cx ?? (item.x + item.w / 2);
+    const cy = item.cy ?? (item.y + item.h / 2);
+    const rot = item.rotation || 0;
+
+    const gradeAttrs = item.imageFilters
+      ? ` data-image-filters="${escapeHtml(JSON.stringify(item.imageFilters))}" data-grade-src="data:image/${asset.ext === 'jpg' ? 'jpeg' : asset.ext};base64,${asset.base64}"`
+      : '';
+
+    const {decls} = commonDecls(item, {isCssBox: !!item.matte});
+
+    let html;
+    if (item.matte) {
+      const matteDecls = [
+        `left: ${px(cx - width / 2 - parentCtx.x)};`,
+        `top: ${px(cy - height / 2 - parentCtx.y)};`,
+        `width: ${px(width)};`,
+        `height: ${px(height)};`,
+        'overflow: hidden;',
+      ];
+      if (item.matte.kind === 'ellipse') matteDecls.push('border-radius: 50%;');
+      else if (item.matte.r > 0) matteDecls.push(`border-radius: ${px(Math.min(item.matte.r, width / 2, height / 2))};`);
+      if (rot) matteDecls.push(`transform: rotate(${num(rot)}deg);`);
+      matteDecls.push(...decls);
+      cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${matteDecls.join(' ')} }`);
+
+      const imgId = nextId('f2a-img');
+      if (item.imageMatrix) {
+        const m = item.imageMatrix;
+        const a = m[0] / nw, b = m[1] / nw, c = m[2] / nh, d = m[3] / nh;
+        const unrotId = nextId('f2a-ur');
+        cssRules.push(`#${unrotId} { position: absolute; left: 50%; top: 50%; width: 0; height: 0;${rot ? ` transform: rotate(${num(-rot)}deg);` : ''} }`);
+        cssRules.push(`#${imgId} { position: absolute; left: 0; top: 0; width: ${px(nw)}; height: ${px(nh)}; transform-origin: 0 0; transform: matrix(${num(a)}, ${num(b)}, ${num(c)}, ${num(d)}, ${num(m[4] - cx)}, ${num(m[5] - cy)}); }`);
+        html =
+          `${indent}<div ${dataAttrs(domId, item, pathNames, 'image', 'class="f2a-image-matte"')}>` +
+          `<div id="${unrotId}"><img id="${imgId}" class="f2a-image-media" src="${escapeHtml(asset.file)}" alt="${escapeHtml(item.name || '')}" draggable="false"${gradeAttrs}></div></div>`;
+      } else {
+        const scale = item.rasterScale ? (1 / item.rasterScale) : (item.scaleMode === 'FIT' ? Math.min(width / nw, height / nh) : Math.max(width / nw, height / nh));
+        const dw = nw * scale, dh = nh * scale;
+        cssRules.push(`#${imgId} { position: absolute; left: 50%; top: 50%; width: ${px(dw)}; height: ${px(dh)}; transform: translate(-50%, -50%); }`);
+        html =
+          `${indent}<div ${dataAttrs(domId, item, pathNames, 'image', 'class="f2a-image-matte"')}>` +
+          `<img id="${imgId}" class="f2a-image-media" src="${escapeHtml(asset.file)}" alt="${escapeHtml(item.name || '')}" draggable="false"${gradeAttrs}></div>`;
+      }
+    } else if (item.imageMatrix) {
+      const m = item.imageMatrix;
+      const a = m[0] / nw, b = m[1] / nw, c = m[2] / nh, d = m[3] / nh;
+      decls.unshift(
+        'left: 0;', 'top: 0;', `width: ${px(nw)};`, `height: ${px(nh)};`,
+        'transform-origin: 0 0;',
+        `transform: matrix(${num(a)}, ${num(b)}, ${num(c)}, ${num(d)}, ${num(m[4] - parentCtx.x)}, ${num(m[5] - parentCtx.y)});`
+      );
+      cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${decls.join(' ')} }`);
+      html = `${indent}<img ${dataAttrs(domId, item, pathNames, 'image', 'class="f2a-image"')} src="${escapeHtml(asset.file)}" alt="${escapeHtml(item.name || '')}" draggable="false"${gradeAttrs}>`;
+    } else {
+      const scale = item.rasterScale ? (1 / item.rasterScale) : (item.scaleMode === 'FIT' ? Math.min(width / nw, height / nh) : Math.max(width / nw, height / nh));
+      const dw = nw * scale, dh = nh * scale;
+      decls.unshift(
+        `left: ${px(cx - dw / 2 - parentCtx.x)};`,
+        `top: ${px(cy - dh / 2 - parentCtx.y)};`,
+        `width: ${px(dw)};`,
+        `height: ${px(dh)};`
+      );
+      if (rot) decls.push(`transform: rotate(${num(rot)}deg);`);
+      cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${decls.join(' ')} }`);
+      html = `${indent}<img ${dataAttrs(domId, item, pathNames, 'image', 'class="f2a-image"')} src="${escapeHtml(asset.file)}" alt="${escapeHtml(item.name || '')}" draggable="false"${gradeAttrs}>`;
+    }
+
+    return {
+      html: wrapMaskIfNeeded(html, item, parentCtx, indent),
+      meta: {
+        id: domId, sourceId: item.sourceId || null, name: item.name || 'Image', path: pathNames.join('/'),
+        kind: 'image', singleLayer: false, hidden: !!item.hidden, hasMask: !!item.maskId,
+        hasFilters: !!item.imageFilters, asset: asset.file,
+        bounds: {x: item.x, y: item.y, w: item.w, h: item.h},
+      },
+    };
+  }
+
+  function renderEntries(ctx, indent) {
+    const sorted = [...ctx.entries].sort((a, b) => a.z - b.z);
+    const htmlParts = [];
+    const childMetas = [];
+    for (const entry of sorted) {
+      if (entry.kind === 'container') {
+        const c = entry.item;
+        const childCtx = entry.ctx;
+        counts.containers++;
+        if (c.singleLayer) counts.minimal++;
+
+        const {decls} = commonDecls(c, {isCssBox: !!c.clip});
+        decls.unshift(
+          `left: ${px(childCtx.x - ctx.x)};`,
+          `top: ${px(childCtx.y - ctx.y)};`,
+          `width: ${px(childCtx.w)};`,
+          `height: ${px(childCtx.h)};`
+        );
+        let clipDecls = null;
+        if (c.clip) {
+          const topInset = Math.max(0, c.y - childCtx.y);
+          const leftInset = Math.max(0, c.x - childCtx.x);
+          const rightInset = Math.max(0, (childCtx.x + childCtx.w) - (c.x + c.w));
+          const bottomInset = Math.max(0, (childCtx.y + childCtx.h) - (c.y + c.h));
+          const r = Math.max(0, Math.min(c.r || 0, c.w / 2, c.h / 2));
+          if (topInset < 1e-4 && leftInset < 1e-4 && rightInset < 1e-4 && bottomInset < 1e-4) {
+            clipDecls = ['overflow: hidden;'];
+            if (r > 0) clipDecls.push(`border-radius: ${px(r)};`);
+          } else {
+            const round = r > 0 ? ` round ${px(r)}` : '';
+            clipDecls = [`clip-path: inset(${px(topInset)} ${px(rightInset)} ${px(bottomInset)} ${px(leftInset)}${round});`];
+          }
+        }
+        // Preserve Figma NORMAL isolation unless collapseForBlends lets inner blends pass through.
+        // Synthetic singleLayer wrappers never introduce an extra isolation/backdrop root.
+        if (!c.singleLayer && !c.collapseForBlends && c.blend !== 'PASS_THROUGH') {
+          decls.push('isolation: isolate;');
+        }
+
+        // In Figma, clipsContent clips a frame's children, not the frame's own outside stroke.
+        const ownEntries = c.clip && c.sourceId && !c.singleLayer
+          ? childCtx.entries.filter(e => e.item.sourceId === c.sourceId)
+          : [];
+        const splitClip = !!(clipDecls && ownEntries.length && ownEntries.length < childCtx.entries.length);
+        if (clipDecls && !splitClip) decls.push(...clipDecls);
+        cssRules.push(`/* ${escapeCssComment(childCtx.pathNames.join(' / '))} */\n#${childCtx.domId} { ${decls.join(' ')} }`);
+
+        let innerHtml = '';
+        let innerMetas = [];
+        if (splitClip) {
+          const ownSet = new Set(ownEntries);
+          const ownRendered = renderEntries({...childCtx, entries: ownEntries}, indent + '  ');
+          const restEntries = childCtx.entries.filter(e => !ownSet.has(e));
+          const restRendered = renderEntries({...childCtx, entries: restEntries}, indent + '    ');
+          const clipId = nextId('f2a-clip');
+          cssRules.push(`#${clipId} { position: absolute; left: 0; top: 0; width: 100%; height: 100%; ${clipDecls.join(' ')} }`);
+          innerHtml = `${ownRendered.html}\n${indent}  <div id="${clipId}" class="f2a-clip">\n${restRendered.html}\n${indent}  </div>`;
+          innerMetas = ownRendered.metas.concat(restRendered.metas);
+        } else {
+          const inner = renderEntries(childCtx, indent + '  ');
+          innerHtml = inner.html;
+          innerMetas = inner.metas;
+        }
+        const cls = c.singleLayer ? 'f2a-layer' : 'f2a-group';
+        const kind = c.singleLayer ? 'minimal' : 'group';
+        const innerBlock = innerHtml ? `\n${innerHtml}\n${indent}` : '';
+        const boxHtml = `${indent}<div ${dataAttrs(childCtx.domId, c, childCtx.pathNames, kind, `class="${cls}"`)}>${innerBlock}</div>`;
+        htmlParts.push(wrapMaskIfNeeded(boxHtml, c, ctx, indent));
+        childMetas.push({
+          id: childCtx.domId,
+          sourceId: c.sourceId || null,
+          name: c.name || 'Group',
+          path: childCtx.pathNames.join('/'),
+          kind,
+          singleLayer: !!c.singleLayer,
+          hidden: !!c.hidden,
+          hasMask: !!c.maskId,
+          bounds: {x: childCtx.x, y: childCtx.y, w: childCtx.w, h: childCtx.h},
+          children: innerMetas,
+        });
+      } else if (entry.kind === 'shape') {
+        const res = renderShape(entry.item, ctx, indent);
+        htmlParts.push(res.html);
+        childMetas.push(res.meta);
+      } else if (entry.kind === 'text') {
+        const res = renderText(entry.item, ctx, indent);
+        htmlParts.push(res.html);
+        childMetas.push(res.meta);
+      } else {
+        const res = renderImage(entry.item, entry.index, ctx, indent);
+        htmlParts.push(res.html);
+        childMetas.push(res.meta);
+      }
+    }
+    return {html: htmlParts.join('\n'), metas: childMetas};
+  }
+
+  const rendered = renderEntries(rootContext, '      ');
+  const layerTree = {
+    name: data.name,
+    width: data.width,
+    height: data.height,
+    duration: data.duration,
+    frameRate: data.frameRate,
+    reference: referenceAsset ? referenceAsset.file : null,
+    counts,
+    layers: rendered.metas,
+  };
+
+  return {data, layerTree, renderedHtml: rendered.html, rootDefs, cssRules, assets, referenceAsset, counts, warnings};
+}
+
+function buildStyleCss(model) {
+  const {data, cssRules} = model;
+  return `/* Generated by F2A Web Export (Form A — Pixel-Accurate Interactive Page) */
+:root {
+  --f2a-width: ${num(data.width)}px;
+  --f2a-height: ${num(data.height)}px;
+  --f2a-scale: 1;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #111215;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.f2a-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+html[data-fit="actual"] .f2a-viewport {
+  overflow: auto;
+  align-items: safe center;
+  justify-content: safe center;
+}
+
+.f2a-stage-shell {
+  position: relative;
+  width: calc(var(--f2a-width) * var(--f2a-scale));
+  height: calc(var(--f2a-height) * var(--f2a-scale));
+  flex: 0 0 auto;
+}
+
+.f2a-stage {
+  position: relative;
+  width: var(--f2a-width);
+  height: var(--f2a-height);
+  transform-origin: 0 0;
+  transform: scale(var(--f2a-scale));
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.f2a-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.f2a-group,
+.f2a-layer,
+.f2a-shape,
+.f2a-svg,
+.f2a-text,
+.f2a-image,
+.f2a-image-matte {
+  position: absolute;
+  transform-origin: 50% 50%;
+}
+
+.f2a-mask-host {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.f2a-mask-host > * {
+  pointer-events: auto;
+}
+
+.f2a-svg {
+  display: block;
+  pointer-events: none;
+}
+
+.f2a-svg path,
+.f2a-svg rect,
+.f2a-svg ellipse {
+  pointer-events: auto;
+}
+
+.f2a-image,
+.f2a-image-media {
+  display: block;
+  max-width: none;
+  user-select: none;
+}
+
+.f2a-text {
+  margin: 0;
+  padding: 0;
+}
+
+.f2a-p {
+  margin: 0;
+}
+
+[data-hidden="true"] {
+  display: none !important;
+}
+
+[data-transformed="true"] {
+  transform: translate(var(--tx, 0px), var(--ty, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, 1), var(--scale-y, 1));
+}
+
+.f2a-reference {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--f2a-width);
+  height: var(--f2a-height);
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.5;
+}
+
+.f2a-reference[data-diff="true"] {
+  opacity: 1;
+  mix-blend-mode: difference;
+}
+
+/* Optional Dev Inspector (toggle via Shift+I or ?inspector=1) */
+html[data-outlines="true"] .f2a-group {
+  outline: 1px dashed rgba(167, 139, 250, 0.55);
+}
+
+html[data-outlines="true"] .f2a-layer[data-minimal="true"] {
+  outline: 1px solid rgba(234, 179, 8, 0.85);
+}
+
+.f2a-inspector {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10000;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(24, 24, 28, 0.92);
+  backdrop-filter: blur(12px);
+  color: #e8e8ec;
+  font: 12px/1.4 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.f2a-inspector[hidden] {
+  display: none;
+}
+
+.f2a-inspector button {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.f2a-inspector button[aria-pressed="true"] {
+  background: #a78bfa;
+  border-color: #a78bfa;
+  color: #16161a;
+  font-weight: 600;
+}
+
+.f2a-inspector input[type="range"] {
+  width: 72px;
+  accent-color: #a78bfa;
+}
+
+.f2a-inspector-tip {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 10000;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: rgba(24, 24, 28, 0.92);
+  border: 1px solid rgba(234, 179, 8, 0.6);
+  color: #fde047;
+  font: 12px/1.4 monospace;
+  pointer-events: none;
+}
+
+/* Layer rules */
+${cssRules.join('\n')}
+`;
+}
+
+function buildMainJs(model) {
+  const {layerTree} = model;
+  return `/* F2A Motion & Interaction Runtime (zero dependencies) */
+(function () {
+  'use strict';
+
+  var TREE = ${JSON.stringify(layerTree).replaceAll('<', '\\u003c')};
+  var stage = document.getElementById('f2a-stage');
+  var viewport = document.querySelector('.f2a-viewport');
+  var root = document.documentElement;
+  var fitMode = root.getAttribute('data-fit') || 'fit';
+
+  function updateScale() {
+    if (!viewport || !stage) return 1;
+    var vw = viewport.clientWidth || window.innerWidth || TREE.width;
+    var vh = viewport.clientHeight || window.innerHeight || TREE.height;
+    var scale = 1;
+    if (fitMode === 'fit') {
+      scale = Math.min(vw / TREE.width, vh / TREE.height);
+    } else if (fitMode === 'cover') {
+      scale = Math.max(vw / TREE.width, vh / TREE.height);
+    } else if (fitMode === 'width') {
+      scale = vw / TREE.width;
+    } else {
+      scale = 1;
+    }
+    if (!Number.isFinite(scale) || scale <= 0) scale = 1;
+    root.style.setProperty('--f2a-scale', String(scale));
+    return scale;
+  }
+
+  function setFitMode(mode) {
+    fitMode = mode || 'fit';
+    root.setAttribute('data-fit', fitMode);
+    return updateScale();
+  }
+
+  function allLayerElements() {
+    return Array.from(stage.querySelectorAll('[data-layer-name]'));
+  }
+
+  function resolveTargets(query) {
+    if (!query) return [];
+    if (query instanceof Element) return [query];
+    if (Array.isArray(query) || query instanceof NodeList) {
+      return Array.from(query).reduce(function (acc, item) {
+        return acc.concat(resolveTargets(item));
+      }, []);
+    }
+    var key = String(query);
+    var byId = document.getElementById(key);
+    if (byId && stage.contains(byId)) return [byId];
+    var elements = allLayerElements();
+    var exactPath = elements.filter(function (el) { return el.getAttribute('data-layer-path') === key; });
+    if (exactPath.length) return exactPath;
+    var exactMinimal = elements.filter(function (el) {
+      return el.getAttribute('data-layer-name') === key && el.getAttribute('data-minimal') === 'true';
+    });
+    if (exactMinimal.length) return exactMinimal;
+    var exactName = elements.filter(function (el) { return el.getAttribute('data-layer-name') === key; });
+    if (exactName.length) return exactName;
+    var bySource = elements.filter(function (el) { return el.getAttribute('data-source-id') === key; });
+    if (bySource.length) return bySource;
+    try { return Array.from(stage.querySelectorAll(key)); } catch (e) { return []; }
+  }
+
+  function layer(query) {
+    return resolveTargets(query)[0] || null;
+  }
+
+  function layers(query) {
+    return resolveTargets(query);
+  }
+
+  function minimalLayers() {
+    return Array.from(stage.querySelectorAll('[data-minimal="true"]'));
+  }
+
+  function setState(target, props) {
+    var els = resolveTargets(target);
+    var p = props || {};
+    els.forEach(function (el) {
+      var transformed = false;
+      if (p.x != null) { el.style.setProperty('--tx', typeof p.x === 'number' ? p.x + 'px' : String(p.x)); transformed = true; }
+      if (p.y != null) { el.style.setProperty('--ty', typeof p.y === 'number' ? p.y + 'px' : String(p.y)); transformed = true; }
+      if (p.scale != null) {
+        el.style.setProperty('--scale-x', String(p.scale));
+        el.style.setProperty('--scale-y', String(p.scale));
+        transformed = true;
+      }
+      if (p.scaleX != null) { el.style.setProperty('--scale-x', String(p.scaleX)); transformed = true; }
+      if (p.scaleY != null) { el.style.setProperty('--scale-y', String(p.scaleY)); transformed = true; }
+      if (p.rotate != null) { el.style.setProperty('--rotate', typeof p.rotate === 'number' ? p.rotate + 'deg' : String(p.rotate)); transformed = true; }
+      if (transformed) el.setAttribute('data-transformed', 'true');
+      if (p.opacity != null) el.style.opacity = String(p.opacity);
+      if (p.visible === true) el.removeAttribute('data-hidden');
+      else if (p.visible === false) el.setAttribute('data-hidden', 'true');
+    });
+    return els;
+  }
+
+  var PRESETS = {
+    fadeIn: { keyframes: [{ opacity: 0 }, { opacity: 1 }], options: { duration: 480, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' } },
+    fadeOut: { keyframes: [{ opacity: 1 }, { opacity: 0 }], options: { duration: 360, easing: 'ease-in', fill: 'both' } },
+    slideUp: { keyframes: [{ opacity: 0, transform: 'translateY(28px)' }, { opacity: 1, transform: 'translateY(0)' }], options: { duration: 560, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' } },
+    slideDown: { keyframes: [{ opacity: 0, transform: 'translateY(-28px)' }, { opacity: 1, transform: 'translateY(0)' }], options: { duration: 560, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' } },
+    slideLeft: { keyframes: [{ opacity: 0, transform: 'translateX(32px)' }, { opacity: 1, transform: 'translateX(0)' }], options: { duration: 560, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' } },
+    slideRight: { keyframes: [{ opacity: 0, transform: 'translateX(-32px)' }, { opacity: 1, transform: 'translateX(0)' }], options: { duration: 560, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' } },
+    popIn: { keyframes: [{ opacity: 0, transform: 'scale(0.84)' }, { opacity: 1, transform: 'scale(1.03)', offset: 0.72 }, { opacity: 1, transform: 'scale(1)' }], options: { duration: 520, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' } },
+    float: { keyframes: [{ transform: 'translateY(0px)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0px)' }], options: { duration: 2600, easing: 'ease-in-out', iterations: Infinity } },
+    pulse: { keyframes: [{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }], options: { duration: 1600, easing: 'ease-in-out', iterations: Infinity } }
+  };
+
+  function animate(target, keyframesOrPreset, options) {
+    var els = resolveTargets(target);
+    var preset = typeof keyframesOrPreset === 'string' ? PRESETS[keyframesOrPreset] : null;
+    var keyframes = preset ? preset.keyframes : keyframesOrPreset;
+    var baseOpts = Object.assign({ duration: 500, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' }, preset ? preset.options : null, options || {});
+    var stagger = Number(baseOpts.stagger) || 0;
+    var baseDelay = Number(baseOpts.delay) || 0;
+    return els.map(function (el, index) {
+      var opts = Object.assign({}, baseOpts, { delay: baseDelay + index * stagger });
+      delete opts.stagger;
+      return el.animate(keyframes, opts);
+    });
+  }
+
+  function timeline(steps) {
+    var anims = [];
+    (steps || []).forEach(function (step) {
+      var opts = Object.assign({}, step.options || {}, {
+        delay: (step.at != null ? step.at : (step.delay || 0)),
+        duration: step.duration != null ? step.duration : (step.options && step.options.duration),
+        easing: step.easing || (step.options && step.options.easing),
+        fill: step.fill || (step.options && step.options.fill) || 'both',
+        stagger: step.stagger
+      });
+      if (opts.duration == null) delete opts.duration;
+      if (opts.easing == null) delete opts.easing;
+      anims = anims.concat(animate(step.target, step.preset || step.keyframes, opts));
+    });
+    return {
+      animations: anims,
+      finished: Promise.all(anims.map(function (a) { return a.finished.catch(function () {}); })),
+      play: function () { anims.forEach(function (a) { a.play(); }); },
+      pause: function () { anims.forEach(function (a) { a.pause(); }); },
+      reverse: function () { anims.forEach(function (a) { a.reverse(); }); },
+      restart: function () { anims.forEach(function (a) { a.currentTime = 0; a.play(); }); },
+      cancel: function () { anims.forEach(function (a) { a.cancel(); }); },
+      seek: function (ms) { anims.forEach(function (a) { a.pause(); a.currentTime = ms; }); }
+    };
+  }
+
+  function on(target, eventName, handler, options) {
+    var els = resolveTargets(target);
+    var offs = els.map(function (el) {
+      if (eventName === 'click' && !el.style.cursor) el.style.cursor = 'pointer';
+      var wrapped = function (ev) { handler.call(el, ev, el); };
+      el.addEventListener(eventName, wrapped, options);
+      return function () { el.removeEventListener(eventName, wrapped, options); };
+    });
+    return function () { offs.forEach(function (off) { off(); }); };
+  }
+
+  // Exact Figma image-paint color grading (shared math with client/figmaImageGrade.js)
+  var GRADE_KEYS = ['exposure', 'contrast', 'saturation', 'temperature', 'tint', 'highlights', 'shadows'];
+  function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+  function gradeRgb(r, g, b, p, out) {
+    var y = .2126 * r + .7152 * g + .0722 * b;
+    var d = y - .217637640824031;
+    var ev = p[0] + .75 * d / Math.sqrt(1 + 4 * d * d) * (d > 0 ? p[5] : -.999 * p[6]);
+    if (p[1] || p[3] || p[4]) {
+      var fx = Math.cbrt((.4124564 * r + .3575761 * g + .1804375 * b) / .95047);
+      var fy = Math.cbrt(.2126729 * r + .7151522 * g + .0721750 * b);
+      var fz = Math.cbrt((.0193339 * r + .1191920 * g + .9503041 * b) / 1.08883);
+      var light = 116 * fy - 16, t = clamp01((light - 20) / 60);
+      var target = p[1] < 0 ? (light - 50) * .2 + 50 : 100 * t * t * t * (6 * t * t - 15 * t + 10);
+      var shift = .3 * Math.abs(p[1]) * (target - light) / 116;
+      var x = .95047 * Math.pow(fx + shift + .06 * p[4], 3);
+      var labY = Math.pow(fy + shift, 3);
+      var z = 1.08883 * Math.pow(fz + shift - .15 * p[3], 3);
+      r = clamp01(3.2404542 * x - 1.5371385 * labY - .4985314 * z);
+      g = clamp01(-.969266 * x + 1.8760108 * labY + .041556 * z);
+      b = clamp01(.0556434 * x - .2040259 * labY + 1.0572252 * z);
+      y = .2126 * r + .7152 * g + .0722 * b;
+    }
+    if (ev) {
+      var negative = Math.min(0, ev), scale = 1 + negative / 16, gain = Math.pow(10, 2 * ev);
+      var chroma = 3 * (1 + y * y * negative / (.2 - negative));
+      var scaledY = scale * y, base = scaledY * gain / (1 + scaledY * (gain - 1));
+      var rr = scale * (.25 * r + .75 * y), gg = scale * (.25 * g + .75 * y), bb = scale * (.25 * b + .75 * y);
+      rr = rr * gain / (1 + rr * (gain - 1)); gg = gg * gain / (1 + gg * (gain - 1)); bb = bb * gain / (1 + bb * (gain - 1));
+      r = clamp01(rr + (rr - base) * chroma); g = clamp01(gg + (gg - base) * chroma); b = clamp01(bb + (bb - base) * chroma);
+      y = .2126 * r + .7152 * g + .0722 * b;
+    }
+    var sat = 1 + p[2];
+    if (p[2] > 0) {
+      var limit = Math.min(y / (y - Math.min(r, g, b) + 1e-6), (1 - y) / (Math.max(r, g, b) - y + 1e-6));
+      sat = Math.min(2, 1 + p[2] * (limit - 1));
+    }
+    out[0] = Math.pow(clamp01(y + (r - y) * sat), 1 / 2.2);
+    out[1] = Math.pow(clamp01(y + (g - y) * sat), 1 / 2.2);
+    out[2] = Math.pow(clamp01(y + (b - y) * sat), 1 / 2.2);
+  }
+
+  var DECODE_LUT = new Float32Array(256);
+  for (var di = 0; di < 256; di++) DECODE_LUT[di] = Math.pow(di / 255, 2.2);
+
+  function renderGradedImage(img, filters) {
+    return new Promise(function (resolve) {
+      var params = GRADE_KEYS.map(function (k) { return Number(filters && filters[k]) || 0; });
+      var sourceUrl = img.getAttribute('data-grade-src') || img.getAttribute('data-orig-src') || img.src;
+      if (!img.getAttribute('data-orig-src')) img.setAttribute('data-orig-src', img.src);
+      var loader = new Image();
+      loader.onload = function () {
+        try {
+          var canvas = document.createElement('canvas');
+          canvas.width = loader.naturalWidth;
+          canvas.height = loader.naturalHeight;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(loader, 0, 0);
+          var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          var buf = imgData.data, pixel = [0, 0, 0];
+          for (var i = 0; i < buf.length; i += 4) {
+            if (buf[i + 3] === 0) continue;
+            gradeRgb(DECODE_LUT[buf[i]], DECODE_LUT[buf[i + 1]], DECODE_LUT[buf[i + 2]], params, pixel);
+            buf[i] = Math.round(pixel[0] * 255);
+            buf[i + 1] = Math.round(pixel[1] * 255);
+            buf[i + 2] = Math.round(pixel[2] * 255);
+          }
+          ctx.putImageData(imgData, 0, 0);
+          img.src = canvas.toDataURL('image/png');
+          img.setAttribute('data-graded', 'true');
+        } catch (e) {}
+        resolve(img);
+      };
+      loader.onerror = function () { resolve(img); };
+      loader.src = sourceUrl;
+    });
+  }
+
+  function applyAllImageGrades() {
+    var imgs = Array.from(stage.querySelectorAll('img[data-image-filters]'));
+    return Promise.all(imgs.map(function (img) {
+      try {
+        var filters = JSON.parse(img.getAttribute('data-image-filters') || '{}');
+        return renderGradedImage(img, filters);
+      } catch (e) { return Promise.resolve(img); }
+    }));
+  }
+
+  function setImageGrade(target, filters) {
+    var els = resolveTargets(target);
+    var imgs = [];
+    els.forEach(function (el) {
+      if (el.tagName === 'IMG') imgs.push(el);
+      else imgs = imgs.concat(Array.from(el.querySelectorAll('img')));
+    });
+    return Promise.all(imgs.map(function (img) { return renderGradedImage(img, filters); }));
+  }
+
+  // Optional Dev Inspector (open via ?inspector=1 or press Shift+I)
+  function setupInspector() {
+    var bar = document.createElement('div');
+    bar.className = 'f2a-inspector';
+    bar.hidden = !/(?:[?&])inspector=1(?:&|$)/.test(window.location.search);
+    var refImg = stage.querySelector('.f2a-reference');
+    var tip = document.createElement('div');
+    tip.className = 'f2a-inspector-tip';
+    tip.hidden = true;
+    document.body.appendChild(tip);
+
+    function btn(label, onClick) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', function () { onClick(b); });
+      bar.appendChild(b);
+      return b;
+    }
+
+    btn('1:1 像素', function (b) {
+      var actual = fitMode !== 'actual';
+      setFitMode(actual ? 'actual' : 'fit');
+      b.setAttribute('aria-pressed', String(actual));
+    });
+
+    btn('图层框', function (b) {
+      var onState = root.getAttribute('data-outlines') !== 'true';
+      if (onState) root.setAttribute('data-outlines', 'true');
+      else root.removeAttribute('data-outlines');
+      b.setAttribute('aria-pressed', String(onState));
+      if (!onState) tip.hidden = true;
+    });
+
+    if (refImg) {
+      var diffBtn = null;
+      var range = document.createElement('input');
+      range.type = 'range'; range.min = '0'; range.max = '100'; range.value = '50'; range.hidden = true;
+      range.addEventListener('input', function () {
+        refImg.removeAttribute('data-diff');
+        if (diffBtn) diffBtn.setAttribute('aria-pressed', 'false');
+        refImg.style.opacity = String(Number(range.value) / 100);
+      });
+      btn('原图对照', function (b) {
+        refImg.hidden = !refImg.hidden;
+        range.hidden = refImg.hidden;
+        if (diffBtn) diffBtn.hidden = refImg.hidden;
+        b.setAttribute('aria-pressed', String(!refImg.hidden));
+      });
+      bar.appendChild(range);
+      diffBtn = btn('差值比对', function (b) {
+        var onDiff = refImg.getAttribute('data-diff') !== 'true';
+        if (onDiff) refImg.setAttribute('data-diff', 'true');
+        else refImg.removeAttribute('data-diff');
+        b.setAttribute('aria-pressed', String(onDiff));
+      });
+      diffBtn.hidden = true;
+    }
+
+    btn('演示入场', function () {
+      var targets = minimalLayers().filter(function (el) { return !el.hasAttribute('data-hidden'); });
+      if (!targets.length) targets = Array.from(stage.children).filter(function (el) { return el.hasAttribute('data-layer-name'); });
+      animate(targets, 'slideUp', { stagger: 45, duration: 520 });
+    });
+
+    stage.addEventListener('pointermove', function (ev) {
+      if (root.getAttribute('data-outlines') !== 'true') { tip.hidden = true; return; }
+      var hit = ev.target && ev.target.closest ? ev.target.closest('[data-minimal="true"], [data-layer-name]') : null;
+      if (!hit || !stage.contains(hit)) { tip.hidden = true; return; }
+      tip.textContent = (hit.getAttribute('data-minimal') === 'true' ? '[最小合成] ' : '') + hit.getAttribute('data-layer-path');
+      tip.hidden = false;
+    });
+
+    document.body.appendChild(bar);
+    window.addEventListener('keydown', function (ev) {
+      if (ev.shiftKey && (ev.key === 'I' || ev.key === 'i')) bar.hidden = !bar.hidden;
+    });
+  }
+
+  var ready = applyAllImageGrades();
+  updateScale();
+  window.addEventListener('resize', updateScale);
+  if (typeof ResizeObserver === 'function' && viewport) {
+    new ResizeObserver(updateScale).observe(viewport);
+  }
+  setupInspector();
+
+  window.F2A = {
+    tree: TREE,
+    stage: stage,
+    ready: ready,
+    layer: layer,
+    layers: layers,
+    minimalLayers: minimalLayers,
+    animate: animate,
+    timeline: timeline,
+    presets: PRESETS,
+    on: on,
+    setState: setState,
+    setFitMode: setFitMode,
+    setImageGrade: setImageGrade,
+    updateScale: updateScale
+  };
+})();
+`;
+}
+
+function buildAnimationsJs(model) {
+  const {layerTree} = model;
+  const sampleNames = [];
+  (function collect(list) {
+    for (const item of list) {
+      if (item.singleLayer && !item.hidden && sampleNames.length < 12) sampleNames.push(item.name);
+      if (item.children) collect(item.children);
+    }
+  })(layerTree.layers);
+  if (!sampleNames.length) {
+    for (const item of layerTree.layers.slice(0, 12)) sampleNames.push(item.name);
+  }
+  const first = sampleNames[0] || '图层名';
+  const second = sampleNames[1] || first;
+  const listComment = sampleNames.length
+    ? sampleNames.map(n => ` *   - ${n}`).join('\n')
+    : ' *   （请查看 layers.json 获取完整图层树）';
+  return `/* F2A 动效与互动脚本入口
+ *
+ * 按 Shift+I（或在网址后加 ?inspector=1）可打开调试条：原图对照、差值比对、图层框、演示入场。
+ * 当前页面导出的主要图层：
+${listComment}
+ *
+ * 常用 API：
+ *   F2A.layer('图层名')                         // 按图层名 / 路径 / Figma ID 查找元素
+ *   F2A.animate('图层名', 'slideUp', { delay }) // 播放内置或自定义 WAAPI 动效
+ *   F2A.timeline([...])                         // 编排多图层时间轴
+ *   F2A.on('按钮', 'click', (e, el) => {...})   // 绑定交互事件
+ *   F2A.setState('图层名', { x, y, scale, rotate, opacity, visible })
+ */
+
+// 示例 1：入场时间轴（取消注释即可启用）
+// F2A.timeline([
+//   { target: ${JSON.stringify(first)}, preset: 'fadeIn', at: 0, duration: 500 },
+//   { target: ${JSON.stringify(second)}, preset: 'slideUp', at: 120, duration: 560 },
+// ]);
+
+// 示例 2：点击互动（取消注释即可启用）
+// F2A.on(${JSON.stringify(first)}, 'click', (_event, el) => {
+//   F2A.animate(el, 'pulse', { iterations: 1, duration: 360 });
+// });
+`;
+}
+
+function buildIndexHtml(model) {
+  const {data, renderedHtml, rootDefs, referenceAsset} = model;
+  const defsSvg = rootDefs.length
+    ? `\n      <svg class="f2a-defs" aria-hidden="true"><defs>${rootDefs.join('')}</defs></svg>`
+    : '';
+  const refImg = referenceAsset
+    ? `\n      <img class="f2a-reference" src="${escapeHtml(referenceAsset.file)}" alt="原图对照" hidden>`
+    : '';
+  return `<!DOCTYPE html>
+<html lang="zh-CN" data-fit="fit">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(data.name)}</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="f2a-viewport">
+    <div class="f2a-stage-shell">
+      <div id="f2a-stage" class="f2a-stage" data-width="${num(data.width)}" data-height="${num(data.height)}">${defsSvg}
+${renderedHtml}${refImg}
+      </div>
+    </div>
+  </div>
+  <script src="main.js"></script>
+  <script src="animations.js"></script>
+</body>
+</html>
+`;
+}
+
+function renderWebBundle(packet) {
+  const model = buildWebModel(packet);
+  return {
+    html: buildIndexHtml(model),
+    css: buildStyleCss(model),
+    mainJs: buildMainJs(model),
+    animationsJs: buildAnimationsJs(model),
+    layersJson: JSON.stringify(model.layerTree, null, 2) + '\n',
+    assets: model.assets,
+    counts: model.counts,
+    warnings: model.warnings,
+    layerTree: model.layerTree,
+  };
+}
+
+async function writeWebBundle(packet, directory) {
+  const started = performance.now();
+  const bundle = renderWebBundle(packet);
+  await fs.mkdir(directory, {recursive: true});
+  if (bundle.assets.length) {
+    await fs.mkdir(path.join(directory, 'assets'), {recursive: true});
+    for (const asset of bundle.assets) {
+      await fs.writeFile(path.join(directory, asset.file), asset.bytes);
+    }
+  }
+  await Promise.all([
+    fs.writeFile(path.join(directory, 'index.html'), bundle.html, 'utf8'),
+    fs.writeFile(path.join(directory, 'style.css'), bundle.css, 'utf8'),
+    fs.writeFile(path.join(directory, 'main.js'), bundle.mainJs, 'utf8'),
+    fs.writeFile(path.join(directory, 'animations.js'), bundle.animationsJs, 'utf8'),
+    fs.writeFile(path.join(directory, 'layers.json'), bundle.layersJson, 'utf8'),
+  ]);
+  const totalMs = Math.round(performance.now() - started);
+  const report = {
+    entry: 'index.html',
+    counts: bundle.counts,
+    warnings: bundle.warnings,
+    totalMs,
+  };
+  await fs.writeFile(path.join(directory, 'report.json'), JSON.stringify(report, null, 2) + '\n', 'utf8');
+  return {
+    ...report,
+    directory,
+    entry: path.join(directory, 'index.html'),
+  };
+}
+
+module.exports = {buildWebModel, renderWebBundle, writeWebBundle};
