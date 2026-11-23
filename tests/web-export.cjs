@@ -810,6 +810,7 @@ async function testFidelitySuite() {
     const html = await fsp.readFile(res.entry, 'utf8');
 
     // Static checks on CSS/HTML precision upgrades
+    assert.match(css, /\.f2a-stage\s*\{[^}]*will-change:\s*transform;/, 'Stage composites at 1:1 before downscaling to avoid odd-coordinate half-pixel snapping');
     assert.match(css, /\.f2a-reference\s*\{[^}]*left:\s*-12px;[^}]*top:\s*-8px;[^}]*width:\s*444px;[^}]*height:\s*336px;/, 'Reference uses exact render bounds, not stretched 0,0,W,H');
     assert.match(css, /@font-face\s*\{[^}]*local\("Segoe UI SemiBold"\)/, 'Emits local() weight alias for non-Regular font styles');
     assert.match(css, /border-radius:\s*24px 2px 24px 2px;/, 'Mixed 4-corner radii preserved on clipped frame');
@@ -910,6 +911,38 @@ async function testFidelitySuite() {
         const legPx = img.at(30, 280), overlapPx = img.at(50, 280);
         assert.ok(overlapPx[0] > 120, 'Overlapping opposite-winding regions do not cancel into a hole: ' + overlapPx);
         assert.ok(Math.abs(overlapPx[0] - legPx[0]) <= 3, `Isolated group opacity avoids double-blending overlap (${overlapPx}) vs leg (${legPx})`);
+
+        // Verify Inspector 差值比对 clears 图层框 & inline range opacity, and keeps 1:1 compositing at 0.5x fit scale
+        await cmd('Emulation.setDeviceMetricsOverride', {width: 210, height: 160, deviceScaleFactor: 1, mobile: false});
+        const diffState = (await cmd('Runtime.evaluate', {
+          expression: `(async function(){
+            window.dispatchEvent(new Event('resize'));
+            const btns = Array.from(document.querySelectorAll('.f2a-inspector button'));
+            const byText = t => btns.find(b => b.textContent === t);
+            byText('图层框').click();
+            byText('原图对照').click();
+            const slider = document.querySelector('.f2a-inspector input[type="range"]');
+            slider.value = '40'; slider.dispatchEvent(new Event('input'));
+            byText('差值比对').click();
+            await new Promise(r => requestAnimationFrame(r));
+            const ref = document.querySelector('.f2a-reference');
+            return {
+              outlines: document.documentElement.getAttribute('data-outlines'),
+              outlinesPressed: byText('图层框').getAttribute('aria-pressed'),
+              diffAttr: ref.getAttribute('data-diff'),
+              inlineOpacity: ref.style.opacity,
+              computedOpacity: getComputedStyle(ref).opacity,
+              willChange: getComputedStyle(document.getElementById('f2a-stage')).willChange,
+            };
+          })()`,
+          awaitPromise: true, returnByValue: true,
+        })).result.value;
+        assert.equal(diffState.outlines, null, '差值比对 clears debug outlines so they do not invert into fake diffs');
+        assert.equal(diffState.outlinesPressed, 'false');
+        assert.equal(diffState.diffAttr, 'true');
+        assert.equal(diffState.inlineOpacity, '');
+        assert.equal(diffState.computedOpacity, '1');
+        assert.equal(diffState.willChange, 'transform');
       } finally {
         socket?.close();
         child.kill();

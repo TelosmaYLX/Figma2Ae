@@ -1454,6 +1454,7 @@ html[data-fit="actual"] .f2a-viewport {
   height: var(--f2a-height);
   transform-origin: 0 0;
   transform: scale(var(--f2a-scale));
+  will-change: transform;
   overflow: hidden;
   isolation: isolate;
 }
@@ -1847,6 +1848,9 @@ ${animations ? `
     }
     if (!Number.isFinite(scale) || scale <= 0) scale = 1;
     root.style.setProperty('--f2a-scale', String(scale));
+    var refEl = stage.querySelector('.f2a-reference');
+    var diffOn = !!(refEl && !refEl.hidden && refEl.getAttribute('data-diff') === 'true');
+    stage.style.willChange = (scale <= 1 || diffOn) ? 'transform' : 'auto';
     return scale;
   }
 
@@ -1924,7 +1928,7 @@ ${motionBlock}${gradingBlock}
       b.setAttribute('aria-pressed', String(actual));
     });
 
-    btn('图层框', function (b) {
+    var outlinesBtn = btn('图层框', function (b) {
       var onState = root.getAttribute('data-outlines') !== 'true';
       if (onState) root.setAttribute('data-outlines', 'true');
       else root.removeAttribute('data-outlines');
@@ -1940,19 +1944,32 @@ ${motionBlock}${gradingBlock}
         refImg.removeAttribute('data-diff');
         if (diffBtn) diffBtn.setAttribute('aria-pressed', 'false');
         refImg.style.opacity = String(Number(range.value) / 100);
+        updateScale();
       });
       btn('原图对照', function (b) {
         refImg.hidden = !refImg.hidden;
         range.hidden = refImg.hidden;
         if (diffBtn) diffBtn.hidden = refImg.hidden;
         b.setAttribute('aria-pressed', String(!refImg.hidden));
+        updateScale();
       });
       bar.appendChild(range);
       diffBtn = btn('差值比对', function (b) {
         var onDiff = refImg.getAttribute('data-diff') !== 'true';
-        if (onDiff) refImg.setAttribute('data-diff', 'true');
-        else refImg.removeAttribute('data-diff');
+        if (onDiff) {
+          refImg.style.opacity = '';
+          refImg.setAttribute('data-diff', 'true');
+          if (root.getAttribute('data-outlines') === 'true') {
+            root.removeAttribute('data-outlines');
+            outlinesBtn.setAttribute('aria-pressed', 'false');
+            tip.hidden = true;
+          }
+        } else {
+          refImg.removeAttribute('data-diff');
+          refImg.style.opacity = String(Number(range.value) / 100);
+        }
         b.setAttribute('aria-pressed', String(onDiff));
+        updateScale();
       });
       diffBtn.hidden = true;
     }
