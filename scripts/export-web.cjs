@@ -25,7 +25,7 @@ async function createOutputDirectory(parent, name) {
 async function chooseWebDestination(options = {}) {
   const powershell = path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe');
   const {stdout} = await run(powershell, [
-    '-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+    '-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass',
     '-File', path.join(__dirname, 'web/choose-web-destination.ps1'),
   ], {
     windowsHide: true,
@@ -44,18 +44,18 @@ async function openWebPreview(entryFile) {
   ], {windowsHide: true, timeout: 15000, env: {...process.env, F2A_WEB_ENTRY: target}});
 }
 
-async function exportWeb(packet, directory) {
+async function exportWeb(packet, directory, options = {}) {
   try {
     await fs.access(path.join(directory, 'index.html'));
     throw new Error('输出文件夹已有 index.html，请选择新的文件夹');
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
-  return writeWebBundle(packet, directory);
+  return writeWebBundle(packet, directory, options);
 }
 
 async function publishWeb(packet, destinationFor, options = {}) {
   const temporary = await fs.mkdtemp(path.join(path.resolve(options.tempRoot || os.tmpdir()), 'f2a-web-'));
   try {
-    const prepared = await exportWeb(packet, temporary);
+    const prepared = await exportWeb(packet, temporary, options);
     if (prepared.warnings.length) {
       const issue = prepared.warnings[0];
       throw new Error('图层「' + (issue.layer || '未知') + '」：' + (issue.detail || issue.code || '存在未导出的属性'));
@@ -81,13 +81,16 @@ async function publishWeb(packet, destinationFor, options = {}) {
 }
 
 if (require.main === module) {
-  const [input, output] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const animations = args.includes('--animations');
+  const positional = args.filter(arg => arg !== '--animations');
+  const [input, output] = positional;
   if (!input || !output) {
-    console.error('Usage: node scripts/export-web.cjs packet.json output-directory');
+    console.error('Usage: node scripts/export-web.cjs packet.json output-directory [--animations]');
     process.exitCode = 1;
   } else {
     fs.readFile(path.resolve(input), 'utf8')
-      .then(source => exportWeb(JSON.parse(source), path.resolve(output)))
+      .then(source => exportWeb(JSON.parse(source), path.resolve(output), animations ? {animations: true} : {}))
       .then(result => console.log(JSON.stringify(result, null, 2)))
       .catch(error => { console.error(error.message); process.exitCode = 1; });
   }

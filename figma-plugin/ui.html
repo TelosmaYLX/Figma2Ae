@@ -61,7 +61,7 @@
   .locate-layer:focus-visible,.open-folder:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .result-actions { display:flex; flex-wrap:wrap; gap:8px; }
   .web-settings { margin-top:8px; }
-  .web-export { border:1px solid var(--line); background:var(--surface); color:var(--text); }
+  .web-export { margin-top:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); }
   .web-export:hover:not(:disabled) { background:var(--surface-hover); border-color:var(--line-hover); }
   .web-export:active:not(:disabled) { background:var(--surface-active); }
   .web-export:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
@@ -151,8 +151,9 @@
     <button id="export-aep" class="aep-export" disabled>导出为 AEP 工程</button>
   </div>
   <div class="settings web-settings" role="group" aria-label="前端网页导出">
+    <label class="option" title="附带 WAAPI 动效运行时与 animations.js 动效脚本入口。"><input type="checkbox" id="web-animations"> 附带动效脚本</label>
     <button id="export-web" class="web-export" disabled>导出为 HTML 网页</button>
-    <div class="hint">像素级还原为 HTML + CSS + JS，支持原图对照与图层动效。</div>
+    <div class="hint">像素级还原为 HTML + CSS + JS，支持原图对照，按需附带动效脚本。</div>
   </div>
   <div id="msg" class="msg"></div>
   <div class="result-actions">
@@ -285,7 +286,7 @@
     };
   }
   var CHECKBOX_SETTINGS = [
-    'organize', 'precomp-layers', 'enableclip', 'ignorehidden', 'preserve-image-filters',
+    'web-animations', 'organize', 'precomp-layers', 'enableclip', 'ignorehidden', 'preserve-image-filters',
     'raster-effects', 'raster-paints', 'raster-image-crops', 'raster-masks', 'raster-booleans',
     'mergeblends', 'rasterallgroups', 'rasterinstances'
   ];
@@ -711,6 +712,7 @@
     packet.aeVersion = agent ? agent.aeVersion : $('aep-version').value;
     packet.duration = agent ? agent.duration : selectedNumber('aep-duration', 10);
     packet.frameRate = agent ? agent.frameRate : selectedNumber('aep-fps', 30);
+    if (isWeb) packet.webAnimations = $('web-animations').checked;
     if (packet.images.length !== packet.imageCount) {
       if (agent) { endAgentAep(agent, new Error('部分图片导出失败，请重试。')); return; }
       aepMode = aepBusy = false; updateButton();

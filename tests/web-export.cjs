@@ -313,7 +313,8 @@ function collectShipImages(messages) {
   return [...chunks.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => ({...v.meta, data: v.parts.join('')}));
 }
 
-async function testBrowserRendering(entryHtml, screenshotPath) {
+async function testBrowserRendering(entryHtml, screenshotPath, options = {}) {
+  const expectAnimations = options.animations !== false;
   if (!fs.existsSync(EDGE_EXE)) {
     console.log('SKIP browser check: msedge.exe not found');
     return;
@@ -459,39 +460,59 @@ async function testBrowserRendering(entryHtml, screenshotPath) {
     const seamPx = img.at(510, 235);
     assert.ok(seamPx[0] > 110 && seamPx[2] > 110, 'backdrop-filter blurs sharp orange/blue seam behind frosted glass: ' + seamPx);
 
-    // 8. Verify JS Motion + Interaction APIs + Inspector HUD in live browser!
-    const runtimeTest = await evalJs(`(async function(){
-      let clicks = 0;
-      const off = window.F2A.on('主按钮', 'click', () => { clicks++; });
-      window.F2A.layer('主按钮').click();
-      off();
-      window.F2A.layer('主按钮').click();
+    // 8. Verify runtime APIs & Inspector HUD in live browser!
+    if (expectAnimations) {
+      const runtimeTest = await evalJs(`(async function(){
+        let clicks = 0;
+        const off = window.F2A.on('主按钮', 'click', () => { clicks++; });
+        window.F2A.layer('主按钮').click();
+        off();
+        window.F2A.layer('主按钮').click();
 
-      // Reveal hidden layer and move it via F2A.setState
-      window.F2A.setState('隐藏提示', { visible: true, x: 20, y: -10, scale: 1.1 });
-      await new Promise(r => requestAnimationFrame(r));
-      const badgeEl = window.F2A.layer('隐藏提示');
-      const badgeVisible = getComputedStyle(badgeEl).display !== 'none';
-      const badgeTransform = getComputedStyle(badgeEl).transform;
+        // Reveal hidden layer and move it via F2A.setState
+        window.F2A.setState('隐藏提示', { visible: true, x: 20, y: -10, scale: 1.1 });
+        await new Promise(r => requestAnimationFrame(r));
+        const badgeEl = window.F2A.layer('隐藏提示');
+        const badgeVisible = getComputedStyle(badgeEl).display !== 'none';
+        const badgeTransform = getComputedStyle(badgeEl).transform;
 
-      // Run declarative timeline with WAAPI
-      const tl = window.F2A.timeline([
-        { target: '主按钮', preset: 'popIn', at: 0, duration: 40 },
-        { target: '圆点', preset: 'fadeIn', at: 10, duration: 40, stagger: 10 },
-      ]);
-      await tl.finished;
+        // Run declarative timeline with WAAPI
+        const tl = window.F2A.timeline([
+          { target: '主按钮', preset: 'popIn', at: 0, duration: 40 },
+          { target: '圆点', preset: 'fadeIn', at: 10, duration: 40, stagger: 10 },
+        ]);
+        await tl.finished;
 
-      // Toggle inspector via Shift+I
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'I', shiftKey: true }));
-      const inspectorOpen = !document.querySelector('.f2a-inspector').hidden;
-      return { clicks, badgeVisible, badgeTransform, animCount: tl.animations.length, inspectorOpen };
-    })()`);
+        // Toggle inspector via Shift+I
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'I', shiftKey: true }));
+        const inspectorOpen = !document.querySelector('.f2a-inspector').hidden;
+        const hasDemoBtn = Array.from(document.querySelectorAll('.f2a-inspector button')).some(b => b.textContent === '演示入场');
+        return { clicks, badgeVisible, badgeTransform, animCount: tl.animations.length, inspectorOpen, hasDemoBtn };
+      })()`);
 
-    assert.equal(runtimeTest.clicks, 1, 'F2A.on fires and unsubscribe removes listener');
-    assert.equal(runtimeTest.badgeVisible, true, 'F2A.setState can reveal hidden layers');
-    assert.ok(runtimeTest.badgeTransform && runtimeTest.badgeTransform !== 'none', 'F2A.setState applies CSS transform');
-    assert.equal(runtimeTest.animCount, 3, 'Timeline animated 主按钮 + 2 圆点');
-    assert.equal(runtimeTest.inspectorOpen, true, 'Shift+I toggles built-in Inspector HUD');
+      assert.equal(runtimeTest.clicks, 1, 'F2A.on fires and unsubscribe removes listener');
+      assert.equal(runtimeTest.badgeVisible, true, 'F2A.setState can reveal hidden layers');
+      assert.ok(runtimeTest.badgeTransform && runtimeTest.badgeTransform !== 'none', 'F2A.setState applies CSS transform');
+      assert.equal(runtimeTest.animCount, 3, 'Timeline animated 主按钮 + 2 圆点');
+      assert.equal(runtimeTest.inspectorOpen, true, 'Shift+I toggles built-in Inspector HUD');
+      assert.equal(runtimeTest.hasDemoBtn, true, 'Animations mode includes 演示入场 inspector button');
+    } else {
+      const staticTest = await evalJs(`(async function(){
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'I', shiftKey: true }));
+        const inspectorOpen = !document.querySelector('.f2a-inspector').hidden;
+        const hasDemoBtn = Array.from(document.querySelectorAll('.f2a-inspector button')).some(b => b.textContent === '演示入场');
+        return {
+          hasAnimate: typeof window.F2A.animate === 'function',
+          hasTimeline: typeof window.F2A.timeline === 'function',
+          inspectorOpen,
+          hasDemoBtn,
+        };
+      })()`);
+      assert.equal(staticTest.hasAnimate, false, 'Default static export omits F2A.animate');
+      assert.equal(staticTest.hasTimeline, false, 'Default static export omits F2A.timeline');
+      assert.equal(staticTest.inspectorOpen, true, 'Static export keeps Inspector HUD');
+      assert.equal(staticTest.hasDemoBtn, false, 'Static export omits 演示入场 inspector button');
+    }
 
     // Capture a second screenshot with Inspector HUD + Layer Outlines active!
     if (screenshotPath) {
@@ -518,7 +539,7 @@ async function testServerAndUi(packet) {
   const tempRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'f2a-web-srv-'));
   const openedDirs = [];
   const openedPreviews = [];
-  const choices = [path.join(tempRoot, '导出网页'), null];
+  const choices = [path.join(tempRoot, '导出网页'), path.join(tempRoot, '导出动效网页'), null];
   const server = startServer({
     port: 0,
     quiet: true,
@@ -533,15 +554,25 @@ async function testServerAndUi(packet) {
     const health = await (await fetch(base + '/health')).json();
     assert.equal(health.webExport, true);
 
+    // Default export: static HTML without animations.js
     const exported = await (await fetch(base + '/export-web', {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({packet}),
     })).json();
     assert.ok(exported.exportId && exported.entry.endsWith('index.html'));
+    assert.equal(exported.animations, false);
     assert.equal(fs.existsSync(exported.entry), true);
     assert.equal(fs.existsSync(path.join(exported.directory, 'style.css')), true);
     assert.equal(fs.existsSync(path.join(exported.directory, 'main.js')), true);
-    assert.equal(fs.existsSync(path.join(exported.directory, 'animations.js')), true);
+    assert.equal(fs.existsSync(path.join(exported.directory, 'animations.js')), false);
     assert.equal(fs.existsSync(path.join(exported.directory, 'layers.json')), true);
+
+    // Opt-in animations export: includes animations.js
+    const animated = await (await fetch(base + '/export-web', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({packet: {...packet, webAnimations: true}}),
+    })).json();
+    assert.equal(animated.animations, true);
+    assert.equal(fs.existsSync(path.join(animated.directory, 'animations.js')), true);
 
     const openDirRes = await fetch(base + '/open-directory', {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({exportId: exported.exportId}),
@@ -562,11 +593,13 @@ async function testServerAndUi(packet) {
 
     // Exercise actual figma-plugin/ui.html #export-web + #open-web-preview flow
     const html = fs.readFileSync(path.join(root, 'figma-plugin/ui.html'), 'utf8');
-    const runUi = async (hasWebExport) => {
+    const runUi = async (hasWebExport, enableAnimations = false) => {
       const elements = {}, posts = [], requests = [];
       for (const m of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) {
         elements[m[1]] = {checked: /\bchecked\b/.test(m[0]), disabled: /\bdisabled\b/.test(m[0]), hidden: /\bhidden\b/.test(m[0])};
       }
+      assert.equal(elements['web-animations'].checked, false, 'HTML animations option defaults to unchecked');
+      elements['web-animations'].checked = enableAnimations;
       elements['raster-scale'].value = '1';
       elements['native-image-masks'].value = 'separate';
       elements['text-mode'].value = 'vector';
@@ -614,14 +647,21 @@ async function testServerAndUi(packet) {
     assert.equal(stale.posts.filter(m => m.type === 'ship-selection').length, 0);
     assert.match(stale.elements.msg.textContent, /导出 HTML 网页需要更新.*--workspace/);
 
-    const ok = await runUi(true);
-    assert.ok(ok.requests.some(r => r.url.endsWith('/export-web')));
+    const ok = await runUi(true, false);
+    const exportReq = ok.requests.find(r => r.url.endsWith('/export-web'));
+    assert.ok(exportReq);
+    assert.equal(JSON.parse(exportReq.options.body).packet.webAnimations, false);
     assert.equal(ok.elements['open-aep-folder'].hidden, false);
     assert.equal(ok.elements['open-web-preview'].hidden, false);
     assert.match(ok.elements.msg.textContent, /已导出网页到 D:\\WebOut/);
     ok.elements['open-web-preview'].onclick();
     for (let i = 0; i < 40 && ok.ctx.openingPreview; i++) await new Promise(setImmediate);
     assert.ok(ok.requests.some(r => r.url.endsWith('/open-preview')));
+
+    const okAnim = await runUi(true, true);
+    const animReq = okAnim.requests.find(r => r.url.endsWith('/export-web'));
+    assert.ok(animReq);
+    assert.equal(JSON.parse(animReq.options.body).packet.webAnimations, true);
   } finally {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
@@ -660,10 +700,25 @@ async function check() {
   const images = collectShipImages(h.messages);
   const packet = {...ship, images};
 
-  // Write a real browsable demo bundle into artifacts/web-export-demo so user & tests can inspect it
+  // 1. Default export (animations OFF): clean static HTML + CSS + lean main.js, no animations.js
+  const staticDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'f2a-web-static-'));
+  try {
+    const staticRes = await exportWeb(packet, staticDir);
+    assert.equal(staticRes.animations, false);
+    assert.equal(fs.existsSync(path.join(staticDir, 'animations.js')), false);
+    const staticHtml = await fsp.readFile(staticRes.entry, 'utf8');
+    assert.doesNotMatch(staticHtml, /animations\.js/);
+    await testBrowserRendering(staticRes.entry, null, {animations: false});
+  } finally {
+    await fsp.rm(staticDir, {recursive: true, force: true});
+  }
+
+  // 2. Opt-in animations export: write a browsable demo bundle into artifacts/web-export-demo
   const demoDir = path.join(root, 'artifacts/web-export-demo');
   await fsp.rm(demoDir, {recursive: true, force: true});
-  const result = await exportWeb(packet, demoDir);
+  const result = await exportWeb(packet, demoDir, {animations: true});
+  assert.equal(result.animations, true);
+  assert.equal(fs.existsSync(path.join(demoDir, 'animations.js')), true);
   assert.ok(result.counts.containers >= 12);
   assert.ok(result.counts.minimal >= 10);
   assert.ok(result.counts.masks >= 2);
@@ -671,7 +726,7 @@ async function check() {
   assert.ok(result.counts.images >= 1);
 
   // Verify real Edge browser rendering, exact pixel colors, masks, blends, live grading, and JS animation APIs!
-  await testBrowserRendering(result.entry, path.join(demoDir, 'preview.png'));
+  await testBrowserRendering(result.entry, path.join(demoDir, 'preview.png'), {animations: true});
 
   // Also test flat mode (organize=false, precompLayers=true)
   h.messages.length = 0;
@@ -708,13 +763,13 @@ async function check() {
   // Test HTTP server routes (/export-web, /open-directory, /open-preview) + UI panel button flow
   await testServerAndUi(packet);
 
-  // Verify Windows PowerShell destination picker script compiles/initializes cleanly and preserves Unicode + leading-dash names
+  // Verify Windows PowerShell & Python destination pickers initialize TopMost promoters cleanly and preserve Unicode + leading-dash names
   if (process.platform === 'win32') {
     const {execFileSync} = require('node:child_process');
     const powershell = path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe');
     const picker = path.join(root, 'scripts/web/choose-web-destination.ps1');
     const legacyOut = execFileSync(powershell, [
-      '-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+      '-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass',
       '-File', picker, '-InitialName', '涂装选择', '-DryRun',
     ], {encoding: 'utf8', windowsHide: true});
     const legacyParsed = JSON.parse(legacyOut.trim());
@@ -722,13 +777,25 @@ async function check() {
     assert.equal(legacyParsed.title, '保存 HTML 前端页面文件夹');
     assert.equal(legacyParsed.filter, 'HTML 页面文件夹|*');
     assert.equal(legacyParsed.cancelled, null);
+    assert.equal(legacyParsed.topmostReady, true);
 
     const envOut = execFileSync(powershell, [
-      '-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
+      '-NoProfile', '-NonInteractive', '-STA', '-ExecutionPolicy', 'Bypass',
       '-File', picker, '-DryRun',
     ], {encoding: 'utf8', windowsHide: true, env: {...process.env, F2A_WEB_INITIAL_NAME: '-涂装选择 🎨'}});
     const envParsed = JSON.parse(envOut.trim());
     assert.equal(envParsed.directory, '-涂装选择 🎨');
+    assert.equal(envParsed.topmostReady, true);
+
+    const aepPython = path.join(root, '.venv-aep/Scripts/python.exe');
+    if (fs.existsSync(aepPython)) {
+      const pyOut = execFileSync(aepPython, [
+        path.join(root, 'scripts/aep/choose-destination.py'), '涂装选择', '--dry-run',
+      ], {encoding: 'utf8', windowsHide: true, env: {...process.env, PYTHONUTF8: '1'}});
+      const pyParsed = JSON.parse(pyOut.trim());
+      assert.equal(pyParsed.directory, '涂装选择');
+      assert.equal(pyParsed.topmostReady, true);
+    }
   }
 
   console.log('PASS: Form A web export (code.js -> HTML+CSS+JS, real Edge pixel/mask/blend/grading verification, WAAPI runtime, Inspector HUD, HTTP routes, PowerShell picker & UI panel)');
