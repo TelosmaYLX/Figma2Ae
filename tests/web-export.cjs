@@ -769,12 +769,31 @@ async function testFidelitySuite() {
     ],
   }), 20, 265, 60, 30);
 
+  // 10. Wide button with a diagonal gradient defined in Figma's NORMALISED box: t = 0.7071 u + 0.7071 v.
+  //     Bands are tilted by the box aspect, NOT perpendicular to the handle line in pixels.
+  const skewGradBtn = rectNode('斜向渐变按钮', 110, 292, 200, 24, {
+    fills: [{
+      type: 'GRADIENT_LINEAR', visible: true, opacity: 1,
+      gradientTransform: [[0.7071, 0.7071, 0], [-0.7071, 0.7071, 0.5]],
+      gradientStops: [
+        {position: 0, color: {r: 0, g: 0, b: 0, a: 1}},
+        {position: 1, color: {r: 1, g: 1, b: 1, a: 1}},
+      ],
+    }],
+  });
+
+  // 11. Sub-pixel dot (13.333px at x=395.333): must keep fractional edge coverage, not snap to a 14px CSS disc
+  const fracDot = at(node('ELLIPSE', '亚像素圆点', {
+    fills: solid(0, 0.64, 1),
+    fillGeometry: [{data: 'M13.3333 6.66667C13.3333 10.3486 10.3486 13.3333 6.66667 13.3333C2.98477 13.3333 0 10.3486 0 6.66667C0 2.98477 2.98477 0 6.66667 0C10.3486 0 13.3333 2.98477 13.3333 6.66667Z', windingRule: 'NONZERO'}],
+  }), 395.3333, 296.3333, 13.3333, 13.3333);
+
   // Simulate offset reference bounds (e.g. outer bleed shadow) to verify exact .f2a-reference placement
   const frame = at(node('FRAME', 'Fidelity', {
     clipsContent: true,
     fills: solid(0.1, 0.12, 0.16),
     fillGeometry: [{data: rectPath(420, 320), windingRule: 'NONZERO'}],
-    children: [radialRect, innerShadowRect, mixedClip, vCenterText, rotText, gradStrokeText, mixedWinding, borderedPhoto, mirroredChevron],
+    children: [radialRect, innerShadowRect, mixedClip, vCenterText, rotText, gradStrokeText, mixedWinding, borderedPhoto, mirroredChevron, skewGradBtn, fracDot],
   }), 0, 0, 420, 320, {x: -12, y: -8, width: 444, height: 336});
 
   const h = harness(frame);
@@ -811,7 +830,21 @@ async function testFidelitySuite() {
 
     // Static checks on CSS/HTML precision upgrades
     assert.match(css, /\.f2a-stage\s*\{[^}]*will-change:\s*transform;/, 'Stage composites at 1:1 before downscaling to avoid odd-coordinate half-pixel snapping');
-    assert.match(css, /\.f2a-reference\s*\{[^}]*left:\s*-12px;[^}]*top:\s*-8px;[^}]*width:\s*444px;[^}]*height:\s*336px;/, 'Reference uses exact render bounds, not stretched 0,0,W,H');
+    assert.match(css, /\.f2a-reference-img\s*\{[^}]*left:\s*-12px;[^}]*top:\s*-8px;[^}]*width:\s*444px;[^}]*height:\s*336px;/, 'Reference uses exact render bounds, not stretched 0,0,W,H');
+    assert.match(css, /\.f2a-reference\s*\{[^}]*background:\s*var\(--f2a-backdrop\);/, 'Reference overlay flattens transparent Figma renders on the page backdrop');
+    assert.match(html, /<div class="f2a-reference" hidden><img class="f2a-reference-img"/);
+    // Exact linear axis: start at t=0 handle (110, 304), end = start + g/|g|^2 with g = (0.7071/200, 0.7071/24)
+    {
+      const gx = 0.7071 / 200, gy = 0.7071 / 24, l2 = gx * gx + gy * gy;
+      const m = html.match(/data-layer-name="斜向渐变按钮"[\s\S]*?<linearGradient[^>]*x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"/);
+      assert.ok(m, 'Skewed gradient button emits a linearGradient');
+      const [x1, y1, x2, y2] = m.slice(1).map(Number);
+      // t=0 handle is inv(0, 0.5); the end point is the exact pixel-space equivalent of Figma's ramp
+      assert.ok(Math.abs((x2 - x1) - gx / l2) < 0.05 && Math.abs((y2 - y1) - gy / l2) < 0.05,
+        `Linear gradient end follows Figma's normalised-box ramp: ${m.slice(1)}`);
+      assert.ok(Math.abs(0.7071 * (x1 - 110) / 200 + 0.7071 * (y1 - 292) / 24) < 1e-3, 'Start sits on t=0');
+    }
+    assert.match(html, /<svg [^>]*data-layer-name="亚像素圆点"[^>]*class="f2a-svg"[^>]*>.*?<ellipse /, 'Fractional primitive renders through SVG for sub-pixel coverage');
     assert.match(css, /@font-face\s*\{[^}]*local\("Segoe UI SemiBold"\)/, 'Emits local() weight alias for non-Regular font styles');
     assert.match(css, /border-radius:\s*24px 2px 24px 2px;/, 'Mixed 4-corner radii preserved on clipped frame');
     assert.match(css, /text-decoration:\s*underline;/, 'textDecoration UNDERLINE preserved');
@@ -899,6 +932,16 @@ async function testFidelitySuite() {
 
         // Mixed winding EVENODD hole at (275, 235) shows dark frame background instead of green!
         const holePx = img.at(275, 235), ringPx = img.at(264, 235);
+
+        // Skewed linear gradient follows Figma's normalised ramp t = 0.7071 (u + v):
+        // top-right (306, 294) -> t 0.752, bottom-left (114, 314) -> t 0.662 (old handle-perpendicular axis gave ~0.99 / ~0.03)
+        const skewTR = img.at(306, 294), skewBL = img.at(114, 314);
+        assert.ok(Math.abs(skewTR[0] - 192) <= 10, 'Skewed gradient top-right matches Figma ramp: ' + skewTR);
+        assert.ok(Math.abs(skewBL[0] - 169) <= 10, 'Skewed gradient bottom-left matches Figma ramp: ' + skewBL);
+        // Sub-pixel dot left column (395, 303) is only ~2/3 covered, not a snapped solid pixel
+        const dotEdge = img.at(395, 303), dotCore = img.at(402, 303);
+        assert.ok(dotCore[2] > 245, 'Sub-pixel dot core is solid: ' + dotCore);
+        assert.ok(dotEdge[2] > 60 && dotEdge[2] < 235, 'Sub-pixel dot keeps fractional edge coverage: ' + dotEdge);
         assert.ok(ringPx[1] > 190, 'EVENODD ring is green: ' + ringPx);
         assert.ok(holePx[1] < 60, 'EVENODD inner hole remains transparent: ' + holePx);
 

@@ -408,8 +408,21 @@ function textGradientCss(item, grad, boxLeft, boxTop) {
     return `radial-gradient(circle ${px(rx)} at ${pos}, ${stops})`;
   }
   const dx = p1[0] - p0[0], dy = p1[1] - p0[1];
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return `linear-gradient(${stops})`;
+  // CSS stretches percentage stops over its own gradient line (through the box centre, long
+  // enough to touch the far corners), so percentages ignore where Figma's handles sit. Place
+  // every stop in px on that line instead, at the projection of p0 + t * (p1 - p0).
+  const ux = dx / len, uy = dy / len;
+  const lineLen = Math.abs(w * ux) + Math.abs(h * uy);
+  const cx = left + w / 2, cy = top + h / 2;
+  const base = (p0[0] - cx) * ux + (p0[1] - cy) * uy + lineLen / 2;
+  const pxStops = (grad.stops || []).map(s => {
+    const a = (s.opacity == null ? 1 : clamp01(s.opacity)) * paintOpacity;
+    return `${colorCss(s.color, a)} ${px(base + clamp01(s.offset) * len)}`;
+  }).join(', ');
   const cssAngle = Math.atan2(dx, -dy) * 180 / Math.PI;
-  return `linear-gradient(${num(cssAngle)}deg, ${stops})`;
+  return `linear-gradient(${num(cssAngle)}deg, ${pxStops})`;
 }
 
 function needsSvgEffectFilter(item) {
@@ -873,8 +886,15 @@ function buildWebModel(packet) {
     const pathNames = parentCtx.pathNames.concat([item.name || 'Shape']);
     counts.shapes++;
 
-    if (isSimpleCssPrim(item)) {
-      const rect = shapeRect(item);
+    // Chromium pixel-snaps CSS boxes, so a 13.33px dot at x=448.33 paints as a hard 14px disc.
+    // Only whole-pixel primitives stay CSS boxes; fractional ones go through SVG, which keeps
+    // Figma's sub-pixel edge coverage.
+    const primRect = item.prim ? shapeRect(item) : null;
+    const backdrop = !!item.bgBlur || (item.fx || []).some(fx => fx.kind === 'bgblur');
+    const cssBoxOk = !!primRect && (backdrop || [primRect.left, primRect.top, primRect.width, primRect.height]
+      .every(v => Math.abs(v - Math.round(v)) < 0.02));
+    if (isSimpleCssPrim(item) && cssBoxOk) {
+      const rect = primRect;
       const {decls, boxShadows} = commonDecls(item, {isCssBox: true});
       const fillOpacity = item.layerStroke ? (item.layerFillOpacity == null ? 1 : item.layerFillOpacity) : (item.fillOpacity == null ? 1 : item.fillOpacity);
       if (item.fill != null && fillOpacity > 0) {
@@ -1087,8 +1107,11 @@ function buildWebModel(packet) {
 
     const fillDecls = [];
     if (item.grad) {
-      fillDecls.push(`background: ${textGradientCss(item, item.grad, boxLeft, boxTop)};`);
-      fillDecls.push('-webkit-background-clip: text;', 'background-clip: text;', '-webkit-text-fill-color: transparent;', 'color: transparent;');
+      // Unstroked gradient text clips on the OUTER box: its size and position are exactly the
+      // Figma text box the gradient handles refer to, whereas the inner span shrinks to the run.
+      const target = hasStroke ? fillDecls : decls;
+      target.push(`background: ${textGradientCss(item, item.grad, boxLeft, boxTop)};`);
+      target.push('-webkit-background-clip: text;', 'background-clip: text;', '-webkit-text-fill-color: transparent;', 'color: transparent;');
     } else if (!item.segs || !item.segs.length) {
       decls.push(`color: ${colorCss(item.color || [0, 0, 0], fillOpacity)};`);
     }
@@ -1408,6 +1431,7 @@ function buildStyleCss(model, options = {}) {
   --f2a-width: ${num(data.width)}px;
   --f2a-height: ${num(data.height)}px;
   --f2a-scale: 1;
+  --f2a-backdrop: #111215;
 }
 
 *, *::before, *::after {
@@ -1420,7 +1444,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #111215;
+  background: var(--f2a-backdrop);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -1524,16 +1548,33 @@ html[data-fit="actual"] .f2a-viewport {
 ${transformRule}
 .f2a-reference {
   position: absolute;
-${refCss}
-  max-width: none;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   pointer-events: none;
   z-index: 9999;
   opacity: 0.5;
+  /* Figma renders transparent frames as a transparent PNG; flatten it on the same backdrop as
+     the page so overlay / difference compare like with like instead of blending alpha twice. */
+  background: var(--f2a-backdrop);
+}
+
+.f2a-reference-img {
+  position: absolute;
+${refCss}
+  max-width: none;
+  user-select: none;
 }
 
 .f2a-reference[data-diff="true"] {
   opacity: 1;
   mix-blend-mode: difference;
+}
+
+html[data-ref-diff="true"] .f2a-stage {
+  background: var(--f2a-backdrop);
 }
 
 /* Optional Dev Inspector (toggle via Shift+I or ?inspector=1) */
@@ -1850,6 +1891,8 @@ ${animations ? `
     root.style.setProperty('--f2a-scale', String(scale));
     var refEl = stage.querySelector('.f2a-reference');
     var diffOn = !!(refEl && !refEl.hidden && refEl.getAttribute('data-diff') === 'true');
+    if (diffOn) root.setAttribute('data-ref-diff', 'true');
+    else root.removeAttribute('data-ref-diff');
     stage.style.willChange = (scale <= 1 || diffOn) ? 'transform' : 'auto';
     return scale;
   }
@@ -2061,7 +2104,7 @@ function buildIndexHtml(model, options = {}) {
     ? `\n      <svg class="f2a-defs" aria-hidden="true"><defs>${rootDefs.join('')}</defs></svg>`
     : '';
   const refImg = referenceAsset
-    ? `\n      <img class="f2a-reference" src="${escapeHtml(referenceAsset.file)}" alt="原图对照" hidden>`
+    ? `\n      <div class="f2a-reference" hidden><img class="f2a-reference-img" src="${escapeHtml(referenceAsset.file)}" alt="原图对照" draggable="false"></div>`
     : '';
   const animationsScript = animations ? '\n  <script src="animations.js"></script>' : '';
   return `<!DOCTYPE html>

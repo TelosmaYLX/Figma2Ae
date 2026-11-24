@@ -2014,6 +2014,35 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
 
 // Paint -> our model. Gradient handles are normalised to the node box, so they are mapped
 // through the node's own transform (never the axis-aligned bbox, which skews the angle).
+//
+// EXACT LINEAR AXIS. Figma evaluates a linear ramp as t = row0(gradientTransform) . (u, v, 1)
+// in the node's NORMALISED box, so on a non-square node the colour bands are generally NOT
+// perpendicular to the handle line p0->p1 in pixels (the third, width handle sets their tilt).
+// SVG / CSS / AE ramps are always perpendicular to start->end, so handing them the raw handles
+// rotated every diagonal gradient on a wide button. A linear ramp stays linear under any affine
+// map, so the exact equivalent is: start = the t=0 handle, end = start + g/|g|^2 with g = the
+// pixel-space gradient of t.
+function _linearAxis(gt, n, start) {
+  try {
+    if (!gt || !gt[0] || !start) return null;
+    var W = n.width, H = n.height;
+    if (!(W > 1e-6) || !(H > 1e-6)) return null;
+    var gx = gt[0][0] / W, gy = gt[0][1] / H;
+    var m00 = 1, m01 = 0, m10 = 0, m11 = 1;
+    try {
+      var m = n.absoluteTransform;
+      if (m && m[0] && m[1]) { m00 = m[0][0]; m01 = m[0][1]; m10 = m[1][0]; m11 = m[1][1]; }
+    } catch (em) {}
+    var det = m00 * m11 - m01 * m10;
+    if (!det) return null;
+    // grad_q t = M^-T grad_local t
+    var ax = (m11 * gx - m10 * gy) / det, ay = (-m01 * gx + m00 * gy) / det;
+    var len2 = ax * ax + ay * ay;
+    if (!(len2 > 1e-12)) return null;
+    return [start[0] + ax / len2, start[1] + ay / len2];
+  } catch (e) { return null; }
+}
+
 function _paint(p, n) {
   if (!p || p.visible === false) return null;
   var op = (p.opacity == null ? 1 : p.opacity);
@@ -2059,6 +2088,10 @@ function _paint(p, n) {
     var gOut = { kind: 'grad', type: (isRadial ? 'radial' : 'linear'),
                  stops: stops, opacity: op, p0: abs(h0), p1: abs(h1) };
     if (h2) gOut.p2 = abs(h2);
+    if (!isRadial) {
+      var exactEnd = _linearAxis(gt, n, gOut.p0);
+      if (exactEnd) gOut.p1 = exactEnd;
+    }
     return gOut;
   }
   if (p.type === 'IMAGE') return { kind: 'image' };
@@ -2786,6 +2819,10 @@ function _gradFillFromPaints(fills, n) {
         nFills: fills.length, raw: [h0.x, h0.y, h1.x, h1.y]
       };
       if (h2) { res.p2 = abs(h2); res.h2 = { x: h2.x, y: h2.y }; }
+      if (!isRadial && !(h[0] && h[1])) {
+        var exactTextEnd = _linearAxis(f.gradientTransform, n, res.p0);
+        if (exactTextEnd) res.p1 = exactTextEnd;
+      }
       return res;
     }
   } catch (e) {}
