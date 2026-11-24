@@ -206,6 +206,50 @@ async function check() {
     assert.ok(clip, 'missing React Bits clip ' + slug);
     assert.equal(clip.sourceStyle, 'ReactBits');
   }
+
+  // Aceternity pack: Framer Motion entrances distilled into text presets and two-key clips.
+  const acPresets = builtin.presets.filter(item => item.id.startsWith('preset-ac-'));
+  assert.ok(acPresets.length >= 5, 'expected the Aceternity text preset pack');
+  const acTextStyles = new Set(['blur', 'fade', 'riseBlur']);
+  const acTextEases = new Set(['power2Out', 'power2InOut']);
+  for (const preset of acPresets) {
+    assert.equal(preset.command, 'text_reveal', preset.id + ' must be a text reveal');
+    assert.ok(acTextStyles.has(preset.defaults.style), preset.id + ' has an unknown text style');
+    assert.ok(acTextEases.has(preset.defaults.ease), preset.id + ' has an unknown text ease');
+    assert.ok(!(preset.supports && preset.supports.style), preset.id + ' must lock its Aceternity curve');
+    assert.ok(preset.tags.includes('Aceternity'), preset.id + ' must be tagged Aceternity');
+    for (const u of [0, 0.5, 1]) {
+      const res = preview.evaluatePresetAt(preset, {}, u);
+      assert.equal(res.kind, 'text', preset.id + ' previews as text');
+      for (const ch of res.chars) {
+        for (const field of ['dx', 'dy', 'scale', 'opacity']) {
+          assert.ok(Number.isFinite(ch[field]), `${preset.id} ${field} is finite at ${u}`);
+        }
+      }
+    }
+  }
+  const acClips = ['ac-modal-pop', 'ac-tooltip-pop', 'ac-testimonial-turn', 'ac-flip-line'];
+  for (const slug of acClips) {
+    const clip = builtin.clips.find(item => item.slug === slug);
+    assert.ok(clip, 'missing Aceternity clip ' + slug);
+    assert.equal(clip.sourceStyle, 'Aceternity');
+  }
+  // The modal entrance starts at half scale / no opacity and overshoots once through 100% before resting.
+  const acModal = builtin.clips.find(item => item.slug === 'ac-modal-pop');
+  const acMeta = preview.analyzeClip(acModal.clip, acModal.defaultAnchor);
+  const acStart = preview.evaluateClipAt(acModal.clip, 0, acModal.defaultAnchor, acMeta);
+  assert.ok(acStart.scaleX < 0.55 && acStart.opacity < 0.01, 'modal starts small and transparent');
+  let acPeak = 0;
+  for (let i = 1; i < 40; i++) {
+    acPeak = Math.max(acPeak, preview.evaluateClipAt(acModal.clip, (acModal.clip.duration * i) / 40, acModal.defaultAnchor, acMeta).scaleX);
+  }
+  assert.ok(acPeak > 1.02 && acPeak < 1.35, 'modal entrance has a single bounded spring overshoot');
+  const acEnd = preview.evaluateClipAt(acModal.clip, acModal.clip.duration, acModal.defaultAnchor, acMeta);
+  assert.ok(Math.abs(acEnd.scaleX - 1) < 1e-3 && acEnd.opacity > 0.99, 'modal rests at full scale and opacity');
+  const acTurn = builtin.clips.find(item => item.slug === 'ac-testimonial-turn');
+  const acTurnMeta = preview.analyzeClip(acTurn.clip, acTurn.defaultAnchor);
+  assert.ok(preview.evaluateClipAt(acTurn.clip, 0, acTurn.defaultAnchor, acTurnMeta).rotate < -6, 'testimonial card starts rotated');
+  assert.ok(Math.abs(preview.evaluateClipAt(acTurn.clip, acTurn.clip.duration, acTurn.defaultAnchor, acTurnMeta).rotate) < 1e-3, 'testimonial card settles straight');
   // Verify Adobe CEP --mixed-context (both window AND module.exports exist in <script> tags)
   const cepWindow = {};
   const cepModule = { exports: {} };

@@ -30,6 +30,7 @@ description: "基于 F2A MCP 的 Figma 导出 AEP 工程与 After Effects 动画
 - **AE MCP 工具手册与 ExtendScript 模板**：[`references/ae-mcp-playbook.md`](references/ae-mcp-playbook.md) —— 工具速查、6 大已知踩坑边界、批量改帧率 / 单元素紧凑预合成封装 / 精确关键帧脚本模板。
 - **动画规范与跨端适配规则**：[`references/motion-adaptation-rules.md`](references/motion-adaptation-rules.md) —— 单元素预合成拆解规则、PC→移动端换算与“竖屏居中改水平滑入为垂直上浮”规则、动效库与从零制作默认语汇、各类型动画校验标准。
 - **React Bits 动效词汇与 F2A 映射**：[`references/reactbits-motion-vocabulary.md`](references/reactbits-motion-vocabulary.md) —— reactbits.dev 全站动画的可移植性分类、源码运动参数、F2A `RB` 文字预设与内容片段映射、不可移植清单；文字预设依赖 AE 文字动画器＋表达式，Web/Lottie 交付优先用 `rb-content-*` 等两键片段。
+- **Aceternity UI 动效词汇与 F2A 映射**：[`references/aceternity-motion-vocabulary.md`](references/aceternity-motion-vocabulary.md) —— Framer Motion 的入场/弹簧/循环/滚动/指针交互组件盘点、源码参数、F2A `AC` 文字预设与内容片段映射，以及循环、滚动驱动、指针交互类组件的 AE 复刻配方与不可移植边界。
 - **像素校验脚本**：[`scripts/verify_resting_frame.py`](scripts/verify_resting_frame.py) —— 支持 `--mode static`（含 `clipsContent: false` 溢出对照图对齐）与 `--mode resting`（动画终帧 vs 导出静态基线）。
 - **高版本 `.aep` 离线解析脚本**：[`scripts/dump_aep_motion.py`](scripts/dump_aep_motion.py) —— 使用 F2A `.venv-aep` 的 `py_aep` 离线读取任意版本（含 AE 27）参考工程的合成、入出点、关键帧与缓动。
 

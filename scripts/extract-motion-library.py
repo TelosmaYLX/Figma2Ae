@@ -1159,9 +1159,9 @@ def synth_track(prop_name, times, values, curves, last_linear=False):
     return {"path": path_spec, "type": value_type, "keys": keys}
 
 
-def synth_clip(slug, name, category, phase, default_anchor, description, tags, duration, track_specs):
+def synth_clip(slug, name, category, phase, default_anchor, description, tags, duration, track_specs, source_style="ReactBits"):
     tracks = [synth_track(*spec) for spec in track_specs]
-    return make_artifact(slug, name, category, phase, default_anchor, description, tags, tracks, source_style="ReactBits")
+    return make_artifact(slug, name, category, phase, default_anchor, description, tags, tracks, source_style=source_style)
 
 
 def reactbits_clips():
@@ -1233,6 +1233,64 @@ def reactbits_clips():
                 ("position", [0, 0.5], [[0, 0, 0], [0, -100, 0]], RB_POWER3_IN, True),
                 ("opacity", [0, 0.5], [100, 0], RB_POWER3_IN),
             ],
+        ),
+    ]
+
+
+def aceternity_clips():
+    """Finite entrances distilled from Aceternity UI's Framer Motion components.
+
+    Aceternity leans on Framer Motion springs and interactive/scroll-driven effects, so the portable
+    set is small: modal / tooltip / testimonial entrances are rebuilt as 2-key clips whose single
+    segment carries a back.out or power2.out curve to approximate the spring's one overshoot.
+    """
+    return [
+        synth_clip(
+            "ac-modal-pop", "AC 弹窗弹性入场", "组合", "in", "end",
+            "Aceternity Animated Modal：面板 50% 缩放 + 40px 上浮 + 渐显，单段回弹近似 spring(260,15)。",
+            ["Aceternity", "组合", "入场", "弹窗", "弹性"],
+            0.55,
+            [
+                ("scale", [0, 0.55], [[50, 50, 100], [100, 100, 100]], RB_BACK_OUT),
+                ("position", [0, 0.55], [[0, 40, 0], [0, 0, 0]], RB_POWER2_OUT),
+                ("opacity", [0, 0.55], [0, 100], RB_POWER2_OUT),
+            ],
+            source_style="Aceternity",
+        ),
+        synth_clip(
+            "ac-tooltip-pop", "AC 提示卡轻弹", "组合", "in", "end",
+            "Aceternity Animated Tooltip：提示卡 60% 缩放 + 20px 上浮 + 渐显，单段回弹近似 spring(260,10)。",
+            ["Aceternity", "组合", "入场", "提示", "弹性"],
+            0.5,
+            [
+                ("position", [0, 0.5], [[0, 20, 0], [0, 0, 0]], RB_POWER2_OUT),
+                ("scale", [0, 0.5], [[60, 60, 100], [100, 100, 100]], RB_BACK_OUT),
+                ("opacity", [0, 0.5], [0, 100], RB_POWER2_OUT),
+            ],
+            source_style="Aceternity",
+        ),
+        synth_clip(
+            "ac-testimonial-turn", "AC 证言卡旋入", "组合", "in", "end",
+            "Aceternity Animated Testimonials：卡片 -8° 旋转 + 90% 缩放 + 渐显，easeInOut 0.4s（源码角度随机 ±10°）。",
+            ["Aceternity", "组合", "入场", "旋转", "证言"],
+            0.4,
+            [
+                ("rotation", [0, 0.4], [-8, 0], RB_POWER2_IN_OUT),
+                ("scale", [0, 0.4], [[90, 90, 100], [100, 100, 100]], RB_POWER2_IN_OUT),
+                ("opacity", [0, 0.4], [0, 100], RB_POWER2_IN_OUT),
+            ],
+            source_style="Aceternity",
+        ),
+        synth_clip(
+            "ac-flip-line", "AC 标题行翻入", "组合", "in", "end",
+            "Aceternity Layout Text Flip：标题行自上方 40px 落下并渐显，0.5s power2.out（词条模糊 10px→0 省略）。",
+            ["Aceternity", "组合", "入场", "标题", "翻入"],
+            0.5,
+            [
+                ("position", [0, 0.5], [[0, -40, 0], [0, 0, 0]], RB_POWER2_OUT),
+                ("opacity", [0, 0.5], [0, 100], RB_POWER2_OUT),
+            ],
+            source_style="Aceternity",
         ),
     ]
 
@@ -1371,6 +1429,33 @@ def procedural_presets():
          "defaults": {"style": "float", "by": "chars", "phase": "in", "duration": 1.0, "stagger": 0.03, "ease": "backInOut"},
          "supports": {"duration": True, "textBy": True}},
 
+        # Aceternity UI text effects (ui.aceternity.com) rebuilt on native AE text animators.
+        {"id": "preset-ac-text-generate", "kind": "procedural", "command": "text_reveal", "name": "AC 文字逐词生成", "category": "文字", "phase": "in",
+         "description": "Aceternity Text Generate Effect：整词 10px 模糊 + 渐显，0.5s / 0.2s 错峰，近似 Motion 默认 tween 缓动。", "tags": ["Aceternity", "文字", "入场", "模糊", "整词"],
+         "sourceStyle": "Aceternity",
+         "defaults": {"style": "blur", "by": "words", "phase": "in", "duration": 0.5, "stagger": 0.2, "ease": "power2Out"},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-ac-flip-words", "kind": "procedural", "command": "text_reveal", "name": "AC 逐字翻入", "category": "文字", "phase": "in",
+         "description": "Aceternity Flip Words：逐字 10px 上浮 + 8px 模糊归零，0.2s / 50ms 错峰。", "tags": ["Aceternity", "文字", "入场", "翻入", "逐字"],
+         "sourceStyle": "Aceternity",
+         "defaults": {"style": "riseBlur", "by": "chars", "phase": "in", "direction": "up", "duration": 0.2, "stagger": 0.05, "ease": "power2Out", "distance": 10},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-ac-typewriter", "kind": "procedural", "command": "text_reveal", "name": "AC 打字机字幕", "category": "文字", "phase": "in",
+         "description": "Aceternity Typewriter Effect：逐字 0.3s 渐显、0.1s 错峰，easeInOut；光标闪烁未打包。", "tags": ["Aceternity", "文字", "入场", "打字机", "逐字"],
+         "sourceStyle": "Aceternity",
+         "defaults": {"style": "fade", "by": "chars", "phase": "in", "duration": 0.3, "stagger": 0.1, "ease": "power2InOut"},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-ac-container-flip", "kind": "procedural", "command": "text_reveal", "name": "AC 逐字模糊翻牌", "category": "文字", "phase": "in",
+         "description": "Aceternity Container Text Flip：逐字 10px 模糊归零，0.3s / 20ms 错峰，easeInOut。", "tags": ["Aceternity", "文字", "入场", "模糊", "逐字"],
+         "sourceStyle": "Aceternity",
+         "defaults": {"style": "blur", "by": "chars", "phase": "in", "duration": 0.3, "stagger": 0.02, "ease": "power2InOut"},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-ac-layout-flip", "kind": "procedural", "command": "text_reveal", "name": "AC 布局词翻入", "category": "文字", "phase": "in",
+         "description": "Aceternity Layout Text Flip：整词自上方 40px 落下 + 10px 模糊归零，0.5s，power2.out。", "tags": ["Aceternity", "文字", "入场", "翻入", "整词"],
+         "sourceStyle": "Aceternity",
+         "defaults": {"style": "riseBlur", "by": "words", "phase": "in", "direction": "down", "duration": 0.5, "stagger": 0.02, "ease": "power2Out", "distance": 40},
+         "supports": {"duration": True, "textBy": True}},
+
         # Transitions
         {"id": "preset-trans-wipe", "kind": "procedural", "command": "transition", "name": "色块扫屏转场", "category": "转场", "phase": "transition",
          "description": "在当前播放头创建可编辑全屏扫光擦除转场层。", "tags": ["转场", "擦除", "扫屏"],
@@ -1394,7 +1479,7 @@ def main():
     args = parser.parse_args()
 
     buckets = harvest_from_source(args.source)
-    clips = curate_library(buckets) + reactbits_clips()
+    clips = curate_library(buckets) + reactbits_clips() + aceternity_clips()
     presets = procedural_presets()
 
     payload = {

@@ -801,6 +801,155 @@
       }
     },
     {
+      "id": "preset-ac-text-generate",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "AC 文字逐词生成",
+      "category": "文字",
+      "phase": "in",
+      "description": "Aceternity Text Generate Effect：整词 10px 模糊 + 渐显，0.5s / 0.2s 错峰，近似 Motion 默认 tween 缓动。",
+      "tags": [
+        "Aceternity",
+        "文字",
+        "入场",
+        "模糊",
+        "整词"
+      ],
+      "sourceStyle": "Aceternity",
+      "defaults": {
+        "style": "blur",
+        "by": "words",
+        "phase": "in",
+        "duration": 0.5,
+        "stagger": 0.2,
+        "ease": "power2Out"
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-ac-flip-words",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "AC 逐字翻入",
+      "category": "文字",
+      "phase": "in",
+      "description": "Aceternity Flip Words：逐字 10px 上浮 + 8px 模糊归零，0.2s / 50ms 错峰。",
+      "tags": [
+        "Aceternity",
+        "文字",
+        "入场",
+        "翻入",
+        "逐字"
+      ],
+      "sourceStyle": "Aceternity",
+      "defaults": {
+        "style": "riseBlur",
+        "by": "chars",
+        "phase": "in",
+        "direction": "up",
+        "duration": 0.2,
+        "stagger": 0.05,
+        "ease": "power2Out",
+        "distance": 10
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-ac-typewriter",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "AC 打字机字幕",
+      "category": "文字",
+      "phase": "in",
+      "description": "Aceternity Typewriter Effect：逐字 0.3s 渐显、0.1s 错峰，easeInOut；光标闪烁未打包。",
+      "tags": [
+        "Aceternity",
+        "文字",
+        "入场",
+        "打字机",
+        "逐字"
+      ],
+      "sourceStyle": "Aceternity",
+      "defaults": {
+        "style": "fade",
+        "by": "chars",
+        "phase": "in",
+        "duration": 0.3,
+        "stagger": 0.1,
+        "ease": "power2InOut"
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-ac-container-flip",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "AC 逐字模糊翻牌",
+      "category": "文字",
+      "phase": "in",
+      "description": "Aceternity Container Text Flip：逐字 10px 模糊归零，0.3s / 20ms 错峰，easeInOut。",
+      "tags": [
+        "Aceternity",
+        "文字",
+        "入场",
+        "模糊",
+        "逐字"
+      ],
+      "sourceStyle": "Aceternity",
+      "defaults": {
+        "style": "blur",
+        "by": "chars",
+        "phase": "in",
+        "duration": 0.3,
+        "stagger": 0.02,
+        "ease": "power2InOut"
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-ac-layout-flip",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "AC 布局词翻入",
+      "category": "文字",
+      "phase": "in",
+      "description": "Aceternity Layout Text Flip：整词自上方 40px 落下 + 10px 模糊归零，0.5s，power2.out。",
+      "tags": [
+        "Aceternity",
+        "文字",
+        "入场",
+        "翻入",
+        "整词"
+      ],
+      "sourceStyle": "Aceternity",
+      "defaults": {
+        "style": "riseBlur",
+        "by": "words",
+        "phase": "in",
+        "direction": "down",
+        "duration": 0.5,
+        "stagger": 0.02,
+        "ease": "power2Out",
+        "distance": 40
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
       "id": "preset-trans-wipe",
       "kind": "procedural",
       "command": "transition",
@@ -7130,6 +7279,835 @@
                       {
                         "speed": -498.462,
                         "influence": 32.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "077d7a74-b8c5-5d33-84ab-b8ea1a3b2289",
+      "slug": "ac-modal-pop",
+      "name": "AC 弹窗弹性入场",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Aceternity Animated Modal：面板 50% 缩放 + 40px 上浮 + 渐显，单段回弹近似 spring(260,15)。",
+      "sourceStyle": "Aceternity",
+      "tags": [
+        "Aceternity",
+        "组合",
+        "入场",
+        "弹窗",
+        "弹性"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "922727ba5abb85f28efee40c84be867c8be5f91e03fd02f34aaf487f2708a513",
+      "clip": {
+        "origin": 0,
+        "duration": 0.55,
+        "layers": [
+          {
+            "name": "AC 弹窗弹性入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      50,
+                      50,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 417.112,
+                        "influence": 34
+                      },
+                      {
+                        "speed": 417.112,
+                        "influence": 34
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 34
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.55,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      40,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 220.386,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.55,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 550.964,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.55,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "f8c9503d-7c03-5b09-997a-7f32a000db4e",
+      "slug": "ac-tooltip-pop",
+      "name": "AC 提示卡轻弹",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Aceternity Animated Tooltip：提示卡 60% 缩放 + 20px 上浮 + 渐显，单段回弹近似 spring(260,10)。",
+      "sourceStyle": "Aceternity",
+      "tags": [
+        "Aceternity",
+        "组合",
+        "入场",
+        "提示",
+        "弹性"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "99297388651641e0eeb1d93b527a2c892e67d09e25b091f8a362136e179689e4",
+      "clip": {
+        "origin": 0,
+        "duration": 0.5,
+        "layers": [
+          {
+            "name": "AC 提示卡轻弹",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      20,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 121.212,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      60,
+                      60,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 367.059,
+                        "influence": 34
+                      },
+                      {
+                        "speed": 367.059,
+                        "influence": 34
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 34
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 606.061,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "a7f4b750-fa87-555f-8556-ff306b271da8",
+      "slug": "ac-testimonial-turn",
+      "name": "AC 证言卡旋入",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Aceternity Animated Testimonials：卡片 -8° 旋转 + 90% 缩放 + 渐显，easeInOut 0.4s（源码角度随机 ±10°）。",
+      "sourceStyle": "Aceternity",
+      "tags": [
+        "Aceternity",
+        "组合",
+        "入场",
+        "旋转",
+        "证言"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "2d4a201cc6e1255101b64a9d8a6c4378a30d058ade2fa7d90db02805852f383b",
+      "clip": {
+        "origin": 0,
+        "duration": 0.4,
+        "layers": [
+          {
+            "name": "AC 证言卡旋入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Rotate Z",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": -8,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.4,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      90,
+                      90,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.4,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.4,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "fcfa51a5-6432-560c-b1cc-3822ab250de9",
+      "slug": "ac-flip-line",
+      "name": "AC 标题行翻入",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Aceternity Layout Text Flip：标题行自上方 40px 落下并渐显，0.5s power2.out（词条模糊 10px→0 省略）。",
+      "sourceStyle": "Aceternity",
+      "tags": [
+        "Aceternity",
+        "组合",
+        "入场",
+        "标题",
+        "翻入"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "66be3a36cb0a8d40cda6b2b18066dbd0a6448e59b8796083a1b90908f7d49818",
+      "clip": {
+        "origin": 0,
+        "duration": 0.5,
+        "layers": [
+          {
+            "name": "AC 标题行翻入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      -40,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 242.424,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 606.061,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
                       }
                     ],
                     "outEase": [
