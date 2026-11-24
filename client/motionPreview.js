@@ -294,7 +294,7 @@
     }
 
     if (preset.command === "text_reveal") {
-      var chars = ["s", "a", "m", "p", "l", "e"];
+      var chars = ["S", "A", "M", "P", "L", "E"];
       var items = [];
       for (var i = 0; i < chars.length; i++) {
         var start = i * 0.11;

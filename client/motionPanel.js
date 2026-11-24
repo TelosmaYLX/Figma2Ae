@@ -800,7 +800,7 @@
     // Clean, uncluttered preview stage with crisp visual subject
     if (item.command === "text_reveal") {
       var wrap = el("div", "f2m-demo-text");
-      ["s", "a", "m", "p", "l", "e"].forEach(function (ch) {
+      ["S", "A", "M", "P", "L", "E"].forEach(function (ch) {
         wrap.appendChild(el("span", "f2m-demo-char", ch));
       });
       stage.appendChild(wrap);
