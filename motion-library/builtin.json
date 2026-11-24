@@ -950,6 +950,127 @@
       }
     },
     {
+      "id": "preset-au-splitting-text",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "AU 字符右滑入",
+      "category": "文字",
+      "phase": "in",
+      "description": "Animate UI Splitting Text 默认：字符自右 150px 滑入并渐显，0.7s / 50ms 错峰，easeOut 近似。",
+      "tags": [
+        "AnimateUI",
+        "文字",
+        "入场",
+        "滑入",
+        "逐字"
+      ],
+      "sourceStyle": "AnimateUI",
+      "defaults": {
+        "style": "rise",
+        "by": "chars",
+        "phase": "in",
+        "direction": "left",
+        "duration": 0.7,
+        "stagger": 0.05,
+        "ease": "expoOut",
+        "distance": 150
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-au-splitting-words",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "AU 整词右滑入",
+      "category": "文字",
+      "phase": "in",
+      "description": "Animate UI Splitting Text 整词版：词自右 150px 滑入，0.7s / 200ms 错峰，easeOut 近似。",
+      "tags": [
+        "AnimateUI",
+        "文字",
+        "入场",
+        "滑入",
+        "整词"
+      ],
+      "sourceStyle": "AnimateUI",
+      "defaults": {
+        "style": "rise",
+        "by": "words",
+        "phase": "in",
+        "direction": "left",
+        "duration": 0.7,
+        "stagger": 0.2,
+        "ease": "expoOut",
+        "distance": 150
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-au-lines-slide",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "AU 逐行右滑入",
+      "category": "文字",
+      "phase": "in",
+      "description": "Animate UI Splitting Text 多行版：行自右 150px 滑入，0.7s / 300ms 错峰，easeOut 近似。",
+      "tags": [
+        "AnimateUI",
+        "文字",
+        "入场",
+        "滑入",
+        "逐行"
+      ],
+      "sourceStyle": "AnimateUI",
+      "defaults": {
+        "style": "rise",
+        "by": "lines",
+        "phase": "in",
+        "direction": "left",
+        "duration": 0.7,
+        "stagger": 0.3,
+        "ease": "expoOut",
+        "distance": 150
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-au-typing",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "AU 打字机",
+      "category": "文字",
+      "phase": "in",
+      "description": "Animate UI Typing Text：每字 100ms 依次敲入；光标闪烁与回删循环未打包。",
+      "tags": [
+        "AnimateUI",
+        "文字",
+        "入场",
+        "打字机",
+        "逐字"
+      ],
+      "sourceStyle": "AnimateUI",
+      "defaults": {
+        "style": "typewriter",
+        "by": "chars",
+        "phase": "in",
+        "duration": 0,
+        "stagger": 0.1,
+        "ease": "linear"
+      },
+      "supports": {
+        "textBy": true
+      }
+    },
+    {
       "id": "preset-trans-wipe",
       "kind": "procedural",
       "command": "transition",
@@ -8108,6 +8229,874 @@
                       {
                         "speed": 0,
                         "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "890f86f3-90f3-54c7-95c2-e0d9a2911a60",
+      "slug": "au-fade",
+      "name": "AU 弹簧淡入",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Animate UI Fade：0→100% 透明度，共享入场弹簧（200/20）近似，0.55s。",
+      "sourceStyle": "AnimateUI",
+      "tags": [
+        "AnimateUI",
+        "入场",
+        "淡入",
+        "透明度"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "ae82e7987d8c71f0464c644b684bac413e2ffc594dcd69868e8744e0b669a207",
+      "clip": {
+        "origin": 0,
+        "duration": 0.55,
+        "layers": [
+          {
+            "name": "AU 弹簧淡入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 550.964,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.55,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "0d4d6c75-66a8-5750-984a-677c3594066f",
+      "slug": "au-slide-up",
+      "name": "AU 弹簧上滑",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Animate UI Slide（direction=up）：自下方 100px 上滑，入场弹簧单段过冲，0.6s；原语无透明度。",
+      "sourceStyle": "AnimateUI",
+      "tags": [
+        "AnimateUI",
+        "入场",
+        "上滑",
+        "位移",
+        "弹簧"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "639b32a2234160843a0e5e099aac807a30579ab3135c4f7383d3c11550c671c2",
+      "clip": {
+        "origin": 0,
+        "duration": 0.6,
+        "layers": [
+          {
+            "name": "AU 弹簧上滑",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      100,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 686.275,
+                        "influence": 34
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.6,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "24ca73a7-0815-5b32-80ae-88c66e8b8d7e",
+      "slug": "au-zoom-in",
+      "name": "AU 弹簧缩放入场",
+      "category": "缩放",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Animate UI Zoom：50%→100% 缩放，入场弹簧单段过冲，0.6s。",
+      "sourceStyle": "AnimateUI",
+      "tags": [
+        "AnimateUI",
+        "缩放",
+        "入场",
+        "弹簧"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "35935d535474498b39d6f78df717e2051ab579a3208d8d5fde0ab374823b3a59",
+      "clip": {
+        "origin": 0,
+        "duration": 0.6,
+        "layers": [
+          {
+            "name": "AU 弹簧缩放入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      50,
+                      50,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 343.137,
+                        "influence": 34
+                      },
+                      {
+                        "speed": 343.137,
+                        "influence": 34
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 34
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.6,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "4804d826-d3f5-544f-bc46-e4bf7d68a4e1",
+      "slug": "au-effect",
+      "name": "AU 组合入场",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Animate UI Effect 默认组合（fade + slide up 100 + zoom 50%）：0.65s，位移/缩放带约 5% 过冲；blur 10px 未含。",
+      "sourceStyle": "AnimateUI",
+      "tags": [
+        "AnimateUI",
+        "组合",
+        "入场",
+        "弹簧",
+        "组合效果"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "5b75d24ede493d341baebba404741343d0e5100204d77c3ea5a499cbedf0269a",
+      "clip": {
+        "origin": 0,
+        "duration": 0.65,
+        "layers": [
+          {
+            "name": "AU 组合入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      100,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 633.484,
+                        "influence": 34
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.65,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      50,
+                      50,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 316.742,
+                        "influence": 34
+                      },
+                      {
+                        "speed": 316.742,
+                        "influence": 34
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 34
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.65,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 466.2,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.65,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "7383cdef-036c-5876-bd94-81b3e09a697e",
+      "slug": "au-dialog-in",
+      "name": "AU 弹窗入场",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Animate UI Dialog：80%→100% 缩放 + 渐显，0.5s；dialog 弹簧（150/25）过阻尼，无过冲；overlay 与 3D 翻转未含。",
+      "sourceStyle": "AnimateUI",
+      "tags": [
+        "AnimateUI",
+        "组合",
+        "入场",
+        "弹窗"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "cdd9e8b4b6df29a049f7beba3414363f51065c3adcdb44847dcad43c5f774ca1",
+      "clip": {
+        "origin": 0,
+        "duration": 0.5,
+        "layers": [
+          {
+            "name": "AU 弹窗入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      80,
+                      80,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 113.488,
+                        "influence": 21.5
+                      },
+                      {
+                        "speed": 113.488,
+                        "influence": 21.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 567.442,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "87c50310-937d-526d-abe9-1e20dad05cce",
+      "slug": "au-menu-in",
+      "name": "AU 菜单入场",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Animate UI 菜单/下拉：90%→100% 缩放 + 渐显，0.22s，soft 曲线（等同于 power3.out）。",
+      "sourceStyle": "AnimateUI",
+      "tags": [
+        "AnimateUI",
+        "组合",
+        "入场",
+        "菜单"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "49422b1f4c92fe06c205a7a28c92f1e54911ab8be8227faed76607a7affc7b77",
+      "clip": {
+        "origin": 0,
+        "duration": 0.22,
+        "layers": [
+          {
+            "name": "AU 菜单入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      90,
+                      90,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 128.964,
+                        "influence": 21.5
+                      },
+                      {
+                        "speed": 128.964,
+                        "influence": 21.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.22,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 1289.641,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.22,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
                       }
                     ],
                     "outEase": [

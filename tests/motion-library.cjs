@@ -250,6 +250,46 @@ async function check() {
   const acTurnMeta = preview.analyzeClip(acTurn.clip, acTurn.defaultAnchor);
   assert.ok(preview.evaluateClipAt(acTurn.clip, 0, acTurn.defaultAnchor, acTurnMeta).rotate < -6, 'testimonial card starts rotated');
   assert.ok(Math.abs(preview.evaluateClipAt(acTurn.clip, acTurn.clip.duration, acTurn.defaultAnchor, acTurnMeta).rotate) < 1e-3, 'testimonial card settles straight');
+
+  // Animate UI pack: its shared entrance spring (200/20) distilled into presets and clips.
+  const auPresets = builtin.presets.filter(item => item.id.startsWith('preset-au-'));
+  assert.ok(auPresets.length >= 4, 'expected the Animate UI text preset pack');
+  const auTextStyles = new Set(['rise', 'typewriter']);
+  const auTextEases = new Set(['expoOut', 'linear']);
+  for (const preset of auPresets) {
+    assert.equal(preset.command, 'text_reveal', preset.id + ' must be a text reveal');
+    assert.ok(auTextStyles.has(preset.defaults.style), preset.id + ' has an unknown text style');
+    assert.ok(auTextEases.has(preset.defaults.ease), preset.id + ' has an unknown text ease');
+    assert.ok(!(preset.supports && preset.supports.style), preset.id + ' must lock its Animate UI curve');
+    assert.ok(preset.tags.includes('AnimateUI'), preset.id + ' must be tagged AnimateUI');
+    for (const u of [0, 0.5, 1]) {
+      const res = preview.evaluatePresetAt(preset, {}, u);
+      assert.equal(res.kind, 'text', preset.id + ' previews as text');
+      for (const ch of res.chars) for (const field of ['dx', 'dy', 'scale', 'opacity']) {
+        assert.ok(Number.isFinite(ch[field]), `${preset.id} ${field} is finite at ${u}`);
+      }
+    }
+  }
+  const auClips = ['au-fade', 'au-slide-up', 'au-zoom-in', 'au-effect', 'au-dialog-in', 'au-menu-in'];
+  for (const slug of auClips) {
+    const clip = builtin.clips.find(item => item.slug === slug);
+    assert.ok(clip, 'missing Animate UI clip ' + slug);
+    assert.equal(clip.sourceStyle, 'AnimateUI');
+  }
+  // The shared entrance spring overshoots once by ~5%, then rests exactly on the design value.
+  const auZoom = builtin.clips.find(item => item.slug === 'au-zoom-in');
+  const auZoomMeta = preview.analyzeClip(auZoom.clip, auZoom.defaultAnchor);
+  let auZoomPeak = 0;
+  for (let i = 1; i < 60; i++) {
+    auZoomPeak = Math.max(auZoomPeak, preview.evaluateClipAt(auZoom.clip, (auZoom.clip.duration * i) / 60, auZoom.defaultAnchor, auZoomMeta).scaleX);
+  }
+  assert.ok(auZoomPeak > 1.02 && auZoomPeak < 1.12, 'Animate UI entrance spring has a mild single overshoot');
+  assert.ok(Math.abs(preview.evaluateClipAt(auZoom.clip, auZoom.clip.duration, auZoom.defaultAnchor, auZoomMeta).scaleX - 1) < 1e-3, 'zoom lands at 100%');
+  // Slide has no opacity track, and Fade only animates opacity.
+  const auSlide = builtin.clips.find(item => item.slug === 'au-slide-up');
+  assert.ok(!auSlide.clip.layers[0].tracks.some(tr => tr.path[1][0] === 'ADBE Opacity'), 'Slide keeps its own opacity');
+  const auFade = builtin.clips.find(item => item.slug === 'au-fade');
+  assert.ok(auFade.clip.layers[0].tracks.every(tr => tr.path[1][0] === 'ADBE Opacity'), 'Fade only animates opacity');
   // Verify Adobe CEP --mixed-context (both window AND module.exports exist in <script> tags)
   const cepWindow = {};
   const cepModule = { exports: {} };

@@ -1096,6 +1096,9 @@ RB_POWER3_OUT = (0.215, 0.61, 0.355, 1.0)    # GSAP power3.out
 RB_POWER2_IN_OUT = (0.65, 0.0, 0.35, 1.0)    # GSAP power2.inOut
 RB_POWER3_IN = (0.55, 0.055, 0.675, 0.19)    # GSAP power3.in
 RB_BACK_OUT = (0.34, 1.56, 0.64, 1.0)        # GSAP back.out(1.7)-ish over-shoot
+# Animate UI's entrance spring (stiffness 200, damping 20) has a mild ~5% overshoot; this bezier
+# reproduces that single overshoot more faithfully than back.out(1.7)'s ~10%.
+AU_SPRING = (0.34, 1.40, 0.64, 1.0)
 
 
 def _curve_at(curves, index):
@@ -1295,6 +1298,76 @@ def aceternity_clips():
     ]
 
 
+def animate_ui_clips():
+    """Entrance primitives distilled from Animate UI's Fade / Slide / Zoom / Effect components.
+
+    Animate UI drives every entrance with one shared spring token (stiffness 200, damping 20), which
+    has a mild ~5% overshoot — approximated here with the AU_SPRING bezier instead of back.out's 10%.
+    Dialog and menu use their own tokens (dialog spring is overdamped, menu uses the soft easing that
+    equals power3.out), so those clips stay overshoot-free.
+    """
+    return [
+        synth_clip(
+            "au-fade", "AU 弹簧淡入", "入场", "in", "end",
+            "Animate UI Fade：0→100% 透明度，共享入场弹簧（200/20）近似，0.55s。",
+            ["AnimateUI", "入场", "淡入", "透明度"],
+            0.55,
+            [("opacity", [0, 0.55], [0, 100], RB_POWER2_OUT)],
+            source_style="AnimateUI",
+        ),
+        synth_clip(
+            "au-slide-up", "AU 弹簧上滑", "入场", "in", "end",
+            "Animate UI Slide（direction=up）：自下方 100px 上滑，入场弹簧单段过冲，0.6s；原语无透明度。",
+            ["AnimateUI", "入场", "上滑", "位移", "弹簧"],
+            0.6,
+            [("position", [0, 0.6], [[0, 100, 0], [0, 0, 0]], AU_SPRING)],
+            source_style="AnimateUI",
+        ),
+        synth_clip(
+            "au-zoom-in", "AU 弹簧缩放入场", "缩放", "in", "end",
+            "Animate UI Zoom：50%→100% 缩放，入场弹簧单段过冲，0.6s。",
+            ["AnimateUI", "缩放", "入场", "弹簧"],
+            0.6,
+            [("scale", [0, 0.6], [[50, 50, 100], [100, 100, 100]], AU_SPRING)],
+            source_style="AnimateUI",
+        ),
+        synth_clip(
+            "au-effect", "AU 组合入场", "组合", "in", "end",
+            "Animate UI Effect 默认组合（fade + slide up 100 + zoom 50%）：0.65s，位移/缩放带约 5% 过冲；blur 10px 未含。",
+            ["AnimateUI", "组合", "入场", "弹簧", "组合效果"],
+            0.65,
+            [
+                ("position", [0, 0.65], [[0, 100, 0], [0, 0, 0]], AU_SPRING),
+                ("scale", [0, 0.65], [[50, 50, 100], [100, 100, 100]], AU_SPRING),
+                ("opacity", [0, 0.65], [0, 100], RB_POWER2_OUT),
+            ],
+            source_style="AnimateUI",
+        ),
+        synth_clip(
+            "au-dialog-in", "AU 弹窗入场", "组合", "in", "end",
+            "Animate UI Dialog：80%→100% 缩放 + 渐显，0.5s；dialog 弹簧（150/25）过阻尼，无过冲；overlay 与 3D 翻转未含。",
+            ["AnimateUI", "组合", "入场", "弹窗"],
+            0.5,
+            [
+                ("scale", [0, 0.5], [[80, 80, 100], [100, 100, 100]], RB_POWER3_OUT),
+                ("opacity", [0, 0.5], [0, 100], RB_POWER3_OUT),
+            ],
+            source_style="AnimateUI",
+        ),
+        synth_clip(
+            "au-menu-in", "AU 菜单入场", "组合", "in", "end",
+            "Animate UI 菜单/下拉：90%→100% 缩放 + 渐显，0.22s，soft 曲线（等同于 power3.out）。",
+            ["AnimateUI", "组合", "入场", "菜单"],
+            0.22,
+            [
+                ("scale", [0, 0.22], [[90, 90, 100], [100, 100, 100]], RB_POWER3_OUT),
+                ("opacity", [0, 0.22], [0, 100], RB_POWER3_OUT),
+            ],
+            source_style="AnimateUI",
+        ),
+    ]
+
+
 def procedural_presets():
     """F2A's built-in AE Motion procedural presets (editable keys, text animators, transitions)."""
     return [
@@ -1456,6 +1529,28 @@ def procedural_presets():
          "defaults": {"style": "riseBlur", "by": "words", "phase": "in", "direction": "down", "duration": 0.5, "stagger": 0.02, "ease": "power2Out", "distance": 40},
          "supports": {"duration": True, "textBy": True}},
 
+        # Animate UI text primitives (animate-ui.com) rebuilt on native AE text animators.
+        {"id": "preset-au-splitting-text", "kind": "procedural", "command": "text_reveal", "name": "AU 字符右滑入", "category": "文字", "phase": "in",
+         "description": "Animate UI Splitting Text 默认：字符自右 150px 滑入并渐显，0.7s / 50ms 错峰，easeOut 近似。", "tags": ["AnimateUI", "文字", "入场", "滑入", "逐字"],
+         "sourceStyle": "AnimateUI",
+         "defaults": {"style": "rise", "by": "chars", "phase": "in", "direction": "left", "duration": 0.7, "stagger": 0.05, "ease": "expoOut", "distance": 150},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-au-splitting-words", "kind": "procedural", "command": "text_reveal", "name": "AU 整词右滑入", "category": "文字", "phase": "in",
+         "description": "Animate UI Splitting Text 整词版：词自右 150px 滑入，0.7s / 200ms 错峰，easeOut 近似。", "tags": ["AnimateUI", "文字", "入场", "滑入", "整词"],
+         "sourceStyle": "AnimateUI",
+         "defaults": {"style": "rise", "by": "words", "phase": "in", "direction": "left", "duration": 0.7, "stagger": 0.2, "ease": "expoOut", "distance": 150},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-au-lines-slide", "kind": "procedural", "command": "text_reveal", "name": "AU 逐行右滑入", "category": "文字", "phase": "in",
+         "description": "Animate UI Splitting Text 多行版：行自右 150px 滑入，0.7s / 300ms 错峰，easeOut 近似。", "tags": ["AnimateUI", "文字", "入场", "滑入", "逐行"],
+         "sourceStyle": "AnimateUI",
+         "defaults": {"style": "rise", "by": "lines", "phase": "in", "direction": "left", "duration": 0.7, "stagger": 0.3, "ease": "expoOut", "distance": 150},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-au-typing", "kind": "procedural", "command": "text_reveal", "name": "AU 打字机", "category": "文字", "phase": "in",
+         "description": "Animate UI Typing Text：每字 100ms 依次敲入；光标闪烁与回删循环未打包。", "tags": ["AnimateUI", "文字", "入场", "打字机", "逐字"],
+         "sourceStyle": "AnimateUI",
+         "defaults": {"style": "typewriter", "by": "chars", "phase": "in", "duration": 0, "stagger": 0.1, "ease": "linear"},
+         "supports": {"textBy": True}},
+
         # Transitions
         {"id": "preset-trans-wipe", "kind": "procedural", "command": "transition", "name": "色块扫屏转场", "category": "转场", "phase": "transition",
          "description": "在当前播放头创建可编辑全屏扫光擦除转场层。", "tags": ["转场", "擦除", "扫屏"],
@@ -1479,7 +1574,7 @@ def main():
     args = parser.parse_args()
 
     buckets = harvest_from_source(args.source)
-    clips = curate_library(buckets) + reactbits_clips() + aceternity_clips()
+    clips = curate_library(buckets) + reactbits_clips() + aceternity_clips() + animate_ui_clips()
     presets = procedural_presets()
 
     payload = {
