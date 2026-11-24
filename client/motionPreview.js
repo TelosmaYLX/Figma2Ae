@@ -4,8 +4,11 @@
  * UMD: attaches window.F2AMotionPreview in browser/CEP and exports in Node.
  */
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory();
-  else root.F2AMotionPreview = factory();
+  var api = factory();
+  // Adobe CEP (--enable-nodejs --mixed-context) exposes BOTH window and module.exports
+  // inside <script> tags, so always attach the browser global in addition to CommonJS export.
+  if (root) root.F2AMotionPreview = api;
+  if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis, function () {
   "use strict";
 

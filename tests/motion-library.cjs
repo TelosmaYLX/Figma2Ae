@@ -113,7 +113,15 @@ async function check() {
     }
     assert.match(preview.buildCurveSvg(preset), /^M[\d.-]+,[\d.-]+/);
   }
-  console.log(`PASS: ${builtin.clips.length} curated clips + ${builtin.presets.length} procedural presets validated (hashes, preview, privacy)`);
+  // Verify Adobe CEP --mixed-context (both window AND module.exports exist in <script> tags)
+  const cepWindow = {};
+  const cepModule = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'client/motionPreview.js'), 'utf8'), {
+    window: cepWindow, globalThis: cepWindow, module: cepModule, exports: cepModule.exports, Math, Array, Object, Number, String,
+  });
+  assert.equal(typeof cepWindow.F2AMotionPreview?.evaluateClipAt, 'function', 'CEP mixed-context must expose window.F2AMotionPreview');
+  assert.equal(typeof cepModule.exports?.evaluateClipAt, 'function', 'CommonJS module.exports must also stay populated');
+  console.log(`PASS: ${builtin.clips.length} curated clips + ${builtin.presets.length} procedural presets validated (hashes, preview, CEP mixed-context, privacy)`);
 
   // 2. ExtendScript ES3 safety & JSON polyfill check
   const engineSrc = fs.readFileSync(path.join(root, 'host/motion/motionEngine.jsx'), 'utf8');

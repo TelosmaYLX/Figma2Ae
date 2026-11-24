@@ -7,7 +7,6 @@
 
   var CEP = typeof window.__adobe_cep__ !== "undefined";
   var HAS_NODE = typeof require === "function";
-  var Preview = window.F2AMotionPreview;
 
   var fs = HAS_NODE ? require("fs") : null;
   var path = HAS_NODE ? require("path") : null;
@@ -19,6 +18,13 @@
       .replace(/^file:\/\/\//, "").replace(/^file:\/\//, "");
   } else if (HAS_NODE && typeof __dirname === "string") {
     extDir = path.resolve(__dirname, "..");
+  }
+
+  var Preview = window.F2AMotionPreview;
+  if (!Preview && HAS_NODE) {
+    try {
+      Preview = require(extDir ? path.join(extDir, "client", "motionPreview.js") : "./motionPreview.js");
+    } catch (ePrev) {}
   }
 
   var scanner = null;
@@ -106,7 +112,7 @@
     tab: "builtin",            // "builtin" | "templates" | "user"
     category: "全部",
     query: "",
-    autoPlayAll: false,
+    autoPlayAll: true,         // Live-preview visible cards automatically (throttled via IntersectionObserver)
     showParams: false,
     params: loadStoredParams(),
     builtinPresets: [],
@@ -195,9 +201,33 @@
     });
   }
 
-  // ---- Live 60fps preview animation loop ----
-  var activeLoops = new Map(); // cardEl -> { item, meta, startTs, duration }
+  // ---- Live 60fps preview animation loop (only visible or hovered stages run) ----
+  var activeLoops = new Map(); // stageEl -> { item, meta, startTs, duration }
+  var visibleStages = new Set();
+  var stageObserver = null;
   var rafId = 0;
+
+  function getStageObserver() {
+    if (stageObserver || typeof IntersectionObserver === "undefined") return stageObserver;
+    var scrollRoot = document.querySelector(".f2m-scroll") || null;
+    stageObserver = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        var stage = entries[i].target;
+        if (entries[i].isIntersecting) {
+          visibleStages.add(stage);
+          if (state.autoPlayAll && stage._f2mItem && !activeLoops.has(stage)) {
+            startStageLoop(stage, stage._f2mItem, stage._f2mMeta);
+          }
+        } else {
+          visibleStages.delete(stage);
+          if (!stage._f2mHovered && activeLoops.has(stage)) {
+            stopStageLoop(stage, stage._f2mItem);
+          }
+        }
+      }
+    }, { root: scrollRoot, rootMargin: "40px" });
+    return stageObserver;
+  }
 
   function applyBoxVisual(stageEl, res) {
     var box = stageEl.querySelector(".f2m-demo-box");
@@ -267,14 +297,16 @@
 
   function stepAnimations(now) {
     if (!activeLoops.size) { rafId = 0; return; }
+    if (document.hidden) { rafId = window.requestAnimationFrame(stepAnimations); return; }
     activeLoops.forEach(function (entry, stageEl) {
       if (!stageEl.isConnected) { activeLoops.delete(stageEl); return; }
+      if (entry.startTs === null) entry.startTs = now;
       var item = entry.item;
       var speed = Number(state.params.speed) || 1;
       var dur = Math.max(0.28, (entry.duration || 0.7) / speed);
-      var hold = 0.55;
+      var hold = 0.65;
       var cycle = dur + hold;
-      var elapsed = ((now - entry.startTs) / 1000) % cycle;
+      var elapsed = Math.max(0, (now - entry.startTs) / 1000) % cycle;
       var t = Math.min(dur, elapsed);
       var progress = t / dur;
 
@@ -296,10 +328,16 @@
     else rafId = 0;
   }
 
-  function startStageLoop(stageEl, item, meta) {
+  function startStageLoop(stageEl, item, meta, restart) {
     if (!Preview || !stageEl) return;
     var dur = item.clip ? (meta ? meta.duration : item.clip.duration) : ((item.defaults && item.defaults.duration) || 0.65);
-    activeLoops.set(stageEl, { item: item, meta: meta, startTs: performance.now(), duration: dur });
+    var prev = activeLoops.get(stageEl);
+    activeLoops.set(stageEl, {
+      item: item,
+      meta: meta,
+      startTs: (restart || !prev) ? null : prev.startTs,
+      duration: dur
+    });
     if (!rafId) rafId = window.requestAnimationFrame(stepAnimations);
   }
 
@@ -312,9 +350,10 @@
     var stages = document.querySelectorAll(".f2m-stage[data-playable='1']");
     for (var i = 0; i < stages.length; i++) {
       var el = stages[i];
-      if (state.autoPlayAll) {
+      var inView = visibleStages.size ? visibleStages.has(el) : true;
+      if (state.autoPlayAll && inView) {
         if (!activeLoops.has(el) && el._f2mItem) startStageLoop(el, el._f2mItem, el._f2mMeta);
-      } else {
+      } else if (!el._f2mHovered) {
         if (activeLoops.has(el)) stopStageLoop(el, el._f2mItem);
       }
     }
@@ -807,17 +846,22 @@
     foot.appendChild(actions);
     card.appendChild(foot);
 
-    // Hover starts smooth 60fps preview; double-click applies immediately
+    // Hover immediately restarts from t=0; visible cards auto-loop when autoPlayAll is enabled
     card.addEventListener("mouseenter", function () {
-      startStageLoop(stage, item, meta);
+      stage._f2mHovered = true;
+      startStageLoop(stage, item, meta, true);
     });
     card.addEventListener("mouseleave", function () {
+      stage._f2mHovered = false;
       if (!state.autoPlayAll) stopStageLoop(stage, item);
     });
     card.addEventListener("dblclick", function () {
       applyMotionItem(item);
     });
-    if (state.autoPlayAll) startStageLoop(stage, item, meta);
+
+    var obs = getStageObserver();
+    if (obs) obs.observe(stage);
+    else if (state.autoPlayAll) startStageLoop(stage, item, meta);
 
     return card;
   }
@@ -1057,8 +1101,10 @@
     var catsEl = document.getElementById("f2m-cats");
     if (!grid || !catsEl) return;
 
-    // Clear active RAF loops for old DOM nodes
+    // Clear active RAF loops and visibility tracking for old DOM nodes
     activeLoops.clear();
+    visibleStages.clear();
+    if (stageObserver) stageObserver.disconnect();
     grid.innerHTML = "";
     catsEl.innerHTML = "";
 
@@ -1185,11 +1231,17 @@
     }
 
     var playToggle = document.getElementById("f2m-play-toggle");
+    function paintPlayToggle() {
+      if (!playToggle) return;
+      playToggle.textContent = state.autoPlayAll ? "⏸" : "▶";
+      playToggle.className = "f2m-icon-act" + (state.autoPlayAll ? " active" : "");
+      playToggle.title = state.autoPlayAll ? "切换为仅悬停预览" : "开启可视卡片自动循环预览";
+    }
+    paintPlayToggle();
     if (playToggle) {
       playToggle.onclick = function () {
         state.autoPlayAll = !state.autoPlayAll;
-        playToggle.className = "f2m-icon-act" + (state.autoPlayAll ? " active" : "");
-        playToggle.title = state.autoPlayAll ? "暂停全部预览（悬停单卡仍可预览）" : "循环预览全部卡片";
+        paintPlayToggle();
         syncAllAutoPlay();
       };
     }
@@ -1209,6 +1261,7 @@
       sel.onchange = function () {
         state.params[key] = isNum ? Number(sel.value) : sel.value;
         saveStoredParams(state.params);
+        if (key === "direction" || key === "style") renderGrid();
       };
     }
     bindSelect("f2m-p-speed", "speed", true);
