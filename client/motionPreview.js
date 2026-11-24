@@ -294,7 +294,7 @@
     }
 
     if (preset.command === "text_reveal") {
-      var chars = ["F", "2", "A", "动", "效"];
+      var chars = ["s", "a", "m", "p", "l", "e"];
       var items = [];
       for (var i = 0; i < chars.length; i++) {
         var start = i * 0.11;
