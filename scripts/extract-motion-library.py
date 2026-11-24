@@ -8,6 +8,11 @@ Usage:
 
 Output contains ONLY pure mathematical keyframes, easing curves, and generic Chinese/English
 labels — never local paths, usernames, or source filenames.
+
+Curated clips follow the project's keyframe house rules (skills/f2a-motion-production/references/
+motion-adaptation-rules.md §1.2): a single-direction move is two keys, an overshoot or two-speed move
+three, and a non-linear clip starts and lands on an eased key (Easy Ease in, settle out) so applying
+it in After Effects matches the panel preview.
 """
 
 import argparse
@@ -71,6 +76,98 @@ def pack_eases(ease_list, speed_scale=1.0, max_dims=None):
         inf = float(getattr(e, "influence", 33.33) or 33.33)
         out.append({"speed": clean_num(sp, 3), "influence": clamp_influence(inf)})
     return out if out else None
+
+
+# F2A house easing for curated clips: a non-linear clip is eased at both ends. After Effects only
+# shapes a segment from the outgoing ease of its first key and the incoming ease of its last, so a
+# linear first key starts the motion at full speed (and disagrees with the panel preview, which falls
+# back to Easy Ease). Easy-in / settle-out are the same values the panel and AE presets use.
+EASY_INFLUENCE = 33.33
+SETTLE_INFLUENCE = 75
+EASED_PHASES = ("in", "emphasis")
+
+
+def temp_eases(influence, dims):
+    """One temporal-ease entry per property dimension, at rest speed."""
+    # clean_num keeps whole influences as integers, so the clip hashes match JS JSON.stringify
+    # (Python would otherwise write 75.0 where JavaScript writes 75).
+    return [{"speed": 0, "influence": clean_num(influence, 2)} for _ in range(max(1, dims))]
+
+
+def track_dims(track):
+    """Temporal ease dimensionality: spatial properties take one ease, vectors one per dimension."""
+    if track.get("type") in ("OneD", "TwoD_SPATIAL", "ThreeD_SPATIAL"):
+        return 1
+    keys = track.get("keys") or []
+    sample = keys[0]["value"] if keys else track.get("value")
+    return len(sample) if isinstance(sample, (list, tuple)) else 1
+
+
+def normalize_track_window(track, phase):
+    """A prepared entrance must start at t=0 on the resting value.
+
+    Combo harvesting takes each property's first active segment independently, so a property can
+    start late (a late scale pop). Applying such a clip samples the layer at the first key and makes
+    it jump into that off-state at the clip start; prepend the resting value so it holds until its
+    turn.
+    """
+    if phase not in EASED_PHASES:
+        return
+    keys = track.get("keys") or []
+    if not keys or keys[0]["time"] <= 1e-6:
+        return
+    dims = track_dims(track)
+    rest = keys[-1]["value"]
+    track["keys"] = [{
+        "time": 0,
+        "value": rest,
+        "inInterp": "bezier",
+        "outInterp": "bezier",
+        "inEase": temp_eases(EASY_INFLUENCE, dims),
+        "outEase": temp_eases(EASY_INFLUENCE, dims),
+    }] + keys
+
+
+def normalize_track_easing(track, phase):
+    """Give every non-linear track an eased first key (and, for entrances/emphasis, an eased last key).
+
+    The redundant sides (incoming side of the first key, outgoing side of the last key) never shape a
+    segment; they are kept symmetric Easy Ease so the keyframe data reads back cleanly from AE.
+    Exit clips keep a linear landing side on purpose: that is what accelerates them into the cut.
+    """
+    keys = track.get("keys") or []
+    if len(keys) < 2:
+        return
+    if not any(k.get("inInterp") == "bezier" or k.get("outInterp") == "bezier" for k in keys):
+        return  # a genuinely linear track stays linear
+    dims = track_dims(track)
+    first, last = keys[0], keys[-1]
+
+    if first.get("outInterp") != "hold":
+        if first.get("outInterp") != "bezier":
+            first["outInterp"] = "bezier"
+            first["outEase"] = temp_eases(EASY_INFLUENCE, dims)
+        elif not first.get("outEase"):
+            first["outEase"] = temp_eases(EASY_INFLUENCE, dims)
+        first["inInterp"] = "bezier"
+        first["inEase"] = temp_eases(EASY_INFLUENCE, dims)
+
+    if phase in EASED_PHASES:
+        if last.get("inInterp") != "hold":
+            if last.get("inInterp") != "bezier":
+                last["inInterp"] = "bezier"
+                last["inEase"] = temp_eases(SETTLE_INFLUENCE, dims)
+            elif not last.get("inEase"):
+                last["inEase"] = temp_eases(SETTLE_INFLUENCE, dims)
+            last["outInterp"] = "bezier"
+            last["outEase"] = temp_eases(EASY_INFLUENCE, dims)
+    elif last.get("inInterp") == "bezier" or last.get("outInterp") == "bezier":
+        # The AE applier writes temporal ease only when both sides carry one, so a bezier key keeps
+        # a (meaningless but required) ease on its linear side too.
+        if not last.get("inEase"):
+            last["inEase"] = temp_eases(EASY_INFLUENCE, dims)
+        if not last.get("outEase"):
+            last["outEase"] = temp_eases(EASY_INFLUENCE, dims)
 
 
 def extract_raw_kfs(prop, fps):
@@ -303,6 +400,41 @@ def build_track(prop_name, seg, t_origin, comp_width, anchor="end", max_travel=3
     return None
 
 
+# F2A's MCP loader validates a clip by re-serializing its zod-parsed form, which always emits object
+# keys in schema order. Keep the stored JSON in exactly that order so the Python content hash and the
+# loader's JSON.stringify hash are the same bytes.
+KEY_FIELD_ORDER = [
+    "time", "value", "inInterp", "outInterp", "inEase", "outEase", "temporalContinuous",
+    "temporalAutoBezier", "inTangent", "outTangent", "spatialContinuous", "spatialAutoBezier",
+    "roving", "label",
+]
+TRACK_FIELD_ORDER = ["path", "type", "keys", "value", "expression", "positionReference"]
+
+
+def canonical_key(key):
+    return {name: key[name] for name in KEY_FIELD_ORDER if name in key}
+
+
+def canonical_track(track):
+    out = {}
+    for name in TRACK_FIELD_ORDER:
+        if name not in track:
+            continue
+        out[name] = [canonical_key(k) for k in track[name]] if name == "keys" else track[name]
+    return out
+
+
+def canonical_clip(clip):
+    return {
+        "origin": clip["origin"],
+        "duration": clip["duration"],
+        "layers": [
+            {"name": layer["name"], "tracks": [canonical_track(tr) for tr in layer["tracks"]]}
+            for layer in clip["layers"]
+        ],
+    }
+
+
 def make_artifact(slug, name, category, phase, default_anchor, description, tags, tracks, source_style="curated"):
     # Normalize keyframe times to start at 0
     min_t = min(tr["keys"][0]["time"] for tr in tracks)
@@ -329,6 +461,10 @@ def make_artifact(slug, name, category, phase, default_anchor, description, tags
         norm_tracks.append(ntr)
     if not norm_tracks:
         return None
+    # House easing pass: every track/clip gets the same endpoint treatment.
+    for ntr in norm_tracks:
+        normalize_track_window(ntr, phase)
+        normalize_track_easing(ntr, phase)
     # Recompute exact duration from last key
     duration = clean_num(max(tr["keys"][-1]["time"] for tr in norm_tracks), 4)
     clip = {
@@ -336,6 +472,7 @@ def make_artifact(slug, name, category, phase, default_anchor, description, tags
         "duration": duration,
         "layers": [{"name": name, "tracks": norm_tracks}],
     }
+    clip = canonical_clip(clip)
     clip_json = json.dumps(clip, separators=(",", ":"), ensure_ascii=False)
     content_hash = hashlib.sha256(clip_json.encode("utf-8")).hexdigest()
     clip_id = str(uuid.uuid5(NAMESPACE_F2A_MOTION, slug))
@@ -553,16 +690,184 @@ def harvest_from_source(source_dir):
     return buckets
 
 
-def pick_best(buckets, key, index=0):
+def accepts_max_keys(tracks, limit):
+    """House keyframe economy: one direction of motion is two keys, an overshoot or two-speed move
+    three; more than that is a baked or multi-bounce template sample that reads as extra keys."""
+    return all(len(tr.get("keys") or []) <= limit for tr in tracks)
+
+
+def accepts_real_overshoot(tracks, min_ratio=0.02, max_ratio=0.30, min_travel=0.0):
+    """An overshoot clip must cross its resting value along the travel direction and come back.
+
+    The raw harvester only looked for a direction reversal, so some candidates wind up *away* from
+    the target before travelling (anticipation) and were curated as 'overshoot' clips that never
+    pass their mark. Accept a sample only when an intermediate key sits just past the landing value.
+    """
+    for tr in tracks:
+        if len(tr.get("path") or []) < 2 or tr["path"][1][0] != "ADBE Position":
+            continue
+        keys = tr.get("keys") or []
+        if len(keys) < 3:
+            return True
+        start, last = keys[0]["value"], keys[-1]["value"]
+        travel = (last[0] - start[0], last[1] - start[1])
+        length = math.hypot(*travel)
+        if length < min_travel:
+            return False
+        if length < 1e-6:
+            return True
+        for k in keys[1:-1]:
+            past = ((k["value"][0] - last[0]) * travel[0] + (k["value"][1] - last[1]) * travel[1]) / length
+            if min_ratio * length <= past <= max_ratio * length:
+                return True
+        return False
+    return True
+
+
+def accepts_accelerating_exit(tracks):
+    """A slide/scale exit should accelerate into the cut: a slow departure (high out influence) and
+    a linear landing side, not the decelerating "ease into a stop" shape some templates use."""
+    for tr in tracks:
+        if len(tr.get("path") or []) < 2 or tr["path"][1][0] != "ADBE Position":
+            continue
+        keys = tr.get("keys") or []
+        if len(keys) < 2:
+            return False
+        first, last = keys[0], keys[-1]
+        out_ease = first.get("outEase") or []
+        influence = max((e["influence"] for e in out_ease), default=0)
+        return (
+            first.get("outInterp") == "bezier"
+            and influence >= 55
+            and last.get("inInterp") == "linear"
+        )
+    return False
+
+
+def accepts_single_direction(tracks, tolerance=0.01):
+    """A slide/float clip travels in one direction: its intermediate keys stay on the straight line
+    from start to landing. Reject samples that finish horizontally and then drift on the other axis."""
+    for tr in tracks:
+        if len(tr.get("path") or []) < 2 or tr["path"][1][0] != "ADBE Position":
+            continue
+        keys = tr.get("keys") or []
+        if len(keys) < 3:
+            return True
+        start, last = keys[0]["value"], keys[-1]["value"]
+        dx, dy = last[0] - start[0], last[1] - start[1]
+        length = math.hypot(dx, dy)
+        if length < 1e-6:
+            return True
+        for k in keys[1:-1]:
+            off = abs((k["value"][0] - start[0]) * dy - (k["value"][1] - start[1]) * dx) / length
+            if off > tolerance * length:
+                return False
+        return True
+    return True
+
+
+def accepts_single_axis_scale(tracks, axis, tolerance=3.0):
+    """Unfold clips stretch one axis only; the other axis should stay at 100% instead of inheriting
+    a source template's unrelated squash."""
+    for tr in tracks:
+        if len(tr.get("path") or []) < 2 or tr["path"][1][0] != "ADBE Scale":
+            continue
+        other = 1 - axis
+        for k in tr.get("keys") or []:
+            v = k.get("value")
+            if isinstance(v, (list, tuple)) and len(v) > other and abs(v[other] - 100.0) > tolerance:
+                return False
+        return True
+    return True
+
+
+def accepts_scale_pop_peak(tracks, low=1.10, high=1.80):
+    """A scale pop overshoots by a readable amount; some template samples carry spring stress tests
+    that reach 2.6x and read as a glitch rather than a pop."""
+    for tr in tracks:
+        if len(tr.get("path") or []) < 2 or tr["path"][1][0] != "ADBE Scale":
+            continue
+        peak = 0.0
+        for k in tr.get("keys") or []:
+            v = k.get("value")
+            if isinstance(v, (list, tuple)) and len(v) >= 2:
+                peak = max(peak, abs(v[0]), abs(v[1]))
+        return low * 100 <= peak <= high * 100
+    return True
+
+
+def accepts_uniform_scale(tracks):
+    """Pop / overshoot scale presets read as a uniform pop; squash-stretch samples are a different look."""
+    for tr in tracks:
+        if len(tr.get("path") or []) < 2 or tr["path"][1][0] != "ADBE Scale":
+            continue
+        for k in tr.get("keys") or []:
+            v = k.get("value")
+            if isinstance(v, (list, tuple)) and len(v) >= 2 and abs(v[0] - v[1]) > 1.5:
+                return False
+    return True
+
+
+def bucket_accepts(bucket_key):
+    """Candidate filters, most specific first, for the curated picks. Falling back to the next
+    predicate keeps a clip available when a template pack holds no house-style sample."""
+    if bucket_key == "opacity_glitch_in":
+        return []  # multi-step flicker is the point of this preset
+    if bucket_key.startswith("pos_overshoot_"):
+        return [
+            lambda trs: accepts_max_keys(trs, 3) and accepts_real_overshoot(trs, 0.02, 0.15, 120.0),
+            lambda trs: accepts_max_keys(trs, 3) and accepts_real_overshoot(trs),
+            lambda trs: accepts_max_keys(trs, 3),
+        ]
+    if bucket_key.startswith("pos_out_"):
+        return [
+            lambda trs: accepts_max_keys(trs, 2) and accepts_accelerating_exit(trs),
+            lambda trs: accepts_max_keys(trs, 2),
+            lambda trs: accepts_max_keys(trs, 3),
+        ]
+    if bucket_key in ("scale_stretch_x", "scale_stretch_y"):
+        axis = 0 if bucket_key.endswith("_x") else 1
+        return [
+            lambda trs: accepts_max_keys(trs, 2) and accepts_single_axis_scale(trs, axis),
+            lambda trs: accepts_max_keys(trs, 2),
+            lambda trs: accepts_max_keys(trs, 3),
+        ]
+    if bucket_key == "scale_overshoot_in":
+        return [
+            lambda trs: accepts_max_keys(trs, 3) and accepts_uniform_scale(trs) and accepts_scale_pop_peak(trs),
+            lambda trs: accepts_max_keys(trs, 3) and accepts_uniform_scale(trs),
+            lambda trs: accepts_max_keys(trs, 3),
+        ]
+    if bucket_key.startswith("pos_in_smooth_"):
+        return [
+            lambda trs: accepts_max_keys(trs, 3) and accepts_single_direction(trs),
+            lambda trs: accepts_max_keys(trs, 3),
+        ]
+    return [lambda trs: accepts_max_keys(trs, 3)]
+
+
+def pick_best(buckets, key, index=0, accepts=None):
     items = buckets.get(key)
     if not items:
         return None
-    ranked = sorted(items, key=lambda x: x[0], reverse=True)
-    # Deduplicate roughly by (duration_bucket, key_count)
+    pool = items
+    for accept in accepts or []:
+        candidates = [it for it in items if accept(it[4])]
+        if candidates:
+            pool = candidates
+            break
+    if accepts and pool is items:
+        print(f"  [curate] {key}: no house-style candidate among {len(items)} samples; using best sample", flush=True)
+    ranked = sorted(pool, key=lambda x: x[0], reverse=True)
+    # Deduplicate roughly by (duration_bucket, key values, style) so two picks from one bucket never
+    # end up being the same template sample at a one-frame offset.
     picked = []
     seen = set()
     for it in ranked:
-        sig = (round(it[1], 1), tuple(len(tr["keys"]) for tr in it[4]), it[3])
+        sig = (round(it[1], 1), it[3], tuple(
+            (tr["path"][1][0], tuple(json.dumps(k["value"], sort_keys=True) for k in tr["keys"]))
+            for tr in it[4]
+        ))
         if sig in seen:
             continue
         seen.add(sig)
@@ -599,8 +904,8 @@ def scale_position_track(tr, factor):
 
 def add_opacity_fade(tracks, phase="in"):
     dur = max(tr["keys"][-1]["time"] for tr in tracks)
-    fade_t = clean_num(min(dur, max(0.18, dur * 0.65)), 4)
     if phase == "in":
+        fade_t = clean_num(min(dur, max(0.18, dur * 0.65)), 4)
         op = {
             "path": TRACK_META["opacity"][0],
             "type": "OneD",
@@ -612,12 +917,12 @@ def add_opacity_fade(tracks, phase="in"):
             ],
         }
     else:
-        t0 = clean_num(max(0, dur - fade_t), 4)
+        # Exit: fade from the first frame so the element leaves *with* its movement, not after it.
         op = {
             "path": TRACK_META["opacity"][0],
             "type": "OneD",
             "keys": [
-                {"time": t0, "value": 100, "inInterp": "bezier", "outInterp": "bezier",
+                {"time": 0, "value": 100, "inInterp": "bezier", "outInterp": "bezier",
                  "inEase": [{"speed": 0, "influence": 33.33}], "outEase": [{"speed": 0, "influence": 65}]},
                 {"time": dur, "value": 0, "inInterp": "bezier", "outInterp": "bezier",
                  "inEase": [{"speed": 0, "influence": 33.33}], "outEase": [{"speed": 0, "influence": 33.33}]},
@@ -726,7 +1031,7 @@ def curate_library(buckets):
     used_slugs = set()
 
     for bucket_key, idx, slug, name, category, phase, anchor, desc, tags in specs:
-        picked = pick_best(buckets, bucket_key, idx)
+        picked = pick_best(buckets, bucket_key, idx, bucket_accepts(bucket_key))
         if picked is None:
             continue
         _, _, _, style, tracks = picked
@@ -737,7 +1042,8 @@ def curate_library(buckets):
 
     # Synthesize complementary UI-favorite Fade+Slide variants using real harvested curve shapes
     # so designers always have silky short-travel UI Fade+Float Up/Down/Left/Right ready at 1 click!
-    base_up = pick_best(buckets, "pos_in_whip_up", 0) or pick_best(buckets, "pos_in_smooth_up", 0)
+    base_up = pick_best(buckets, "pos_in_whip_up", 0, bucket_accepts("pos_in_whip_up")) or pick_best(
+        buckets, "pos_in_smooth_up", 0, bucket_accepts("pos_in_smooth_up"))
     if base_up:
         base_travel = max(1.0, val_dist(base_up[4][0]["keys"][0]["value"], base_up[4][0]["keys"][-1]["value"]))
         short_up = scale_position_track(base_up[4][0], 72.0 / base_travel)
@@ -762,7 +1068,7 @@ def curate_library(buckets):
                     clips.append(art)
                     used_slugs.add(slug)
 
-    base_out = pick_best(buckets, "pos_out_up", 0)
+    base_out = pick_best(buckets, "pos_out_up", 0, bucket_accepts("pos_out_up"))
     if base_out and "curated-ui-fade-out-up" not in used_slugs:
         out_travel = max(1.0, val_dist(base_out[4][0]["keys"][0]["value"], base_out[4][0]["keys"][-1]["value"]))
         short_out = scale_position_track(base_out[4][0], 72.0 / out_travel)

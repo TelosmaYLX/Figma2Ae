@@ -38,28 +38,40 @@
   }
 
   // Evaluate a single AE temporal segment between key k0 and key k1 at time t
+  // After Effects shapes one segment with one cubic bezier: the outgoing side of k0 gives the first
+  // handle and the incoming side of k1 gives the second one. A linear side is a handle at 1/6 (out)
+  // or 5/6 (in) with slope 1 — that is exactly how AE's linear interpolation is drawn — while a
+  // bezier side places its handle from the key's temporal ease. Both-linear is a plain lerp.
   function evalScalarSegment(t, t0, v0, k0, t1, v1, k1, dimIdx) {
     var dt = t1 - t0;
     if (dt <= 1e-6) return v1;
     var u = clamp((t - t0) / dt, 0, 1);
     if (k0.outInterp === "hold") return u >= 1 ? v1 : v0;
-    if (k0.outInterp === "linear" && k1.inInterp === "linear") return lerp(v0, v1, u);
+    var outLinear = k0.outInterp === "linear";
+    var inLinear = k1.inInterp === "linear";
+    if (outLinear && inLinear) return lerp(v0, v1, u);
 
     var dv = v1 - v0;
     if (Math.abs(dv) < 1e-6) return v0;
 
-    var outEase = (k0.outEase && k0.outEase.length) ? k0.outEase[Math.min(dimIdx, k0.outEase.length - 1)] : { speed: 0, influence: 33.33 };
-    var inEase = (k1.inEase && k1.inEase.length) ? k1.inEase[Math.min(dimIdx, k1.inEase.length - 1)] : { speed: 0, influence: 33.33 };
-
-    var x1 = clamp((outEase.influence || 33.33) / 100, 0.01, 0.99);
-    var x2 = clamp(1 - (inEase.influence || 33.33) / 100, 0.01, 0.99);
-
-    // Convert AE speed (units/sec) to normalized slope dy/dx = speed * dt / dv
-    var slope0 = (outEase.speed || 0) * dt / dv;
-    var slope1 = (inEase.speed || 0) * dt / dv;
-    // Clamp extreme speeds (e.g., spatial magnitude speeds on 2D position) to keep preview crisp
-    var y1 = clamp(x1 * slope0, -1.2, 2.2);
-    var y2 = clamp(1 - (1 - x2) * slope1, -1.2, 2.2);
+    var x1, y1, x2, y2;
+    if (outLinear) {
+      x1 = 1 / 6;
+      y1 = x1;
+    } else {
+      var outEase = (k0.outEase && k0.outEase.length) ? k0.outEase[Math.min(dimIdx, k0.outEase.length - 1)] : { speed: 0, influence: 33.33 };
+      x1 = clamp((outEase.influence || 33.33) / 100, 0.01, 0.99);
+      // AE speed (units/sec) becomes the normalized handle slope dy/dx = speed * dt / dv
+      y1 = clamp(x1 * (outEase.speed || 0) * dt / dv, -1.2, 2.2);
+    }
+    if (inLinear) {
+      x2 = 5 / 6;
+      y2 = x2;
+    } else {
+      var inEase = (k1.inEase && k1.inEase.length) ? k1.inEase[Math.min(dimIdx, k1.inEase.length - 1)] : { speed: 0, influence: 33.33 };
+      x2 = clamp(1 - (inEase.influence || 33.33) / 100, 0.01, 0.99);
+      y2 = clamp(1 - (1 - x2) * (inEase.speed || 0) * dt / dv, -1.2, 2.2);
+    }
 
     var s = solveBezierT(u, x1, x2);
     var y = cubicCoord(s, y1, y2);

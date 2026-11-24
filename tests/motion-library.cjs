@@ -92,6 +92,47 @@ async function check() {
           assert.ok(k.time >= 0 && k.time <= item.clip.duration + 1e-6);
           if (i > 0) assert.ok(k.time > tr.keys[i - 1].time, 'keys strictly ordered in ' + item.slug);
         }
+        // House keyframe economy (motion-adaptation-rules §1.2): a single-direction move is 2 keys,
+        // an overshoot or two-speed move 3. Only the intentional electronic flicker keeps more.
+        const maxKeys = item.slug === 'curated-opacity-glitch-in' ? 8 : 3;
+        assert.ok(tr.keys.length <= maxKeys, `${item.slug} ${tr.path[1][0]} has extra keyframes`);
+        assert.equal(tr.keys[0].time, 0, `${item.slug} ${tr.path[1][0]} must start at 0s`);
+        // A non-linear track is eased at both ends: no linear first key (it starts at full speed in
+        // AE) and no linear landing key on an entrance/emphasis settle.
+        const eased = tr.keys.some(k => k.inInterp === 'bezier' || k.outInterp === 'bezier');
+        if (eased) {
+          const first = tr.keys[0];
+          assert.equal(first.inInterp, 'bezier', `${item.slug} ${tr.path[1][0]} first key in is not eased`);
+          assert.equal(first.outInterp, 'bezier', `${item.slug} ${tr.path[1][0]} first key out is not eased`);
+          assert.ok(first.inEase && first.inEase.length && first.outEase && first.outEase.length,
+            `${item.slug} ${tr.path[1][0]} first key lacks temporal ease`);
+        }
+        if (item.phase === 'in' || item.phase === 'emphasis') {
+          const last = tr.keys[tr.keys.length - 1];
+          assert.equal(last.inInterp, 'bezier', `${item.slug} ${tr.path[1][0]} settle key in is not eased`);
+          assert.ok(last.inEase && last.inEase.length, `${item.slug} ${tr.path[1][0]} settle key lacks inEase`);
+        }
+        for (const k of tr.keys) {
+          for (const side of ['in', 'out']) {
+            if (k[side + 'Interp'] !== 'bezier') continue;
+            // The AE applier writes temporal ease only when both sides carry one.
+            assert.ok(k.inEase && k.inEase.length && k.outEase && k.outEase.length,
+              `${item.slug} ${tr.path[1][0]} bezier key needs inEase and outEase`);
+          }
+        }
+        if (item.phase === 'out' && tr.path[1][0] === 'ADBE Position') {
+          // Slide exits accelerate into the cut: their landing key keeps a linear incoming side.
+          assert.equal(tr.keys[tr.keys.length - 1].inInterp, 'linear', `${item.slug} slide exit landing is not linear`);
+        }
+        if (item.slug.startsWith('curated-overshoot')) {
+          // The overshoot key must pass the resting value along the travel direction.
+          const start = tr.keys[0].value, last = tr.keys[tr.keys.length - 1].value;
+          const travel = [last[0] - start[0], last[1] - start[1]];
+          const length = Math.hypot(travel[0], travel[1]);
+          const middle = tr.keys[1].value;
+          const past = ((middle[0] - last[0]) * travel[0] + (middle[1] - last[1]) * travel[1]) / length;
+          assert.ok(past > 0.01 * length, `${item.slug} overshoot never crosses its resting value`);
+        }
       }
     }
     // Exercise preview evaluator across start / mid / end and curve sparkline
@@ -104,6 +145,26 @@ async function check() {
     }
     const svgPath = preview.buildCurveSvg(item);
     assert.match(svgPath, /^M[\d.-]+,[\d.-]+/, 'valid curve sparkline for ' + item.slug);
+  }
+
+  // Preview interpolation must mirror AE exactly for segments with one linear side: AE shapes the
+  // segment with one cubic bezier whose linear-side handle sits at 1/6 (out) or 5/6 (in) with slope
+  // 1. The expected samples below were measured in After Effects 26.0 (opacity 0 -> 100, 1 s).
+  const mixedClip = (k0, k1) => ({ origin: 0, duration: 1, layers: [{ name: 'mixed', tracks: [{
+    path: [['ADBE Transform Group', 1], ['ADBE Opacity', 1]], type: 'OneD', keys: [k0, k1] }] }] });
+  const linearOut = mixedClip(
+    { time: 0, value: 0, inInterp: 'linear', outInterp: 'linear' },
+    { time: 1, value: 100, inInterp: 'bezier', outInterp: 'bezier', inEase: [{ speed: 0, influence: 85 }], outEase: [{ speed: 0, influence: 33.33 }] });
+  const linearIn = mixedClip(
+    { time: 0, value: 0, inInterp: 'bezier', outInterp: 'bezier', inEase: [{ speed: 0, influence: 33.33 }], outEase: [{ speed: 0, influence: 85 }] },
+    { time: 1, value: 100, inInterp: 'linear', outInterp: 'linear' });
+  const samples = [[0.1, 20.63], [0.25, 57.4], [0.5, 86.13], [0.75, 97.19], [0.9, 99.59]];
+  for (const [clip, expected, label] of [[linearOut, samples, 'linear-out'], [linearIn, [[0.1, 0.41], [0.25, 2.81], [0.5, 13.87], [0.75, 42.6], [0.9, 79.37]], 'linear-in']]) {
+    const meta = preview.analyzeClip(clip, 'end');
+    for (const [u, want] of expected) {
+      const got = preview.evaluateClipAt(clip, u, 'end', meta).opacity * 100;
+      assert.ok(Math.abs(got - want) < 0.6, `${label} preview/AE parity at ${u}: got ${got}, want ${want}`);
+    }
   }
 
   for (const preset of builtin.presets) {

@@ -579,7 +579,7 @@
         "位移"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "d0ca1eed3fbab7546ccb7ca13d0916b7fdebb06d64f0497cd0fa83fad2543471",
+      "contentHash": "2403b36357d875ad7f69e49fc5ae26d6b8ab88b20f3b7818da020d394e7d2950",
       "clip": {
         "origin": 0,
         "duration": 0.8675,
@@ -607,8 +607,20 @@
                       332.5,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.8675,
@@ -628,7 +640,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -657,7 +669,7 @@
         "位移"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "fe7d90a8814ecfa05266d734fed4e62d54a9374fe2ccfa718781e7628016c2a2",
+      "contentHash": "cd199a366985d896454819ac892cd15ac7d83dc0d8efd93c22b082e2ceb579c1",
       "clip": {
         "origin": 0,
         "duration": 0.8675,
@@ -685,8 +697,20 @@
                       0,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.8675,
@@ -706,7 +730,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -735,7 +759,7 @@
         "位移"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "2d59427e816dbdca39c2eb0b57578fe6d8c8ed6c12cf049e05e2b60bb77ea846",
+      "contentHash": "b926cc7cdcc63ebf55af8ef356fbf5aebfa6ebb3e0e53f8b538bdb07878e64c4",
       "clip": {
         "origin": 0,
         "duration": 0.8675,
@@ -763,8 +787,20 @@
                       0,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.8675,
@@ -784,7 +820,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -813,7 +849,7 @@
         "位移"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "dc27d1d22c3a668ff091fe3e74314d40e31e9c54df1863ad95fb9b8544696594",
+      "contentHash": "7428baa9c8a4ed151ea38b9f95bca50f586a598a5d1d838869b55b7edfb8aaa3",
       "clip": {
         "origin": 0,
         "duration": 0.6673,
@@ -846,7 +882,7 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 78
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -874,7 +910,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 98
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -902,7 +938,7 @@
         "位移"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "a76407c7f825d7f5b39243c0e0edc9380145017ea44584f11b8adc61a99e9259",
+      "contentHash": "ee0d526268038f69a7a4e729430e4613b34e9ee27b5d7bdfae675a71254901d8",
       "clip": {
         "origin": 0,
         "duration": 0.8675,
@@ -930,8 +966,20 @@
                       340,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.7007,
@@ -973,7 +1021,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -993,7 +1041,7 @@
       "phase": "in",
       "defaultAnchor": "end",
       "description": "平顺的横向推进缓动，适合列表项与图文混排。",
-      "sourceStyle": "Easytitle",
+      "sourceStyle": "Bigtypo",
       "tags": [
         "入场",
         "横移",
@@ -1001,10 +1049,10 @@
         "位移"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "0b3f50a1145ea3438aa3c1409be4437ad5bd6019482338e27bb839bc99567944",
+      "contentHash": "e99943f5a6e849f643de7453a5cec11663cf75730ea8ccaa147d2e97b3e6654e",
       "clip": {
         "origin": 0,
-        "duration": 1.3347,
+        "duration": 0.8675,
         "layers": [
           {
             "name": "柔缓横移入场",
@@ -1025,8 +1073,8 @@
                   {
                     "time": 0,
                     "value": [
-                      -339.35,
-                      21.02,
+                      -340,
+                      0,
                       0
                     ],
                     "inInterp": "bezier",
@@ -1045,29 +1093,7 @@
                     ]
                   },
                   {
-                    "time": 0.7007,
-                    "value": [
-                      0,
-                      21.02,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 75
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 75
-                      }
-                    ]
-                  },
-                  {
-                    "time": 1.3347,
+                    "time": 0.8675,
                     "value": [
                       0,
                       0,
@@ -1078,7 +1104,7 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 55
+                        "influence": 75
                       }
                     ],
                     "outEase": [
@@ -1224,7 +1250,7 @@
         "位移"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "e291bb451f821c541ef53873b5fa14cd0948b7a8982efda1f3d5f115b6cd8b99",
+      "contentHash": "fe5c768170df5dfa895785fd4f93b7787bb824c900c714ae93cd49820bf89fae",
       "clip": {
         "origin": 0,
         "duration": 0.7007,
@@ -1252,8 +1278,20 @@
                       293,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.4004,
@@ -1284,8 +1322,20 @@
                       0,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   }
                 ]
               }
@@ -1312,7 +1362,7 @@
         "位移"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "e0b3f396a1917f128105fdaae77badb2f97b832ad5c5c86374511a9e8982b444",
+      "contentHash": "fcf29dd462d9d6dd4d5d2f829e5ed449215928e5c61718ef2afcfcef590112da",
       "clip": {
         "origin": 0,
         "duration": 1.368,
@@ -1345,7 +1395,7 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -1395,7 +1445,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -1424,7 +1474,7 @@
         "位移"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "1e0c4ab402da003afc474514a7cb8d551bdbfa3105110c3b4d602fb1014dbc63",
+      "contentHash": "04bf22f2b294ba9add5b9a6727b2e7006cb6fcdd5241571f2542c82725841ece",
       "clip": {
         "origin": 0,
         "duration": 1.2346,
@@ -1448,38 +1498,16 @@
                   {
                     "time": 0,
                     "value": [
-                      -339.9,
-                      8.06,
+                      -340,
+                      0,
                       0
                     ],
                     "inInterp": "bezier",
                     "outInterp": "bezier",
                     "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 16.67
-                      }
-                    ],
-                    "outEase": [
                       {
                         "speed": 0,
                         "influence": 33.33
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.4004,
-                    "value": [
-                      181.12,
-                      8.06,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 55
                       }
                     ],
                     "outEase": [
@@ -1492,8 +1520,8 @@
                   {
                     "time": 0.7341,
                     "value": [
-                      125.57,
-                      19.12,
+                      23.11,
+                      0,
                       0
                     ],
                     "inInterp": "bezier",
@@ -1501,35 +1529,13 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 55
+                        "influence": 75
                       }
                     ],
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 88
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.9676,
-                    "value": [
-                      190.57,
-                      -6.48,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 44
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 55
+                        "influence": 16
                       }
                     ]
                   },
@@ -1545,7 +1551,7 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 33.33
+                        "influence": 40
                       }
                     ],
                     "outEase": [
@@ -1571,7 +1577,7 @@
       "phase": "in",
       "defaultAnchor": "end",
       "description": "自上坠落微超目标位后回弹稳定，适合徽章与掉落标签。",
-      "sourceStyle": "Creative",
+      "sourceStyle": "Fashion",
       "tags": [
         "入场",
         "弹跳",
@@ -1580,10 +1586,10 @@
         "位移"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "8bdd99eff2571c1ec32a391f63c5c95bcebd89bb69b4532bb12b262440ab3af9",
+      "contentHash": "e1e3d9c0629f923f62fac4944467f5e838336f87ac1982c5f46e701fa80b02a0",
       "clip": {
         "origin": 0,
-        "duration": 0.8342,
+        "duration": 1.1345,
         "layers": [
           {
             "name": "过冲回弹下落",
@@ -1605,28 +1611,6 @@
                     "time": 0,
                     "value": [
                       0,
-                      -292.86,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.4338,
-                    "value": [
-                      0,
                       -340,
                       0
                     ],
@@ -1635,25 +1619,59 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 91
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 55
+                        "influence": 33.33
                       }
                     ]
                   },
                   {
-                    "time": 0.8342,
+                    "time": 0.6006,
+                    "value": [
+                      0,
+                      49.42,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 20.852,
+                        "influence": 20
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 20.852,
+                        "influence": 20
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.1345,
                     "value": [
                       0,
                       0,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 77
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   }
                 ]
               }
@@ -1671,7 +1689,7 @@
       "phase": "in",
       "defaultAnchor": "end",
       "description": "从小放大至超调后回弹至 100%，极具手调动效质感。",
-      "sourceStyle": "Minimal",
+      "sourceStyle": "Simple",
       "tags": [
         "入场",
         "弹跳",
@@ -1680,7 +1698,7 @@
         "弹出"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "4c5dedb36abaa80e1c20fb347095f715a6e953cc9815f57ffdf0d3f7fd5636d3",
+      "contentHash": "3db3c1807822daeda81e285319219fe051062627c8c4ef36612e96cd083e4169",
       "clip": {
         "origin": 0,
         "duration": 0.9343,
@@ -1704,8 +1722,8 @@
                   {
                     "time": 0,
                     "value": [
-                      0,
-                      50,
+                      22,
+                      22,
                       100
                     ],
                     "inInterp": "bezier",
@@ -1713,143 +1731,67 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 0.1
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 0.1
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5339,
+                    "value": [
+                      140,
+                      140,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
                       },
                       {
                         "speed": 0,
                         "influence": 16.67
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 448.638,
-                        "influence": 40
-                      },
-                      {
-                        "speed": 448.638,
-                        "influence": 40
-                      },
-                      {
-                        "speed": 297.711,
-                        "influence": 16.96
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.367,
-                    "value": [
-                      179.7,
-                      179.7,
-                      100
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 55
                       },
                       {
                         "speed": 0,
-                        "influence": 55
-                      },
-                      {
-                        "speed": 0,
-                        "influence": 30.99
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 87
-                      },
-                      {
-                        "speed": 0,
-                        "influence": 87
-                      },
-                      {
-                        "speed": 0,
-                        "influence": 34.55
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.7341,
-                    "value": [
-                      99.43,
-                      136.68,
-                      100
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": -1056.734,
-                        "influence": 15.21
-                      },
-                      {
-                        "speed": -1359.07,
-                        "influence": 15.21
-                      },
-                      {
-                        "speed": -13.859,
-                        "influence": 34.35
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": -1056.734,
-                        "influence": 19.45
-                      },
-                      {
-                        "speed": -1359.07,
-                        "influence": 19.45
-                      },
-                      {
-                        "speed": -13.859,
-                        "influence": 31.13
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.8342,
-                    "value": [
-                      107.94,
-                      96.94,
-                      100
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 211.677,
-                        "influence": 60.96
-                      },
-                      {
-                        "speed": 211.677,
-                        "influence": 60.96
-                      },
-                      {
-                        "speed": 243.849,
-                        "influence": 36.13
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 211.677,
-                        "influence": 31.22
-                      },
-                      {
-                        "speed": 211.677,
-                        "influence": 31.22
-                      },
-                      {
-                        "speed": 243.849,
-                        "influence": 35.14
+                        "influence": 16.67
                       }
                     ]
                   },
@@ -1860,8 +1802,36 @@
                       100,
                       100
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   }
                 ]
               }
@@ -1879,7 +1849,7 @@
       "phase": "in",
       "defaultAnchor": "end",
       "description": "高张力弹性缩放，适合主 CTA 按钮、角标与核心图标。",
-      "sourceStyle": "Minimal",
+      "sourceStyle": "Vintage",
       "tags": [
         "入场",
         "弹跳",
@@ -1887,10 +1857,10 @@
         "图标"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "3beb5f0c0021aaf11eb12b92ede824bfc9c15f05870adc230004bb1022fc82ea",
+      "contentHash": "10ff19acbfb8bdd13a6157c48a2e7f4c6594f8a388008e34cec3e3564265938f",
       "clip": {
         "origin": 0,
-        "duration": 0.9676,
+        "duration": 1.2012,
         "layers": [
           {
             "name": "清脆二次弹入",
@@ -1912,7 +1882,7 @@
                     "time": 0,
                     "value": [
                       0,
-                      50,
+                      0,
                       100
                     ],
                     "inInterp": "bezier",
@@ -1920,42 +1890,18 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
-                      {
-                        "speed": 448.638,
-                        "influence": 40
-                      },
-                      {
-                        "speed": 448.638,
-                        "influence": 40
-                      },
-                      {
-                        "speed": 0,
-                        "influence": 16.96
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.4004,
-                    "value": [
-                      179.7,
-                      179.7,
-                      100
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
                       {
                         "speed": 0,
                         "influence": 55
@@ -1966,109 +1912,85 @@
                       },
                       {
                         "speed": 0,
-                        "influence": 30.99
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 87
-                      },
-                      {
-                        "speed": 0,
-                        "influence": 87
-                      },
-                      {
-                        "speed": 0,
-                        "influence": 34.55
+                        "influence": 55
                       }
                     ]
                   },
                   {
-                    "time": 0.7674,
+                    "time": 0.8008,
                     "value": [
-                      99.43,
-                      136.68,
+                      121.72,
+                      121.72,
                       100
                     ],
                     "inInterp": "bezier",
                     "outInterp": "bezier",
                     "inEase": [
                       {
-                        "speed": -1056.734,
-                        "influence": 15.21
-                      },
-                      {
-                        "speed": -1359.07,
-                        "influence": 15.21
+                        "speed": 0,
+                        "influence": 75
                       },
                       {
                         "speed": 0,
-                        "influence": 34.35
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 75
                       }
                     ],
                     "outEase": [
                       {
-                        "speed": -1056.734,
-                        "influence": 19.45
-                      },
-                      {
-                        "speed": -1359.07,
-                        "influence": 19.45
+                        "speed": 0,
+                        "influence": 55
                       },
                       {
                         "speed": 0,
-                        "influence": 31.13
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 55
                       }
                     ]
                   },
                   {
-                    "time": 0.8675,
+                    "time": 1.2012,
                     "value": [
-                      107.94,
-                      96.94,
+                      100,
+                      100,
                       100
                     ],
                     "inInterp": "bezier",
                     "outInterp": "bezier",
                     "inEase": [
                       {
-                        "speed": 211.677,
-                        "influence": 60.96
-                      },
-                      {
-                        "speed": 211.677,
-                        "influence": 60.96
+                        "speed": 0,
+                        "influence": 75
                       },
                       {
                         "speed": 0,
-                        "influence": 36.13
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 75
                       }
                     ],
                     "outEase": [
                       {
-                        "speed": 211.677,
-                        "influence": 31.22
-                      },
-                      {
-                        "speed": 211.677,
-                        "influence": 31.22
+                        "speed": 0,
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 35.14
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
                       }
                     ]
-                  },
-                  {
-                    "time": 0.9676,
-                    "value": [
-                      100,
-                      100,
-                      100
-                    ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
                   }
                 ]
               }
@@ -2094,7 +2016,7 @@
         "急停"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "1ea30e682588d1626db45808bc97d7e9e18326043fd84f9c9e8dc4c51cb23d82",
+      "contentHash": "d396b6cca01de812d507d21debaf768e23163c2de9d1939ae16d59aaa86d229f",
       "clip": {
         "origin": 0,
         "duration": 0.6667,
@@ -2127,15 +2049,15 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -2217,15 +2139,15 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -2375,7 +2297,7 @@
         "线条"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "c5f4be6d65b9e2e787489ab50ac76aa350b60561d7e96806a1bac577302d0f36",
+      "contentHash": "ab5e7ec52c09caea3b7831c58e4cfcb40238eed52705030a1f5c111ab5cc4ef7",
       "clip": {
         "origin": 0,
         "duration": 0.7007,
@@ -2408,15 +2330,15 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -2488,7 +2410,7 @@
       "phase": "in",
       "defaultAnchor": "end",
       "description": "保持宽度不变，沿垂直方向展开，适合卡片容器与柱状图。",
-      "sourceStyle": "Production",
+      "sourceStyle": "Minimal",
       "tags": [
         "入场",
         "缩放",
@@ -2497,10 +2419,10 @@
         "卡片"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "e957a238d55ed4747b9c1847e75bb28ca4c03ec81c7c8b91e9acc2048c5ff998",
+      "contentHash": "5ba3da420b10a9744579a0192f7a2492f892471d0f521c37b4772a3b434aa981",
       "clip": {
         "origin": 0,
-        "duration": 1.6016,
+        "duration": 1.0344,
         "layers": [
           {
             "name": "纵向拉开展开",
@@ -2521,46 +2443,8 @@
                   {
                     "time": 0,
                     "value": [
-                      100,
+                      99,
                       0,
-                      100
-                    ],
-                    "inInterp": "linear",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 16.67
-                      },
-                      {
-                        "speed": 0,
-                        "influence": 16.67
-                      },
-                      {
-                        "speed": 0,
-                        "influence": 16.67
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 25.72
-                      },
-                      {
-                        "speed": 71.357,
-                        "influence": 25.72
-                      },
-                      {
-                        "speed": 0,
-                        "influence": 25.72
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.8342,
-                    "value": [
-                      100,
-                      138.75,
                       100
                     ],
                     "inInterp": "bezier",
@@ -2568,15 +2452,15 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 85
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 85
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 85
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -2590,19 +2474,47 @@
                       },
                       {
                         "speed": 0,
-                        "influence": 85
+                        "influence": 33.33
                       }
                     ]
                   },
                   {
-                    "time": 1.6016,
+                    "time": 1.0344,
                     "value": [
                       100,
                       100,
                       100
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   }
                 ]
               }
@@ -2629,7 +2541,7 @@
         "呼吸"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "d45fea5c56fdcdb2ad4fb509c47c0cbf9e7dd667a154e3ce76addeb9335bba72",
+      "contentHash": "52853493e0afba98a42f649753e3d1010e3db367260b7cb26f3cc241f3d5a36c",
       "clip": {
         "origin": 0,
         "duration": 0.4671,
@@ -2657,8 +2569,36 @@
                       100,
                       100
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.2336,
@@ -2705,8 +2645,36 @@
                       100,
                       100
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   }
                 ]
               }
@@ -2732,10 +2700,10 @@
         "轻盈"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "aae60d635e4dcd735a12ecaf60d08488782b44f7a5727726aadea87f3122d883",
+      "contentHash": "6c9f457e390c0bb3f7c872e2f0096b6520850a4b232b8538ad106d04728645c0",
       "clip": {
         "origin": 0,
-        "duration": 0.9343,
+        "duration": 1.0677,
         "layers": [
           {
             "name": "微倾摆正入场",
@@ -2755,91 +2723,55 @@
                 "keys": [
                   {
                     "time": 0,
-                    "value": 27,
-                    "inInterp": "linear",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 16.67
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": -49.129,
-                        "influence": 19.85
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.3003,
-                    "value": -16.79,
+                    "value": 36,
                     "inInterp": "bezier",
                     "outInterp": "bezier",
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 88
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 80.73
+                        "influence": 33.33
                       }
                     ]
                   },
                   {
-                    "time": 0.5339,
-                    "value": 7.15,
+                    "time": 0.7341,
+                    "value": -5,
                     "inInterp": "bezier",
                     "outInterp": "bezier",
                     "inEase": [
                       {
-                        "speed": 0,
-                        "influence": 25
+                        "speed": -25,
+                        "influence": 83
                       }
                     ],
                     "outEase": [
                       {
-                        "speed": 0,
-                        "influence": 23.57
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.7674,
-                    "value": -1.68,
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 55
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
+                        "speed": -25,
                         "influence": 55
                       }
                     ]
                   },
                   {
-                    "time": 0.9343,
+                    "time": 1.0677,
                     "value": 0,
                     "inInterp": "bezier",
                     "outInterp": "bezier",
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 55
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -2867,7 +2799,7 @@
         "90度"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "445046e26e36e944721a1e5e84716f4de1c77e3767c0d0fda340b03af3d9ae64",
+      "contentHash": "a82820fa41fa6c050441321e741e0db707d3f9575585191aa68c323e960ced85",
       "clip": {
         "origin": 0,
         "duration": 0.6673,
@@ -2891,8 +2823,20 @@
                   {
                     "time": 0,
                     "value": 90,
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.6673,
@@ -2908,7 +2852,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3017,7 +2961,7 @@
         "图标"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "fc3332fae2b497f5807f86df0d4b5ce5f56a437b3a7b94573c0e9ca2c02b0879",
+      "contentHash": "9f6be6e2e46a5deb2f0d56c7fa535a4c9a6e8baa36d7b02d4b7445f11a0b3b83",
       "clip": {
         "origin": 0,
         "duration": 0.9343,
@@ -3041,8 +2985,20 @@
                   {
                     "time": 0,
                     "value": 0,
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.367,
@@ -3076,7 +3032,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3104,7 +3060,7 @@
         "柔和"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "4c4d27d8dd57007813a22bb0289a45daed579d3f35e7864efacc20e8f60a8103",
+      "contentHash": "b5b7de8c6575eb51bc2dbee320472cc00d2f72e0a33743a3868eabf59ece792a",
       "clip": {
         "origin": 0,
         "duration": 1.2679,
@@ -3133,7 +3089,7 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 78
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -3175,7 +3131,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 50
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3204,7 +3160,7 @@
         "透明度"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "d9fccc75ba3236250225d96954786c0ca66f8c519e3386faf99b08fc14d005f0",
+      "contentHash": "9113ab8500dbe5b09905a86bbe467a744f0bd18bb06020682c92046f2bcb4637",
       "clip": {
         "origin": 0,
         "duration": 0.5339,
@@ -3228,8 +3184,20 @@
                   {
                     "time": 0,
                     "value": 0,
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.0667,
@@ -3305,7 +3273,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3333,7 +3301,7 @@
         "透明度"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "b2219c090efa5bc9370abcc754e8fefa86422816fbdb4f529d78434c01b3e38b",
+      "contentHash": "daa7c3923aa7867a2c9af303a5c66454e485346c45c9c16ba209dfbe5669cf78",
       "clip": {
         "origin": 0,
         "duration": 0.9009,
@@ -3404,7 +3372,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3433,7 +3401,7 @@
         "UI"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "3849fb61038c9d5123f561aeffa560537e263b73c022ee73610f7831aaca0d31",
+      "contentHash": "7bea91ad364050dfdcd94d52239caf47505afc172b8255206623e20a3d46fcf8",
       "clip": {
         "origin": 0,
         "duration": 0.8342,
@@ -3457,8 +3425,20 @@
                   {
                     "time": 0,
                     "value": 0,
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.8342,
@@ -3474,7 +3454,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3500,8 +3480,20 @@
                       -340,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.8342,
@@ -3521,7 +3513,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3550,7 +3542,7 @@
         "弹窗"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "3c88c38db4714035f97f77597615c93d37ec3214c0a3539fd560f653fd264d92",
+      "contentHash": "ce6dae6f5f6e135aede583e22a841849a18ee84e3aaf4c0465ab7cc26b7ae19c",
       "clip": {
         "origin": 0,
         "duration": 0.3333,
@@ -3603,7 +3595,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3723,7 +3715,7 @@
         "景深"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "d3231fd4a99c702f1ccca473fb25598334141187132be14dd307ee4fbac8950a",
+      "contentHash": "c932fe4aaecf62d4b1d0d41de4ee7d858fb1263171d9c9ba5e1dc3fe5a5bc1c5",
       "clip": {
         "origin": 0,
         "duration": 0.7674,
@@ -3751,8 +3743,20 @@
                       0,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.7674,
@@ -3772,7 +3776,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 90
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3798,8 +3802,36 @@
                       0,
                       100
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.7674,
@@ -3827,15 +3859,15 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 90
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 90
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 90
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3864,7 +3896,7 @@
         "动感"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "a60f4610c88436ba141f6d39124857d42bd4b963cb99a31225222e9c5ac0af32",
+      "contentHash": "fd1208b491012b880fb2d4a3e914c8d7063c27db3a8a77ebc3eb8810f68ee2df",
       "clip": {
         "origin": 0,
         "duration": 0.6673,
@@ -3892,8 +3924,20 @@
                       0,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.6673,
@@ -3913,7 +3957,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3935,8 +3979,20 @@
                   {
                     "time": 0,
                     "value": 90,
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.6673,
@@ -3952,7 +4008,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -3981,7 +4037,7 @@
         "Logo"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "f9b0f0f823de1233e3cc8016018dcc1e9f0c986c6bf26bae64b2bf93fc53e7fd",
+      "contentHash": "bff78867c8137008b414743a90ab8e469700fc91f38674e0ae7e192b33a75b5c",
       "clip": {
         "origin": 0,
         "duration": 0.7674,
@@ -4005,8 +4061,20 @@
                   {
                     "time": 0,
                     "value": -51,
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.7674,
@@ -4048,8 +4116,36 @@
                       13.45,
                       100
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.7674,
@@ -4115,7 +4211,7 @@
         "动感"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "30b7b395b50f752f2be1a3468ce1e81d960bed44f522655ae595fd62f0d977d0",
+      "contentHash": "5e6f45b11092177145cef49fe32b3326fe940e08c01173a1271f1c72abc08d7b",
       "clip": {
         "origin": 0,
         "duration": 1.1011,
@@ -4143,8 +4239,20 @@
                       1.82,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.7341,
@@ -4186,7 +4294,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -4255,7 +4363,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -4274,6 +4382,44 @@
                 ],
                 "type": "ThreeD",
                 "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
                   {
                     "time": 0.7341,
                     "value": [
@@ -4338,15 +4484,15 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -4366,7 +4512,7 @@
       "phase": "out",
       "defaultAnchor": "start",
       "description": "由静止强加速向上甩出画面，干脆利落收尾。",
-      "sourceStyle": "Simple",
+      "sourceStyle": "Bigtypo",
       "tags": [
         "出场",
         "退场",
@@ -4374,10 +4520,10 @@
         "向上"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "42a14053c93f67d4fad21c57fd43cb33d187ff6788c5684d3e8618dd2e4bd5c5",
+      "contentHash": "1480c07eedf1717e9ed023aa1683da7513101b4fd7b9d51515524f8de1509dc0",
       "clip": {
         "origin": 0,
-        "duration": 0.7007,
+        "duration": 0.6673,
         "layers": [
           {
             "name": "加速上滑退场",
@@ -4407,7 +4553,7 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -4418,20 +4564,10 @@
                     ]
                   },
                   {
-                    "time": 0.3337,
+                    "time": 0.6673,
                     "value": [
                       0,
-                      32.5,
-                      0
-                    ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
-                  },
-                  {
-                    "time": 0.7007,
-                    "value": [
-                      0,
-                      -98,
+                      -181,
                       0
                     ],
                     "inInterp": "linear",
@@ -4538,10 +4674,10 @@
         "向左"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "da51b27358713c05bd96d7a7c2bb7c15aaadd3b8f56c3d99fee5eecb272c44df",
+      "contentHash": "35e5d07dcbd91ecd44cf14e95ecbe14fc26ec7de5e301339b642d9408d5f6c1f",
       "clip": {
         "origin": 0,
-        "duration": 0.8342,
+        "duration": 0.7007,
         "layers": [
           {
             "name": "加速左滑退场",
@@ -4571,37 +4707,25 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 85
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 98
                       }
                     ]
                   },
                   {
-                    "time": 0.8342,
+                    "time": 0.7007,
                     "value": [
-                      -131,
+                      -340,
                       0,
                       0
                     ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 100
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 16.67
-                      }
-                    ]
+                    "inInterp": "linear",
+                    "outInterp": "linear"
                   }
                 ]
               }
@@ -4704,7 +4828,7 @@
         "消失"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "004fa42cb4781c4793f12f7cd668ac4a08289945462549bde634861eb9cf9615",
+      "contentHash": "64aeed93ab51f6d8d9cf8c3607aea9b10abfd4c7e929ab7510c37ea3a4c95d3c",
       "clip": {
         "origin": 0,
         "duration": 1.0677,
@@ -4737,15 +4861,15 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       },
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -4862,7 +4986,7 @@
         "旋转"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "abd6f0b203ab104e092dae6393f8aedd48b8a244a8c92a6f4883cf4e9ae9203f",
+      "contentHash": "41df075cde2f21971c25ca7336e4770a89a2479f50665c335cbe931c6762012f",
       "clip": {
         "origin": 0,
         "duration": 0.2669,
@@ -4891,7 +5015,7 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -4931,7 +5055,7 @@
         "透明度"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "e426085aa608435793c3a3bc3df848a90271d4beb2a5909d5c960e6aec60d0cf",
+      "contentHash": "e8d6997805d4db0c03d80cec7278c38aa2061a94316084e68f5de2684944be79",
       "clip": {
         "origin": 0,
         "duration": 1.0677,
@@ -4960,7 +5084,7 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -5013,7 +5137,7 @@
         "淡入"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "3283512e845e2ea6e390c0c42458fc7150caf2d5f7384ded4e9f2e8b46c9d7ba",
+      "contentHash": "7f542d0d82e2b73e831912a273ac2a1bbb24a3979ba4ca91c3ada4e00e23f01a",
       "clip": {
         "origin": 0,
         "duration": 0.8675,
@@ -5041,8 +5165,20 @@
                       72,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.8675,
@@ -5062,7 +5198,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -5142,7 +5278,7 @@
         "淡入"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "5b717837e23f0603bad17612f6ea5db706d223c670633f13029f811f69ec6473",
+      "contentHash": "19636ee1854f5503b7b33dbaf11c2775612378f23aa76134bc84d369d4e34d75",
       "clip": {
         "origin": 0,
         "duration": 0.8675,
@@ -5170,8 +5306,20 @@
                       -72,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.8675,
@@ -5191,7 +5339,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -5271,7 +5419,7 @@
         "淡入"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "446a5fcb200ae24b5b34c27b6f7b17fe676178fc63e6978250a501145b40d97a",
+      "contentHash": "0f4413353d4cf6b938170e29b739711684bf40c5dbd43ecc1c3aa7e4670c810d",
       "clip": {
         "origin": 0,
         "duration": 0.8675,
@@ -5299,8 +5447,20 @@
                       0,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.8675,
@@ -5320,7 +5480,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -5400,7 +5560,7 @@
         "淡入"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "61737690e7b8dc28fb6420f6d68c25ccaaa0894b12d0f4b8f9e45fc46afd81f0",
+      "contentHash": "5fc5c2c6f0caab6062783327e4cd5e0f5e72eab5afbab8a3cccc314d33e596e1",
       "clip": {
         "origin": 0,
         "duration": 0.8675,
@@ -5428,8 +5588,20 @@
                       0,
                       0
                     ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
                   },
                   {
                     "time": 0.8675,
@@ -5449,7 +5621,7 @@
                     "outEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ]
                   }
@@ -5529,10 +5701,10 @@
         "淡出"
       ],
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "f0d568843464ef1b0b592ab86afcbda3126da45161aebd9146f249abb5ec4dc3",
+      "contentHash": "45ba58a69fb4ac7d94740a3e93aa1467506b2d5577df72bd0dfd55c844aee39d",
       "clip": {
         "origin": 0,
-        "duration": 0.7007,
+        "duration": 0.6673,
         "layers": [
           {
             "name": "UI 轻盈上滑淡出",
@@ -5562,7 +5734,7 @@
                     "inEase": [
                       {
                         "speed": 0,
-                        "influence": 16.67
+                        "influence": 33.33
                       }
                     ],
                     "outEase": [
@@ -5573,17 +5745,7 @@
                     ]
                   },
                   {
-                    "time": 0.3337,
-                    "value": [
-                      0,
-                      23.88,
-                      0
-                    ],
-                    "inInterp": "linear",
-                    "outInterp": "linear"
-                  },
-                  {
-                    "time": 0.7007,
+                    "time": 0.6673,
                     "value": [
                       0,
                       -72,
@@ -5608,7 +5770,7 @@
                 "type": "OneD",
                 "keys": [
                   {
-                    "time": 0.2452,
+                    "time": 0,
                     "value": 100,
                     "inInterp": "bezier",
                     "outInterp": "bezier",
@@ -5626,7 +5788,7 @@
                     ]
                   },
                   {
-                    "time": 0.7007,
+                    "time": 0.6673,
                     "value": 0,
                     "inInterp": "bezier",
                     "outInterp": "bezier",
