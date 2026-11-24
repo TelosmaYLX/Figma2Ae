@@ -27,6 +27,55 @@ const BLEND_CSS = {
 
 const VALID_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp']);
 
+// Align SVG outer CSS boxes to 4-CSS-px multiples so every standard DPI scale (100%, 125%,
+// 150%, 175%, 200%, 225%, 250%, 300%) maps them to exact integer physical pixels. Otherwise
+// Blink pixel-snaps odd coordinates/sizes by up to +/-0.4 CSS px on fractional-DPI displays.
+const PIXEL_GRID = 4;
+function floorGrid(value) {
+  return Math.floor(value / PIXEL_GRID) * PIXEL_GRID;
+}
+function ceilGrid(value) {
+  return Math.ceil(value / PIXEL_GRID) * PIXEL_GRID;
+}
+function isGridAligned(value) {
+  return Math.abs(value - Math.round(value / PIXEL_GRID) * PIXEL_GRID) < 1e-4;
+}
+
+function rotatedBounds(cx, cy, w, h, rotDeg) {
+  const hw = w / 2, hh = h / 2;
+  if (!rotDeg) return {minX: cx - hw, minY: cy - hh, maxX: cx + hw, maxY: cy + hh};
+  const rad = rotDeg * Math.PI / 180;
+  const c = Math.abs(Math.cos(rad)), s = Math.abs(Math.sin(rad));
+  const ex = hw * c + hh * s, ey = hw * s + hh * c;
+  return {minX: cx - ex, minY: cy - ey, maxX: cx + ex, maxY: cy + ey};
+}
+
+function roundedRectSvgGeom(x, y, w, h, radii, r, extraAttrs = '') {
+  const maxR = Math.max(0, Math.min(w / 2, h / 2));
+  if (Array.isArray(radii) && radii.length === 4) {
+    const [tl, tr, br, bl] = radii.map(v => Math.max(0, Math.min(Number(v) || 0, maxR)));
+    if (tl === tr && tr === br && br === bl) {
+      const rx = tl > 0 ? ` rx="${num(tl)}" ry="${num(tl)}"` : '';
+      return `<rect x="${num(x)}" y="${num(y)}" width="${num(w)}" height="${num(h)}"${rx}${extraAttrs}/>`;
+    }
+    const x2 = x + w, y2 = y + h;
+    const d =
+      `M${num(x + tl)} ${num(y)}H${num(x2 - tr)}` +
+      (tr > 0 ? `A${num(tr)} ${num(tr)} 0 0 1 ${num(x2)} ${num(y + tr)}` : '') +
+      `V${num(y2 - br)}` +
+      (br > 0 ? `A${num(br)} ${num(br)} 0 0 1 ${num(x2 - br)} ${num(y2)}` : '') +
+      `H${num(x + bl)}` +
+      (bl > 0 ? `A${num(bl)} ${num(bl)} 0 0 1 ${num(x)} ${num(y2 - bl)}` : '') +
+      `V${num(y + tl)}` +
+      (tl > 0 ? `A${num(tl)} ${num(tl)} 0 0 1 ${num(x + tl)} ${num(y)}` : '') +
+      'Z';
+    return `<path d="${d}"${extraAttrs}/>`;
+  }
+  const single = Math.max(0, Math.min(Number(r) || 0, maxR));
+  const rx = single > 0 ? ` rx="${num(single)}" ry="${num(single)}"` : '';
+  return `<rect x="${num(x)}" y="${num(y)}" width="${num(w)}" height="${num(h)}"${rx}${extraAttrs}/>`;
+}
+
 function num(value) {
   if (!Number.isFinite(value)) return '0';
   const rounded = Math.abs(value) < 1e-6 ? 0 : Math.round(value * 10000) / 10000;
@@ -886,13 +935,14 @@ function buildWebModel(packet) {
     const pathNames = parentCtx.pathNames.concat([item.name || 'Shape']);
     counts.shapes++;
 
-    // Chromium pixel-snaps CSS boxes, so a 13.33px dot at x=448.33 paints as a hard 14px disc.
-    // Only whole-pixel primitives stay CSS boxes; fractional ones go through SVG, which keeps
-    // Figma's sub-pixel edge coverage.
+    // Chromium pixel-snaps CSS boxes to physical pixels (shifting fractional OR odd coords on
+    // 125%/150%/175% displays). Only 4px-grid-aligned primitives (or backdrop-blur cards, which
+    // need CSS backdrop-filter) stay CSS boxes; everything else goes through 4px-aligned SVG.
     const primRect = item.prim ? shapeRect(item) : null;
     const backdrop = !!item.bgBlur || (item.fx || []).some(fx => fx.kind === 'bgblur');
-    const cssBoxOk = !!primRect && (backdrop || [primRect.left, primRect.top, primRect.width, primRect.height]
-      .every(v => Math.abs(v - Math.round(v)) < 0.02));
+    const cssBoxOk = !!primRect && (backdrop || [
+      primRect.left, primRect.top, primRect.left + primRect.width, primRect.top + primRect.height,
+    ].every(isGridAligned));
     if (isSimpleCssPrim(item) && cssBoxOk) {
       const rect = primRect;
       const {decls, boxShadows} = commonDecls(item, {isCssBox: true});
@@ -935,10 +985,10 @@ function buildWebModel(packet) {
     // Inline SVG for arbitrary paths, gradients, center strokes, multi-paints, dashes
     const rect = shapeRect(item);
     const strokePad = Math.ceil(maxShapeStrokeWidth(item) * 2) + 2;
-    const vx = Math.floor(rect.left - strokePad);
-    const vy = Math.floor(rect.top - strokePad);
-    const vw = Math.max(1, Math.ceil(rect.left + rect.width + strokePad) - vx);
-    const vh = Math.max(1, Math.ceil(rect.top + rect.height + strokePad) - vy);
+    const vx = floorGrid(rect.left - strokePad);
+    const vy = floorGrid(rect.top - strokePad);
+    const vw = Math.max(PIXEL_GRID, ceilGrid(rect.left + rect.width + strokePad) - vx);
+    const vh = Math.max(PIXEL_GRID, ceilGrid(rect.top + rect.height + strokePad) - vy);
     const viewBox = {x: vx, y: vy, w: vw, h: vh};
 
     const localDefs = [];
@@ -1209,67 +1259,86 @@ function buildWebModel(packet) {
       ? ` data-image-filters="${escapeHtml(JSON.stringify(item.imageFilters))}" data-grade-src="data:image/${asset.ext === 'jpg' ? 'jpeg' : asset.ext};base64,${asset.base64}"`
       : '';
 
-    const {decls} = commonDecls(item, {isCssBox: !!item.matte});
+    const scale = item.rasterScale ? (1 / item.rasterScale) : (item.scaleMode === 'FIT' ? Math.min(width / nw, height / nh) : Math.max(width / nw, height / nh));
+    const dw = nw * scale, dh = nh * scale;
+    const imgLeft = cx - dw / 2, imgTop = cy - dh / 2;
+    const plainGridImg = !item.matte && !item.imageMatrix && !rot && !needsSvgEffectFilter(item) &&
+      [imgLeft, imgTop, imgLeft + dw, imgTop + dh].every(isGridAligned);
 
     let html;
-    if (item.matte) {
-      const matteDecls = [
-        `left: ${px(cx - width / 2 - parentCtx.x)};`,
-        `top: ${px(cy - height / 2 - parentCtx.y)};`,
-        `width: ${px(width)};`,
-        `height: ${px(height)};`,
-        'overflow: hidden;',
-      ];
-      if (item.matte.kind === 'ellipse') {
-        matteDecls.push('border-radius: 50%;');
-      } else {
-        const rad = cssBorderRadius(item.matte.radii, item.matte.r, width, height);
-        if (rad) matteDecls.push(`border-radius: ${rad};`);
-      }
-      if (rot) matteDecls.push(`transform: rotate(${num(rot)}deg);`);
-      matteDecls.push(...decls);
-      cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${matteDecls.join(' ')} }`);
-
-      const imgId = nextId('f2a-img');
-      if (item.imageMatrix) {
-        const m = item.imageMatrix;
-        const a = m[0] / nw, b = m[1] / nw, c = m[2] / nh, d = m[3] / nh;
-        const unrotId = nextId('f2a-ur');
-        cssRules.push(`#${unrotId} { position: absolute; left: 50%; top: 50%; width: 0; height: 0;${rot ? ` transform: rotate(${num(-rot)}deg);` : ''} }`);
-        cssRules.push(`#${imgId} { position: absolute; left: 0; top: 0; width: ${px(nw)}; height: ${px(nh)}; transform-origin: 0 0; transform: matrix(${num(a)}, ${num(b)}, ${num(c)}, ${num(d)}, ${num(m[4] - cx)}, ${num(m[5] - cy)}); }`);
-        html =
-          `${indent}<div ${dataAttrs(domId, item, pathNames, 'image', 'class="f2a-image-matte"')}>` +
-          `<div id="${unrotId}"><img id="${imgId}" class="f2a-image-media" src="${escapeHtml(asset.file)}" alt="${escapeHtml(item.name || '')}" draggable="false"${gradeAttrs}></div></div>`;
-      } else {
-        const scale = item.rasterScale ? (1 / item.rasterScale) : (item.scaleMode === 'FIT' ? Math.min(width / nw, height / nh) : Math.max(width / nw, height / nh));
-        const dw = nw * scale, dh = nh * scale;
-        cssRules.push(`#${imgId} { position: absolute; left: 50%; top: 50%; width: ${px(dw)}; height: ${px(dh)}; transform: translate(-50%, -50%); }`);
-        html =
-          `${indent}<div ${dataAttrs(domId, item, pathNames, 'image', 'class="f2a-image-matte"')}>` +
-          `<img id="${imgId}" class="f2a-image-media" src="${escapeHtml(asset.file)}" alt="${escapeHtml(item.name || '')}" draggable="false"${gradeAttrs}></div>`;
-      }
-    } else if (item.imageMatrix) {
-      const m = item.imageMatrix;
-      const a = m[0] / nw, b = m[1] / nw, c = m[2] / nh, d = m[3] / nh;
+    if (plainGridImg) {
+      const {decls} = commonDecls(item, {isCssBox: false});
       decls.unshift(
-        'left: 0;', 'top: 0;', `width: ${px(nw)};`, `height: ${px(nh)};`,
-        'transform-origin: 0 0;',
-        `transform: matrix(${num(a)}, ${num(b)}, ${num(c)}, ${num(d)}, ${num(m[4] - parentCtx.x)}, ${num(m[5] - parentCtx.y)});`
+        `left: ${px(imgLeft - parentCtx.x)};`,
+        `top: ${px(imgTop - parentCtx.y)};`,
+        `width: ${px(dw)};`,
+        `height: ${px(dh)};`
       );
       cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${decls.join(' ')} }`);
       html = `${indent}<img ${dataAttrs(domId, item, pathNames, 'image', 'class="f2a-image"')} src="${escapeHtml(asset.file)}" alt="${escapeHtml(item.name || '')}" draggable="false"${gradeAttrs}>`;
     } else {
-      const scale = item.rasterScale ? (1 / item.rasterScale) : (item.scaleMode === 'FIT' ? Math.min(width / nw, height / nh) : Math.max(width / nw, height / nh));
-      const dw = nw * scale, dh = nh * scale;
+      // Render through a 4px-grid-aligned inline SVG so Blink never pixel-snaps odd/fractional
+      // image positions or dimensions on 125%/150%/175% displays.
+      let b;
+      if (item.matte) {
+        b = rotatedBounds(cx, cy, width, height, rot);
+      } else if (item.imageMatrix) {
+        const m = item.imageMatrix;
+        const xs = [m[4], m[4] + m[0], m[4] + m[2], m[4] + m[0] + m[2]];
+        const ys = [m[5], m[5] + m[1], m[5] + m[3], m[5] + m[1] + m[3]];
+        b = {minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys)};
+      } else {
+        b = rotatedBounds(cx, cy, dw, dh, rot);
+      }
+      const vx = floorGrid(b.minX);
+      const vy = floorGrid(b.minY);
+      const vw = Math.max(PIXEL_GRID, ceilGrid(b.maxX) - vx);
+      const vh = Math.max(PIXEL_GRID, ceilGrid(b.maxY) - vy);
+      const viewBox = {x: vx, y: vy, w: vw, h: vh};
+
+      const localDefs = [];
+      let imgTag;
+      if (item.imageMatrix) {
+        const m = item.imageMatrix;
+        const a = m[0] / nw, b1 = m[1] / nw, c = m[2] / nh, d = m[3] / nh;
+        imgTag = `<image href="${escapeHtml(asset.file)}" width="${num(nw)}" height="${num(nh)}" preserveAspectRatio="none" transform="matrix(${num(a)} ${num(b1)} ${num(c)} ${num(d)} ${num(m[4])} ${num(m[5])})"${gradeAttrs}/>`;
+      } else {
+        const rotAttr = rot ? ` transform="rotate(${num(rot)} ${num(cx)} ${num(cy)})"` : '';
+        imgTag = `<image href="${escapeHtml(asset.file)}" x="${num(imgLeft)}" y="${num(imgTop)}" width="${num(dw)}" height="${num(dh)}" preserveAspectRatio="none"${rotAttr}${gradeAttrs}/>`;
+      }
+
+      let body = imgTag;
+      if (item.matte) {
+        const clipId = nextDef('f2a-iclip-');
+        const rotAttr = rot ? ` transform="rotate(${num(rot)} ${num(cx)} ${num(cy)})"` : '';
+        const matteGeom = item.matte.kind === 'ellipse'
+          ? `<ellipse cx="${num(cx)}" cy="${num(cy)}" rx="${num(width / 2)}" ry="${num(height / 2)}"${rotAttr}/>`
+          : roundedRectSvgGeom(cx - width / 2, cy - height / 2, width, height, item.matte.radii, item.matte.r, rotAttr);
+        localDefs.push(`<clipPath id="${clipId}">${matteGeom}</clipPath>`);
+        body = `<g clip-path="url(#${clipId})">${imgTag}</g>`;
+      }
+
+      let svgFilterId = null;
+      if (needsSvgEffectFilter(item)) {
+        const fid = nextDef('f2a-fx-');
+        const filterDef = buildSvgEffectFilter(fid, item.fx || [], viewBox);
+        if (filterDef) {
+          localDefs.push(filterDef);
+          svgFilterId = fid;
+          body = `<g filter="url(#${svgFilterId})">${body}</g>`;
+        }
+      }
+
+      const {decls} = commonDecls(item, {isCssBox: false, skipShadows: !!svgFilterId});
       decls.unshift(
-        `left: ${px(cx - dw / 2 - parentCtx.x)};`,
-        `top: ${px(cy - dh / 2 - parentCtx.y)};`,
-        `width: ${px(dw)};`,
-        `height: ${px(dh)};`
+        `left: ${px(vx - parentCtx.x)};`,
+        `top: ${px(vy - parentCtx.y)};`,
+        `width: ${px(vw)};`,
+        `height: ${px(vh)};`
       );
-      if (rot) decls.push(`transform: rotate(${num(rot)}deg);`);
       cssRules.push(`/* ${escapeCssComment(pathNames.join(' / '))} */\n#${domId} { ${decls.join(' ')} }`);
-      html = `${indent}<img ${dataAttrs(domId, item, pathNames, 'image', 'class="f2a-image"')} src="${escapeHtml(asset.file)}" alt="${escapeHtml(item.name || '')}" draggable="false"${gradeAttrs}>`;
+      const defsMarkup = localDefs.length ? `<defs>${localDefs.join('')}</defs>` : '';
+      html = `${indent}<svg ${dataAttrs(domId, item, pathNames, 'image', 'class="f2a-svg f2a-image-svg"')} viewBox="${num(vx)} ${num(vy)} ${num(vw)} ${num(vh)}" width="${num(vw)}" height="${num(vh)}" overflow="visible">${defsMarkup}${body}</svg>`;
     }
 
     return {
@@ -1412,7 +1481,7 @@ function buildWebModel(packet) {
 }
 
 function buildStyleCss(model, options = {}) {
-  const {data, cssRules, fontFaceRules, referenceRect} = model;
+  const {data, cssRules, fontFaceRules} = model;
   const animations = !!options.animations;
   const headerComment = animations
     ? '/* Generated by F2A Web Export (Form A — Pixel-Accurate Interactive Page) */'
@@ -1420,9 +1489,6 @@ function buildStyleCss(model, options = {}) {
   const fontBlock = fontFaceRules && fontFaceRules.length
     ? `\n/* Local font weight aliases */\n${fontFaceRules.join('\n')}\n`
     : '';
-  const refCss = referenceRect
-    ? `  left: ${px(referenceRect.left)};\n  top: ${px(referenceRect.top)};\n  width: ${px(referenceRect.width)};\n  height: ${px(referenceRect.height)};`
-    : `  left: 0;\n  top: 0;\n  width: var(--f2a-width);\n  height: var(--f2a-height);`;
   const transformRule = animations
     ? `\n[data-transformed="true"] {\n  transform: translate(var(--tx, 0px), var(--ty, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, 1), var(--scale-y, 1));\n}\n`
     : '';
@@ -1522,7 +1588,8 @@ html[data-fit="actual"] .f2a-viewport {
 
 .f2a-svg path,
 .f2a-svg rect,
-.f2a-svg ellipse {
+.f2a-svg ellipse,
+.f2a-svg image {
   pointer-events: auto;
 }
 
@@ -1561,10 +1628,11 @@ ${transformRule}
   background: var(--f2a-backdrop);
 }
 
-.f2a-reference-img {
+.f2a-reference-svg {
   position: absolute;
-${refCss}
-  max-width: none;
+  left: 0;
+  top: 0;
+  display: block;
   user-select: none;
 }
 
@@ -1791,9 +1859,11 @@ function buildMainJs(model, options = {}) {
 
   function renderGradedImage(img, filters) {
     return new Promise(function (resolve) {
+      var isSvg = img.tagName && img.tagName.toLowerCase() === 'image';
+      var currentSrc = isSvg ? (img.getAttribute('href') || '') : img.src;
       var params = GRADE_KEYS.map(function (k) { return Number(filters && filters[k]) || 0; });
-      var sourceUrl = img.getAttribute('data-grade-src') || img.getAttribute('data-orig-src') || img.src;
-      if (!img.getAttribute('data-orig-src')) img.setAttribute('data-orig-src', img.src);
+      var sourceUrl = img.getAttribute('data-grade-src') || img.getAttribute('data-orig-src') || currentSrc;
+      if (!img.getAttribute('data-orig-src')) img.setAttribute('data-orig-src', currentSrc);
       var loader = new Image();
       loader.onload = function () {
         try {
@@ -1812,7 +1882,9 @@ function buildMainJs(model, options = {}) {
             buf[i + 2] = Math.round(pixel[2] * 255);
           }
           ctx.putImageData(imgData, 0, 0);
-          img.src = canvas.toDataURL('image/png');
+          var gradedUrl = canvas.toDataURL('image/png');
+          if (isSvg) img.setAttribute('href', gradedUrl);
+          else img.src = gradedUrl;
           img.setAttribute('data-graded', 'true');
         } catch (e) {}
         resolve(img);
@@ -1823,7 +1895,7 @@ function buildMainJs(model, options = {}) {
   }
 
   function applyAllImageGrades() {
-    var imgs = Array.from(stage.querySelectorAll('img[data-image-filters]'));
+    var imgs = Array.from(stage.querySelectorAll('img[data-image-filters], image[data-image-filters]'));
     return Promise.all(imgs.map(function (img) {
       try {
         var filters = JSON.parse(img.getAttribute('data-image-filters') || '{}');
@@ -1836,8 +1908,9 @@ ${animations ? `
     var els = resolveTargets(target);
     var imgs = [];
     els.forEach(function (el) {
-      if (el.tagName === 'IMG') imgs.push(el);
-      else imgs = imgs.concat(Array.from(el.querySelectorAll('img')));
+      var tag = el.tagName ? el.tagName.toLowerCase() : '';
+      if (tag === 'img' || tag === 'image') imgs.push(el);
+      else imgs = imgs.concat(Array.from(el.querySelectorAll('img, image')));
     });
     return Promise.all(imgs.map(function (img) { return renderGradedImage(img, filters); }));
   }
@@ -2098,14 +2171,22 @@ ${listComment}
 }
 
 function buildIndexHtml(model, options = {}) {
-  const {data, renderedHtml, rootDefs, referenceAsset} = model;
+  const {data, renderedHtml, rootDefs, referenceAsset, referenceRect} = model;
   const animations = !!options.animations;
   const defsSvg = rootDefs.length
     ? `\n      <svg class="f2a-defs" aria-hidden="true"><defs>${rootDefs.join('')}</defs></svg>`
     : '';
-  const refImg = referenceAsset
-    ? `\n      <div class="f2a-reference" hidden><img class="f2a-reference-img" src="${escapeHtml(referenceAsset.file)}" alt="原图对照" draggable="false"></div>`
-    : '';
+  let refImg = '';
+  if (referenceAsset) {
+    const refVbW = Math.max(PIXEL_GRID, ceilGrid(data.width));
+    const refVbH = Math.max(PIXEL_GRID, ceilGrid(data.height));
+    const r = referenceRect || {left: 0, top: 0, width: data.width, height: data.height};
+    refImg =
+      `\n      <div class="f2a-reference" hidden>` +
+      `<svg class="f2a-reference-svg" viewBox="0 0 ${num(refVbW)} ${num(refVbH)}" width="${num(refVbW)}" height="${num(refVbH)}">` +
+      `<image href="${escapeHtml(referenceAsset.file)}" x="${num(r.left)}" y="${num(r.top)}" width="${num(r.width)}" height="${num(r.height)}" preserveAspectRatio="none"/>` +
+      `</svg></div>`;
+  }
   const animationsScript = animations ? '\n  <script src="animations.js"></script>' : '';
   return `<!DOCTYPE html>
 <html lang="zh-CN" data-fit="fit">

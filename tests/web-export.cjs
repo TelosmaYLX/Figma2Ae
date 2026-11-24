@@ -383,7 +383,7 @@ async function testBrowserRendering(entryHtml, screenshotPath, options = {}) {
         const b = el.getBoundingClientRect();
         return { x: b.left, y: b.top, w: b.width, h: b.height, minimal: el.getAttribute('data-minimal') === 'true' };
       }
-      const gradedImg = window.F2A.layer('调色图片').querySelector('img');
+      const gradedImg = window.F2A.layer('调色图片').querySelector('img, image');
       const glassEl = window.F2A.layer('毛玻璃卡片').querySelector('[data-layer-kind="shape"]');
       return {
         scale: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--f2a-scale')),
@@ -830,9 +830,13 @@ async function testFidelitySuite() {
 
     // Static checks on CSS/HTML precision upgrades
     assert.match(css, /\.f2a-stage\s*\{[^}]*will-change:\s*transform;/, 'Stage composites at 1:1 before downscaling to avoid odd-coordinate half-pixel snapping');
-    assert.match(css, /\.f2a-reference-img\s*\{[^}]*left:\s*-12px;[^}]*top:\s*-8px;[^}]*width:\s*444px;[^}]*height:\s*336px;/, 'Reference uses exact render bounds, not stretched 0,0,W,H');
     assert.match(css, /\.f2a-reference\s*\{[^}]*background:\s*var\(--f2a-backdrop\);/, 'Reference overlay flattens transparent Figma renders on the page backdrop');
-    assert.match(html, /<div class="f2a-reference" hidden><img class="f2a-reference-img"/);
+    assert.match(html, /<div class="f2a-reference" hidden><svg class="f2a-reference-svg" viewBox="0 0 420 320" width="420" height="320"><image href="assets\/reference\.png" x="-12" y="-8" width="444" height="336" preserveAspectRatio="none"\/><\/svg><\/div>/, 'Reference uses 4px-aligned SVG with exact render bounds, not stretched 0,0,W,H');
+    // Every SVG surface viewBox must sit on 4px multiples so 125%/150%/175% DPI never pixel-snaps it
+    for (const m of html.matchAll(/<svg [^>]*viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"/g)) {
+      const vals = m.slice(1).map(Number);
+      assert.ok(vals.every(v => Math.abs(v % 4) < 1e-6), 'SVG viewBox sits on 4px DPI grid: ' + m[0]);
+    }
     // Exact linear axis: start at t=0 handle (110, 304), end = start + g/|g|^2 with g = (0.7071/200, 0.7071/24)
     {
       const gx = 0.7071 / 200, gy = 0.7071 / 24, l2 = gx * gx + gy * gy;
@@ -973,6 +977,7 @@ async function testFidelitySuite() {
               outlines: document.documentElement.getAttribute('data-outlines'),
               outlinesPressed: byText('图层框').getAttribute('aria-pressed'),
               diffAttr: ref.getAttribute('data-diff'),
+              refDiffRoot: document.documentElement.getAttribute('data-ref-diff'),
               inlineOpacity: ref.style.opacity,
               computedOpacity: getComputedStyle(ref).opacity,
               willChange: getComputedStyle(document.getElementById('f2a-stage')).willChange,
@@ -983,6 +988,7 @@ async function testFidelitySuite() {
         assert.equal(diffState.outlines, null, '差值比对 clears debug outlines so they do not invert into fake diffs');
         assert.equal(diffState.outlinesPressed, 'false');
         assert.equal(diffState.diffAttr, 'true');
+        assert.equal(diffState.refDiffRoot, 'true');
         assert.equal(diffState.inlineOpacity, '');
         assert.equal(diffState.computedOpacity, '1');
         assert.equal(diffState.willChange, 'transform');
@@ -992,6 +998,133 @@ async function testFidelitySuite() {
         for (let i = 0; i < 20; i++) {
           try { await fsp.rm(profile, {recursive: true, force: true}); break; }
           catch { await new Promise(r => setTimeout(r, 150)); }
+        }
+      }
+    }
+  } finally {
+    await fsp.rm(outDir, {recursive: true, force: true});
+  }
+}
+
+async function testFractionalDpiAlignment() {
+  // Odd-offset, odd-sized background photo (-5, -15, 210x135) inside an odd stage (200x121),
+  // compared against an exact Figma reference render at 150% and 125% DPI in 差值比对 mode.
+  const photoW = 210, photoH = 135, stageW = 200, stageH = 121;
+  const pxAt = (x, y) => {
+    const v = ((x % 8 === 0) || (y % 8 === 0)) ? 240 : (((x >> 3) ^ (y >> 3)) & 1 ? 180 : 30);
+    return [v, v, v, 255];
+  };
+  const photoPng = makePng(photoW, photoH, pxAt);
+  const refPng = makePng(stageW, stageH, (x, y) => pxAt(x + 5, y + 15));
+
+  const photoLayer = rectNode('背景照片', -5, -15, photoW, photoH, {
+    fills: [{type: 'IMAGE', visible: true, opacity: 1, scaleMode: 'FILL', imageHash: 'bg-photo'}],
+  });
+  const bgGroup = at(node('GROUP', '背景', {children: [photoLayer]}), -5, -15, photoW, photoH);
+  const frame = at(node('FRAME', 'OddDpiStage', {
+    clipsContent: true,
+    fills: [],
+    fillGeometry: [],
+    children: [bgGroup],
+  }), 0, 0, stageW, stageH);
+
+  const h = harness(frame);
+  h.figma.getImageByHash = hash => {
+    assert.equal(hash, 'bg-photo');
+    return {getBytesAsync: async () => photoPng, getSizeAsync: async () => ({width: photoW, height: photoH})};
+  };
+  frame.exportAsync = async opts => opts?.format === 'SVG'
+    ? Buffer.from(`<svg width="${stageW}" height="${stageH}" viewBox="0 0 ${stageW} ${stageH}"></svg>`)
+    : refPng;
+
+  h.messages.length = 0;
+  await h.context.exportSelectionSVG(true, true, false, true, true, false, {
+    target: 'web', precompLayers: true, outlineTexts: false,
+    rasterize: {effects: false, paints: true, imageCrops: true, masks: true, booleans: true},
+  });
+  const err = h.messages.find(m => m.type === 'error');
+  assert.equal(err, undefined, err?.message);
+  const ship = h.messages.find(m => m.type === 'ship');
+  assert.ok(ship);
+  const packet = {...ship, images: collectShipImages(h.messages)};
+  const outDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'f2a-web-dpi-'));
+  try {
+    const res = await exportWeb(packet, outDir);
+    const html = await fsp.readFile(res.entry, 'utf8');
+    assert.match(html, /class="f2a-svg f2a-image-svg" viewBox="-8 -16 216 136" width="216" height="136"/,
+      'Odd-positioned/sized image wraps in 4px-aligned SVG to prevent fractional-DPI pixel snapping');
+    assert.match(html, /class="f2a-reference-svg" viewBox="0 0 200 124" width="200" height="124"/,
+      'Odd-height stage reference SVG pads viewBox to 4px grid');
+
+    if (fs.existsSync(EDGE_EXE)) {
+      // --force-device-scale-factor=1.5 reproduces real Windows 150% display scaling in Blink's
+      // layout pixel-snapping (Emulation.setDeviceMetricsOverride alone does not trigger it).
+      for (const dpr of [1.5, 1.25]) {
+        const profile = await fsp.mkdtemp(path.join(os.tmpdir(), 'f2a-web-dpi-edge-'));
+        const child = spawn(EDGE_EXE, [
+          '--headless=new', '--no-first-run', '--no-default-browser-check',
+          '--force-device-scale-factor=' + dpr,
+          '--remote-debugging-port=0', '--remote-allow-origins=*', '--user-data-dir=' + profile, 'about:blank',
+        ], {windowsHide: true, stdio: 'ignore'});
+        let socket;
+        try {
+          let port;
+          for (let i = 0; i < 100; i++) {
+            try { port = (await fsp.readFile(path.join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; break; }
+            catch { await new Promise(r => setTimeout(r, 100)); }
+          }
+          const targets = await (await fetch('http://127.0.0.1:' + port + '/json')).json();
+          socket = new WebSocket(targets.find(t => t.type === 'page').webSocketDebuggerUrl);
+          await new Promise((r, j) => { socket.onopen = r; socket.onerror = j; });
+          let seq = 0;
+          const pending = new Map(), events = new Map();
+          socket.onmessage = e => {
+            const m = JSON.parse(e.data);
+            if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+            else if (events.has(m.method)) events.get(m.method)(m);
+          };
+          const cmd = async (method, params = {}) => {
+            const id = ++seq;
+            const done = new Promise(r => pending.set(id, r));
+            socket.send(JSON.stringify({id, method, params}));
+            const r = await done;
+            if (r.error) throw new Error(JSON.stringify(r.error));
+            return r.result;
+          };
+          await cmd('Page.enable');
+          await cmd('Emulation.setDeviceMetricsOverride', {width: stageW, height: stageH, deviceScaleFactor: dpr, mobile: false});
+          const loaded = new Promise(r => events.set('Page.loadEventFired', r));
+          await cmd('Page.navigate', {url: pathToFileURL(res.entry).href});
+          await loaded;
+          await cmd('Runtime.evaluate', {
+            awaitPromise: true,
+            expression: `(async function(){
+              await window.F2A.ready;
+              const btns = Array.from(document.querySelectorAll('.f2a-inspector button'));
+              btns.find(b => b.textContent === '原图对照').click();
+              btns.find(b => b.textContent === '差值比对').click();
+              await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            })()`,
+          });
+          const shot = await cmd('Page.captureScreenshot', {format: 'png'});
+          const img = decodePng(Buffer.from(shot.data, 'base64'));
+          let sum = 0, max = 0, n = 0;
+          for (let y = 10; y < img.height - 10; y++) {
+            for (let x = 10; x < img.width - 10; x++) {
+              const p = img.at(x, y);
+              const m = Math.max(p[0], p[1], p[2]);
+              sum += m; if (m > max) max = m; n++;
+            }
+          }
+          const mean = sum / n;
+          assert.ok(mean < 0.5 && max <= 4, `DPR ${dpr} odd-offset photo diff must stay aligned (mean=${mean.toFixed(3)}, max=${max})`);
+        } finally {
+          socket?.close();
+          child.kill();
+          for (let i = 0; i < 20; i++) {
+            try { await fsp.rm(profile, {recursive: true, force: true}); break; }
+            catch { await new Promise(r => setTimeout(r, 150)); }
+          }
         }
       }
     }
@@ -1095,6 +1228,25 @@ async function check() {
   // underline/ellipsis, gradient+stroke back-layer, elliptical radial gradient, SVG inner shadow,
   // mixed 4-corner radii, mixed evenodd/nonzero vector paths, and offset reference bounds) in real Edge!
   await testFidelitySuite();
+  await testFractionalDpiAlignment();
+
+  // Long-lived background service must pick up an updated writer without being restarted
+  {
+    const {loadWeb} = require('../scripts/aep-server.cjs');
+    const writerPath = path.join(root, 'scripts/web/writer.cjs');
+    const before = loadWeb();
+    assert.equal(loadWeb(), before, 'Unchanged sources reuse the loaded exporter');
+    const st = fs.statSync(writerPath);
+    const bumped = new Date(st.mtimeMs + 2000);
+    fs.utimesSync(writerPath, st.atime, bumped);
+    try {
+      const after = loadWeb();
+      assert.notEqual(after, before, 'Changed writer on disk is reloaded by the running service');
+      assert.equal(typeof after.publishWeb, 'function');
+    } finally {
+      fs.utimesSync(writerPath, st.atime, st.mtime);
+    }
+  }
 
   // Test HTTP server routes (/export-web, /open-directory, /open-preview) + UI panel button flow
   await testServerAndUi(packet);

@@ -7,9 +7,27 @@ const path = require('node:path');
 const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
 const {randomUUID} = require('node:crypto');
+const {statSync} = require('node:fs');
 const {publishAep, chooseDestination, AE_VERSIONS} = require('./export-aep.cjs');
-const {publishWeb, chooseWebDestination, openWebPreview} = require('./export-web.cjs');
 const run = promisify(execFile);
+
+// The service is started once in the background and reused by every panel / plugin window, so a
+// restart of AE or Figma does not restart it. Reload the web exporter whenever its sources change
+// on disk, otherwise exports keep running whatever writer was loaded when the service started.
+const WEB_MODULES = ['./export-web.cjs', './web/writer.cjs', './aep/packet.cjs', '../client/figmaImageGrade.js', '../host/figma/aeFilename.js']
+  .map(file => require.resolve(file));
+let webStamp = null;
+let webApi = null;
+function loadWeb() {
+  const stamp = WEB_MODULES.map(file => { try { return statSync(file).mtimeMs; } catch { return 0; } }).join('|');
+  if (!webApi || stamp !== webStamp) {
+    if (webApi) for (const file of WEB_MODULES) delete require.cache[file];
+    webApi = require('./export-web.cjs');
+    webStamp = stamp;
+  }
+  return webApi;
+}
+loadWeb();
 
 function start(options = {}) {
   const exports = new Map();
@@ -54,12 +72,13 @@ function start(options = {}) {
         if (!entry) throw new Error('请先完成 HTML 网页导出');
         try { await fs.access(entry); }
         catch (error) { if (error.code === 'ENOENT') throw new Error('导出的网页文件已被移动或删除'); throw error; }
-        await (options.openPreview || openWebPreview)(entry);
+        await (options.openPreview || loadWeb().openWebPreview)(entry);
         res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8'});
         res.end(JSON.stringify({ok:true})); return;
       }
       if (req.url === '/export-web') {
         const result = await enqueue(async () => {
+          const {publishWeb, chooseWebDestination} = loadWeb();
           const prepared = await publishWeb(body.packet,
             name => (options.chooseWebDestination || options.chooseDestination || chooseWebDestination)({...options, name}), options);
           if (prepared.cancelled) return prepared;
@@ -110,4 +129,4 @@ async function openDirectory(directory) {
 
 if (require.main === module) start({port: process.argv.includes('--workspace') ? 17366 : 7366,
   updateSignal: path.join(__dirname, '..', '.f2a-update-aep')});
-module.exports = {start, openDirectory};
+module.exports = {start, openDirectory, loadWeb};
