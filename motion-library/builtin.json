@@ -1152,6 +1152,90 @@
       "supports": {
         "duration": true
       }
+    },
+    {
+      "id": "preset-trans-fade",
+      "kind": "procedural",
+      "command": "transition",
+      "name": "渐隐渐显转场",
+      "category": "转场",
+      "phase": "transition",
+      "description": "经底色渐隐到全屏再渐显揭开，适合柔和切页。",
+      "tags": [
+        "Osmo",
+        "转场",
+        "淡入淡出",
+        "渐隐"
+      ],
+      "sourceStyle": "Osmo",
+      "defaults": {
+        "type": "fade",
+        "duration": 0.9,
+        "color": [
+          0.06,
+          0.06,
+          0.08
+        ]
+      },
+      "supports": {
+        "duration": true
+      }
+    },
+    {
+      "id": "preset-trans-split",
+      "kind": "procedural",
+      "command": "transition",
+      "name": "中缝对擦转场",
+      "category": "转场",
+      "phase": "transition",
+      "description": "左右两块色板对向擦过画面，在切点合拢后再交错退出。",
+      "tags": [
+        "Osmo",
+        "转场",
+        "对擦",
+        "双擦除"
+      ],
+      "sourceStyle": "Osmo",
+      "defaults": {
+        "type": "split",
+        "duration": 1.0,
+        "color": [
+          0.08,
+          0.07,
+          0.12
+        ]
+      },
+      "supports": {
+        "duration": true
+      }
+    },
+    {
+      "id": "preset-trans-shutter",
+      "kind": "procedural",
+      "command": "transition",
+      "name": "上下合幕转场",
+      "category": "转场",
+      "phase": "transition",
+      "description": "上下两块色板合拢遮屏再交错揭开，类似合幕/快门。",
+      "tags": [
+        "Osmo",
+        "转场",
+        "合幕",
+        "快门"
+      ],
+      "sourceStyle": "Osmo",
+      "defaults": {
+        "type": "shutter",
+        "duration": 1.0,
+        "color": [
+          0.08,
+          0.07,
+          0.12
+        ]
+      },
+      "supports": {
+        "duration": true
+      }
     }
   ],
   "clips": [
@@ -9100,6 +9184,250 @@
                       }
                     ],
                     "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "14b1c649-885b-577a-86fc-a6e3638a18be",
+      "slug": "os-highlight-sweep",
+      "name": "OS 高亮扫入",
+      "category": "强调",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Osmo Highlight Marker 的底层扫入：色块自左向右展开（0→100% 宽度）。把高亮/色块图层锚点设到左侧后套用。",
+      "sourceStyle": "Osmo",
+      "tags": [
+        "Osmo",
+        "强调",
+        "高亮",
+        "扫入",
+        "宽度"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "ef24aa1646c6868b47c8cc58a410a5619086925aa4c70307cf0e49a6d4a6a319",
+      "clip": {
+        "origin": 0,
+        "duration": 0.45,
+        "layers": [
+          {
+            "name": "OS 高亮扫入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 630.491,
+                        "influence": 21.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 21.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.45,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "584c6479-7810-5af7-8bdb-3caaaf832ca2",
+      "slug": "os-underline-draw",
+      "name": "OS 下划线展开",
+      "category": "强调",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "Osmo Underline Link 的线条展开：下划线自左向右画出（0→100% 宽度，0.35s）。图层锚点设到左侧后套用。",
+      "sourceStyle": "Osmo",
+      "tags": [
+        "Osmo",
+        "强调",
+        "下划线",
+        "展开",
+        "宽度"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "0e19f4bf403f8f2a464496f05220b9f6c35277fb8495a45cac94021837083cbf",
+      "clip": {
+        "origin": 0,
+        "duration": 0.35,
+        "layers": [
+          {
+            "name": "OS 下划线展开",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 865.801,
+                        "influence": 33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.35,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
                       {
                         "speed": 0,
                         "influence": 33.33

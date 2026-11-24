@@ -72,10 +72,10 @@ export function registerAeMotionTools(server: McpServer, call: ReturnType<typeof
     mask: z.boolean().optional(),
   });
 
-  preset('transition', 'Add an editable wipe, bars, or iris shape transition. Time is the cut in composition seconds, when the transition covers the frame.', {
+  preset('transition', 'Add an editable wipe, bars, iris, fade, split, or shutter shape transition. Time is the cut in composition seconds, when the transition covers the frame.', {
     comp_id: compId,
     time,
-    type: z.enum(['wipe', 'bars', 'iris']).optional(),
+    type: z.enum(['wipe', 'bars', 'iris', 'fade', 'split', 'shutter']).optional(),
     duration: z.number().positive().optional(),
     color: z.array(z.number().min(0).max(1)).min(3).max(4).optional(),
     direction: direction.optional(),

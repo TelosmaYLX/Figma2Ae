@@ -326,6 +326,11 @@ body{
   flex:1 1 0; width:100%; height:100%;
   background:linear-gradient(135deg, #ede9fe, #a78bfa);
 }
+.f2m-trans-frame.is-fade .f2m-trans-bar,
+.f2m-trans-frame.is-split .f2m-trans-bar,
+.f2m-trans-frame.is-shutter .f2m-trans-bar{
+  position:absolute; inset:0; flex:none; width:100%; height:100%;
+}
 .f2m-trans-iris{
   width:76px; height:76px; border-radius:50%;
   border:20px solid #ede9fe; background:transparent;

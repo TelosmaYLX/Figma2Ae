@@ -44923,10 +44923,10 @@ function registerAeMotionTools(server2, call, jsx) {
     distance: external_exports.number().positive().optional(),
     mask: external_exports.boolean().optional()
   });
-  preset("transition", "Add an editable wipe, bars, or iris shape transition. Time is the cut in composition seconds, when the transition covers the frame.", {
+  preset("transition", "Add an editable wipe, bars, iris, fade, split, or shutter shape transition. Time is the cut in composition seconds, when the transition covers the frame.", {
     comp_id: compId,
     time: time3,
-    type: external_exports.enum(["wipe", "bars", "iris"]).optional(),
+    type: external_exports.enum(["wipe", "bars", "iris", "fade", "split", "shutter"]).optional(),
     duration: external_exports.number().positive().optional(),
     color: external_exports.array(external_exports.number().min(0).max(1)).min(3).max(4).optional(),
     direction: direction.optional(),
@@ -48562,13 +48562,14 @@ C.text_reveal = function (a) {
 // ---------- transitions ----------
 function fdHalf(c) { return c.frameDuration / 2; }
 // A full-frame color move that covers the frame at time (cut the scenes there) and clears it again by
-// time + duration/2: a wipe or staggered bars travelling across, or an iris circle that grows to a disc and then
-// opens from its centre (a ring whose stroke shrinks).
+// time + duration/2: a wipe or staggered bars travelling across, an iris circle that grows to a disc and then
+// opens from its centre (a ring whose stroke shrinks), a dip through the color, or two panels crossing from
+// opposite sides (split = left/right, shutter = top/bottom) for page-transition style reveals.
 C.transition = function (a) {
     need(a, ["comp_id", "time"]);
-    var c = getComp(a.comp_id), type = a.type || "wipe", d = has(a, "duration") ? a.duration : 0.8, col = a.color || [0.05, 0.05, 0.06], dir = a.direction || "right", W = c.width, H = c.height, ts = snapT(c, a.time - d / 2), tm = snapT(c, a.time), te = snapT(c, a.time + d / 2), l, n, i, horiz, grp, pos, st, R, cx, cy, sz, sw, g, k;
-    if (" wipe bars iris ".indexOf(" " + type + " ") === -1)
-        fail("BAD_ARGS", "type must be wipe, bars or iris");
+    var c = getComp(a.comp_id), type = a.type || "wipe", d = has(a, "duration") ? a.duration : 0.8, col = a.color || [0.05, 0.05, 0.06], dir = a.direction || "right", W = c.width, H = c.height, ts = snapT(c, a.time - d / 2), tm = snapT(c, a.time), te = snapT(c, a.time + d / 2), l, n, i, horiz, grp, pos, st, R, cx, cy, sz, sw, g, k, op, splitX, side, covered, offstart, offend;
+    if (" wipe bars iris fade split shutter ".indexOf(" " + type + " ") === -1)
+        fail("BAD_ARGS", "type must be wipe, bars, iris, fade, split or shutter");
     if (" left right up down ".indexOf(" " + dir + " ") === -1)
         fail("BAD_ARGS", "direction must be left, right, up or down");
     if (ts < 0)
@@ -48596,6 +48597,33 @@ C.transition = function (a) {
         for (k = 1; k <= 3; k++) {
             applyKeyMeta(sz, k, { ease_in: { influence: 60 }, ease_out: { influence: 60 } });
             applyKeyMeta(sw, k, { ease_in: { influence: 60 }, ease_out: { influence: 60 } });
+        }
+    }
+    else if (type === "fade") {
+        // dip through the colour: transparent at the start, full colour at the cut, transparent again after it
+        addShapeContent(l, { type: "rect", size: [W + 4, H + 4], fill: col, name: "Fade" });
+        op = l.property("ADBE Transform Group").property("ADBE Opacity");
+        op.setValueAtTime(ts, 0);
+        op.setValueAtTime(tm, 100);
+        op.setValueAtTime(te, 0);
+        for (k = 1; k <= 3; k++)
+            applyKeyMeta(op, k, { ease_in: { influence: 60 }, ease_out: { influence: 60 } });
+    }
+    else if (type === "split" || type === "shutter") {
+        // two covered panels crossing from opposite sides: left/right for split, top/bottom for shutter
+        splitX = type === "split";
+        for (i = 0; i < 2; i++) {
+            side = i === 0 ? -1 : 1;
+            grp = addShapeContent(l, { type: "rect", size: splitX ? [W / 2 + 2, H + 4] : [W + 4, H / 2 + 2], fill: col, name: "Panel " + (i + 1) });
+            pos = grp.property("ADBE Vector Transform Group").property("ADBE Vector Position");
+            covered = splitX ? [side * W / 4, 0] : [0, side * H / 4];
+            offstart = splitX ? [side * W * 0.78, 0] : [0, side * H * 0.78];
+            offend = splitX ? [-side * W * 0.78, 0] : [0, -side * H * 0.78];
+            pos.setValueAtTime(ts, offstart);
+            pos.setValueAtTime(tm, covered);
+            pos.setValueAtTime(te, offend);
+            shapeSegment(pos, 1, 2, "smooth");
+            shapeSegment(pos, 2, 3, "smooth");
         }
     }
     else {

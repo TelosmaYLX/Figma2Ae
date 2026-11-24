@@ -1368,6 +1368,33 @@ def animate_ui_clips():
     ]
 
 
+def osmo_clips():
+    """Layer-level wipe-ins distilled from Osmo's highlight-marker / underline-link family.
+
+    Osmo's text reveals are mask + split-text setups that AE cannot express as a single-layer clip;
+    the portable part is the width sweep underneath them (a highlight bar or underline expanding from
+    the left). The user sets the layer's anchor point to the left edge before applying.
+    """
+    return [
+        synth_clip(
+            "os-highlight-sweep", "OS 高亮扫入", "强调", "in", "end",
+            "Osmo Highlight Marker 的底层扫入：色块自左向右展开（0→100% 宽度）。把高亮/色块图层锚点设到左侧后套用。",
+            ["Osmo", "强调", "高亮", "扫入", "宽度"],
+            0.45,
+            [("scale", [0, 0.45], [[0, 100, 100], [100, 100, 100]], RB_POWER3_OUT)],
+            source_style="Osmo",
+        ),
+        synth_clip(
+            "os-underline-draw", "OS 下划线展开", "强调", "in", "end",
+            "Osmo Underline Link 的线条展开：下划线自左向右画出（0→100% 宽度，0.35s）。图层锚点设到左侧后套用。",
+            ["Osmo", "强调", "下划线", "展开", "宽度"],
+            0.35,
+            [("scale", [0, 0.35], [[0, 100, 100], [100, 100, 100]], RB_POWER2_OUT)],
+            source_style="Osmo",
+        ),
+    ]
+
+
 def procedural_presets():
     """F2A's built-in AE Motion procedural presets (editable keys, text animators, transitions)."""
     return [
@@ -1564,6 +1591,22 @@ def procedural_presets():
          "description": "中心圆环扩张遮屏再收缩揭开，适合焦点切换。", "tags": ["转场", "光圈", "圆形"],
          "defaults": {"type": "iris", "duration": 0.8, "color": [0.08, 0.07, 0.12]},
          "supports": {"duration": True}},
+        # Osmo-style page transitions distilled from the public Osmo collection (fade / split wipe / shutter).
+        {"id": "preset-trans-fade", "kind": "procedural", "command": "transition", "name": "渐隐渐显转场", "category": "转场", "phase": "transition",
+         "description": "经底色渐隐到全屏再渐显揭开，适合柔和切页。", "tags": ["Osmo", "转场", "淡入淡出", "渐隐"],
+         "sourceStyle": "Osmo",
+         "defaults": {"type": "fade", "duration": 0.9, "color": [0.06, 0.06, 0.08]},
+         "supports": {"duration": True}},
+        {"id": "preset-trans-split", "kind": "procedural", "command": "transition", "name": "中缝对擦转场", "category": "转场", "phase": "transition",
+         "description": "左右两块色板对向擦过画面，在切点合拢后再交错退出。", "tags": ["Osmo", "转场", "对擦", "双擦除"],
+         "sourceStyle": "Osmo",
+         "defaults": {"type": "split", "duration": 1.0, "color": [0.08, 0.07, 0.12]},
+         "supports": {"duration": True}},
+        {"id": "preset-trans-shutter", "kind": "procedural", "command": "transition", "name": "上下合幕转场", "category": "转场", "phase": "transition",
+         "description": "上下两块色板合拢遮屏再交错揭开，类似合幕/快门。", "tags": ["Osmo", "转场", "合幕", "快门"],
+         "sourceStyle": "Osmo",
+         "defaults": {"type": "shutter", "duration": 1.0, "color": [0.08, 0.07, 0.12]},
+         "supports": {"duration": True}},
     ]
 
 
@@ -1574,7 +1617,7 @@ def main():
     args = parser.parse_args()
 
     buckets = harvest_from_source(args.source)
-    clips = curate_library(buckets) + reactbits_clips() + aceternity_clips() + animate_ui_clips()
+    clips = curate_library(buckets) + reactbits_clips() + aceternity_clips() + animate_ui_clips() + osmo_clips()
     presets = procedural_presets()
 
     payload = {

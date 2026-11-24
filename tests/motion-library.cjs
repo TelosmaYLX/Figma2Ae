@@ -290,6 +290,32 @@ async function check() {
   assert.ok(!auSlide.clip.layers[0].tracks.some(tr => tr.path[1][0] === 'ADBE Opacity'), 'Slide keeps its own opacity');
   const auFade = builtin.clips.find(item => item.slug === 'au-fade');
   assert.ok(auFade.clip.layers[0].tracks.every(tr => tr.path[1][0] === 'ADBE Opacity'), 'Fade only animates opacity');
+
+  // Osmo pack: width-sweep clips plus the transition families distilled from the public collection.
+  const osClips = ['os-highlight-sweep', 'os-underline-draw'];
+  for (const slug of osClips) {
+    const clip = builtin.clips.find(item => item.slug === slug);
+    assert.ok(clip, 'missing Osmo clip ' + slug);
+    assert.equal(clip.sourceStyle, 'Osmo');
+    assert.ok(clip.clip.layers[0].tracks.every(tr => tr.path[1][0] === 'ADBE Scale'), slug + ' is a width sweep on Scale');
+  }
+  const osSweep = builtin.clips.find(item => item.slug === 'os-highlight-sweep');
+  const osMeta = preview.analyzeClip(osSweep.clip, osSweep.defaultAnchor);
+  assert.ok(preview.evaluateClipAt(osSweep.clip, 0, osSweep.defaultAnchor, osMeta).scaleX < 0.01, 'highlight sweep starts collapsed');
+  assert.ok(Math.abs(preview.evaluateClipAt(osSweep.clip, osSweep.clip.duration, osSweep.defaultAnchor, osMeta).scaleX - 1) < 1e-3, 'highlight sweep ends at full width');
+  const osTransitions = ['preset-trans-fade', 'preset-trans-split', 'preset-trans-shutter'];
+  for (const id of osTransitions) {
+    const preset = builtin.presets.find(item => item.id === id);
+    assert.ok(preset, 'missing Osmo transition preset ' + id);
+    assert.equal(preset.command, 'transition');
+    assert.ok(preset.tags.includes('Osmo'), id + ' must be tagged Osmo');
+    for (const u of [0, 0.5, 1]) {
+      const res = preview.evaluatePresetAt(preset, {}, u);
+      assert.equal(res.kind, 'transition', id + ' previews as a transition');
+      assert.equal(res.transType, preset.defaults.type);
+    }
+    assert.match(preview.buildCurveSvg(preset), /^M[\d.-]+,[\d.-]+/);
+  }
   // Verify Adobe CEP --mixed-context (both window AND module.exports exist in <script> tags)
   const cepWindow = {};
   const cepModule = { exports: {} };

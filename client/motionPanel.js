@@ -262,6 +262,23 @@
       ring.style.opacity = u > 0.96 || u < 0.02 ? "0" : "0.95";
       return;
     }
+    if (res.transType === "fade") {
+      var fadeBar = stageEl.querySelector(".f2m-trans-bar");
+      if (!fadeBar) return;
+      fadeBar.style.opacity = String(Math.max(0, Math.min(1, u <= 0.5 ? u * 2 : (1 - u) * 2)).toFixed(3));
+      return;
+    }
+    if (res.transType === "split" || res.transType === "shutter") {
+      var panels = stageEl.querySelectorAll(".f2m-trans-bar");
+      var axis = res.transType === "split" ? "translateX" : "translateY";
+      for (var pi = 0; pi < panels.length; pi++) {
+        // panel 0 enters from the start side, panel 1 mirrors it; both meet at 0% on the cut
+        var pdir = pi === 0 ? -1 : 1;
+        var pt = pdir * (105 - 210 * u);
+        panels[pi].style.transform = axis + "(" + pt.toFixed(1) + "%)";
+      }
+      return;
+    }
     var bars = stageEl.querySelectorAll(".f2m-trans-bar");
     var horiz = res.direction === "left" || res.direction === "right";
     var sign = (res.direction === "left" || res.direction === "up") ? -1 : 1;
@@ -784,6 +801,10 @@
       var frame = el("div", "f2m-trans-frame");
       if (tType === "iris") {
         frame.appendChild(el("div", "f2m-trans-iris"));
+      } else if (tType === "fade" || tType === "split" || tType === "shutter") {
+        frame.className = "f2m-trans-frame is-" + tType;
+        var panelCount = tType === "fade" ? 1 : 2;
+        for (var pi = 0; pi < panelCount; pi++) frame.appendChild(el("div", "f2m-trans-bar"));
       } else {
         var count = tType === "bars" ? 5 : 1;
         var horiz = state.params.direction === "left" || state.params.direction === "right";

@@ -32,6 +32,7 @@ description: "基于 F2A MCP 的 Figma 导出 AEP 工程与 After Effects 动画
 - **React Bits 动效词汇与 F2A 映射**：[`references/reactbits-motion-vocabulary.md`](references/reactbits-motion-vocabulary.md) —— reactbits.dev 全站动画的可移植性分类、源码运动参数、F2A `RB` 文字预设与内容片段映射、不可移植清单；文字预设依赖 AE 文字动画器＋表达式，Web/Lottie 交付优先用 `rb-content-*` 等两键片段。
 - **Aceternity UI 动效词汇与 F2A 映射**：[`references/aceternity-motion-vocabulary.md`](references/aceternity-motion-vocabulary.md) —— Framer Motion 的入场/弹簧/循环/滚动/指针交互组件盘点、源码参数、F2A `AC` 文字预设与内容片段映射，以及循环、滚动驱动、指针交互类组件的 AE 复刻配方与不可移植边界。
 - **Animate UI 动效词汇与 F2A 映射**：[`references/animate-ui-motion-vocabulary.md`](references/animate-ui-motion-vocabulary.md) —— Motion 令牌体系（ease/spring/transition/scale/blur/shift/stagger）、Fade/Slide/Zoom/Effect 入场原语、Splitting/Typing 等文字原语的源码参数、F2A `AU` 预设与片段映射，以及数字滚动/循环/交互类组件的 AE 复刻配方。
+- **Osmo 动效词汇与 F2A 映射**：[`references/osmo-motion-vocabulary.md`](references/osmo-motion-vocabulary.md) —— Osmo 公开资源目录的 18 类 234 个资源盘点与可移植性分类、公开预览视频的行为观察、F2A 新增的 `fade/split/shutter` 转场与 `os-*` 宽度扫入片段映射，以及遮罩文字/高亮/数字滚动/滚动场景的 AE 配方；Osmo 为会员制付费资源，文中只记录公开观察、不含源码。
 - **像素校验脚本**：[`scripts/verify_resting_frame.py`](scripts/verify_resting_frame.py) —— 支持 `--mode static`（含 `clipsContent: false` 溢出对照图对齐）与 `--mode resting`（动画终帧 vs 导出静态基线）。
 - **高版本 `.aep` 离线解析脚本**：[`scripts/dump_aep_motion.py`](scripts/dump_aep_motion.py) —— 使用 F2A `.venv-aep` 的 `py_aep` 离线读取任意版本（含 AE 27）参考工程的合成、入出点、关键帧与缓动。
 
