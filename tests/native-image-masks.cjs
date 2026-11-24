@@ -13,6 +13,50 @@ function at(n,x,y,w=80,h=48){
   Object.assign(n,{width:w,height:h,absoluteBoundingBox:{x,y,width:w,height:h},absoluteRenderBounds:{x,y,width:w,height:h},absoluteTransform:[[1,0,x],[0,1,y]]});
   n.fillGeometry=[{data:`M0 0H${w}V${h}H0Z`,windingRule:'NONZERO'}];return n;
 }
+async function checkAutoLayoutMask() {
+  const imageFill = [{type: 'IMAGE', imageHash: 'swatch', scaleMode: 'FILL'}];
+  const mask = at(node('RECTANGLE', 'Swatch mask', {maskType: 'ALPHA', fills: imageFill, maskEnabled: true}), 44.5, 80.25);
+  const photo = at(node('RECTANGLE', 'Swatch photo', {fills: imageFill}), 44.5, 80.25);
+  const dim = at(node('RECTANGLE', 'Dim swatch', {fills: solid, opacity: .3}), 32, -38, 120, 284);
+  const swatch = at(node('GROUP', 'Swatch', {children: [mask, photo, dim]}), 44.5, 80.25);
+  const row = at(node('FRAME', 'Swatch row', {layoutMode: 'HORIZONTAL', children: [swatch]}), 44.5, 80.25);
+  const h = harness(at(node('FRAME', 'Page', {children: [row]}), 20, 30, 200, 200));
+  Object.defineProperty(mask, 'isMask', {
+    get() { return this.maskEnabled; },
+    set(value) {
+      this.maskEnabled = value;
+      if (!value && this.parent.parent?.layoutMode === 'HORIZONTAL') {
+        // Figma grows the group to include the dim overlay and recenters it in the row.
+        const [horizontal, vertical] = this.absoluteTransform;
+        this.absoluteTransform = [horizontal, [vertical[0], vertical[1], vertical[2] + 118]];
+        this.absoluteBoundingBox = {...this.absoluteBoundingBox, y: this.absoluteBoundingBox.y + 118};
+        this.absoluteRenderBounds = {...this.absoluteRenderBounds, y: this.absoluteRenderBounds.y + 118};
+      }
+    },
+  });
+  const collection = {id: 'palette'};
+  Object.defineProperty(mask, 'resolvedVariableModes', {
+    get() { return {palette: this.mode || (this.parent?.parent?.layoutMode === 'HORIZONTAL' ? 'dim' : 'default')}; },
+  });
+  mask.setExplicitVariableModeForCollection = function (requested, mode) {
+    assert.equal(requested, collection);
+    this.mode = mode;
+  };
+  h.figma.variables = {getVariableCollectionByIdAsync: async id => id === collection.id ? collection : null};
+  const pixels = png(80, 48);
+  mask.exportAsync = async function () {
+    assert.deepEqual(this.children[0].resolvedVariableModes, {palette: 'dim'});
+    return png(Math.round(this.width), Math.round(this.height));
+  };
+  h.figma.getImageByHash = () => ({getBytesAsync: async () => pixels, getSizeAsync: async () => ({width: 80, height: 48})});
+
+  const {ship, images} = await h.run(true, true, true, false, {nativeImageMasks: true, precompLayers: true});
+  const matte = images.find(image => image.maskSource);
+  assert.deepEqual([matte.x, matte.y, matte.w, matte.h], [24, 50, 81, 49], 'The alpha mask stays on the pattern when rendered on the pixel grid');
+  assert.ok(ship.containers.some(container => container.maskScope && container.maskId === matte.maskSource));
+  assert.equal(mask.isMask, true);
+  assert.equal(mask.absoluteTransform[1][2], 80.25);
+}
 async function fixture(){
   const scopes=[],original=png(160,80),maskBytes=png(80,48);
   const cases=[['Vector','vector','FIT'],['Bitmap','ALPHA','FIT'],['Luma','LUMINANCE','FILL'],['Cropped','vector','CROP'],['Grouped','ALPHA','CROP']];
@@ -63,6 +107,7 @@ async function fixture(){
   return {packet,original};
 }
 async function check(){
+  await checkAutoLayoutMask();
   const {packet,original}=await fixture(),output=path.resolve(__dirname,'../artifacts/native-image-masks');
   await fs.mkdir(output,{recursive:true});
   const directory=await fs.mkdtemp(path.join(output,'aep-')),result=await exportAep(packet,directory);

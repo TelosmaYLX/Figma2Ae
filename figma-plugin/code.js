@@ -604,20 +604,26 @@ async function _bakeIndependentMasks(root, organize) {
   for (var id in _independentMasks) {
     var n = _independentMasks[id];
     if (_nativeMaskGeometrySupported(n)) continue;
-    var im = _rasterMeta(n, root, organize), wasMask = n.isMask;
-    var fills = n.fills, strokes = n.strokes, effects = n.effects, opacity = n.opacity;
+    var im = _rasterMeta(n, root, organize), maskType = n.maskType || 'ALPHA';
+    // Disabling a mask in place can enlarge its group and reflow an auto-layout ancestor.
+    var copy = _isolatedExportCopy(n, root);
     try {
-      n.isMask = false;
-      if (n.maskType === 'VECTOR') {
-        n.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-        n.strokes = []; n.effects = []; n.opacity = 1;
+      copy.isMask = false;
+      // Keep variable modes inherited from the mask's original ancestors.
+      var modes = n.resolvedVariableModes || {}, copyModes = copy.resolvedVariableModes || {};
+      for (var collectionId in modes) if (copyModes[collectionId] !== modes[collectionId]) {
+        var collection = await figma.variables.getVariableCollectionByIdAsync(collectionId);
+        if (collection) copy.setExplicitVariableModeForCollection(collection, modes[collectionId]);
       }
+      if (maskType === 'VECTOR') {
+        copy.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+        copy.strokes = []; copy.effects = []; copy.opacity = 1;
+      }
+      im.rasterNode = copy;
+      _updateRasterBounds(im);
       im.rasterBytes = await _exportRasterPng(im);
-    } finally {
-      n.isMask = wasMask;
-      if (n.maskType === 'VECTOR') { n.fills = fills; n.strokes = strokes; n.effects = effects; n.opacity = opacity; }
-    }
-    im.maskSource = id; im.maskType = n.maskType || 'ALPHA'; im.maskId = null;
+    } finally { copy.remove(); }
+    im.maskSource = id; im.maskType = maskType; im.maskId = null;
     im.opacity = 1; im.blend = 'NORMAL';
     delete im.rasterNode; delete im.rasterBounds;
     images.push(im);
