@@ -35,15 +35,15 @@ body{
 .mk-header{
   flex:0 0 auto;
   display:flex; align-items:center; justify-content:space-between; gap:8px;
-  padding:10px 14px 8px;
+  padding:8px 14px 5px;
   background:linear-gradient(180deg, rgba(0,0,0,.96) 60%, rgba(0,0,0,0));
 }
 .mk-brand{display:flex; align-items:center;}
 .mk-brand > * + *{margin-left:9px;}
-.mk-name{margin:0; font-size:15px; font-weight:700; letter-spacing:.2px; color:var(--text);}
+.mk-name{margin:0; font-size:14px; font-weight:700; letter-spacing:.2px; color:var(--text);}
 .mk-ver{font-size:11px; font-weight:600; color:var(--text-mute); letter-spacing:.3px; margin-left:7px;}
 .mk-update{
-  padding:3px 8px; border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:2px 7px; border:1px solid var(--border); border-radius:var(--radius-sm);
   background:var(--surface); color:var(--text-dim); font:inherit; font-size:11px; cursor:pointer;
 }
 .mk-update:hover:not(:disabled){background:var(--surface-hi); color:var(--text);}
@@ -61,9 +61,9 @@ body{
 .mk-figbar{
   flex:0 0 auto;
   display:flex; align-items:center;
-  margin:2px 14px 4px; padding:5px 10px;
+  margin:2px 14px 4px; padding:4px 9px;
   background:var(--surface); border:1px solid var(--border-soft);
-  border-radius:var(--radius); font-size:11px; color:var(--text-dim);
+  border-radius:var(--radius); font-size:10.5px; color:var(--text-dim);
 }
 .mk-figbar > * + *{margin-left:8px;}
 .mk-update-notice{display:block;}
@@ -85,7 +85,7 @@ body{
 
 /* ---------- Visual Motion Library (.f2m-*) ---------- */
 .f2m-shell{
-  flex:1 1 auto; min-height:0;
+  flex:1 1 auto; min-height:0; min-width:0;
   display:flex; flex-direction:column;
   margin:6px 14px 8px;
   background:var(--surface);
@@ -96,7 +96,7 @@ body{
 
 /* Selection context strip */
 .f2m-ctx{
-  flex:0 0 auto;
+  flex:0 0 auto; min-width:0;
   display:flex; align-items:center; justify-content:space-between; gap:6px;
   padding:6px 10px;
   background:var(--surface-2);
@@ -111,12 +111,15 @@ body{
   font-size:11px; color:var(--text-dim);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
+.f2m-svg-ico{width:12px; height:12px; display:block; flex:0 0 auto;}
 .f2m-ctx-acts{display:flex; align-items:center; gap:4px; flex:0 0 auto;}
 .f2m-mini-act{
   appearance:none; border:1px solid var(--border); background:var(--surface);
   color:var(--text-dim); font:inherit; font-size:10px; padding:2px 6px;
   border-radius:var(--radius-sm); cursor:pointer; line-height:1.3;
+  display:inline-flex; align-items:center; justify-content:center;
 }
+.f2m-mini-act.is-icon{padding:3px 5px;}
 .f2m-mini-act:hover{background:var(--surface-hi); color:var(--text); border-color:var(--accent);}
 
 /* Primary Tabs */
@@ -158,7 +161,10 @@ body{
   border:1px solid var(--border); background:var(--surface-2);
   color:var(--text-dim); font:inherit; font-size:11px;
   padding:4px 8px; border-radius:var(--radius-sm); cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; gap:4px;
+  height:25px;
 }
+.f2m-icon-act.is-square{width:26px; padding:0;}
 .f2m-icon-act:hover{background:var(--surface-hi); color:var(--text);}
 .f2m-icon-act.active{
   background:var(--accent-dim); border-color:var(--accent); color:var(--accent-hi);
@@ -202,6 +208,7 @@ body{
   appearance:none; border:1px solid var(--border); background:var(--surface-2);
   color:var(--text-dim); font:inherit; font-size:11px;
   padding:4px 8px; border-radius:var(--radius-sm); cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; gap:4px;
 }
 .f2m-chip-act:hover{background:var(--surface-hi); color:var(--text);}
 .f2m-chip-act.primary{
@@ -233,7 +240,7 @@ body{
 
 /* Category filter strip */
 .f2m-cats{
-  flex:0 0 auto;
+  flex:0 0 auto; min-width:0; width:100%;
   display:flex; align-items:center; gap:4px;
   padding:0 8px 6px;
   overflow-x:auto; overflow-y:hidden;
@@ -268,12 +275,12 @@ body{
 
 .f2m-card{
   display:flex; flex-direction:column;
-  min-height:114px;
+  min-height:118px;
   background:var(--surface-2);
   border:1px solid var(--border-soft);
   border-radius:var(--radius);
   overflow:hidden;
-  transition:border-color .14s, transform .14s, box-shadow .14s;
+  transition:border-color .14s, box-shadow .14s;
   user-select:none;
 }
 .f2m-card:hover{
@@ -281,66 +288,58 @@ body{
   box-shadow:0 4px 16px rgba(0,0,0,.45);
 }
 
-/* Visual Stage */
+/* Visual Stage — calm, uncluttered dark canvas */
 .f2m-stage{
-  flex:0 0 74px;
-  position:relative; height:74px; width:100%;
-  background:
-    radial-gradient(circle at 1px 1px, rgba(167,139,250,.13) 1px, transparent 0) 0 0 / 12px 12px,
-    linear-gradient(180deg, #0d0a14 0%, #130f1c 100%);
+  flex:0 0 78px;
+  position:relative; height:78px; width:100%;
+  background:linear-gradient(180deg, #0b0a0f 0%, #100e16 100%);
   display:flex; align-items:center; justify-content:center;
   overflow:hidden;
 }
 .f2m-stage.is-media{flex:0 0 84px; height:84px; background:#09070d;}
-.f2m-ghost{
-  position:absolute; width:44px; height:26px;
-  border:1px dashed rgba(167,139,250,.45); border-radius:5px;
-  background:rgba(167,139,250,.06);
-  pointer-events:none;
-}
 .f2m-demo-box{
-  position:relative; width:44px; height:26px; border-radius:5px;
-  background:linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
-  box-shadow:0 4px 12px rgba(124,58,237,.45);
-  display:flex; flex-direction:column; justify-content:center; gap:4px; padding:5px 7px;
+  position:relative; width:54px; height:32px; border-radius:6px;
+  background:linear-gradient(180deg, #f3f0ff 0%, #dcd4ff 100%);
+  border:1px solid rgba(255,255,255,.55);
+  box-shadow:0 4px 12px rgba(0,0,0,.55);
+  display:flex; align-items:center; gap:6px; padding:6px 7px;
   will-change:transform, opacity;
 }
-.f2m-demo-line{display:block; height:3px; border-radius:2px; background:rgba(255,255,255,.88);}
+.f2m-demo-badge{
+  flex:0 0 14px; width:14px; height:14px; border-radius:3px;
+  background:linear-gradient(135deg, #8b5cf6, #6d28d9);
+}
+.f2m-demo-lines{
+  flex:1 1 auto; display:flex; flex-direction:column; gap:4px; min-width:0;
+}
+.f2m-demo-line{display:block; height:3px; border-radius:2px; background:rgba(76,29,149,.65);}
 .f2m-demo-line.w1{width:100%;}
-.f2m-demo-line.w2{width:62%; opacity:.65;}
+.f2m-demo-line.w2{width:64%; background:rgba(76,29,149,.35);}
 
 /* Text reveal preview */
 .f2m-demo-text{
   display:flex; align-items:center; gap:2px;
-  font-size:15px; font-weight:700; letter-spacing:.5px; color:var(--accent-hi);
-  text-shadow:0 2px 10px rgba(167,139,250,.4);
+  font-size:16px; font-weight:700; letter-spacing:.6px; color:#f3f0ff;
 }
 .f2m-demo-char{display:inline-block; will-change:transform, opacity, filter;}
 
 /* Transition preview */
 .f2m-trans-frame{
-  position:relative; width:62px; height:38px; border-radius:4px;
-  background:#1c1728; border:1px solid rgba(167,139,250,.3);
+  position:relative; width:68px; height:40px; border-radius:5px;
+  background:#1c1926; border:1px solid rgba(255,255,255,.16);
   overflow:hidden; display:flex; align-items:center; justify-content:center;
 }
 .f2m-trans-frame.is-horiz{flex-direction:column;}
 .f2m-trans-frame.is-vert{flex-direction:row;}
 .f2m-trans-bar{
   flex:1 1 0; width:100%; height:100%;
-  background:linear-gradient(135deg, #a78bfa, #6d28d9);
+  background:linear-gradient(135deg, #ede9fe, #a78bfa);
 }
 .f2m-trans-iris{
   width:76px; height:76px; border-radius:50%;
-  border:20px solid #a78bfa; background:transparent;
+  border:20px solid #ede9fe; background:transparent;
   box-sizing:border-box;
 }
-
-/* Curve sparkline */
-.f2m-curve{
-  position:absolute; left:5px; bottom:3px; width:44px; height:14px;
-  pointer-events:none; opacity:.62;
-}
-.f2m-curve path{fill:none; stroke:var(--accent-hi); stroke-width:1.4; stroke-linecap:round; stroke-linejoin:round;}
 
 /* Media thumbnails & live videos */
 .f2m-thumb{
@@ -354,26 +353,12 @@ body{
   color:var(--accent); opacity:.75;
 }
 
-/* Badges & Variant buttons */
-.f2m-badge{
-  position:absolute; left:5px; top:5px; z-index:2;
-  padding:1px 5px; border-radius:3px;
-  background:rgba(15,12,22,.78); border:1px solid rgba(167,139,250,.3);
-  color:var(--accent-hi); font-size:9px; font-weight:600; line-height:1.4;
-}
-.f2m-badge.is-proc{color:#34d399; border-color:rgba(52,211,153,.35);}
-.f2m-badge.is-user{color:#fbbf24; border-color:rgba(251,191,36,.4);}
-.f2m-badge.is-tpl-kind{color:#38bdf8; border-color:rgba(56,189,248,.35);}
-.f2m-dur{
-  position:absolute; right:5px; top:5px; z-index:2;
-  padding:1px 4px; border-radius:3px;
-  background:rgba(10,8,16,.75); color:var(--text-dim);
-  font-size:9px; font-variant-numeric:tabular-nums;
-}
+/* Variant buttons (only on multi-variant templates) */
 .f2m-varbar{
   position:absolute; right:4px; top:4px; z-index:3;
-  display:flex; gap:2px;
+  display:flex; gap:2px; opacity:.75; transition:opacity .12s;
 }
+.f2m-card:hover .f2m-varbar{opacity:1;}
 .f2m-varbtn{
   appearance:none; border:1px solid rgba(255,255,255,.2);
   background:rgba(10,8,16,.82); color:var(--text-dim);
@@ -410,8 +395,10 @@ body{
 .f2m-del{
   appearance:none; border:1px solid transparent; background:transparent;
   color:var(--text-mute); font:inherit; font-size:10px;
-  padding:2px 4px; border-radius:3px; cursor:pointer;
+  padding:3px 4px; border-radius:3px; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
 }
+.f2m-del.is-confirm{color:var(--danger); border-color:rgba(244,114,182,.4); padding:2px 5px;}
 .f2m-del:hover{color:var(--danger); border-color:rgba(244,114,182,.4);}
 
 .f2m-empty{
@@ -426,7 +413,7 @@ body{
 /* ---------- Live log ----------
    Docked cleanly at the bottom with collapsible toggle so the motion gallery gets primary space. */
 .mk-console{
-  display:flex; flex-direction:column; flex:0 0 96px; min-height:24px;
+  display:flex; flex-direction:column; flex:0 0 72px; min-height:22px;
   margin:0 14px 2px;
 }
 .mk-console.is-collapsed{flex:0 0 auto;}

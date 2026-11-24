@@ -654,12 +654,53 @@
     return mogrtObserver;
   }
 
-  // ---- DOM Helpers ----
+  // ---- DOM Helpers & Flat Vector Icons ----
   function el(tag, cls, text) {
     var node = document.createElement(tag);
     if (cls) node.className = cls;
     if (text !== undefined && text !== null) node.textContent = String(text);
     return node;
+  }
+
+  function svgIcon(name) {
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("class", "f2m-svg-ico");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("aria-hidden", "true");
+    function add(tag, attrs) {
+      var n = document.createElementNS(ns, tag);
+      for (var k in attrs) if (attrs.hasOwnProperty(k)) n.setAttribute(k, attrs[k]);
+      svg.appendChild(n);
+    }
+    if (name === "play") {
+      add("polygon", { points: "5,3.2 13,8 5,12.8", fill: "currentColor" });
+    } else if (name === "pause") {
+      add("rect", { x: "4.2", y: "3.5", width: "2.6", height: "9", rx: "0.7", fill: "currentColor" });
+      add("rect", { x: "9.2", y: "3.5", width: "2.6", height: "9", rx: "0.7", fill: "currentColor" });
+    } else if (name === "plus") {
+      add("path", { d: "M8 3.2v9.6M3.2 8h9.6", fill: "none", stroke: "currentColor", "stroke-width": "1.6", "stroke-linecap": "round" });
+    } else if (name === "refresh") {
+      add("path", { d: "M13.5 8a5.5 5.5 0 1 1-1.4-3.65M13.5 2.5v2.75h-2.75", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round" });
+    } else if (name === "record") {
+      add("circle", { cx: "8", cy: "8", r: "4.2", fill: "currentColor" });
+    } else if (name === "stop") {
+      add("rect", { x: "4.2", y: "4.2", width: "7.6", height: "7.6", rx: "1.2", fill: "currentColor" });
+    } else if (name === "upload") {
+      add("path", { d: "M8 10.8V3.2M5 6l3-3 3 3M3 12.8h10", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round" });
+    } else if (name === "close") {
+      add("path", { d: "M4.5 4.5l7 7M11.5 4.5l-7 7", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round" });
+    }
+    return svg;
+  }
+
+  function iconButton(cls, iconName, labelText, title) {
+    var btn = el("button", cls);
+    btn.type = "button";
+    if (title) btn.title = title;
+    if (iconName) btn.appendChild(svgIcon(iconName));
+    if (labelText) btn.appendChild(el("span", "", labelText));
+    return btn;
   }
 
   function renderSelectionBar() {
@@ -731,7 +772,7 @@
     stage._f2mItem = item;
     stage._f2mMeta = meta;
 
-    // Stage demo target
+    // Clean, uncluttered preview stage with crisp visual subject
     if (item.command === "text_reveal") {
       var wrap = el("div", "f2m-demo-text");
       ["F", "2", "A", "动", "效"].forEach(function (ch) {
@@ -752,75 +793,35 @@
       stage.appendChild(frame);
       resetStageVisual(stage, item);
     } else {
-      var ghost = el("div", "f2m-ghost");
-      // Pose the dashed ghost at the start pose (for entrances) or end pose (for exits)
-      // so every card communicates its trajectory visually even before hover.
-      if (Preview) {
-        var sampleT = item.phase === "out" ? 1 : 0;
-        var gRes = null;
-        if (item.clip && meta) {
-          gRes = Preview.evaluateClipAt(item.clip, meta.duration * sampleT, item.defaultAnchor, meta);
-        } else if (item.kind === "procedural") {
-          var gOv = {};
-          if (item.supports && item.supports.direction) gOv.direction = state.params.direction;
-          gRes = Preview.evaluatePresetAt(item, gOv, sampleT);
-        }
-        if (gRes && (gRes.kind === undefined || gRes.kind === "box")) {
-          var gsx = Math.max(0.28, Math.min(1.45, gRes.scaleX));
-          var gsy = Math.max(0.28, Math.min(1.45, gRes.scaleY));
-          var gdx = Math.max(-24, Math.min(24, gRes.dx * 0.72));
-          var gdy = Math.max(-18, Math.min(18, gRes.dy * 0.72));
-          ghost.style.transform =
-            "translate3d(" + gdx.toFixed(1) + "px," + gdy.toFixed(1) + "px,0) " +
-            "rotate(" + (gRes.rotate * 0.5).toFixed(1) + "deg) " +
-            "scale(" + gsx.toFixed(2) + "," + gsy.toFixed(2) + ")";
-        }
-      }
-      stage.appendChild(ghost);
       var box = el("div", "f2m-demo-box");
-      box.appendChild(el("span", "f2m-demo-line w1"));
-      box.appendChild(el("span", "f2m-demo-line w2"));
+      box.appendChild(el("span", "f2m-demo-badge"));
+      var lines = el("div", "f2m-demo-lines");
+      lines.appendChild(el("span", "f2m-demo-line w1"));
+      lines.appendChild(el("span", "f2m-demo-line w2"));
+      box.appendChild(lines);
       stage.appendChild(box);
     }
 
-    // SVG curve sparkline
-    if (Preview) {
-      var dPath = Preview.buildCurveSvg(item);
-      if (dPath) {
-        var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.setAttribute("class", "f2m-curve");
-        svg.setAttribute("viewBox", "0 0 64 20");
-        svg.setAttribute("aria-hidden", "true");
-        var pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        pathEl.setAttribute("d", dPath);
-        svg.appendChild(pathEl);
-        stage.appendChild(svg);
-      }
-    }
-
-    // Badges
-    var badgeLabel = isUser ? "自存" : (item.kind === "procedural" ? "参数" : (item.category || "动效"));
-    stage.appendChild(el("span", "f2m-badge" + (item.kind === "procedural" ? " is-proc" : (isUser ? " is-user" : "")), badgeLabel));
-    var durVal = item.clip ? item.clip.duration : ((item.defaults && item.defaults.duration) || 0.5);
-    stage.appendChild(el("span", "f2m-dur", (Math.round(durVal * 100) / 100) + "s"));
-
     card.appendChild(stage);
 
-    // Footer metadata + apply button
+    // Footer metadata (duration & track info live here instead of crowding the stage) + apply button
     var foot = el("div", "f2m-foot");
     var info = el("div", "f2m-info");
     info.appendChild(el("div", "f2m-title", item.name));
-    var subText = meta && meta.trackNames.length
-      ? meta.trackNames.join("·")
-      : (item.kind === "procedural" ? (item.category || "参数化") : "多轨动效");
-    info.appendChild(el("div", "f2m-sub", subText));
+    var durVal = item.clip ? item.clip.duration : ((item.defaults && item.defaults.duration) || 0.5);
+    var durStr = (Math.round(durVal * 100) / 100) + "s";
+    var kindText = meta && meta.trackNames.length
+      ? meta.trackNames.join(" / ")
+      : (item.kind === "procedural" ? (item.category || "参数") : "动效");
+    info.appendChild(el("div", "f2m-sub", durStr + " · " + kindText));
     foot.appendChild(info);
 
     var actions = el("div", "f2m-actions");
     if (isUser) {
-      var delBtn = el("button", "f2m-del", state.confirmDeleteId === item.id ? "确认" : "×");
+      var delBtn = state.confirmDeleteId === item.id
+        ? el("button", "f2m-del is-confirm", "确认")
+        : iconButton("f2m-del", "close", "", "删除此动效");
       delBtn.type = "button";
-      delBtn.title = state.confirmDeleteId === item.id ? "再次点击确认删除" : "删除此动效";
       delBtn.onclick = function (ev) {
         ev.stopPropagation();
         if (state.confirmDeleteId !== item.id) {
@@ -891,9 +892,7 @@
     var activeVideoUrl = item.video ? fileUrl(item.video) : "";
     if (activeVideoUrl) stage.setAttribute("data-video", activeVideoUrl);
 
-    stage.appendChild(el("span", "f2m-badge is-tpl-kind", item.kind.toUpperCase()));
-
-    // Variant switcher for Titles Factory (A1 / A2 / A3)
+    // Variant switcher for Titles Factory (A1 / A2 / A3) — subtle pill on top-right
     if (item.variants && item.variants.length > 1) {
       var varBar = el("div", "f2m-varbar");
       item.variants.forEach(function (v, idx) {
@@ -952,7 +951,7 @@
     var foot = el("div", "f2m-foot");
     var info = el("div", "f2m-info");
     info.appendChild(el("div", "f2m-title", item.name));
-    info.appendChild(el("div", "f2m-sub", item.category));
+    info.appendChild(el("div", "f2m-sub", item.kind.toUpperCase() + " · " + item.category));
     foot.appendChild(info);
 
     var actions = el("div", "f2m-actions");
@@ -984,14 +983,12 @@
     if (state.tab === "templates") {
       subbar.hidden = false;
       var row = el("div", "f2m-subrow");
-      var addBtn = el("button", "f2m-chip-act primary", "＋ 添加模板目录");
-      addBtn.type = "button";
+      var addBtn = iconButton("f2m-chip-act primary", "plus", "添加模板目录");
       addBtn.onclick = chooseTemplateDir;
       row.appendChild(addBtn);
 
       if (state.templateDirs.length) {
-        var rescanBtn = el("button", "f2m-chip-act", "↻ 刷新");
-        rescanBtn.type = "button";
+        var rescanBtn = iconButton("f2m-chip-act", "refresh", "刷新");
         rescanBtn.onclick = function () {
           rescanTemplates();
           log("已刷新本地模板目录（" + state.templates.length + " 项）", "ok");
@@ -1004,9 +1001,7 @@
           var pill = el("span", "f2m-dir-pill");
           pill.title = dir;
           pill.appendChild(el("span", "", label));
-          var rmBtn = el("button", "f2m-dir-rm", "×");
-          rmBtn.type = "button";
-          rmBtn.title = "移除目录";
+          var rmBtn = iconButton("f2m-dir-rm", "close", "", "移除目录");
           rmBtn.onclick = function () {
             state.templateDirs = state.templateDirs.filter(function (d) { return d !== dir; });
             saveStoredDirs(state.templateDirs);
@@ -1039,8 +1034,11 @@
       subbar.hidden = false;
       var uRow = el("div", "f2m-subrow");
 
-      var saveBtn = el("button", "f2m-chip-act primary", state.recording ? "■ 停止并保存录制" : "＋ 保存选中动效");
-      saveBtn.type = "button";
+      var saveBtn = iconButton(
+        "f2m-chip-act primary",
+        state.recording ? "stop" : "plus",
+        state.recording ? "停止并保存" : "保存选中动效"
+      );
       saveBtn.onclick = function () {
         state.saveFormOpen = !state.saveFormOpen;
         renderSubbar();
@@ -1048,9 +1046,7 @@
       uRow.appendChild(saveBtn);
 
       if (!state.recording) {
-        var recBtn = el("button", "f2m-chip-act", "● 开始录制");
-        recBtn.type = "button";
-        recBtn.title = "记录当前状态，在 AE 中手调动效后再保存增量变更";
+        var recBtn = iconButton("f2m-chip-act", "record", "开始录制", "记录当前状态，在 AE 中手调动效后再保存增量变更");
         recBtn.onclick = startRecording;
         uRow.appendChild(recBtn);
       } else {
@@ -1065,8 +1061,7 @@
         uRow.appendChild(cancelRec);
       }
 
-      var impBtn = el("button", "f2m-chip-act", "↑ 导入 JSON");
-      impBtn.type = "button";
+      var impBtn = iconButton("f2m-chip-act", "upload", "导入 JSON");
       impBtn.onclick = importJsonDialog;
       uRow.appendChild(impBtn);
       subbar.appendChild(uRow);
@@ -1137,8 +1132,7 @@
       if (state.tab === "templates" && !state.templateDirs.length) {
         empty.appendChild(el("div", "f2m-empty-title", "尚未挂载本地模板目录"));
         empty.appendChild(el("div", "f2m-empty-desc", "添加本地动效数据包后，可直接预览视频缩略图并一键导入 AEP / MOGRT / FFX。"));
-        var cta = el("button", "f2m-chip-act primary", "＋ 选择本地模板目录");
-        cta.type = "button";
+        var cta = iconButton("f2m-chip-act primary", "plus", "选择本地模板目录");
         cta.onclick = chooseTemplateDir;
         empty.appendChild(cta);
       } else if (state.tab === "user" && !state.userClips.length) {
@@ -1233,8 +1227,9 @@
     var playToggle = document.getElementById("f2m-play-toggle");
     function paintPlayToggle() {
       if (!playToggle) return;
-      playToggle.textContent = state.autoPlayAll ? "⏸" : "▶";
-      playToggle.className = "f2m-icon-act" + (state.autoPlayAll ? " active" : "");
+      playToggle.innerHTML = "";
+      playToggle.appendChild(svgIcon(state.autoPlayAll ? "pause" : "play"));
+      playToggle.className = "f2m-icon-act is-square" + (state.autoPlayAll ? " active" : "");
       playToggle.title = state.autoPlayAll ? "切换为仅悬停预览" : "开启可视卡片自动循环预览";
     }
     paintPlayToggle();
