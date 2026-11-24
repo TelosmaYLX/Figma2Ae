@@ -298,23 +298,14 @@ body{
 }
 .f2m-stage.is-media{flex:0 0 84px; height:84px; background:#09070d;}
 .f2m-demo-box{
-  position:relative; width:54px; height:32px; border-radius:6px;
-  background:linear-gradient(180deg, #f3f0ff 0%, #dcd4ff 100%);
-  border:1px solid rgba(255,255,255,.55);
-  box-shadow:0 4px 12px rgba(0,0,0,.55);
-  display:flex; align-items:center; gap:6px; padding:6px 7px;
+  position:relative; width:40px; height:40px; border-radius:10px;
+  background:linear-gradient(155deg, #2b243b 0%, #171322 100%);
+  border:1px solid rgba(196,181,253,.42);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 6px 14px rgba(0,0,0,.5);
+  display:flex; align-items:center; justify-content:center;
   will-change:transform, opacity;
 }
-.f2m-demo-badge{
-  flex:0 0 14px; width:14px; height:14px; border-radius:3px;
-  background:linear-gradient(135deg, #8b5cf6, #6d28d9);
-}
-.f2m-demo-lines{
-  flex:1 1 auto; display:flex; flex-direction:column; gap:4px; min-width:0;
-}
-.f2m-demo-line{display:block; height:3px; border-radius:2px; background:rgba(76,29,149,.65);}
-.f2m-demo-line.w1{width:100%;}
-.f2m-demo-line.w2{width:64%; background:rgba(76,29,149,.35);}
+.f2m-demo-mark{width:22px; height:22px; display:block;}
 
 /* Text reveal preview */
 .f2m-demo-text{

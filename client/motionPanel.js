@@ -794,11 +794,22 @@
       resetStageVisual(stage, item);
     } else {
       var box = el("div", "f2m-demo-box");
-      box.appendChild(el("span", "f2m-demo-badge"));
-      var lines = el("div", "f2m-demo-lines");
-      lines.appendChild(el("span", "f2m-demo-line w1"));
-      lines.appendChild(el("span", "f2m-demo-line w2"));
-      box.appendChild(lines);
+      var ns = "http://www.w3.org/2000/svg";
+      var mark = document.createElementNS(ns, "svg");
+      mark.setAttribute("class", "f2m-demo-mark");
+      mark.setAttribute("viewBox", "0 0 24 24");
+      mark.setAttribute("aria-hidden", "true");
+      var p1 = document.createElementNS(ns, "path");
+      p1.setAttribute("d", "M6 5h12v3.6H9.8v3.1h6.4v3.4H9.8V19H6V5z");
+      p1.setAttribute("fill", "#f4f1ff");
+      var p2 = document.createElementNS(ns, "circle");
+      p2.setAttribute("cx", "17.2");
+      p2.setAttribute("cy", "17.2");
+      p2.setAttribute("r", "2.2");
+      p2.setAttribute("fill", "#a78bfa");
+      mark.appendChild(p1);
+      mark.appendChild(p2);
+      box.appendChild(mark);
       stage.appendChild(box);
     }
 

@@ -84,6 +84,24 @@ function _mkMotionWriteJson(pathStr, obj) {
   }
 }
 
+var _MK_UNDO_OPEN = false;
+
+function _mkBeginUndo(name) {
+  if (_MK_UNDO_OPEN) {
+    try { app.endUndoGroup(); } catch (e0) {}
+    _MK_UNDO_OPEN = false;
+  }
+  app.beginUndoGroup(name);
+  _MK_UNDO_OPEN = true;
+}
+
+function _mkEndUndo() {
+  if (_MK_UNDO_OPEN) {
+    _MK_UNDO_OPEN = false;
+    try { app.endUndoGroup(); } catch (e1) {}
+  }
+}
+
 function _mkMotionOk(data) {
   data.ok = true;
   return JSON.stringify(data);
@@ -578,13 +596,13 @@ function mkMotionApplyClip(jobPath) {
       }
     }
 
-    app.beginUndoGroup("F2A 动效：" + (job.name || "Clip"));
+    _mkBeginUndo("F2A 动效：" + (job.name || "Clip"));
     try {
       for (i = 0; i < edits.length; i++) {
         _mkMotionApplyTrack(edits[i], options, clip.origin || 0);
       }
     } finally {
-      app.endUndoGroup();
+      _mkEndUndo();
     }
 
     return _mkMotionOk({
@@ -608,7 +626,7 @@ function mkMotionApplyPreset(jobPath) {
     var sel = comp.selectedLayers.slice(0);
     sel.sort(function (a, b) { return a.index - b.index; });
 
-    app.beginUndoGroup("F2A 动效：" + (job.name || cmd));
+    _mkBeginUndo("F2A 动效：" + (job.name || cmd));
     var out;
     try {
       if (cmd === "animate") {
@@ -686,7 +704,7 @@ function mkMotionApplyPreset(jobPath) {
         throw new Error("未知的预设命令：" + cmd);
       }
     } finally {
-      app.endUndoGroup();
+      _mkEndUndo();
     }
 
     return _mkMotionOk({ result: out });
@@ -805,59 +823,62 @@ function mkMotionImportTemplate(jobPath) {
     if (job.kind === "ffx") {
       var sel = comp.selectedLayers.slice(0);
       if (!sel.length) throw new Error("请先选中至少一个图层以应用 FFX 预设。");
-      app.beginUndoGroup("F2A FFX：" + (job.name || file.name));
+      var i;
+      for (i = 0; i < sel.length; i++) {
+        if (sel[i].locked) throw new Error("图层「" + sel[i].name + "」已锁定。");
+      }
+      _mkBeginUndo("F2A FFX：" + (job.name || file.name));
       try {
-        for (var i = 0; i < sel.length; i++) {
-          if (sel[i].locked) throw new Error("图层「" + sel[i].name + "」已锁定。");
-          sel[i].applyPreset(file);
-        }
+        // layer.applyPreset() applies to all selected layers at once; call once when all targets are selected
+        sel[0].applyPreset(file);
       } finally {
-        app.endUndoGroup();
+        _mkEndUndo();
       }
       return _mkMotionOk({ kind: "ffx", layers: sel.length, name: job.name || file.name });
     }
 
-    // AEP import (used for Titles Factory .aep, Special Titles.aep, and extracted .mogrt .aep)
-    app.beginUndoGroup("F2A 模板：" + (job.name || file.name));
-    var addedLayer = null;
+    // AEP import (used for Titles Factory .aep, Special Titles.aep, and extracted .mogrt .aep).
+    // IMPORTANT: app.project.importFile() flushes AE's active undo stack, so NEVER call it inside
+    // beginUndoGroup/endUndoGroup (doing so triggers AE's "Undo group mismatch" dialog).
+    var io = new ImportOptions(file);
+    if (io.canImportAs(ImportAsType.PROJECT)) io.importAs = ImportAsType.PROJECT;
+    var imported = app.project.importFile(io);
+
+    var comps = [];
+    _mkMotionCollectCompsInItem(imported, comps);
+    if (!comps.length) throw new Error("该工程中未找到可导入的合成。");
+
     var chosenComp = null;
+    var wanted = String(job.compName || "").replace(/^\s+|\s+$/g, "").toLowerCase();
+    var ci;
+    if (wanted) {
+      for (ci = 0; ci < comps.length; ci++) {
+        var cn = String(comps[ci].name || "").replace(/^\s+|\s+$/g, "").toLowerCase();
+        if (cn === wanted) { chosenComp = comps[ci]; break; }
+      }
+      if (!chosenComp) {
+        for (ci = 0; ci < comps.length; ci++) {
+          var cn2 = String(comps[ci].name || "").replace(/^\s+|\s+$/g, "").toLowerCase();
+          if (cn2.indexOf(wanted) !== -1) { chosenComp = comps[ci]; break; }
+        }
+      }
+    }
+    if (!chosenComp) {
+      var base = file.name.replace(/\.aep$/i, "").toLowerCase();
+      for (ci = 0; ci < comps.length; ci++) {
+        var cname = String(comps[ci].name || "").replace(/^\s+|\s+$/g, "").toLowerCase();
+        if (cname === base || cname.indexOf(base) === 0) { chosenComp = comps[ci]; break; }
+      }
+    }
+    if (!chosenComp) chosenComp = comps[0];
+
+    var addedLayer = null;
+    _mkBeginUndo("F2A 模板：" + (job.name || file.name));
     try {
-      var io = new ImportOptions(file);
-      if (io.canImportAs(ImportAsType.PROJECT)) io.importAs = ImportAsType.PROJECT;
-      var imported = app.project.importFile(io);
       var container = _mkMotionFindOrCreateFolder("F2A 模板库");
       if (imported && imported.parentFolder !== container) {
         try { imported.parentFolder = container; } catch (eMv) {}
       }
-
-      var comps = [];
-      _mkMotionCollectCompsInItem(imported, comps);
-      if (!comps.length) throw new Error("该工程中未找到可导入的合成。");
-
-      var wanted = String(job.compName || "").replace(/^\s+|\s+$/g, "").toLowerCase();
-      var ci;
-      if (wanted) {
-        for (ci = 0; ci < comps.length; ci++) {
-          var cn = String(comps[ci].name || "").replace(/^\s+|\s+$/g, "").toLowerCase();
-          if (cn === wanted) { chosenComp = comps[ci]; break; }
-        }
-        if (!chosenComp) {
-          for (ci = 0; ci < comps.length; ci++) {
-            var cn2 = String(comps[ci].name || "").replace(/^\s+|\s+$/g, "").toLowerCase();
-            if (cn2.indexOf(wanted) !== -1) { chosenComp = comps[ci]; break; }
-          }
-        }
-      }
-      if (!chosenComp) {
-        // Prefer the first comp that matches the file base name, else the first non-empty comp
-        var base = file.name.replace(/\.aep$/i, "").toLowerCase();
-        for (ci = 0; ci < comps.length; ci++) {
-          var cname = String(comps[ci].name || "").replace(/^\s+|\s+$/g, "").toLowerCase();
-          if (cname === base || cname.indexOf(base) === 0) { chosenComp = comps[ci]; break; }
-        }
-      }
-      if (!chosenComp) chosenComp = comps[0];
-
       addedLayer = comp.layers.add(chosenComp);
       addedLayer.startTime = comp.time;
       if (job.fitToComp !== false && chosenComp.width > 0 && chosenComp.height > 0 &&
@@ -866,7 +887,7 @@ function mkMotionImportTemplate(jobPath) {
         addedLayer.property("ADBE Transform Group").property("ADBE Scale").setValue([fitScale, fitScale, 100]);
       }
     } finally {
-      app.endUndoGroup();
+      _mkEndUndo();
     }
 
     return _mkMotionOk({
@@ -886,7 +907,7 @@ function mkMotionResetSelected() {
     var sel = comp.selectedLayers.slice(0);
     if (!sel.length) throw new Error("请先在时间轴中选中至少一个图层。");
     var cleared = 0;
-    app.beginUndoGroup("F2A 重置选中图层动效");
+    _mkBeginUndo("F2A 重置选中图层动效");
     try {
       for (var i = 0; i < sel.length; i++) {
         if (sel[i].locked) continue;
@@ -919,7 +940,7 @@ function mkMotionResetSelected() {
         }
       }
     } finally {
-      app.endUndoGroup();
+      _mkEndUndo();
     }
     return _mkMotionOk({ layers: sel.length, cleared: cleared });
   } catch (e) {
