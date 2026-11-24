@@ -1083,6 +1083,160 @@ def curate_library(buckets):
     return clips
 
 
+# ---------------------------------------------------------------------------
+# React Bits (reactbits.dev) content reveals, synthesized as portable 2-key clips.
+#
+# React Bits drives its reveals with CSS cubic-bezier or GSAP power/expo/back easings. An AE
+# temporal ease is the same cubic bezier (handle x = influence, handle y = speed x duration /
+# value change), so the curves are converted exactly instead of approximated with the generic
+# snappy/smooth styles used by the harvested clips.
+# ---------------------------------------------------------------------------
+RB_POWER2_OUT = (0.33, 1.0, 0.68, 1.0)       # cubic-bezier(0.33, 1, 0.68, 1), GSAP power2.out
+RB_POWER3_OUT = (0.215, 0.61, 0.355, 1.0)    # GSAP power3.out
+RB_POWER2_IN_OUT = (0.65, 0.0, 0.35, 1.0)    # GSAP power2.inOut
+RB_POWER3_IN = (0.55, 0.055, 0.675, 0.19)    # GSAP power3.in
+RB_BACK_OUT = (0.34, 1.56, 0.64, 1.0)        # GSAP back.out(1.7)-ish over-shoot
+
+
+def _curve_at(curves, index):
+    return curves if isinstance(curves, tuple) else curves[index]
+
+
+def _ease_from_curve(curve, dv, dt, side):
+    """Convert one side of a CSS/GSAP cubic bezier into AE's speed + influence temporal ease."""
+    x1, y1, x2, y2 = curve
+    if side == "out":
+        x, y = x1, y1
+    else:
+        x, y = 1.0 - x2, 1.0 - y2
+    influence = clean_num(max(0.1, min(100.0, x * 100.0)), 2)
+    slope = (y / x) if x > 1e-9 else 0.0
+    speed = slope * (dv / dt) if dt > 1e-9 else 0.0
+    return {"speed": clean_num(speed, 3), "influence": influence}
+
+
+def _eases_for(prop_name, curve, v0, v1, dt, side):
+    """Ease array for one segment side: spatial position takes one signed ease, layers one per dim."""
+    if prop_name == "position":
+        dx, dy = v1[0] - v0[0], v1[1] - v0[1]
+        delta = dx if abs(dx) >= abs(dy) else dy
+        # AE's spatial temporal ease speed is a magnitude along the motion path (negative speeds are
+        # clamped to 0), so the curve slope is expressed with the absolute travel distance.
+        return [_ease_from_curve(curve, abs(delta), dt, side)]
+    if isinstance(v0, (list, tuple)) and isinstance(v1, (list, tuple)):
+        return [_ease_from_curve(curve, v1[d] - v0[d], dt, side) for d in range(len(v0))]
+    return [_ease_from_curve(curve, v1 - v0, dt, side)]
+
+
+def synth_track(prop_name, times, values, curves, last_linear=False):
+    """Build one portable track from a list of keys and per-segment CSS-bezier curves."""
+    path_spec, value_type = TRACK_META[prop_name]
+    keys = []
+    for i, t in enumerate(times):
+        value = values[i]
+        in_ease = None
+        out_ease = None
+        if i > 0:
+            in_ease = _eases_for(prop_name, _curve_at(curves, i - 1), values[i - 1], value, t - times[i - 1], "in")
+        if i < len(times) - 1:
+            out_ease = _eases_for(prop_name, _curve_at(curves, i), value, values[i + 1], times[i + 1] - t, "out")
+        key = {"time": clean_num(t, 4), "value": clean_num(value, 4)}
+        if last_linear and i == len(times) - 1:
+            key["inInterp"] = "linear"
+            key["outInterp"] = "linear"
+        else:
+            key["inInterp"] = "bezier"
+            key["outInterp"] = "bezier"
+            if in_ease:
+                key["inEase"] = in_ease
+            if out_ease:
+                key["outEase"] = out_ease
+            elif in_ease:
+                # The outgoing side of the landing key never shapes a segment, but the AE applier
+                # only writes temporal ease when both sides carry one.
+                key["outEase"] = temp_eases(33.33, len(in_ease))
+        keys.append(key)
+    return {"path": path_spec, "type": value_type, "keys": keys}
+
+
+def synth_clip(slug, name, category, phase, default_anchor, description, tags, duration, track_specs):
+    tracks = [synth_track(*spec) for spec in track_specs]
+    return make_artifact(slug, name, category, phase, default_anchor, description, tags, tracks, source_style="ReactBits")
+
+
+def reactbits_clips():
+    """Content reveals distilled from React Bits' Animated Content / Fade Content / Bubble Menu."""
+    return [
+        synth_clip(
+            "rb-content-rise", "RB 内容上浮", "组合", "in", "end",
+            "React Bits Animated Content 风格：整体 100px 幂次上浮并渐显（power3.out，0.8s）。",
+            ["ReactBits", "组合", "入场", "上浮", "幂次"],
+            0.8,
+            [
+                ("position", [0, 0.8], [[0, 100, 0], [0, 0, 0]], RB_POWER3_OUT),
+                ("opacity", [0, 0.8], [0, 100], RB_POWER3_OUT),
+            ],
+        ),
+        synth_clip(
+            "rb-content-glide", "RB 内容横移", "组合", "in", "end",
+            "React Bits Animated Content horizontal：整体自右 100px 横移进场并渐显（power3.out，0.8s）。",
+            ["ReactBits", "组合", "入场", "横移", "幂次"],
+            0.8,
+            [
+                ("position", [0, 0.8], [[100, 0, 0], [0, 0, 0]], RB_POWER3_OUT),
+                ("opacity", [0, 0.8], [0, 100], RB_POWER3_OUT),
+            ],
+        ),
+        synth_clip(
+            "rb-content-fade", "RB 内容淡入", "入场", "in", "end",
+            "React Bits Fade Content 风格：纯透明度 1s 幂次淡入（power2.out）。",
+            ["ReactBits", "入场", "淡入", "透明度"],
+            1.0,
+            [("opacity", [0, 1.0], [0, 100], RB_POWER2_OUT)],
+        ),
+        synth_clip(
+            "rb-content-zoom", "RB 内容微缩", "组合", "in", "end",
+            "React Bits Animated Content scale：整体 95% 放大到 100% 并渐显（power3.out，0.8s）。",
+            ["ReactBits", "组合", "入场", "缩放", "幂次"],
+            0.8,
+            [
+                ("scale", [0, 0.8], [[95, 95, 100], [100, 100, 100]], RB_POWER3_OUT),
+                ("opacity", [0, 0.8], [0, 100], RB_POWER3_OUT),
+            ],
+        ),
+        synth_clip(
+            "rb-content-focus", "RB 内容聚焦", "组合", "in", "end",
+            "React Bits Fade Content focus（去模糊近似版）：97% 缩放回正并渐显（power2.out，1s）。",
+            ["ReactBits", "组合", "入场", "聚焦", "缩放"],
+            1.0,
+            [
+                ("scale", [0, 1.0], [[97, 97, 100], [100, 100, 100]], RB_POWER2_OUT),
+                ("opacity", [0, 1.0], [0, 100], RB_POWER2_OUT),
+            ],
+        ),
+        synth_clip(
+            "rb-back-pop", "RB 弹性弹出", "弹跳", "in", "end",
+            "React Bits Bubble Menu / Split Text pop：0→100% 弹性缩放（back.out 过冲）并快速渐显，0.5s。",
+            ["ReactBits", "弹跳", "入场", "弹出", "过冲"],
+            0.5,
+            [
+                ("scale", [0, 0.5], [[0, 0, 100], [100, 100, 100]], RB_BACK_OUT),
+                ("opacity", [0, 0.5], [0, 100], RB_POWER3_OUT),
+            ],
+        ),
+        synth_clip(
+            "rb-exit-sink", "RB 内容下沉退场", "出场", "out", "start",
+            "React Bits Animated Content disappear：整体上移 100px 并渐隐（power3.in，0.5s）。",
+            ["ReactBits", "出场", "下沉", "退场"],
+            0.5,
+            [
+                ("position", [0, 0.5], [[0, 0, 0], [0, -100, 0]], RB_POWER3_IN, True),
+                ("opacity", [0, 0.5], [100, 0], RB_POWER3_IN),
+            ],
+        ),
+    ]
+
+
 def procedural_presets():
     """F2A's built-in AE Motion procedural presets (editable keys, text animators, transitions)."""
     return [
@@ -1158,6 +1312,65 @@ def procedural_presets():
          "defaults": {"style": "typewriter", "by": "chars", "phase": "in", "duration": 0, "stagger": 0.045, "ease": "linear"},
          "supports": {"textBy": True}},
 
+        # React Bits text effects (reactbits.dev) rebuilt on native AE text animators. Each entry keeps
+        # the component's duration/stagger/ease, so its curve is locked (supports.style stays False) —
+        # the panel's global curve control must not flatten the React Bits timing.
+        {"id": "preset-rb-split-rise", "kind": "procedural", "command": "text_reveal", "name": "RB 逐字上浮", "category": "文字", "phase": "in",
+         "description": "React Bits Split Text rise：逐字 40px 上浮、power3.out 落定，1.25s / 50ms 错峰。", "tags": ["ReactBits", "文字", "入场", "上浮", "逐字"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "rise", "by": "chars", "phase": "in", "duration": 1.25, "stagger": 0.05, "ease": "power3Out", "distance": 40},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-rb-split-fade", "kind": "procedural", "command": "text_reveal", "name": "RB 逐字淡入", "category": "文字", "phase": "in",
+         "description": "React Bits Split Text fade：逐字淡入，power2.inOut 曲线，1.25s / 50ms 错峰。", "tags": ["ReactBits", "文字", "入场", "淡入", "逐字"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "fade", "by": "chars", "phase": "in", "duration": 1.25, "stagger": 0.05, "ease": "power2InOut"},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-rb-split-pop", "kind": "procedural", "command": "text_reveal", "name": "RB 逐字弹入", "category": "文字", "phase": "in",
+         "description": "React Bits Split Text pop：字符 0→100% 弹性缩放点亮，back.out(1.6) 过冲。", "tags": ["ReactBits", "文字", "入场", "弹跳", "逐字"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "pop", "by": "chars", "phase": "in", "duration": 1.25, "stagger": 0.05, "ease": "backOut"},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-rb-split-blur", "kind": "procedural", "command": "text_reveal", "name": "RB 逐字聚焦", "category": "文字", "phase": "in",
+         "description": "React Bits Split Text blur：逐字由虚焦到清晰，power2.out 收束。", "tags": ["ReactBits", "文字", "入场", "模糊", "逐字"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "blur", "by": "chars", "phase": "in", "duration": 1.25, "stagger": 0.05, "ease": "power2Out"},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-rb-split-skew", "kind": "procedural", "command": "text_reveal", "name": "RB 逐字斜切", "category": "文字", "phase": "in",
+         "description": "React Bits Split Text skew：逐字从左斜切 -24° 摆正，expo.out 快速启动。", "tags": ["ReactBits", "文字", "入场", "斜切", "逐字"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "skewIn", "by": "chars", "phase": "in", "duration": 1.25, "stagger": 0.05, "ease": "expoOut"},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-rb-split-wave", "kind": "procedural", "command": "text_reveal", "name": "RB 逐字波浪", "category": "文字", "phase": "in",
+         "description": "React Bits Split Text wave：逐字自下方 0.45em 波浪式浮起，自定义 wave 曲线。", "tags": ["ReactBits", "文字", "入场", "波浪", "逐字"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "wave", "by": "chars", "phase": "in", "duration": 1.25, "stagger": 0.05, "ease": "wave"},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-rb-blurtext", "kind": "procedural", "command": "text_reveal", "name": "RB 柔焦整词", "category": "文字", "phase": "in",
+         "description": "React Bits Blur Text blur：整词从 10px 模糊 + 50px 上方落定，200ms 错峰。", "tags": ["ReactBits", "文字", "入场", "模糊", "整词"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "riseBlur", "by": "words", "phase": "in", "duration": 0.7, "stagger": 0.2, "ease": "power2Out", "distance": 50},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-rb-focus", "kind": "procedural", "command": "text_reveal", "name": "RB 聚焦显现", "category": "文字", "phase": "in",
+         "description": "React Bits Blur Text focus：整词 112% 缩放 + 14px 模糊收敛到清晰，power2.inOut。", "tags": ["ReactBits", "文字", "入场", "聚焦", "整词"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "focus", "by": "words", "phase": "in", "duration": 0.7, "stagger": 0.2, "ease": "power2InOut"},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-rb-zoom", "kind": "procedural", "command": "text_reveal", "name": "RB 推近聚焦", "category": "文字", "phase": "in",
+         "description": "React Bits Blur Text zoom：整词 140% 推近 + 模糊消散并回落，power2.out。", "tags": ["ReactBits", "文字", "入场", "推近", "整词"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "zoomIn", "by": "words", "phase": "in", "duration": 0.7, "stagger": 0.2, "ease": "power2Out", "distance": 50},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-rb-scroll-reveal", "kind": "procedural", "command": "text_reveal", "name": "RB 逐词浮现", "category": "文字", "phase": "in",
+         "description": "React Bits Scroll Reveal rise：整词 0.8em 上浮 + 轻度模糊淡入，power3.out。", "tags": ["ReactBits", "文字", "入场", "浮现", "整词"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "riseBlur", "by": "words", "phase": "in", "direction": "up", "duration": 0.8, "stagger": 0.05, "ease": "power3Out", "distance": 16},
+         "supports": {"duration": True, "textBy": True}},
+        {"id": "preset-rb-wave-float", "kind": "procedural", "command": "text_reveal", "name": "RB 字符漂浮", "category": "文字", "phase": "in",
+         "description": "React Bits Scroll Float：逐字 1.2em 上浮 + 轻微纵向拉伸回正，back.inOut(2) 缓动。", "tags": ["ReactBits", "文字", "入场", "漂浮", "逐字"],
+         "sourceStyle": "ReactBits",
+         "defaults": {"style": "float", "by": "chars", "phase": "in", "duration": 1.0, "stagger": 0.03, "ease": "backInOut"},
+         "supports": {"duration": True, "textBy": True}},
+
         # Transitions
         {"id": "preset-trans-wipe", "kind": "procedural", "command": "transition", "name": "色块扫屏转场", "category": "转场", "phase": "transition",
          "description": "在当前播放头创建可编辑全屏扫光擦除转场层。", "tags": ["转场", "擦除", "扫屏"],
@@ -1181,7 +1394,7 @@ def main():
     args = parser.parse_args()
 
     buckets = harvest_from_source(args.source)
-    clips = curate_library(buckets)
+    clips = curate_library(buckets) + reactbits_clips()
     presets = procedural_presets()
 
     payload = {

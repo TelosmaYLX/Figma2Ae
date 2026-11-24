@@ -9,6 +9,13 @@ const time = z.number().min(0);
 const direction = z.enum(['up', 'down', 'left', 'right']);
 const phase = z.enum(['in', 'out']);
 const curve = z.enum(['snappy', 'smooth', 'spring', 'bounce', 'linear']);
+// The closed-form easings used by text reveals, including the React Bits vocabulary
+// (power/expo/back/wave) distilled in host/motion/aeMotionPresets.jsx.
+const textEase = z.enum([
+  'snappy', 'smooth', 'accelerate', 'linear', 'spring', 'bounce',
+  'power2Out', 'power3Out', 'power4Out', 'power2InOut', 'expoOut', 'backOut', 'backInOut', 'wave',
+]);
+const textStyle = z.enum(['rise', 'drop', 'fade', 'pop', 'blur', 'typewriter', 'skewIn', 'riseBlur', 'focus', 'zoomIn', 'wave', 'float']);
 const order = z.enum(['forward', 'reverse']);
 
 export function registerAeMotionTools(server: McpServer, call: ReturnType<typeof registerSurehandTools>, jsx: string) {
@@ -52,14 +59,15 @@ export function registerAeMotionTools(server: McpServer, call: ReturnType<typeof
   preset('text_reveal', 'Reveal or hide native AE text by characters, words, or lines. For Figma selection export use export_aep with textMode "editable".', {
     layer_id: layerId,
     comp_id: changeScope,
-    style: z.enum(['rise', 'drop', 'fade', 'pop', 'blur', 'typewriter']).optional(),
+    style: textStyle.optional(),
     by: z.enum(['chars', 'words', 'lines']).optional(),
     phase: phase.optional(),
     time: time.optional(),
     duration: time.optional(),
     stagger: time.optional(),
-    ease: curve.optional(),
+    ease: textEase.optional(),
     order: z.enum(['forward', 'reverse', 'center', 'random']).optional(),
+    direction: direction.optional().describe('Travel direction of the unit; the unit starts on its opposite side.'),
     distance: z.number().positive().optional(),
     mask: z.boolean().optional(),
   });

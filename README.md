@@ -107,6 +107,8 @@ flowchart LR
 
 也可以把 AE 里手调好的关键帧保存为动效配方，再套用到其他工程的图层。 [复用手调动效](mcp/README.md#复用手调动效)
 
+F2A 面板的 **内置动效** 除模板抽取片段与参数化预设外，还包含一组从 [React Bits](https://reactbits.dev) 的入场/文字动画提炼的 `RB` 预设与两键片段（power/expo/back 曲线、逐字/逐词错峰）。文字预设走 AE 文字动画器＋单条表达式，仅适合 AE/视频输出；Web/Lottie 交付优先使用 `rb-content-*`、`rb-exit-sink` 等无表达式片段。全站可移植性分析与映射见 `skills/f2a-motion-production/references/reactbits-motion-vocabulary.md`。
+
 ## 常见问题
 
 - **AEP 导出提示字体或字形缺失？** 可编辑文字依赖导出器识别实际字体和字重。若只是要保留外观和形状动画，选择 **矢量形状（无需字体）** 后重新导出。

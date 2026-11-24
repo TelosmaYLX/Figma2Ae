@@ -174,6 +174,38 @@ async function check() {
     }
     assert.match(preview.buildCurveSvg(preset), /^M[\d.-]+,[\d.-]+/);
   }
+
+  // React Bits pack: text effects distilled from reactbits.dev plus synthesized content clips.
+  const rbPresets = builtin.presets.filter(item => item.id.startsWith('preset-rb-'));
+  assert.ok(rbPresets.length >= 11, 'expected the React Bits text preset pack');
+  const rbTextStyles = new Set(['rise', 'fade', 'pop', 'blur', 'skewIn', 'riseBlur', 'focus', 'zoomIn', 'wave', 'float']);
+  const rbTextEases = new Set(['power2Out', 'power3Out', 'power2InOut', 'expoOut', 'backOut', 'backInOut', 'wave']);
+  for (const preset of rbPresets) {
+    assert.equal(preset.command, 'text_reveal', preset.id + ' must be a text reveal');
+    assert.ok(rbTextStyles.has(preset.defaults.style), preset.id + ' has an unknown text style');
+    assert.ok(rbTextEases.has(preset.defaults.ease), preset.id + ' has an unknown text ease');
+    assert.ok(!(preset.supports && preset.supports.style), preset.id + ' must lock its React Bits curve');
+    assert.ok(preset.tags.includes('ReactBits'), preset.id + ' must be tagged ReactBits');
+    for (const u of [0, 0.25, 0.5, 0.75, 1]) {
+      const res = preview.evaluatePresetAt(preset, {}, u);
+      assert.equal(res.kind, 'text', preset.id + ' previews as text');
+      for (const ch of res.chars) {
+        for (const field of ['dx', 'dy', 'scale', 'opacity']) {
+          assert.ok(Number.isFinite(ch[field]), `${preset.id} ${field} is finite at ${u}`);
+        }
+      }
+    }
+  }
+  // back.out overshoot: the pop preset starts collapsed and finishes at full scale.
+  const rbPop = rbPresets.find(item => item.id === 'preset-rb-split-pop');
+  for (const ch of preview.evaluatePresetAt(rbPop, {}, 0).chars) assert.ok(ch.scale < 0.05, 'pop starts at zero scale');
+  for (const ch of preview.evaluatePresetAt(rbPop, {}, 1).chars) assert.ok(ch.opacity > 0.95, 'pop finishes opaque');
+  const rbClips = ['rb-content-rise', 'rb-content-glide', 'rb-content-fade', 'rb-content-zoom', 'rb-content-focus', 'rb-back-pop', 'rb-exit-sink'];
+  for (const slug of rbClips) {
+    const clip = builtin.clips.find(item => item.slug === slug);
+    assert.ok(clip, 'missing React Bits clip ' + slug);
+    assert.equal(clip.sourceStyle, 'ReactBits');
+  }
   // Verify Adobe CEP --mixed-context (both window AND module.exports exist in <script> tags)
   const cepWindow = {};
   const cepModule = { exports: {} };

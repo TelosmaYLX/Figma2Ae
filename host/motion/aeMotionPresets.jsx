@@ -708,14 +708,24 @@ function animateContinuous(a, ls, c) {
 }
 // ---------- text reveals ----------
 var REVEAL_BASED = { chars: 1, words: 3, lines: 4 };
-// The curve u (0-1) -> e (0-1) as expression code.
+// The curve u (0-1) -> e (0-1) as expression code. The power*/expo*/back*/wave curves are the
+// motion vocabulary distilled from React Bits (reactbits.dev) entrances; they are closed-form
+// GSAP-compatible easings so the same per-character timing survives in an AE text animator.
 var REVEAL_CURVES = {
     linear: "u",
     smooth: "u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2",
     snappy: "(1-Math.pow(2,-10*u))/(1-Math.pow(2,-10))",
     accelerate: "u*u*u",
     spring: "(1-Math.exp(-6*u)*Math.cos(9.42*u))/(1-Math.exp(-6)*Math.cos(9.42))",
-    bounce: "1-Math.abs(Math.exp(-5*u)*Math.cos(14.137*u))"
+    bounce: "1-Math.abs(Math.exp(-5*u)*Math.cos(14.137*u))",
+    power2Out: "1-Math.pow(1-u,2)",
+    power3Out: "1-Math.pow(1-u,3)",
+    power4Out: "1-Math.pow(1-u,4)",
+    power2InOut: "u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2",
+    expoOut: "u>=1?1:1-Math.pow(2,-10*u)",
+    backOut: "1+2.70158*Math.pow(u-1,3)+1.70158*Math.pow(u-1,2)",
+    backInOut: "u<.5?Math.pow(2*u,2)*((3.05+1)*2*u-3.05)/2:Math.pow(2*u-2,2)*((3.05+1)*(2*u-2)+3.05)/2+1",
+    wave: "1-Math.cos(u*Math.PI*1.5)*Math.pow(1-u,1.2)"
 };
 var REVEAL_ORDERS = { forward: 0, reverse: 1, center: 2, random: 3 };
 // The Amount expression of a reveal's expression selector: 100 = the animator's off state, 0 = at rest.
@@ -737,36 +747,71 @@ function unitCount(txt, by) {
             n++;
     return n;
 }
+// text_reveal styles. The original six are the AE-native basics; skewIn, riseBlur, focus and zoomIn
+// are the React Bits text effects (Split Text skew, Blur Text blur/zoom/focus) rebuilt with the same
+// native text-animator + Amount-expression mechanism, so they stay editable and reversible.
 C.text_reveal = function (a) {
     need(a, ["layer_id"]);
-    var l = getLayer(a.layer_id), c = l.containingComp, style = a.style || "rise", by = a.by || "chars", phase = a.phase || "in", curve = a.ease || (style === "pop" ? "spring" : (phase === "in" ? "snappy" : "accelerate")), d, st, t0, n, an, props, sel, dist, r, m, pad, ms, amount, end;
+    var l = getLayer(a.layer_id), c = l.containingComp, style = a.style || "rise", by = a.by || "chars", phase = a.phase || "in", curve = a.ease || (style === "pop" ? "spring" : (phase === "in" ? "snappy" : "accelerate")), d, st, t0, n, an, props, sel, dist, fontSize, dir, off, r, m, pad, ms, amount, end;
     if (!(l instanceof TextLayer))
         fail("BAD_ARGS", "Layer " + l.id + " is not a text layer", "text_reveal works on text layers; animate moves any layer");
     if (!REVEAL_BASED[by])
         fail("BAD_ARGS", "by must be chars, words or lines");
     if (!REVEAL_CURVES[curve])
-        fail("BAD_ARGS", "ease must be snappy, smooth, spring, bounce or linear");
-    if (" rise drop fade pop blur typewriter ".indexOf(" " + style + " ") === -1)
-        fail("BAD_ARGS", "style must be rise, drop, fade, pop, blur or typewriter");
+        fail("BAD_ARGS", "ease must be snappy, smooth, accelerate, spring, bounce, linear, power2Out, power3Out, power4Out, power2InOut, expoOut, backOut, backInOut or wave");
+    if (" rise drop fade pop blur typewriter skewIn riseBlur focus zoomIn wave float ".indexOf(" " + style + " ") === -1)
+        fail("BAD_ARGS", "style must be rise, drop, fade, pop, blur, typewriter, skewIn, riseBlur, focus, zoomIn, wave or float");
     if (!has(REVEAL_ORDERS, a.order || "forward"))
         fail("BAD_ARGS", "order must be forward, reverse, center or random");
+    if (a.direction && " up down left right ".indexOf(" " + a.direction + " ") === -1)
+        fail("BAD_ARGS", "direction must be up, down, left or right");
     d = style === "typewriter" ? 0 : (has(a, "duration") ? a.duration : 0.5);
     st = has(a, "stagger") ? a.stagger : (style === "typewriter" ? 0.05 : { chars: 0.03, words: 0.08, lines: 0.15 }[by]);
     n = unitCount(l.property("ADBE Text Properties").property("ADBE Text Document").value.text, by);
+    fontSize = 0;
+    safe(function () { fontSize = Number(l.property("ADBE Text Properties").property("ADBE Text Document").value.fontSize) || 0; });
     t0 = has(a, "time") ? a.time : (phase === "in" ? l.inPoint : l.outPoint - d - Math.max(0, n - 1) * st);
     if (t0 < 0)
         fail("BAD_ARGS", "The reveal would start before 0 s", "Pass a later time, or a shorter duration or stagger");
-    dist = has(a, "distance") ? a.distance : Math.round(c.height * 0.05);
+    // Default travel direction of each style (the side the unit comes from is its opposite).
+    dir = a.direction || (style === "drop" ? "down" : (style === "skewIn" ? "right" : ((style === "riseBlur" || style === "zoomIn") ? "down" : "up")));
+    // Distance defaults follow the component that inspired the style: Split Text 40px / 0.45em,
+    // Blur Text 50px, Scroll Reveal about 0.8em, Scroll Float about 1.2em plus a small stretch.
+    dist = has(a, "distance") ? a.distance : (style === "skewIn" ? Math.round(fontSize * 0.4) : (style === "wave" ? Math.round(fontSize * 0.45) : (style === "float" ? Math.round(fontSize * 1.2) : (style === "riseBlur" || style === "zoomIn" ? 50 : (style === "focus" ? 0 : Math.round(c.height * 0.05))))));
+    off = [0, 0, 0];
+    if (dir === "up") off = [0, dist, 0];
+    else if (dir === "down") off = [0, -dist, 0];
+    else if (dir === "right") off = [-dist, 0, 0];
+    else off = [dist, 0, 0];
+    // Blur Text's zoom only drifts a third of its distance while the blur resolves.
+    if (style === "zoomIn") off = [off[0] * 0.35, off[1] * 0.35, 0];
     an = l.property("ADBE Text Properties").property("ADBE Text Animators").addProperty("ADBE Text Animator");
     an.name = "Reveal (" + style + ")";
     props = an.property("ADBE Text Animator Properties");
     props.addProperty("ADBE Text Opacity").setValue(0);
-    if (style === "rise" || style === "drop")
-        props.addProperty("ADBE Text Position 3D").setValue([0, style === "rise" ? dist : -dist, 0]);
+    if (style === "rise" || style === "drop" || style === "riseBlur" || style === "zoomIn" || style === "wave" || style === "float" || style === "skewIn")
+        props.addProperty("ADBE Text Position 3D").setValue(off);
     if (style === "pop")
         props.addProperty("ADBE Text Scale 3D").setValue([0, 0, 0]);
+    if (style === "focus")
+        props.addProperty("ADBE Text Scale 3D").setValue([112, 112, 100]);
+    if (style === "zoomIn")
+        props.addProperty("ADBE Text Scale 3D").setValue([140, 140, 100]);
+    // Scroll Float also squashes: scaleY stretch 110%, scaleX squeeze ~96% while it rises.
+    if (style === "float")
+        props.addProperty("ADBE Text Scale 3D").setValue([96.5, 110, 100]);
+    if (style === "skewIn") {
+        props.addProperty("ADBE Text Skew").setValue(-24);
+        safe(function () { props.addProperty("ADBE Text Skew Axis").setValue(0); });
+    }
     if (style === "blur")
         props.addProperty("ADBE Text Blur").setValue([24, 24]);
+    if (style === "riseBlur")
+        props.addProperty("ADBE Text Blur").setValue([10, 10]);
+    if (style === "zoomIn")
+        props.addProperty("ADBE Text Blur").setValue([12, 12]);
+    if (style === "focus")
+        props.addProperty("ADBE Text Blur").setValue([14, 14]);
     sel = an.property("ADBE Text Selectors").addProperty("ADBE Text Expressible Selector");
     safe(function () { sel.property("ADBE Text Range Type2").setValue(REVEAL_BASED[by]); });
     amount = sel.property("ADBE Text Expressible Amount");
@@ -775,12 +820,12 @@ C.text_reveal = function (a) {
         fail("AE_ERROR", "After Effects rejected the reveal expression: " + amount.expressionError);
     end = t0 + d + Math.max(0, n - 1) * st;
     // a mask along the text's baseline (rise) or cap line (drop) so letters slide out from behind a line
-    if (a.mask && (style === "rise" || style === "drop")) {
+    if (a.mask && (style === "rise" || style === "drop") && (dir === "up" || dir === "down")) {
         r = l.sourceRectAtTime(phase === "in" ? end : t0, false);
         pad = Math.max(r.height, dist) * 1.5;
         m = l.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
         m.name = "Reveal line";
-        ms = style === "rise" ? [r.top - pad, r.top + r.height + r.height * 0.12] : [r.top - r.height * 0.05, r.top + r.height + pad];
+        ms = dir === "up" ? [r.top - pad, r.top + r.height + r.height * 0.12] : [r.top - r.height * 0.05, r.top + r.height + pad];
         m.property("ADBE Mask Shape").setValue(boxShape("rect", r.left + r.width / 2, (ms[0] + ms[1]) / 2, r.width + pad * 2, ms[1] - ms[0]));
     }
     return { layer: layerRef(l), animator: an.propertyIndex, units: n, start: t0, end: Math.round(end * 1e4) / 1e4 };

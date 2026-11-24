@@ -477,6 +477,330 @@
       }
     },
     {
+      "id": "preset-rb-split-rise",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 逐字上浮",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Split Text rise：逐字 40px 上浮、power3.out 落定，1.25s / 50ms 错峰。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "上浮",
+        "逐字"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "rise",
+        "by": "chars",
+        "phase": "in",
+        "duration": 1.25,
+        "stagger": 0.05,
+        "ease": "power3Out",
+        "distance": 40
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-rb-split-fade",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 逐字淡入",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Split Text fade：逐字淡入，power2.inOut 曲线，1.25s / 50ms 错峰。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "淡入",
+        "逐字"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "fade",
+        "by": "chars",
+        "phase": "in",
+        "duration": 1.25,
+        "stagger": 0.05,
+        "ease": "power2InOut"
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-rb-split-pop",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 逐字弹入",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Split Text pop：字符 0→100% 弹性缩放点亮，back.out(1.6) 过冲。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "弹跳",
+        "逐字"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "pop",
+        "by": "chars",
+        "phase": "in",
+        "duration": 1.25,
+        "stagger": 0.05,
+        "ease": "backOut"
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-rb-split-blur",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 逐字聚焦",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Split Text blur：逐字由虚焦到清晰，power2.out 收束。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "模糊",
+        "逐字"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "blur",
+        "by": "chars",
+        "phase": "in",
+        "duration": 1.25,
+        "stagger": 0.05,
+        "ease": "power2Out"
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-rb-split-skew",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 逐字斜切",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Split Text skew：逐字从左斜切 -24° 摆正，expo.out 快速启动。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "斜切",
+        "逐字"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "skewIn",
+        "by": "chars",
+        "phase": "in",
+        "duration": 1.25,
+        "stagger": 0.05,
+        "ease": "expoOut"
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-rb-split-wave",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 逐字波浪",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Split Text wave：逐字自下方 0.45em 波浪式浮起，自定义 wave 曲线。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "波浪",
+        "逐字"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "wave",
+        "by": "chars",
+        "phase": "in",
+        "duration": 1.25,
+        "stagger": 0.05,
+        "ease": "wave"
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-rb-blurtext",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 柔焦整词",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Blur Text blur：整词从 10px 模糊 + 50px 上方落定，200ms 错峰。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "模糊",
+        "整词"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "riseBlur",
+        "by": "words",
+        "phase": "in",
+        "duration": 0.7,
+        "stagger": 0.2,
+        "ease": "power2Out",
+        "distance": 50
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-rb-focus",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 聚焦显现",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Blur Text focus：整词 112% 缩放 + 14px 模糊收敛到清晰，power2.inOut。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "聚焦",
+        "整词"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "focus",
+        "by": "words",
+        "phase": "in",
+        "duration": 0.7,
+        "stagger": 0.2,
+        "ease": "power2InOut"
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-rb-zoom",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 推近聚焦",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Blur Text zoom：整词 140% 推近 + 模糊消散并回落，power2.out。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "推近",
+        "整词"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "zoomIn",
+        "by": "words",
+        "phase": "in",
+        "duration": 0.7,
+        "stagger": 0.2,
+        "ease": "power2Out",
+        "distance": 50
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-rb-scroll-reveal",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 逐词浮现",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Scroll Reveal rise：整词 0.8em 上浮 + 轻度模糊淡入，power3.out。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "浮现",
+        "整词"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "riseBlur",
+        "by": "words",
+        "phase": "in",
+        "direction": "up",
+        "duration": 0.8,
+        "stagger": 0.05,
+        "ease": "power3Out",
+        "distance": 16
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-rb-wave-float",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "RB 字符漂浮",
+      "category": "文字",
+      "phase": "in",
+      "description": "React Bits Scroll Float：逐字 1.2em 上浮 + 轻微纵向拉伸回正，back.inOut(2) 缓动。",
+      "tags": [
+        "ReactBits",
+        "文字",
+        "入场",
+        "漂浮",
+        "逐字"
+      ],
+      "sourceStyle": "ReactBits",
+      "defaults": {
+        "style": "float",
+        "by": "chars",
+        "phase": "in",
+        "duration": 1.0,
+        "stagger": 0.03,
+        "ease": "backInOut"
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
       "id": "preset-trans-wipe",
       "kind": "procedural",
       "command": "transition",
@@ -5796,6 +6120,1016 @@
                       {
                         "speed": 0,
                         "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "30f333a0-473b-5f0c-a07c-646255e9ae34",
+      "slug": "rb-content-rise",
+      "name": "RB 内容上浮",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "React Bits Animated Content 风格：整体 100px 幂次上浮并渐显（power3.out，0.8s）。",
+      "sourceStyle": "ReactBits",
+      "tags": [
+        "ReactBits",
+        "组合",
+        "入场",
+        "上浮",
+        "幂次"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "07e6746a2364c60b296b2917955327327a53f4460320a7c167b30f1f4878d7ed",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8,
+        "layers": [
+          {
+            "name": "RB 内容上浮",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      100,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 354.651,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 354.651,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "387fa934-fe30-52a0-ba74-1f96d881ac94",
+      "slug": "rb-content-glide",
+      "name": "RB 内容横移",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "React Bits Animated Content horizontal：整体自右 100px 横移进场并渐显（power3.out，0.8s）。",
+      "sourceStyle": "ReactBits",
+      "tags": [
+        "ReactBits",
+        "组合",
+        "入场",
+        "横移",
+        "幂次"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "827fab383ce42b0fb0b3ea63ad4061f7c115452115e340a535ea1421fb41aa89",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8,
+        "layers": [
+          {
+            "name": "RB 内容横移",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      100,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 354.651,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 354.651,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "5294f4e8-3ed1-5748-95f0-32ef63e8a728",
+      "slug": "rb-content-fade",
+      "name": "RB 内容淡入",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "React Bits Fade Content 风格：纯透明度 1s 幂次淡入（power2.out）。",
+      "sourceStyle": "ReactBits",
+      "tags": [
+        "ReactBits",
+        "入场",
+        "淡入",
+        "透明度"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "a1c1e86473b7097c097bcbeba19277faeb1ab8c30a2b32b7a90fa6a5e382d10c",
+      "clip": {
+        "origin": 0,
+        "duration": 1,
+        "layers": [
+          {
+            "name": "RB 内容淡入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 303.03,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "800e5d32-a5af-5da4-bd2d-23812094b209",
+      "slug": "rb-content-zoom",
+      "name": "RB 内容微缩",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "React Bits Animated Content scale：整体 95% 放大到 100% 并渐显（power3.out，0.8s）。",
+      "sourceStyle": "ReactBits",
+      "tags": [
+        "ReactBits",
+        "组合",
+        "入场",
+        "缩放",
+        "幂次"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "a8d9e597c6fe96b8363ca54b0f4353e7246618bf97768a4ab2c8cb30f635f2bb",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8,
+        "layers": [
+          {
+            "name": "RB 内容微缩",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      95,
+                      95,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 17.733,
+                        "influence": 21.5
+                      },
+                      {
+                        "speed": 17.733,
+                        "influence": 21.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 354.651,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "78b2223e-9031-586e-a19f-2a4514ffd0cb",
+      "slug": "rb-content-focus",
+      "name": "RB 内容聚焦",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "React Bits Fade Content focus（去模糊近似版）：97% 缩放回正并渐显（power2.out，1s）。",
+      "sourceStyle": "ReactBits",
+      "tags": [
+        "ReactBits",
+        "组合",
+        "入场",
+        "聚焦",
+        "缩放"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "bc38e5a24f6649aea24f686e420154f48a4048a374187a9d6dd67649c7b32984",
+      "clip": {
+        "origin": 0,
+        "duration": 1,
+        "layers": [
+          {
+            "name": "RB 内容聚焦",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      97,
+                      97,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 9.091,
+                        "influence": 33
+                      },
+                      {
+                        "speed": 9.091,
+                        "influence": 33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 303.03,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "ca598e48-7628-5c6f-81ac-4cfaedb08b2c",
+      "slug": "rb-back-pop",
+      "name": "RB 弹性弹出",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "React Bits Bubble Menu / Split Text pop：0→100% 弹性缩放（back.out 过冲）并快速渐显，0.5s。",
+      "sourceStyle": "ReactBits",
+      "tags": [
+        "ReactBits",
+        "弹跳",
+        "入场",
+        "弹出",
+        "过冲"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "d96f56f6834c587f565c45e9dcafdd06d870a63ed921a7b11330afcd0f68840d",
+      "clip": {
+        "origin": 0,
+        "duration": 0.5,
+        "layers": [
+          {
+            "name": "RB 弹性弹出",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      0,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 917.647,
+                        "influence": 34
+                      },
+                      {
+                        "speed": 917.647,
+                        "influence": 34
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 34
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 567.442,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "ceb6b7fd-0861-570d-be1d-ff6eed72483e",
+      "slug": "rb-exit-sink",
+      "name": "RB 内容下沉退场",
+      "category": "出场",
+      "phase": "out",
+      "defaultAnchor": "start",
+      "description": "React Bits Animated Content disappear：整体上移 100px 并渐隐（power3.in，0.5s）。",
+      "sourceStyle": "ReactBits",
+      "tags": [
+        "ReactBits",
+        "出场",
+        "下沉",
+        "退场"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "c7fbd3d95ea8c24499d62abe45e8040f2df9f5e50a16b033ea73efb573aff07f",
+      "clip": {
+        "origin": 0,
+        "duration": 0.5,
+        "layers": [
+          {
+            "name": "RB 内容下沉退场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 20,
+                        "influence": 55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": [
+                      0,
+                      -100,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": -20,
+                        "influence": 55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": -498.462,
+                        "influence": 32.5
                       }
                     ],
                     "outEase": [
