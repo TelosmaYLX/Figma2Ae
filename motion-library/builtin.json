@@ -1071,6 +1071,37 @@
       }
     },
     {
+      "id": "preset-sc-blur-slide",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "SC 逐词模糊滑入",
+      "category": "文字",
+      "phase": "in",
+      "description": "video-shotcraft blur-slide：整词 y 64px + 18px 模糊 + 渐显共用一条 quint-out 曲线，0.73s / 133ms 错峰。",
+      "tags": [
+        "VideoShotcraft",
+        "文字",
+        "入场",
+        "模糊",
+        "整词"
+      ],
+      "sourceStyle": "VideoShotcraft",
+      "defaults": {
+        "style": "riseBlur",
+        "by": "words",
+        "phase": "in",
+        "direction": "up",
+        "duration": 0.7333,
+        "stagger": 0.1333,
+        "ease": "power5Out",
+        "distance": 64
+      },
+      "supports": {
+        "duration": true,
+        "textBy": true
+      }
+    },
+    {
       "id": "preset-trans-wipe",
       "kind": "procedural",
       "command": "transition",
@@ -1231,6 +1262,34 @@
           0.08,
           0.07,
           0.12
+        ]
+      },
+      "supports": {
+        "duration": true
+      }
+    },
+    {
+      "id": "preset-trans-flash",
+      "kind": "procedural",
+      "command": "transition",
+      "name": "白闪过曝转场",
+      "category": "转场",
+      "phase": "transition",
+      "description": "video-shotcraft 白闪式换场：白色从中心炸开覆盖全屏，再以 quint-out 慢回落，适合高潮切换。",
+      "tags": [
+        "VideoShotcraft",
+        "转场",
+        "闪白",
+        "过曝"
+      ],
+      "sourceStyle": "VideoShotcraft",
+      "defaults": {
+        "type": "flash",
+        "duration": 0.9,
+        "color": [
+          0.97,
+          0.97,
+          0.97
         ]
       },
       "supports": {
@@ -9401,6 +9460,166 @@
                     "value": [
                       100,
                       100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 32
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "66cf8ab9-02d4-5484-a99e-c4c5b4ca6938",
+      "slug": "sc-crash-zoom",
+      "name": "SC 急推特写",
+      "category": "缩放",
+      "phase": "in",
+      "defaultAnchor": "start",
+      "description": "video-shotcraft crash-zoom-punch：6 帧急推到 2.4 倍（ease-in），随后回弹到 2.28 倍；以 start 锚点保留图层原始比例。",
+      "sourceStyle": "VideoShotcraft",
+      "tags": [
+        "VideoShotcraft",
+        "缩放",
+        "急推",
+        "镜头",
+        "冲击"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "d78b3e9f131960bc2c529e2748397fe091dcd58f40ee131c9aba30e1d2b61526",
+      "clip": {
+        "origin": 0,
+        "duration": 0.7,
+        "layers": [
+          {
+            "name": "SC 急推特写",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 70,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 70,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.2,
+                    "value": [
+                      240,
+                      240,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 1744.615,
+                        "influence": 32.5
+                      },
+                      {
+                        "speed": 1744.615,
+                        "influence": 32.5
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 32.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": -72.727,
+                        "influence": 33
+                      },
+                      {
+                        "speed": -72.727,
+                        "influence": 33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7,
+                    "value": [
+                      228,
+                      228,
                       100
                     ],
                     "inInterp": "bezier",

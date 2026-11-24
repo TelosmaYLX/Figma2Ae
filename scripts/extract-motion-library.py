@@ -1395,6 +1395,25 @@ def osmo_clips():
     ]
 
 
+def video_shotcraft_clips():
+    """Camera/impact moves distilled from video-shotcraft's shot recipes (Apache-2.0).
+
+    The recipe cards specify crash zooms in frames (6f ease-in push, then a 3-5% rebound after ~15f).
+    The library's clips are layer transforms, so the punch zoom is expressed as a scale ramp anchored
+    at the clip start: the layer keeps its original scale/position and ends at 228%.
+    """
+    return [
+        synth_clip(
+            "sc-crash-zoom", "SC 急推特写", "缩放", "in", "start",
+            "video-shotcraft crash-zoom-punch：6 帧急推到 2.4 倍（ease-in），随后回弹到 2.28 倍；以 start 锚点保留图层原始比例。",
+            ["VideoShotcraft", "缩放", "急推", "镜头", "冲击"],
+            0.7,
+            [("scale", [0, 0.2, 0.7], [[100, 100, 100], [240, 240, 100], [228, 228, 100]], [RB_POWER3_IN, RB_POWER2_OUT])],
+            source_style="VideoShotcraft",
+        ),
+    ]
+
+
 def procedural_presets():
     """F2A's built-in AE Motion procedural presets (editable keys, text animators, transitions)."""
     return [
@@ -1578,6 +1597,13 @@ def procedural_presets():
          "defaults": {"style": "typewriter", "by": "chars", "phase": "in", "duration": 0, "stagger": 0.1, "ease": "linear"},
          "supports": {"textBy": True}},
 
+        # video-shotcraft shot recipes (Apache-2.0) — typography/blur-slide defaults.
+        {"id": "preset-sc-blur-slide", "kind": "procedural", "command": "text_reveal", "name": "SC 逐词模糊滑入", "category": "文字", "phase": "in",
+         "description": "video-shotcraft blur-slide：整词 y 64px + 18px 模糊 + 渐显共用一条 quint-out 曲线，0.73s / 133ms 错峰。", "tags": ["VideoShotcraft", "文字", "入场", "模糊", "整词"],
+         "sourceStyle": "VideoShotcraft",
+         "defaults": {"style": "riseBlur", "by": "words", "phase": "in", "direction": "up", "duration": 0.7333, "stagger": 0.1333, "ease": "power5Out", "distance": 64},
+         "supports": {"duration": True, "textBy": True}},
+
         # Transitions
         {"id": "preset-trans-wipe", "kind": "procedural", "command": "transition", "name": "色块扫屏转场", "category": "转场", "phase": "transition",
          "description": "在当前播放头创建可编辑全屏扫光擦除转场层。", "tags": ["转场", "擦除", "扫屏"],
@@ -1607,6 +1633,11 @@ def procedural_presets():
          "sourceStyle": "Osmo",
          "defaults": {"type": "shutter", "duration": 1.0, "color": [0.08, 0.07, 0.12]},
          "supports": {"duration": True}},
+        {"id": "preset-trans-flash", "kind": "procedural", "command": "transition", "name": "白闪过曝转场", "category": "转场", "phase": "transition",
+         "description": "video-shotcraft 白闪式换场：白色从中心炸开覆盖全屏，再以 quint-out 慢回落，适合高潮切换。", "tags": ["VideoShotcraft", "转场", "闪白", "过曝"],
+         "sourceStyle": "VideoShotcraft",
+         "defaults": {"type": "flash", "duration": 0.9, "color": [0.97, 0.97, 0.97]},
+         "supports": {"duration": True}},
     ]
 
 
@@ -1617,7 +1648,7 @@ def main():
     args = parser.parse_args()
 
     buckets = harvest_from_source(args.source)
-    clips = curate_library(buckets) + reactbits_clips() + aceternity_clips() + animate_ui_clips() + osmo_clips()
+    clips = curate_library(buckets) + reactbits_clips() + aceternity_clips() + animate_ui_clips() + osmo_clips() + video_shotcraft_clips()
     presets = procedural_presets()
 
     payload = {

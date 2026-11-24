@@ -107,7 +107,7 @@ flowchart LR
 
 也可以把 AE 里手调好的关键帧保存为动效配方，再套用到其他工程的图层。 [复用手调动效](mcp/README.md#复用手调动效)
 
-F2A 面板的 **内置动效** 除模板抽取片段与参数化预设外，还包含从 [React Bits](https://reactbits.dev)、[Aceternity UI](https://ui.aceternity.com)、[Animate UI](https://animate-ui.com) 与 [Osmo](https://www.osmo.supply) 的入场/文字/转场动画提炼的 `RB`、`AC`、`AU`、`OS` 预设与两键片段（power/expo/back 曲线、逐字/逐词错峰、单段弹簧过冲；转场新增渐隐、对擦、合幕）。文字预设走 AE 文字动画器＋单条表达式，仅适合 AE/视频输出；Web/Lottie 交付优先使用 `rb-content-*`、`ac-modal-pop`、`au-effect` 等无表达式片段。可移植性分析与映射见 `skills/f2a-motion-production/references/` 下的 `reactbits-motion-vocabulary.md`、`aceternity-motion-vocabulary.md`、`animate-ui-motion-vocabulary.md` 与 `osmo-motion-vocabulary.md`。
+F2A 面板的 **内置动效** 除模板抽取片段与参数化预设外，还包含从 [React Bits](https://reactbits.dev)、[Aceternity UI](https://ui.aceternity.com)、[Animate UI](https://animate-ui.com)、[Osmo](https://www.osmo.supply) 与 [video-shotcraft](https://github.com/Vincentwei1021/video-shotcraft) 的入场/文字/转场动画提炼的 `RB`、`AC`、`AU`、`OS`、`SC` 预设与片段（power/expo/back/quint 曲线、逐字/逐词错峰、单段弹簧过冲；转场含渐隐、对擦、合幕与白闪）。文字预设走 AE 文字动画器＋单条表达式，仅适合 AE/视频输出；Web/Lottie 交付优先使用 `rb-content-*`、`ac-modal-pop`、`au-effect` 等无表达式片段。可移植性分析与映射见 `skills/f2a-motion-production/references/` 下的 `reactbits-motion-vocabulary.md`、`aceternity-motion-vocabulary.md`、`animate-ui-motion-vocabulary.md`、`osmo-motion-vocabulary.md` 与 `video-shotcraft-motion-vocabulary.md`。
 
 ## 常见问题
 

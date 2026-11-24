@@ -721,6 +721,7 @@ var REVEAL_CURVES = {
     power2Out: "1-Math.pow(1-u,2)",
     power3Out: "1-Math.pow(1-u,3)",
     power4Out: "1-Math.pow(1-u,4)",
+    power5Out: "1-Math.pow(1-u,5)",
     power2InOut: "u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2",
     expoOut: "u>=1?1:1-Math.pow(2,-10*u)",
     backOut: "1+2.70158*Math.pow(u-1,3)+1.70158*Math.pow(u-1,2)",
@@ -758,7 +759,7 @@ C.text_reveal = function (a) {
     if (!REVEAL_BASED[by])
         fail("BAD_ARGS", "by must be chars, words or lines");
     if (!REVEAL_CURVES[curve])
-        fail("BAD_ARGS", "ease must be snappy, smooth, accelerate, spring, bounce, linear, power2Out, power3Out, power4Out, power2InOut, expoOut, backOut, backInOut or wave");
+        fail("BAD_ARGS", "ease must be snappy, smooth, accelerate, spring, bounce, linear, power2Out, power3Out, power4Out, power5Out, power2InOut, expoOut, backOut, backInOut or wave");
     if (" rise drop fade pop blur typewriter skewIn riseBlur focus zoomIn wave float ".indexOf(" " + style + " ") === -1)
         fail("BAD_ARGS", "style must be rise, drop, fade, pop, blur, typewriter, skewIn, riseBlur, focus, zoomIn, wave or float");
     if (!has(REVEAL_ORDERS, a.order || "forward"))
@@ -838,9 +839,9 @@ function fdHalf(c) { return c.frameDuration / 2; }
 // opposite sides (split = left/right, shutter = top/bottom) for page-transition style reveals.
 C.transition = function (a) {
     need(a, ["comp_id", "time"]);
-    var c = getComp(a.comp_id), type = a.type || "wipe", d = has(a, "duration") ? a.duration : 0.8, col = a.color || [0.05, 0.05, 0.06], dir = a.direction || "right", W = c.width, H = c.height, ts = snapT(c, a.time - d / 2), tm = snapT(c, a.time), te = snapT(c, a.time + d / 2), l, n, i, horiz, grp, pos, st, R, cx, cy, sz, sw, g, k, op, splitX, side, covered, offstart, offend;
-    if (" wipe bars iris fade split shutter ".indexOf(" " + type + " ") === -1)
-        fail("BAD_ARGS", "type must be wipe, bars, iris, fade, split or shutter");
+    var c = getComp(a.comp_id), type = a.type || "wipe", d = has(a, "duration") ? a.duration : 0.8, col = a.color || [0.05, 0.05, 0.06], dir = a.direction || "right", W = c.width, H = c.height, ts = snapT(c, a.time - d / 2), tm = snapT(c, a.time), te = snapT(c, a.time + d / 2), l, n, i, horiz, grp, pos, st, R, cx, cy, sz, sw, g, k, op, splitX, side, covered, offstart, offend, grow;
+    if (" wipe bars iris fade split shutter flash ".indexOf(" " + type + " ") === -1)
+        fail("BAD_ARGS", "type must be wipe, bars, iris, fade, split, shutter or flash");
     if (" left right up down ".indexOf(" " + dir + " ") === -1)
         fail("BAD_ARGS", "direction must be left, right, up or down");
     if (ts < 0)
@@ -869,6 +870,20 @@ C.transition = function (a) {
             applyKeyMeta(sz, k, { ease_in: { influence: 60 }, ease_out: { influence: 60 } });
             applyKeyMeta(sw, k, { ease_in: { influence: 60 }, ease_out: { influence: 60 } });
         }
+    }
+    else if (type === "flash") {
+        // a radial burst of the colour that fills the frame at the cut, then a slow quint-out exposure fall
+        grp = addShapeContent(l, { type: "rect", size: [W + 4, H + 4], fill: col, name: "Flash" });
+        grow = snapT(c, Math.min(tm, ts + Math.min(d / 2, 0.2)));
+        sz = grp.property("ADBE Vector Transform Group").property("ADBE Vector Scale");
+        sz.setValueAtTime(ts, [5, 5]);
+        sz.setValueAtTime(grow, [130, 130]);
+        op = l.property("ADBE Transform Group").property("ADBE Opacity");
+        op.setValueAtTime(ts, 100);
+        op.setValueAtTime(tm, 100);
+        op.setValueAtTime(te, 0);
+        for (k = 1; k <= 3; k++)
+            applyKeyMeta(op, k, { ease_in: { influence: 60 }, ease_out: { influence: 60 } });
     }
     else if (type === "fade") {
         // dip through the colour: transparent at the start, full colour at the cut, transparent again after it

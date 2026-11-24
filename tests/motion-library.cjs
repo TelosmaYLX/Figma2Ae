@@ -316,6 +316,40 @@ async function check() {
     }
     assert.match(preview.buildCurveSvg(preset), /^M[\d.-]+,[\d.-]+/);
   }
+
+  // video-shotcraft pack: quint-out typography, crash zoom and the white-flash transition.
+  const scText = builtin.presets.find(item => item.id === 'preset-sc-blur-slide');
+  assert.ok(scText, 'missing video-shotcraft text preset');
+  assert.equal(scText.command, 'text_reveal');
+  assert.equal(scText.defaults.style, 'riseBlur');
+  assert.equal(scText.defaults.ease, 'power5Out');
+  assert.equal(scText.defaults.direction, 'up');
+  assert.ok(scText.tags.includes('VideoShotcraft'));
+  assert.ok(!(scText.supports && scText.supports.style), 'blur-slide must lock its quint-out curve');
+  for (const u of [0, 0.5, 1]) {
+    const res = preview.evaluatePresetAt(scText, {}, u);
+    assert.equal(res.kind, 'text');
+    for (const ch of res.chars) for (const field of ['dx', 'dy', 'scale', 'opacity']) {
+      assert.ok(Number.isFinite(ch[field]), `blur-slide ${field} is finite at ${u}`);
+    }
+  }
+  const scZoom = builtin.clips.find(item => item.slug === 'sc-crash-zoom');
+  assert.ok(scZoom, 'missing sc-crash-zoom clip');
+  assert.equal(scZoom.sourceStyle, 'VideoShotcraft');
+  assert.equal(scZoom.defaultAnchor, 'start');
+  const scMeta = preview.analyzeClip(scZoom.clip, scZoom.defaultAnchor);
+  assert.ok(Math.abs(preview.evaluateClipAt(scZoom.clip, 0, scZoom.defaultAnchor, scMeta).scaleX - 1) < 1e-3, 'crash zoom starts at the layer scale');
+  assert.ok(preview.evaluateClipAt(scZoom.clip, 0.2, scZoom.defaultAnchor, scMeta).scaleX > 2.15, 'crash zoom punches to the preview clamp (~2.4x)');
+  assert.ok(preview.evaluateClipAt(scZoom.clip, scZoom.clip.duration, scZoom.defaultAnchor, scMeta).scaleX > 2.15, 'crash zoom rests at the rebounded 2.28x (preview clamps at 2.2)');
+  const scFlash = builtin.presets.find(item => item.id === 'preset-trans-flash');
+  assert.ok(scFlash, 'missing white-flash transition preset');
+  assert.equal(scFlash.defaults.type, 'flash');
+  assert.ok(scFlash.tags.includes('VideoShotcraft'));
+  for (const u of [0, 0.5, 1]) {
+    const res = preview.evaluatePresetAt(scFlash, {}, u);
+    assert.equal(res.kind, 'transition');
+    assert.equal(res.transType, 'flash');
+  }
   // Verify Adobe CEP --mixed-context (both window AND module.exports exist in <script> tags)
   const cepWindow = {};
   const cepModule = { exports: {} };

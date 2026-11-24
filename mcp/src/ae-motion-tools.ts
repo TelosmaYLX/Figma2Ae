@@ -13,7 +13,7 @@ const curve = z.enum(['snappy', 'smooth', 'spring', 'bounce', 'linear']);
 // (power/expo/back/wave) distilled in host/motion/aeMotionPresets.jsx.
 const textEase = z.enum([
   'snappy', 'smooth', 'accelerate', 'linear', 'spring', 'bounce',
-  'power2Out', 'power3Out', 'power4Out', 'power2InOut', 'expoOut', 'backOut', 'backInOut', 'wave',
+  'power2Out', 'power3Out', 'power4Out', 'power5Out', 'power2InOut', 'expoOut', 'backOut', 'backInOut', 'wave',
 ]);
 const textStyle = z.enum(['rise', 'drop', 'fade', 'pop', 'blur', 'typewriter', 'skewIn', 'riseBlur', 'focus', 'zoomIn', 'wave', 'float']);
 const order = z.enum(['forward', 'reverse']);
@@ -72,10 +72,10 @@ export function registerAeMotionTools(server: McpServer, call: ReturnType<typeof
     mask: z.boolean().optional(),
   });
 
-  preset('transition', 'Add an editable wipe, bars, iris, fade, split, or shutter shape transition. Time is the cut in composition seconds, when the transition covers the frame.', {
+  preset('transition', 'Add an editable wipe, bars, iris, fade, split, shutter, or flash shape transition. Time is the cut in composition seconds, when the transition covers the frame.', {
     comp_id: compId,
     time,
-    type: z.enum(['wipe', 'bars', 'iris', 'fade', 'split', 'shutter']).optional(),
+    type: z.enum(['wipe', 'bars', 'iris', 'fade', 'split', 'shutter', 'flash']).optional(),
     duration: z.number().positive().optional(),
     color: z.array(z.number().min(0).max(1)).min(3).max(4).optional(),
     direction: direction.optional(),

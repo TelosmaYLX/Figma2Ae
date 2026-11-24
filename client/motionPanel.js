@@ -268,6 +268,14 @@
       fadeBar.style.opacity = String(Math.max(0, Math.min(1, u <= 0.5 ? u * 2 : (1 - u) * 2)).toFixed(3));
       return;
     }
+    if (res.transType === "flash") {
+      var flashBar = stageEl.querySelector(".f2m-trans-bar");
+      if (!flashBar) return;
+      var grow = Math.min(1, u / 0.35);
+      flashBar.style.transform = "scale(" + (0.08 + 1.15 * grow).toFixed(3) + ")";
+      flashBar.style.opacity = String(u <= 0.5 ? 1 : Math.max(0, 1 - (u - 0.5) / 0.5).toFixed(3));
+      return;
+    }
     if (res.transType === "split" || res.transType === "shutter") {
       var panels = stageEl.querySelectorAll(".f2m-trans-bar");
       var axis = res.transType === "split" ? "translateX" : "translateY";
@@ -801,9 +809,9 @@
       var frame = el("div", "f2m-trans-frame");
       if (tType === "iris") {
         frame.appendChild(el("div", "f2m-trans-iris"));
-      } else if (tType === "fade" || tType === "split" || tType === "shutter") {
+      } else if (tType === "fade" || tType === "split" || tType === "shutter" || tType === "flash") {
         frame.className = "f2m-trans-frame is-" + tType;
-        var panelCount = tType === "fade" ? 1 : 2;
+        var panelCount = (tType === "fade" || tType === "flash") ? 1 : 2;
         for (var pi = 0; pi < panelCount; pi++) frame.appendChild(el("div", "f2m-trans-bar"));
       } else {
         var count = tType === "bars" ? 5 : 1;
