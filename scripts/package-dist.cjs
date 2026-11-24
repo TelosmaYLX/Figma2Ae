@@ -33,7 +33,7 @@ const skillFiles = existsSync(skillsRoot) ? readdirSync(skillsRoot, {withFileTyp
 const files = [
   'version.json',
   'CSXS/manifest.xml',
-  ...['client', 'figma-plugin', 'host/figma'].flatMap(runtimeFiles),
+  ...['client', 'figma-plugin', 'host/figma', 'host/motion', 'motion-library'].flatMap(runtimeFiles),
   ...skillFiles,
   ...['server.cjs', 'relay.cjs', 'launcher.cjs', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/' + f),
   ...['surehand-ae.mjs', 'LICENSE', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/vendor/surehand/' + f),

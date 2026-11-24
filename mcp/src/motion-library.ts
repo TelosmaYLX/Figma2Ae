@@ -44,6 +44,8 @@ export const motionId = z.uuid();
 const artifact = z.object({
   schemaVersion: z.literal(1), id: motionId, name: motionName, tags: motionTags, createdAt: z.iso.datetime(),
   contentHash: z.string().regex(/^[a-f0-9]{64}$/), clip,
+  category: z.string().optional(), phase: z.string().optional(), defaultAnchor: z.enum(['end', 'start', 'absolute']).optional(),
+  description: z.string().optional(), slug: z.string().optional(),
 });
 
 export type MotionSnapshot = z.infer<typeof motionSnapshot>;
@@ -61,10 +63,41 @@ function libraryPath() {
   return path.resolve(process.env.F2A_MOTION_LIBRARY || path.join(local, 'motion-library'));
 }
 
-function info(record: Artifact, file: string) {
-  const { id, name, tags, createdAt, contentHash, clip } = record;
-  return { id, name, tags, createdAt, contentHash, file, duration: clip.duration,
-    layers: clip.layers.map((layer, index) => ({ index: index + 1, name: layer.name, tracks: layer.tracks.length })) };
+function builtinCatalogPath() {
+  return path.resolve(__dirname, '../motion-library/builtin.json');
+}
+
+function info(record: Artifact, file: string, source: 'user' | 'builtin' = 'user') {
+  const { id, name, tags, createdAt, contentHash, clip, category, phase, defaultAnchor, description } = record;
+  return {
+    id, name, tags, createdAt, contentHash, file, source,
+    ...(category ? { category } : {}),
+    ...(phase ? { phase } : {}),
+    ...(defaultAnchor ? { defaultAnchor } : {}),
+    ...(description ? { description } : {}),
+    duration: clip.duration,
+    layers: clip.layers.map((layer, index) => ({ index: index + 1, name: layer.name, tracks: layer.tracks.length })),
+  };
+}
+
+async function readBuiltinClips(): Promise<{ file: string; records: Artifact[] }> {
+  const file = builtinCatalogPath();
+  let raw: string;
+  try { raw = await readFile(file, 'utf8'); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { file, records: [] };
+    throw error;
+  }
+  const parsed = JSON.parse(raw.replace(/^\uFEFF/, ''));
+  const items = Array.isArray(parsed?.clips) ? parsed.clips : [];
+  const records: Artifact[] = [];
+  for (const item of items) {
+    try {
+      const record = artifact.parse(item);
+      if (hash(record.clip) === record.contentHash) records.push(record);
+    } catch { /* skip invalid builtin entries */ }
+  }
+  return { file, records };
 }
 
 async function readArtifact(file: string, id?: string) {
@@ -91,15 +124,14 @@ export async function saveMotion(name: string, tags: string[], data: Clip) {
   return info(record, file);
 }
 
-export async function findMotions(query: string, limit: number) {
+export async function findMotions(query: string, limit: number, includeBuiltin = true) {
   const root = libraryPath();
-  let files: string[];
+  let files: string[] = [];
   try { files = await readdir(root); }
   catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { clips: [], unreadable: [] };
-    throw error;
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
-  const clips: ReturnType<typeof info>[] = [], unreadable: string[] = [];
+  const userClips: ReturnType<typeof info>[] = [], unreadable: string[] = [];
   const search = query.normalize('NFKC').toLowerCase();
   for (const name of files) {
     const id = name.slice(0, -5);
@@ -107,17 +139,35 @@ export async function findMotions(query: string, limit: number) {
     const file = path.join(root, name);
     try {
       const record = await readArtifact(file, id);
-      const fields = [record.name, ...record.tags].join(' ').normalize('NFKC').toLowerCase();
-      if (fields.includes(search)) clips.push(info(record, file));
+      const fields = [record.name, ...record.tags, record.category || '', record.description || ''].join(' ').normalize('NFKC').toLowerCase();
+      if (fields.includes(search)) userClips.push(info(record, file, 'user'));
     } catch { unreadable.push(name); }
   }
-  clips.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return { clips: clips.slice(0, limit), unreadable };
+  userClips.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  const builtinClips: ReturnType<typeof info>[] = [];
+  if (includeBuiltin) {
+    const builtin = await readBuiltinClips();
+    for (const record of builtin.records) {
+      const fields = [record.name, ...record.tags, record.category || '', record.description || '', record.slug || '']
+        .join(' ').normalize('NFKC').toLowerCase();
+      if (fields.includes(search)) builtinClips.push(info(record, builtin.file, 'builtin'));
+    }
+  }
+  return { clips: [...userClips, ...builtinClips].slice(0, limit), unreadable };
 }
 
 export async function loadMotion(id: string) {
   const file = path.join(libraryPath(), id + '.json');
-  return readArtifact(file, id);
+  try {
+    return await readArtifact(file, id);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    const builtin = await readBuiltinClips();
+    const match = builtin.records.find(item => item.id === id);
+    if (match) return match;
+    throw error;
+  }
 }
 
 export async function importMotion(file: string, name?: string) {

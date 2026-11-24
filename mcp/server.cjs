@@ -44996,7 +44996,12 @@ var artifact = external_exports.object({
   tags: motionTags,
   createdAt: external_exports.iso.datetime(),
   contentHash: external_exports.string().regex(/^[a-f0-9]{64}$/),
-  clip
+  clip,
+  category: external_exports.string().optional(),
+  phase: external_exports.string().optional(),
+  defaultAnchor: external_exports.enum(["end", "start", "absolute"]).optional(),
+  description: external_exports.string().optional(),
+  slug: external_exports.string().optional()
 });
 function hash2(data) {
   return (0, import_node_crypto2.createHash)("sha256").update(JSON.stringify(data), "utf8").digest("hex");
@@ -45005,8 +45010,11 @@ function libraryPath() {
   const local = process.env.LOCALAPPDATA ? import_node_path8.default.join(process.env.LOCALAPPDATA, "F2A") : import_node_path8.default.join(import_node_os.default.homedir(), ".f2a");
   return import_node_path8.default.resolve(process.env.F2A_MOTION_LIBRARY || import_node_path8.default.join(local, "motion-library"));
 }
-function info(record2, file2) {
-  const { id, name, tags, createdAt, contentHash, clip: clip2 } = record2;
+function builtinCatalogPath() {
+  return import_node_path8.default.resolve(__dirname, "../motion-library/builtin.json");
+}
+function info(record2, file2, source = "user") {
+  const { id, name, tags, createdAt, contentHash, clip: clip2, category, phase: phase2, defaultAnchor, description } = record2;
   return {
     id,
     name,
@@ -45014,9 +45022,35 @@ function info(record2, file2) {
     createdAt,
     contentHash,
     file: file2,
+    source,
+    ...category ? { category } : {},
+    ...phase2 ? { phase: phase2 } : {},
+    ...defaultAnchor ? { defaultAnchor } : {},
+    ...description ? { description } : {},
     duration: clip2.duration,
     layers: clip2.layers.map((layer, index) => ({ index: index + 1, name: layer.name, tracks: layer.tracks.length }))
   };
+}
+async function readBuiltinClips() {
+  const file2 = builtinCatalogPath();
+  let raw;
+  try {
+    raw = await (0, import_promises6.readFile)(file2, "utf8");
+  } catch (error62) {
+    if (error62.code === "ENOENT") return { file: file2, records: [] };
+    throw error62;
+  }
+  const parsed = JSON.parse(raw.replace(/^\uFEFF/, ""));
+  const items = Array.isArray(parsed?.clips) ? parsed.clips : [];
+  const records = [];
+  for (const item of items) {
+    try {
+      const record2 = artifact.parse(item);
+      if (hash2(record2.clip) === record2.contentHash) records.push(record2);
+    } catch {
+    }
+  }
+  return { file: file2, records };
 }
 async function readArtifact(file2, id) {
   const record2 = artifact.parse(JSON.parse((await (0, import_promises6.readFile)(file2, "utf8")).replace(/^\uFEFF/, "")));
@@ -45047,16 +45081,15 @@ async function saveMotion(name, tags, data) {
   }
   return info(record2, file2);
 }
-async function findMotions(query, limit) {
+async function findMotions(query, limit, includeBuiltin = true) {
   const root = libraryPath();
-  let files2;
+  let files2 = [];
   try {
     files2 = await (0, import_promises6.readdir)(root);
   } catch (error62) {
-    if (error62.code === "ENOENT") return { clips: [], unreadable: [] };
-    throw error62;
+    if (error62.code !== "ENOENT") throw error62;
   }
-  const clips = [], unreadable = [];
+  const userClips = [], unreadable = [];
   const search = query.normalize("NFKC").toLowerCase();
   for (const name of files2) {
     const id = name.slice(0, -5);
@@ -45064,18 +45097,34 @@ async function findMotions(query, limit) {
     const file2 = import_node_path8.default.join(root, name);
     try {
       const record2 = await readArtifact(file2, id);
-      const fields = [record2.name, ...record2.tags].join(" ").normalize("NFKC").toLowerCase();
-      if (fields.includes(search)) clips.push(info(record2, file2));
+      const fields = [record2.name, ...record2.tags, record2.category || "", record2.description || ""].join(" ").normalize("NFKC").toLowerCase();
+      if (fields.includes(search)) userClips.push(info(record2, file2, "user"));
     } catch {
       unreadable.push(name);
     }
   }
-  clips.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return { clips: clips.slice(0, limit), unreadable };
+  userClips.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const builtinClips = [];
+  if (includeBuiltin) {
+    const builtin = await readBuiltinClips();
+    for (const record2 of builtin.records) {
+      const fields = [record2.name, ...record2.tags, record2.category || "", record2.description || "", record2.slug || ""].join(" ").normalize("NFKC").toLowerCase();
+      if (fields.includes(search)) builtinClips.push(info(record2, builtin.file, "builtin"));
+    }
+  }
+  return { clips: [...userClips, ...builtinClips].slice(0, limit), unreadable };
 }
 async function loadMotion(id) {
   const file2 = import_node_path8.default.join(libraryPath(), id + ".json");
-  return readArtifact(file2, id);
+  try {
+    return await readArtifact(file2, id);
+  } catch (error62) {
+    if (error62.code !== "ENOENT") throw error62;
+    const builtin = await readBuiltinClips();
+    const match = builtin.records.find((item) => item.id === id);
+    if (match) return match;
+    throw error62;
+  }
 }
 async function importMotion(file2, name) {
   const record2 = await readArtifact(file2);
@@ -45181,10 +45230,14 @@ function registerAeMotionReuseTools(server2, call, jsx) {
     return result({ ...saved, omitted, removed });
   });
   server2.registerTool("ae_motion_list", {
-    description: "Find saved motion clips by name or tag. The result gives each clip ID, source layer order, duration and its portable JSON file.",
-    inputSchema: { query: external_exports.string().trim().default(""), limit: external_exports.number().int().min(1).max(100).default(30) },
+    description: "Find saved and built-in curated F2A motion clips by name, category or tag. The result gives each clip ID, source (user or builtin), source layer order, duration and its portable JSON file.",
+    inputSchema: {
+      query: external_exports.string().trim().default(""),
+      limit: external_exports.number().int().min(1).max(200).default(100),
+      include_builtin: external_exports.boolean().default(true).describe("Include curated built-in F2A motion library clips alongside user-saved clips.")
+    },
     annotations: { readOnlyHint: true }
-  }, async ({ query, limit }) => result(await findMotions(query, limit)));
+  }, async ({ query, limit, include_builtin }) => result(await findMotions(query, limit, include_builtin)));
   server2.registerTool("ae_motion_import", {
     description: "Import an F2A motion library JSON file and return its new clip ID.",
     inputSchema: {
@@ -45200,12 +45253,13 @@ function registerAeMotionReuseTools(server2, call, jsx) {
       ...projectRef,
       time: external_exports.number().nonnegative().optional().describe("Place the first keys at this time in seconds. Defaults to the playhead."),
       time_scale: external_exports.number().positive().default(1).describe("Multiply the animation duration by this factor."),
-      position_anchor: external_exports.enum(["end", "start", "absolute"]).default("end").describe("Keep the target position at the last key, first key, or copy source coordinates."),
+      position_anchor: external_exports.enum(["end", "start", "absolute"]).optional().describe('Keep the target position at the last key, first key, or copy source coordinates. Defaults to clip defaultAnchor or "end".'),
       replace: external_exports.boolean().default(false).describe("Replace keys and expressions on the matched properties.")
     },
     annotations: { readOnlyHint: false, destructiveHint: true }
   }, async ({ clip_id, replace, ...options }, { signal }) => {
     const record2 = await loadMotion(clip_id);
+    const position_anchor = options.position_anchor || record2.defaultAnchor || "end";
     return call("ae_batch", {
       name: "F2A Motion: " + record2.name,
       atomic: true,
@@ -45213,7 +45267,7 @@ function registerAeMotionReuseTools(server2, call, jsx) {
       steps: [{ tool: "ae_run_script", args: {
         comp: options.comp_id,
         code: jsx + "\nreturn applyMotion(args);",
-        args: { ...options, replaceTracks: replace, clip: record2.clip }
+        args: { ...options, position_anchor, replaceTracks: replace, clip: record2.clip }
       } }]
     }, signal);
   });

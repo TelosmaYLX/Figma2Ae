@@ -72,10 +72,14 @@ export function registerAeMotionReuseTools(server: McpServer, call: ReturnType<t
   });
 
   server.registerTool('ae_motion_list', {
-    description: 'Find saved motion clips by name or tag. The result gives each clip ID, source layer order, duration and its portable JSON file.',
-    inputSchema: { query: z.string().trim().default(''), limit: z.number().int().min(1).max(100).default(30) },
+    description: 'Find saved and built-in curated F2A motion clips by name, category or tag. The result gives each clip ID, source (user or builtin), source layer order, duration and its portable JSON file.',
+    inputSchema: {
+      query: z.string().trim().default(''),
+      limit: z.number().int().min(1).max(200).default(100),
+      include_builtin: z.boolean().default(true).describe('Include curated built-in F2A motion library clips alongside user-saved clips.'),
+    },
     annotations: {readOnlyHint: true},
-  }, async ({query, limit}) => result(await findMotions(query, limit)));
+  }, async ({query, limit, include_builtin}) => result(await findMotions(query, limit, include_builtin)));
 
   server.registerTool('ae_motion_import', {
     description: 'Import an F2A motion library JSON file and return its new clip ID.',
@@ -92,16 +96,17 @@ export function registerAeMotionReuseTools(server: McpServer, call: ReturnType<t
       clip_id: motionId, ...projectRef,
       time: z.number().nonnegative().optional().describe('Place the first keys at this time in seconds. Defaults to the playhead.'),
       time_scale: z.number().positive().default(1).describe('Multiply the animation duration by this factor.'),
-      position_anchor: z.enum(['end', 'start', 'absolute']).default('end').describe('Keep the target position at the last key, first key, or copy source coordinates.'),
+      position_anchor: z.enum(['end', 'start', 'absolute']).optional().describe('Keep the target position at the last key, first key, or copy source coordinates. Defaults to clip defaultAnchor or "end".'),
       replace: z.boolean().default(false).describe('Replace keys and expressions on the matched properties.'),
     },
     annotations: {readOnlyHint: false, destructiveHint: true},
   }, async ({clip_id, replace, ...options}, {signal}) => {
     const record = await loadMotion(clip_id);
+    const position_anchor = options.position_anchor || record.defaultAnchor || 'end';
     return call('ae_batch', {
       name: 'F2A Motion: ' + record.name, atomic: true, verbose: true,
       steps: [{tool: 'ae_run_script', args: {comp: options.comp_id, code: jsx + '\nreturn applyMotion(args);',
-        args: { ...options, replaceTracks: replace, clip: record.clip }}}],
+        args: { ...options, position_anchor, replaceTracks: replace, clip: record.clip }}}],
     }, signal);
   });
 }

@@ -1,0 +1,1268 @@
+/* ===== f2a — visual motion library & local template browser (CEP panel) =====
+ * Runs in AE's CEP panel (Node.js + ExtendScript) and degrades gracefully in browser preview.
+ * Shares %LOCALAPPDATA%\F2A\motion-library with F2A MCP tools (ae_motion_*).
+ */
+(function () {
+  "use strict";
+
+  var CEP = typeof window.__adobe_cep__ !== "undefined";
+  var HAS_NODE = typeof require === "function";
+  var Preview = window.F2AMotionPreview;
+
+  var fs = HAS_NODE ? require("fs") : null;
+  var path = HAS_NODE ? require("path") : null;
+  var os = HAS_NODE ? require("os") : null;
+
+  var extDir = "";
+  if (CEP) {
+    extDir = decodeURIComponent(window.__adobe_cep__.getSystemPath("extension"))
+      .replace(/^file:\/\/\//, "").replace(/^file:\/\//, "");
+  } else if (HAS_NODE && typeof __dirname === "string") {
+    extDir = path.resolve(__dirname, "..");
+  }
+
+  var scanner = null;
+  if (HAS_NODE) {
+    try {
+      scanner = require(extDir ? path.join(extDir, "client", "templateScanner.js") : "./templateScanner.js");
+    } catch (eScan) {
+      if (window.console) console.log("[f2a-motion] scanner unavailable: " + eScan);
+    }
+  }
+
+  var tempSerial = 0;
+  function log(text, tone) {
+    if (window.MKLog) window.MKLog(text, tone);
+  }
+  function report(text, isErr) {
+    if (window.MKReport) window.MKReport(text, isErr);
+  }
+  function esLiteral(value) {
+    var NONASCII = new RegExp("[\\u0080-\\uFFFF]", "g");
+    return JSON.stringify(value).replace(NONASCII, function (c) {
+      return "\\u" + ("0000" + c.charCodeAt(0).toString(16)).slice(-4);
+    });
+  }
+  function writeJobTemp(obj, tag) {
+    var p = path.join(os.tmpdir(), "f2a_motion_" + (tag || "job") + "_" + Date.now() + "_" + (++tempSerial) + ".json");
+    fs.writeFileSync(p, esLiteral(obj), "utf8");
+    return p.replace(/\\/g, "/");
+  }
+  function evalES(script, cb) {
+    if (!CEP) {
+      if (cb) cb(JSON.stringify({ ok: false, error: "当前为预览模式，请在 After Effects 中打开 F2A 面板调用。" }));
+      return;
+    }
+    window.__adobe_cep__.evalScript(script, function (res) {
+      if (cb) cb(res);
+    });
+  }
+  function parseEsJson(raw) {
+    if (!raw || raw === "EvalScript error.") return { ok: false, error: "AE 脚本执行异常，请重试或重启面板。" };
+    try { return JSON.parse(raw); }
+    catch (e) { return { ok: false, error: String(raw) }; }
+  }
+  function fileUrl(filePath) {
+    if (!filePath) return "";
+    var normalized = String(filePath).replace(/\\/g, "/");
+    if (!/^[a-zA-Z]:/.test(normalized) && normalized[0] !== "/") normalized = "/" + normalized;
+    return "file:///" + encodeURI(normalized).replace(/#/g, "%23").replace(/\?/g, "%3F");
+  }
+
+  // ---- Load standalone ExtendScript motion engine into AE ----
+  if (CEP && extDir) {
+    var motionHost = (extDir + "/host/motion").replace(/\\/g, "/");
+    ["motionEngine.jsx", "aeMotionPresets.jsx"].forEach(function (file) {
+      evalES("$.evalFile(new File(File.encode(" + esLiteral(motionHost + "/" + file) + ")));");
+    });
+  }
+
+  // ---- Persistent panel state ----
+  var LS_DIRS = "f2a.motionTemplateDirs";
+  var LS_PARAMS = "f2a.motionParams";
+
+  function loadStoredDirs() {
+    try {
+      var raw = localStorage.getItem(LS_DIRS);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.filter(function (s) { return typeof s === "string" && s.trim(); }) : [];
+    } catch (e) { return []; }
+  }
+  function saveStoredDirs(dirs) {
+    try { localStorage.setItem(LS_DIRS, JSON.stringify(dirs)); } catch (e) {}
+  }
+  function loadStoredParams() {
+    var def = { speed: 1, stagger: 0.06, direction: "up", style: "snappy", anchor: "auto", replace: true };
+    try {
+      var raw = localStorage.getItem(LS_PARAMS);
+      return raw ? Object.assign(def, JSON.parse(raw)) : def;
+    } catch (e) { return def; }
+  }
+  function saveStoredParams(p) {
+    try { localStorage.setItem(LS_PARAMS, JSON.stringify(p)); } catch (e) {}
+  }
+
+  var state = {
+    tab: "builtin",            // "builtin" | "templates" | "user"
+    category: "全部",
+    query: "",
+    autoPlayAll: false,
+    showParams: false,
+    params: loadStoredParams(),
+    builtinPresets: [],
+    builtinClips: [],
+    userClips: [],
+    templateDirs: loadStoredDirs(),
+    templates: [],
+    templatePageLimit: 48,
+    selection: { hasComp: false, compName: "", time: 0, selected: [] },
+    recording: null,           // { snapshotFile, snapshot, startedAt }
+    saveFormOpen: false,
+    dirInputOpen: false,
+    confirmDeleteId: null
+  };
+
+  // ---- Load built-in catalog ----
+  function loadBuiltinCatalog(done) {
+    if (HAS_NODE && fs && extDir) {
+      try {
+        var fp = path.join(extDir, "motion-library", "builtin.json");
+        if (fs.existsSync(fp)) {
+          var parsed = JSON.parse(fs.readFileSync(fp, "utf8").replace(/^\uFEFF/, ""));
+          state.builtinPresets = Array.isArray(parsed.presets) ? parsed.presets : [];
+          state.builtinClips = Array.isArray(parsed.clips) ? parsed.clips : [];
+          if (done) done();
+          return;
+        }
+      } catch (e) {
+        log("加载内置动效库失败：" + e.message, "err");
+      }
+    }
+    // Browser preview fallback: fetch relative JSON
+    if (typeof fetch === "function") {
+      fetch("../motion-library/builtin.json")
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (parsed) {
+          if (parsed) {
+            state.builtinPresets = Array.isArray(parsed.presets) ? parsed.presets : [];
+            state.builtinClips = Array.isArray(parsed.clips) ? parsed.clips : [];
+          }
+          if (done) done();
+        })
+        .catch(function () { if (done) done(); });
+    } else if (done) {
+      done();
+    }
+  }
+
+  function refreshUserClips() {
+    if (!scanner) { state.userClips = []; return; }
+    try { state.userClips = scanner.listUserClips(); }
+    catch (e) { state.userClips = []; }
+  }
+
+  function rescanTemplates() {
+    if (!scanner) { state.templates = []; return; }
+    var all = [];
+    for (var i = 0; i < state.templateDirs.length; i++) {
+      try {
+        var list = scanner.scanTemplateDirectory(state.templateDirs[i]);
+        for (var j = 0; j < list.length; j++) all.push(list[j]);
+      } catch (e) {
+        log("扫描模板目录失败：" + e.message, "err");
+      }
+    }
+    state.templates = all;
+    state.templatePageLimit = 48;
+  }
+
+  // ---- AE Selection polling ----
+  var selPollTimer = null;
+  function refreshSelection(silent) {
+    if (!CEP) {
+      state.selection = { hasComp: false, compName: "预览模式", time: 0, selected: [] };
+      renderSelectionBar();
+      return;
+    }
+    evalES("mkMotionGetSelectionInfo()", function (raw) {
+      var res = parseEsJson(raw);
+      if (res && res.ok) {
+        state.selection = res;
+      } else if (!silent && res && res.error) {
+        log(res.error, "err");
+      }
+      renderSelectionBar();
+    });
+  }
+
+  // ---- Live 60fps preview animation loop ----
+  var activeLoops = new Map(); // cardEl -> { item, meta, startTs, duration }
+  var rafId = 0;
+
+  function applyBoxVisual(stageEl, res) {
+    var box = stageEl.querySelector(".f2m-demo-box");
+    if (!box) return;
+    box.style.transform =
+      "translate3d(" + res.dx.toFixed(2) + "px," + res.dy.toFixed(2) + "px,0) " +
+      "rotate(" + res.rotate.toFixed(2) + "deg) " +
+      "scale(" + res.scaleX.toFixed(3) + "," + res.scaleY.toFixed(3) + ")";
+    box.style.opacity = String(res.opacity.toFixed(3));
+  }
+
+  function applyTextVisual(stageEl, chars) {
+    var nodes = stageEl.querySelectorAll(".f2m-demo-char");
+    for (var i = 0; i < nodes.length && i < chars.length; i++) {
+      var c = chars[i];
+      nodes[i].style.transform = "translate3d(" + c.dx.toFixed(1) + "px," + c.dy.toFixed(1) + "px,0) scale(" + c.scale.toFixed(3) + ")";
+      nodes[i].style.opacity = String(c.opacity.toFixed(3));
+      nodes[i].style.filter = c.blur > 0.1 ? ("blur(" + c.blur.toFixed(1) + "px)") : "none";
+    }
+  }
+
+  function applyTransitionVisual(stageEl, res) {
+    var u = res.progress;
+    if (res.transType === "iris") {
+      var ring = stageEl.querySelector(".f2m-trans-iris");
+      if (!ring) return;
+      // Grows 0..0.5 to cover, then opens 0.5..1 via shrinking border
+      var s = u <= 0.5 ? (u * 2) : 1;
+      var hole = u <= 0.5 ? 0 : ((u - 0.5) * 2);
+      ring.style.transform = "scale(" + (0.05 + s * 1.45).toFixed(3) + ")";
+      ring.style.borderWidth = ((1 - hole) * 38).toFixed(1) + "px";
+      ring.style.opacity = u > 0.96 || u < 0.02 ? "0" : "0.95";
+      return;
+    }
+    var bars = stageEl.querySelectorAll(".f2m-trans-bar");
+    var horiz = res.direction === "left" || res.direction === "right";
+    var sign = (res.direction === "left" || res.direction === "up") ? -1 : 1;
+    for (var i = 0; i < bars.length; i++) {
+      var delay = bars.length > 1 ? (i / (bars.length - 1)) * 0.22 : 0;
+      var bu = Math.max(0, Math.min(1, (u - delay) / (1 - 0.22)));
+      var pct = -sign * 105 + sign * 210 * bu;
+      bars[i].style.transform = horiz ? ("translateX(" + pct.toFixed(1) + "%)") : ("translateY(" + pct.toFixed(1) + "%)");
+    }
+  }
+
+  function resetStageVisual(stageEl, item) {
+    if (!stageEl) return;
+    if (item && item.command === "text_reveal") {
+      var nodes = stageEl.querySelectorAll(".f2m-demo-char");
+      for (var i = 0; i < nodes.length; i++) {
+        nodes[i].style.transform = "none";
+        nodes[i].style.opacity = "1";
+        nodes[i].style.filter = "none";
+      }
+      return;
+    }
+    if (item && item.command === "transition") {
+      applyTransitionVisual(stageEl, { transType: item.defaults && item.defaults.type || "wipe", direction: state.params.direction, progress: 0.38 });
+      return;
+    }
+    var box = stageEl.querySelector(".f2m-demo-box");
+    if (box) {
+      box.style.transform = "translate3d(0,0,0) rotate(0deg) scale(1,1)";
+      box.style.opacity = "1";
+    }
+  }
+
+  function stepAnimations(now) {
+    if (!activeLoops.size) { rafId = 0; return; }
+    activeLoops.forEach(function (entry, stageEl) {
+      if (!stageEl.isConnected) { activeLoops.delete(stageEl); return; }
+      var item = entry.item;
+      var speed = Number(state.params.speed) || 1;
+      var dur = Math.max(0.28, (entry.duration || 0.7) / speed);
+      var hold = 0.55;
+      var cycle = dur + hold;
+      var elapsed = ((now - entry.startTs) / 1000) % cycle;
+      var t = Math.min(dur, elapsed);
+      var progress = t / dur;
+
+      if (item.clip && Preview) {
+        var clipT = progress * (entry.meta ? entry.meta.duration : item.clip.duration);
+        var res = Preview.evaluateClipAt(item.clip, clipT, item.defaultAnchor, entry.meta);
+        applyBoxVisual(stageEl, res);
+      } else if (item.kind === "procedural" && Preview) {
+        var overrides = {};
+        if (item.supports && item.supports.direction) overrides.direction = state.params.direction;
+        if (item.supports && item.supports.style) overrides.style = state.params.style;
+        var pRes = Preview.evaluatePresetAt(item, overrides, progress);
+        if (pRes.kind === "box") applyBoxVisual(stageEl, pRes);
+        else if (pRes.kind === "text") applyTextVisual(stageEl, pRes.chars);
+        else if (pRes.kind === "transition") applyTransitionVisual(stageEl, pRes);
+      }
+    });
+    if (activeLoops.size) rafId = window.requestAnimationFrame(stepAnimations);
+    else rafId = 0;
+  }
+
+  function startStageLoop(stageEl, item, meta) {
+    if (!Preview || !stageEl) return;
+    var dur = item.clip ? (meta ? meta.duration : item.clip.duration) : ((item.defaults && item.defaults.duration) || 0.65);
+    activeLoops.set(stageEl, { item: item, meta: meta, startTs: performance.now(), duration: dur });
+    if (!rafId) rafId = window.requestAnimationFrame(stepAnimations);
+  }
+
+  function stopStageLoop(stageEl, item) {
+    activeLoops.delete(stageEl);
+    resetStageVisual(stageEl, item);
+  }
+
+  function syncAllAutoPlay() {
+    var stages = document.querySelectorAll(".f2m-stage[data-playable='1']");
+    for (var i = 0; i < stages.length; i++) {
+      var el = stages[i];
+      if (state.autoPlayAll) {
+        if (!activeLoops.has(el) && el._f2mItem) startStageLoop(el, el._f2mItem, el._f2mMeta);
+      } else {
+        if (activeLoops.has(el)) stopStageLoop(el, el._f2mItem);
+      }
+    }
+  }
+
+  // ---- AE Execution Actions ----
+  function applyMotionItem(item) {
+    if (!CEP) {
+      log("预览模式：已模拟调用「" + item.name + "」", "ok");
+      return;
+    }
+    var speed = Number(state.params.speed) || 1;
+    var timeScale = 1 / speed;
+    var stagger = Number(state.params.stagger) || 0;
+    var replaceTracks = !!state.params.replace;
+
+    if (item.clip) {
+      var anchor = state.params.anchor === "auto" ? (item.defaultAnchor || "end") : state.params.anchor;
+      var jobPath = writeJobTemp({
+        name: item.name,
+        clip: item.clip,
+        time_scale: timeScale,
+        stagger: stagger,
+        position_anchor: anchor,
+        scale_relative: true,
+        replaceTracks: replaceTracks
+      }, "clip");
+      evalES("mkMotionApplyClip(" + esLiteral(jobPath) + ")", function (raw) {
+        var res = parseEsJson(raw);
+        if (res.ok) {
+          log("已应用「" + item.name + "」→ " + res.layers + " 层（" + res.tracks + " 条轨道，单步可撤销）", "ok");
+          refreshSelection(true);
+        } else {
+          report("应用「" + item.name + "」失败：" + res.error, true);
+        }
+      });
+      return;
+    }
+
+    if (item.kind === "procedural") {
+      var opts = Object.assign({}, item.defaults || {});
+      if (item.supports && item.supports.direction) opts.direction = state.params.direction;
+      if (item.supports && item.supports.style) {
+        if (item.command === "text_reveal") opts.ease = state.params.style;
+        else opts.style = state.params.style;
+      }
+      if (item.supports && item.supports.duration && opts.duration) {
+        opts.duration = Math.max(0.08, Math.round((opts.duration * timeScale) * 1000) / 1000);
+      }
+      if (item.supports && item.supports.stagger && stagger > 0) opts.stagger = stagger;
+      var presetPath = writeJobTemp({
+        name: item.name,
+        command: item.command,
+        options: opts,
+        layerStagger: stagger,
+        replaceTracks: replaceTracks
+      }, "preset");
+      evalES("mkMotionApplyPreset(" + esLiteral(presetPath) + ")", function (raw) {
+        var res = parseEsJson(raw);
+        if (res.ok) {
+          var n = res.result && (res.result.layers || res.result.staggered);
+          log("已应用「" + item.name + "」" + (n ? "→ " + n + " 层" : "") + "（单步可撤销）", "ok");
+          refreshSelection(true);
+        } else {
+          report("应用「" + item.name + "」失败：" + res.error, true);
+        }
+      });
+    }
+  }
+
+  function applyTemplateItem(item, chosenVariant) {
+    if (!CEP) {
+      log("预览模式：已模拟导入模板「" + item.name + "」", "ok");
+      return;
+    }
+    try {
+      var targetFile = item.file;
+      var kind = item.kind;
+      var compName = chosenVariant ? chosenVariant.compName : (item.defaultComp || "");
+
+      if (kind === "mogrt") {
+        if (!scanner) throw new Error("缺少 MOGRT 解析模块。");
+        log("正在解包 MOGRT「" + item.name + "」…");
+        targetFile = scanner.extractMogrtAep(item.file);
+        kind = "aep";
+      }
+
+      var jobPath = writeJobTemp({
+        name: item.name + (chosenVariant ? " " + chosenVariant.label : ""),
+        kind: kind,
+        file: targetFile.replace(/\\/g, "/"),
+        compName: compName,
+        fitToComp: true
+      }, "tpl");
+
+      evalES("mkMotionImportTemplate(" + esLiteral(jobPath) + ")", function (raw) {
+        var res = parseEsJson(raw);
+        if (res.ok) {
+          if (res.kind === "ffx") {
+            log("已应用 FFX「" + item.name + "」→ " + res.layers + " 层", "ok");
+          } else {
+            log("已导入模板合成「" + (res.compName || item.name) + "」到当前时间轴", "ok");
+          }
+          refreshSelection(true);
+        } else {
+          report("导入「" + item.name + "」失败：" + res.error, true);
+        }
+      });
+    } catch (e) {
+      report("模板处理失败：" + e.message, true);
+    }
+  }
+
+  function runQuickStagger() {
+    if (!CEP) { log("预览模式：错峰交错", "ok"); return; }
+    var off = Number(state.params.stagger) > 0 ? Number(state.params.stagger) : 0.06;
+    var jobPath = writeJobTemp({
+      name: "错峰交错",
+      command: "stagger",
+      options: { offset_seconds: off, order: "forward" }
+    }, "stagger");
+    evalES("mkMotionApplyPreset(" + esLiteral(jobPath) + ")", function (raw) {
+      var res = parseEsJson(raw);
+      if (res.ok) log("已错峰交错 " + res.result.layers + " 层（间隔 " + off + "s）", "ok");
+      else report("错峰失败：" + res.error, true);
+    });
+  }
+
+  function runQuickReset() {
+    if (!CEP) { log("预览模式：重置选中图层动效", "ok"); return; }
+    evalES("mkMotionResetSelected()", function (raw) {
+      var res = parseEsJson(raw);
+      if (res.ok) {
+        log("已清理 " + res.layers + " 层的 " + res.cleared + " 条动效轨道（可 Ctrl+Z 撤销）", "ok");
+        refreshSelection(true);
+      } else {
+        report("重置失败：" + res.error, true);
+      }
+    });
+  }
+
+  // ---- User Clip Save / Record / Import ----
+  function captureFromAE(includeStatic, cb) {
+    if (!CEP) { cb(new Error("请在 AE 中使用捕获/录制功能。")); return; }
+    var snapFile = path.join(os.tmpdir(), "f2a_snap_" + Date.now() + "_" + (++tempSerial) + ".json");
+    var jobPath = writeJobTemp({
+      scope: "all",
+      includeStatic: !!includeStatic,
+      snapshotFile: snapFile.replace(/\\/g, "/")
+    }, "capture");
+    evalES("mkMotionCaptureSelected(" + esLiteral(jobPath) + ")", function (raw) {
+      var res = parseEsJson(raw);
+      if (!res.ok) { cb(new Error(res.error || "捕获图层动效失败。")); return; }
+      try {
+        var data = JSON.parse(fs.readFileSync(snapFile, "utf8").replace(/^\uFEFF/, ""));
+        try { fs.unlinkSync(snapFile); } catch (eRm) {}
+        cb(null, data);
+      } catch (eRead) {
+        cb(eRead);
+      }
+    });
+  }
+
+  function startRecording() {
+    captureFromAE(true, function (err, snap) {
+      if (err) { report("开始录制失败：" + err.message, true); return; }
+      state.recording = { snapshot: snap, startedAt: Date.now() };
+      log("开始录制「" + snap.name + "」的 " + snap.layers.length + " 层动效，请在 AE 中调整后点击“停止并保存”", "ok");
+      renderPanel();
+    });
+  }
+
+  function commitSaveClip(name, tagsText) {
+    if (!scanner) { report("本地动效存储模块不可用。", true); return; }
+    var tags = String(tagsText || "").split(/[,，\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var rec = state.recording;
+    if (rec) {
+      // Capture "after" for same comp/layers and diff
+      var snapFile = path.join(os.tmpdir(), "f2a_snap_after_" + Date.now() + "_" + (++tempSerial) + ".json");
+      var jobPath = writeJobTemp({
+        comp_id: rec.snapshot.comp,
+        layer_ids: rec.snapshot.layers.map(function (l) { return l.id; }),
+        scope: "all",
+        includeStatic: true,
+        snapshotFile: snapFile.replace(/\\/g, "/")
+      }, "capture");
+      evalES("mkMotionCaptureSelected(" + esLiteral(jobPath) + ")", function (raw) {
+        var res = parseEsJson(raw);
+        if (!res.ok) { report("读取录制结果失败：" + res.error, true); return; }
+        try {
+          var after = JSON.parse(fs.readFileSync(snapFile, "utf8").replace(/^\uFEFF/, ""));
+          try { fs.unlinkSync(snapFile); } catch (eRm) {}
+          var built = scanner.makeClipFromSnapshots(after, rec.snapshot);
+          var saved = scanner.saveUserClip(name, tags, built.clip);
+          state.recording = null;
+          state.saveFormOpen = false;
+          refreshUserClips();
+          log("已保存录制动效「" + saved.name + "」（" + saved.clip.duration.toFixed(2) + "s）", "ok");
+          renderPanel();
+        } catch (eSave) {
+          report("保存录制动效失败：" + eSave.message, true);
+        }
+      });
+      return;
+    }
+
+    captureFromAE(false, function (err, snap) {
+      if (err) { report("捕获动效失败：" + err.message, true); return; }
+      try {
+        var built = scanner.makeClipFromSnapshots(snap);
+        var saved = scanner.saveUserClip(name, tags, built.clip);
+        state.saveFormOpen = false;
+        refreshUserClips();
+        log("已保存选中动效「" + saved.name + "」（" + saved.clip.duration.toFixed(2) + "s）", "ok");
+        renderPanel();
+      } catch (eSave) {
+        report("保存动效失败：" + eSave.message, true);
+      }
+    });
+  }
+
+  function importJsonDialog() {
+    if (!scanner) return;
+    if (window.cep && window.cep.fs && window.cep.fs.showOpenDialogEx) {
+      var pick = window.cep.fs.showOpenDialogEx(false, false, "导入 F2A 动效 JSON 文件", "", ["json"]);
+      if (pick.err || !pick.data || !pick.data[0]) return;
+      try {
+        var saved = scanner.importUserClipFile(pick.data[0]);
+        refreshUserClips();
+        log("已导入动效「" + saved.name + "」", "ok");
+        renderPanel();
+      } catch (e) {
+        report("导入 JSON 失败：" + e.message, true);
+      }
+    } else {
+      report("请在 AE 面板中使用导入文件对话框。", true);
+    }
+  }
+
+  function addTemplateDir(dirPath) {
+    var clean = String(dirPath || "").trim().replace(/^["']|["']$/g, "");
+    if (!clean) return;
+    if (fs && (!fs.existsSync(clean) || !fs.statSync(clean).isDirectory())) {
+      report("目录不存在：" + clean, true);
+      return;
+    }
+    var norm = path ? path.resolve(clean) : clean;
+    if (state.templateDirs.indexOf(norm) < 0) {
+      state.templateDirs.push(norm);
+      saveStoredDirs(state.templateDirs);
+    }
+    state.dirInputOpen = false;
+    rescanTemplates();
+    log("已挂载本地模板目录（共发现 " + state.templates.length + " 个模板/预设）", "ok");
+    renderPanel();
+  }
+
+  function chooseTemplateDir() {
+    if (window.cep && window.cep.fs && window.cep.fs.showOpenDialogEx) {
+      var pick = window.cep.fs.showOpenDialogEx(false, true, "选择本地动效模板目录（支持 AEP / MOGRT / FFX）", "", []);
+      if (pick.err) { report("打开目录窗口失败（" + pick.err + "）", true); return; }
+      if (pick.data && pick.data[0]) addTemplateDir(pick.data[0]);
+    } else {
+      state.dirInputOpen = !state.dirInputOpen;
+      renderPanel();
+    }
+  }
+
+  // ---- Lazy MOGRT Thumbnail Observer ----
+  var mogrtObserver = null;
+  function getMogrtObserver() {
+    if (mogrtObserver || typeof IntersectionObserver === "undefined") return mogrtObserver;
+    mogrtObserver = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (!entries[i].isIntersecting) continue;
+        var stage = entries[i].target;
+        mogrtObserver.unobserve(stage);
+        var item = stage._f2mTemplate;
+        if (!item || item.kind !== "mogrt" || item._probed || !scanner) continue;
+        item._probed = true;
+        try {
+          var prev = scanner.ensureMogrtPreview(item.file);
+          item.thumb = prev.thumb;
+          item.video = prev.video;
+          if (item.thumb) {
+            var img = stage.querySelector(".f2m-thumb");
+            if (img) {
+              img.src = fileUrl(item.thumb);
+              img.hidden = false;
+              var ph = stage.querySelector(".f2m-media-placeholder");
+              if (ph) ph.hidden = true;
+            }
+          }
+          if (item.video) stage.setAttribute("data-video", fileUrl(item.video));
+        } catch (e) {}
+      }
+    }, { rootMargin: "120px" });
+    return mogrtObserver;
+  }
+
+  // ---- DOM Helpers ----
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+  }
+
+  function renderSelectionBar() {
+    var textEl = document.getElementById("f2m-ctx-text");
+    var dotEl = document.getElementById("f2m-ctx-dot");
+    if (!textEl || !dotEl) return;
+    var s = state.selection;
+    if (!s || !s.hasComp) {
+      dotEl.className = "f2m-ctx-dot off";
+      textEl.textContent = CEP ? "未打开活动合成" : "预览模式 · 内置动效可实时悬停预览";
+      return;
+    }
+    var n = s.selected ? s.selected.length : 0;
+    dotEl.className = "f2m-ctx-dot " + (n > 0 ? "on" : "idle");
+    var tStr = (Math.round((s.time || 0) * 100) / 100).toFixed(2) + "s";
+    if (n === 0) {
+      textEl.textContent = s.compName + " · 未选中图层 · " + tStr;
+    } else if (n === 1) {
+      textEl.textContent = "已选「" + s.selected[0].name + "」· " + tStr;
+    } else {
+      textEl.textContent = s.compName + " · 已选 " + n + " 层 · " + tStr;
+    }
+  }
+
+  function currentItemsAndCategories() {
+    var q = state.query.trim().toLowerCase();
+    var all = [];
+    var catSet = [];
+    function addCat(c) { if (c && catSet.indexOf(c) < 0) catSet.push(c); }
+
+    if (state.tab === "builtin") {
+      // Combine curated real-data clips + procedural AE Motion presets
+      var order = ["入场", "组合", "弹跳", "缩放", "旋转", "文字", "强调", "出场", "转场"];
+      order.forEach(addCat);
+      var merged = [];
+      for (var i = 0; i < state.builtinClips.length; i++) merged.push(state.builtinClips[i]);
+      for (var j = 0; j < state.builtinPresets.length; j++) merged.push(state.builtinPresets[j]);
+      all = merged;
+    } else if (state.tab === "templates") {
+      for (var t = 0; t < state.templates.length; t++) addCat(state.templates[t].category);
+      all = state.templates;
+    } else {
+      all = state.userClips;
+    }
+
+    var filtered = all.filter(function (item) {
+      if (state.category !== "全部" && item.category !== state.category) return false;
+      if (!q) return true;
+      var hay = [
+        item.name || "",
+        item.category || "",
+        item.pack || "",
+        item.description || "",
+        Array.isArray(item.tags) ? item.tags.join(" ") : ""
+      ].join(" ").toLowerCase();
+      return hay.indexOf(q) >= 0;
+    });
+    return { items: filtered, categories: ["全部"].concat(catSet), total: all.length };
+  }
+
+  function buildMotionCard(item, isUser) {
+    var card = el("div", "f2m-card");
+    card.title = (item.description || item.name) + (item.tags && item.tags.length ? "\n标签：" + item.tags.join(" / ") : "");
+
+    var stage = el("div", "f2m-stage");
+    stage.setAttribute("data-playable", "1");
+
+    var meta = item.clip && Preview ? Preview.analyzeClip(item.clip, item.defaultAnchor) : null;
+    stage._f2mItem = item;
+    stage._f2mMeta = meta;
+
+    // Stage demo target
+    if (item.command === "text_reveal") {
+      var wrap = el("div", "f2m-demo-text");
+      ["F", "2", "A", "动", "效"].forEach(function (ch) {
+        wrap.appendChild(el("span", "f2m-demo-char", ch));
+      });
+      stage.appendChild(wrap);
+    } else if (item.command === "transition") {
+      var tType = (item.defaults && item.defaults.type) || "wipe";
+      var frame = el("div", "f2m-trans-frame");
+      if (tType === "iris") {
+        frame.appendChild(el("div", "f2m-trans-iris"));
+      } else {
+        var count = tType === "bars" ? 5 : 1;
+        var horiz = state.params.direction === "left" || state.params.direction === "right";
+        frame.className = "f2m-trans-frame " + (horiz ? "is-horiz" : "is-vert");
+        for (var bi = 0; bi < count; bi++) frame.appendChild(el("div", "f2m-trans-bar"));
+      }
+      stage.appendChild(frame);
+      resetStageVisual(stage, item);
+    } else {
+      var ghost = el("div", "f2m-ghost");
+      // Pose the dashed ghost at the start pose (for entrances) or end pose (for exits)
+      // so every card communicates its trajectory visually even before hover.
+      if (Preview) {
+        var sampleT = item.phase === "out" ? 1 : 0;
+        var gRes = null;
+        if (item.clip && meta) {
+          gRes = Preview.evaluateClipAt(item.clip, meta.duration * sampleT, item.defaultAnchor, meta);
+        } else if (item.kind === "procedural") {
+          var gOv = {};
+          if (item.supports && item.supports.direction) gOv.direction = state.params.direction;
+          gRes = Preview.evaluatePresetAt(item, gOv, sampleT);
+        }
+        if (gRes && (gRes.kind === undefined || gRes.kind === "box")) {
+          var gsx = Math.max(0.28, Math.min(1.45, gRes.scaleX));
+          var gsy = Math.max(0.28, Math.min(1.45, gRes.scaleY));
+          var gdx = Math.max(-24, Math.min(24, gRes.dx * 0.72));
+          var gdy = Math.max(-18, Math.min(18, gRes.dy * 0.72));
+          ghost.style.transform =
+            "translate3d(" + gdx.toFixed(1) + "px," + gdy.toFixed(1) + "px,0) " +
+            "rotate(" + (gRes.rotate * 0.5).toFixed(1) + "deg) " +
+            "scale(" + gsx.toFixed(2) + "," + gsy.toFixed(2) + ")";
+        }
+      }
+      stage.appendChild(ghost);
+      var box = el("div", "f2m-demo-box");
+      box.appendChild(el("span", "f2m-demo-line w1"));
+      box.appendChild(el("span", "f2m-demo-line w2"));
+      stage.appendChild(box);
+    }
+
+    // SVG curve sparkline
+    if (Preview) {
+      var dPath = Preview.buildCurveSvg(item);
+      if (dPath) {
+        var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("class", "f2m-curve");
+        svg.setAttribute("viewBox", "0 0 64 20");
+        svg.setAttribute("aria-hidden", "true");
+        var pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        pathEl.setAttribute("d", dPath);
+        svg.appendChild(pathEl);
+        stage.appendChild(svg);
+      }
+    }
+
+    // Badges
+    var badgeLabel = isUser ? "自存" : (item.kind === "procedural" ? "参数" : (item.category || "动效"));
+    stage.appendChild(el("span", "f2m-badge" + (item.kind === "procedural" ? " is-proc" : (isUser ? " is-user" : "")), badgeLabel));
+    var durVal = item.clip ? item.clip.duration : ((item.defaults && item.defaults.duration) || 0.5);
+    stage.appendChild(el("span", "f2m-dur", (Math.round(durVal * 100) / 100) + "s"));
+
+    card.appendChild(stage);
+
+    // Footer metadata + apply button
+    var foot = el("div", "f2m-foot");
+    var info = el("div", "f2m-info");
+    info.appendChild(el("div", "f2m-title", item.name));
+    var subText = meta && meta.trackNames.length
+      ? meta.trackNames.join("·")
+      : (item.kind === "procedural" ? (item.category || "参数化") : "多轨动效");
+    info.appendChild(el("div", "f2m-sub", subText));
+    foot.appendChild(info);
+
+    var actions = el("div", "f2m-actions");
+    if (isUser) {
+      var delBtn = el("button", "f2m-del", state.confirmDeleteId === item.id ? "确认" : "×");
+      delBtn.type = "button";
+      delBtn.title = state.confirmDeleteId === item.id ? "再次点击确认删除" : "删除此动效";
+      delBtn.onclick = function (ev) {
+        ev.stopPropagation();
+        if (state.confirmDeleteId !== item.id) {
+          state.confirmDeleteId = item.id;
+          renderGrid();
+          return;
+        }
+        state.confirmDeleteId = null;
+        if (scanner) scanner.deleteUserClip(item.id);
+        refreshUserClips();
+        log("已删除自存动效「" + item.name + "」");
+        renderPanel();
+      };
+      actions.appendChild(delBtn);
+    }
+    var applyBtn = el("button", "f2m-apply", "应用");
+    applyBtn.type = "button";
+    applyBtn.onclick = function (ev) {
+      ev.stopPropagation();
+      applyMotionItem(item);
+    };
+    actions.appendChild(applyBtn);
+    foot.appendChild(actions);
+    card.appendChild(foot);
+
+    // Hover starts smooth 60fps preview; double-click applies immediately
+    card.addEventListener("mouseenter", function () {
+      startStageLoop(stage, item, meta);
+    });
+    card.addEventListener("mouseleave", function () {
+      if (!state.autoPlayAll) stopStageLoop(stage, item);
+    });
+    card.addEventListener("dblclick", function () {
+      applyMotionItem(item);
+    });
+    if (state.autoPlayAll) startStageLoop(stage, item, meta);
+
+    return card;
+  }
+
+  function buildTemplateCard(item) {
+    var card = el("div", "f2m-card is-tpl");
+    card.title = item.pack + " / " + item.category + " / " + item.name;
+
+    var selectedVarIdx = 0;
+    var stage = el("div", "f2m-stage is-media");
+    stage._f2mTemplate = item;
+
+    var img = el("img", "f2m-thumb");
+    img.alt = item.name;
+    if (item.thumb) {
+      img.src = fileUrl(item.thumb);
+    } else {
+      img.hidden = true;
+    }
+    stage.appendChild(img);
+
+    if (!item.thumb) {
+      var ph = el("div", "f2m-media-placeholder", item.kind === "ffx" ? "FX" : (item.kind === "mogrt" ? "MOGRT" : "AEP"));
+      stage.appendChild(ph);
+    }
+
+    var activeVideoUrl = item.video ? fileUrl(item.video) : "";
+    if (activeVideoUrl) stage.setAttribute("data-video", activeVideoUrl);
+
+    stage.appendChild(el("span", "f2m-badge is-tpl-kind", item.kind.toUpperCase()));
+
+    // Variant switcher for Titles Factory (A1 / A2 / A3)
+    if (item.variants && item.variants.length > 1) {
+      var varBar = el("div", "f2m-varbar");
+      item.variants.forEach(function (v, idx) {
+        var vb = el("button", "f2m-varbtn" + (idx === 0 ? " active" : ""), v.label);
+        vb.type = "button";
+        vb.onclick = function (ev) {
+          ev.stopPropagation();
+          selectedVarIdx = idx;
+          var siblings = varBar.querySelectorAll(".f2m-varbtn");
+          for (var s = 0; s < siblings.length; s++) siblings[s].className = "f2m-varbtn" + (s === idx ? " active" : "");
+          var vSrc = v.inVideo || v.outVideo || "";
+          if (vSrc) {
+            var u = fileUrl(vSrc);
+            stage.setAttribute("data-video", u);
+            var existingVid = stage.querySelector("video.f2m-vid");
+            if (existingVid) { existingVid.src = u; existingVid.play().catch(function () {}); }
+          }
+        };
+        varBar.appendChild(vb);
+      });
+      stage.appendChild(varBar);
+    }
+
+    // Hover plays real MP4 preview video!
+    card.addEventListener("mouseenter", function () {
+      var vUrl = stage.getAttribute("data-video");
+      if (!vUrl) return;
+      var vid = stage.querySelector("video.f2m-vid");
+      if (!vid) {
+        vid = document.createElement("video");
+        vid.className = "f2m-vid";
+        vid.muted = true;
+        vid.loop = true;
+        vid.playsInline = true;
+        vid.autoplay = true;
+        vid.src = vUrl;
+        stage.appendChild(vid);
+      }
+      vid.play().catch(function () {});
+    });
+    card.addEventListener("mouseleave", function () {
+      var vid = stage.querySelector("video.f2m-vid");
+      if (vid) {
+        try { vid.pause(); } catch (e) {}
+        vid.remove();
+      }
+    });
+
+    if (item.kind === "mogrt" && !item._probed) {
+      var obs = getMogrtObserver();
+      if (obs) obs.observe(stage);
+    }
+
+    card.appendChild(stage);
+
+    var foot = el("div", "f2m-foot");
+    var info = el("div", "f2m-info");
+    info.appendChild(el("div", "f2m-title", item.name));
+    info.appendChild(el("div", "f2m-sub", item.category));
+    foot.appendChild(info);
+
+    var actions = el("div", "f2m-actions");
+    var btn = el("button", "f2m-apply", item.kind === "ffx" ? "应用" : "导入");
+    btn.type = "button";
+    btn.onclick = function (ev) {
+      ev.stopPropagation();
+      var chosen = (item.variants && item.variants[selectedVarIdx]) || null;
+      applyTemplateItem(item, chosen);
+    };
+    actions.appendChild(btn);
+    foot.appendChild(actions);
+    card.appendChild(foot);
+
+    card.addEventListener("dblclick", function () {
+      var chosen = (item.variants && item.variants[selectedVarIdx]) || null;
+      applyTemplateItem(item, chosen);
+    });
+
+    return card;
+  }
+
+  function renderSubbar() {
+    var subbar = document.getElementById("f2m-subbar");
+    if (!subbar) return;
+    subbar.innerHTML = "";
+    subbar.hidden = true;
+
+    if (state.tab === "templates") {
+      subbar.hidden = false;
+      var row = el("div", "f2m-subrow");
+      var addBtn = el("button", "f2m-chip-act primary", "＋ 添加模板目录");
+      addBtn.type = "button";
+      addBtn.onclick = chooseTemplateDir;
+      row.appendChild(addBtn);
+
+      if (state.templateDirs.length) {
+        var rescanBtn = el("button", "f2m-chip-act", "↻ 刷新");
+        rescanBtn.type = "button";
+        rescanBtn.onclick = function () {
+          rescanTemplates();
+          log("已刷新本地模板目录（" + state.templates.length + " 项）", "ok");
+          renderPanel();
+        };
+        row.appendChild(rescanBtn);
+
+        state.templateDirs.forEach(function (dir) {
+          var label = path ? path.basename(dir) : dir;
+          var pill = el("span", "f2m-dir-pill");
+          pill.title = dir;
+          pill.appendChild(el("span", "", label));
+          var rmBtn = el("button", "f2m-dir-rm", "×");
+          rmBtn.type = "button";
+          rmBtn.title = "移除目录";
+          rmBtn.onclick = function () {
+            state.templateDirs = state.templateDirs.filter(function (d) { return d !== dir; });
+            saveStoredDirs(state.templateDirs);
+            rescanTemplates();
+            renderPanel();
+          };
+          pill.appendChild(rmBtn);
+          row.appendChild(pill);
+        });
+      }
+      subbar.appendChild(row);
+
+      if (state.dirInputOpen) {
+        var form = el("div", "f2m-inline-form");
+        var inp = el("input", "f2m-input");
+        inp.type = "text";
+        inp.placeholder = "粘贴本地模板目录路径，回车确认…";
+        var ok = el("button", "f2m-chip-act primary", "确定");
+        ok.type = "button";
+        ok.onclick = function () { addTemplateDir(inp.value); };
+        inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") addTemplateDir(inp.value); });
+        form.appendChild(inp);
+        form.appendChild(ok);
+        subbar.appendChild(form);
+      }
+      return;
+    }
+
+    if (state.tab === "user") {
+      subbar.hidden = false;
+      var uRow = el("div", "f2m-subrow");
+
+      var saveBtn = el("button", "f2m-chip-act primary", state.recording ? "■ 停止并保存录制" : "＋ 保存选中动效");
+      saveBtn.type = "button";
+      saveBtn.onclick = function () {
+        state.saveFormOpen = !state.saveFormOpen;
+        renderSubbar();
+      };
+      uRow.appendChild(saveBtn);
+
+      if (!state.recording) {
+        var recBtn = el("button", "f2m-chip-act", "● 开始录制");
+        recBtn.type = "button";
+        recBtn.title = "记录当前状态，在 AE 中手调动效后再保存增量变更";
+        recBtn.onclick = startRecording;
+        uRow.appendChild(recBtn);
+      } else {
+        var cancelRec = el("button", "f2m-chip-act danger", "取消录制");
+        cancelRec.type = "button";
+        cancelRec.onclick = function () {
+          state.recording = null;
+          state.saveFormOpen = false;
+          log("已取消动效录制");
+          renderPanel();
+        };
+        uRow.appendChild(cancelRec);
+      }
+
+      var impBtn = el("button", "f2m-chip-act", "↑ 导入 JSON");
+      impBtn.type = "button";
+      impBtn.onclick = importJsonDialog;
+      uRow.appendChild(impBtn);
+      subbar.appendChild(uRow);
+
+      if (state.saveFormOpen) {
+        var sForm = el("div", "f2m-inline-form");
+        var nameInp = el("input", "f2m-input");
+        nameInp.type = "text";
+        nameInp.placeholder = state.recording ? "录制动效名称（必填）" : "动效名称（如：卡片弹入）";
+        var tagInp = el("input", "f2m-input is-tag");
+        tagInp.type = "text";
+        tagInp.placeholder = "标签（逗号分隔）";
+        var goBtn = el("button", "f2m-chip-act primary", "保存");
+        goBtn.type = "button";
+        var doSave = function () {
+          if (!nameInp.value.trim()) { report("请填写动效名称。", true); return; }
+          commitSaveClip(nameInp.value.trim(), tagInp.value);
+        };
+        goBtn.onclick = doSave;
+        nameInp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") doSave(); });
+        sForm.appendChild(nameInp);
+        sForm.appendChild(tagInp);
+        sForm.appendChild(goBtn);
+        subbar.appendChild(sForm);
+        setTimeout(function () { nameInp.focus(); }, 0);
+      }
+    }
+  }
+
+  function renderGrid() {
+    var grid = document.getElementById("f2m-grid");
+    var catsEl = document.getElementById("f2m-cats");
+    if (!grid || !catsEl) return;
+
+    // Clear active RAF loops for old DOM nodes
+    activeLoops.clear();
+    grid.innerHTML = "";
+    catsEl.innerHTML = "";
+
+    var data = currentItemsAndCategories();
+    if (data.categories.indexOf(state.category) < 0) {
+      state.category = "全部";
+      data = currentItemsAndCategories();
+    }
+
+    // Category filter pills
+    if (data.categories.length > 1) {
+      catsEl.hidden = false;
+      data.categories.forEach(function (cat) {
+        var pill = el("button", "f2m-cat" + (state.category === cat ? " active" : ""), cat);
+        pill.type = "button";
+        pill.onclick = function () {
+          state.category = cat;
+          state.templatePageLimit = 48;
+          renderGrid();
+        };
+        catsEl.appendChild(pill);
+      });
+    } else {
+      catsEl.hidden = true;
+    }
+
+    // Empty states
+    if (!data.items.length) {
+      var empty = el("div", "f2m-empty");
+      if (state.tab === "templates" && !state.templateDirs.length) {
+        empty.appendChild(el("div", "f2m-empty-title", "尚未挂载本地模板目录"));
+        empty.appendChild(el("div", "f2m-empty-desc", "添加本地动效数据包后，可直接预览视频缩略图并一键导入 AEP / MOGRT / FFX。"));
+        var cta = el("button", "f2m-chip-act primary", "＋ 选择本地模板目录");
+        cta.type = "button";
+        cta.onclick = chooseTemplateDir;
+        empty.appendChild(cta);
+      } else if (state.tab === "user" && !state.userClips.length) {
+        empty.appendChild(el("div", "f2m-empty-title", "暂无自存动效"));
+        empty.appendChild(el("div", "f2m-empty-desc", "在 AE 中选中已调好关键帧的图层，点击上方「保存选中动效」即可复用，并与 MCP 共享。"));
+      } else {
+        empty.appendChild(el("div", "f2m-empty-title", "没有匹配的动效"));
+        empty.appendChild(el("div", "f2m-empty-desc", "试试清空搜索关键词或切换分类。"));
+      }
+      grid.appendChild(empty);
+      return;
+    }
+
+    var isTpl = state.tab === "templates";
+    var isUser = state.tab === "user";
+    var limit = isTpl ? state.templatePageLimit : data.items.length;
+    var slice = data.items.slice(0, limit);
+
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < slice.length; i++) {
+      frag.appendChild(isTpl ? buildTemplateCard(slice[i]) : buildMotionCard(slice[i], isUser));
+    }
+    grid.appendChild(frag);
+
+    if (isTpl && data.items.length > limit) {
+      var moreWrap = el("div", "f2m-more-wrap");
+      var moreBtn = el("button", "f2m-chip-act", "加载更多（剩余 " + (data.items.length - limit) + " 项）");
+      moreBtn.type = "button";
+      moreBtn.onclick = function () {
+        state.templatePageLimit += 60;
+        renderGrid();
+      };
+      moreWrap.appendChild(moreBtn);
+      grid.appendChild(moreWrap);
+    }
+  }
+
+  function renderTabs() {
+    var builtinCount = state.builtinClips.length + state.builtinPresets.length;
+    var map = {
+      builtin: "内置动效 (" + builtinCount + ")",
+      templates: "本地模板 (" + state.templates.length + ")",
+      user: "我的动效 (" + state.userClips.length + ")"
+    };
+    var btns = document.querySelectorAll(".f2m-tab");
+    for (var i = 0; i < btns.length; i++) {
+      var key = btns[i].getAttribute("data-tab");
+      btns[i].textContent = map[key] || key;
+      btns[i].className = "f2m-tab" + (state.tab === key ? " active" : "");
+    }
+  }
+
+  function renderPanel() {
+    renderSelectionBar();
+    renderTabs();
+    renderSubbar();
+    renderGrid();
+  }
+
+  // ---- Wire static DOM controls ----
+  function bindControls() {
+    var tabs = document.querySelectorAll(".f2m-tab");
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].onclick = function () {
+        state.tab = this.getAttribute("data-tab");
+        state.category = "全部";
+        state.confirmDeleteId = null;
+        if (state.tab === "user") refreshUserClips();
+        renderPanel();
+      };
+    }
+
+    var search = document.getElementById("f2m-search");
+    if (search) {
+      search.addEventListener("input", function () {
+        state.query = search.value;
+        state.templatePageLimit = 48;
+        renderGrid();
+      });
+    }
+
+    var paramsToggle = document.getElementById("f2m-params-toggle");
+    var paramsBox = document.getElementById("f2m-params");
+    if (paramsToggle && paramsBox) {
+      paramsToggle.onclick = function () {
+        state.showParams = !state.showParams;
+        paramsBox.hidden = !state.showParams;
+        paramsToggle.className = "f2m-icon-act" + (state.showParams ? " active" : "");
+      };
+    }
+
+    var playToggle = document.getElementById("f2m-play-toggle");
+    if (playToggle) {
+      playToggle.onclick = function () {
+        state.autoPlayAll = !state.autoPlayAll;
+        playToggle.className = "f2m-icon-act" + (state.autoPlayAll ? " active" : "");
+        playToggle.title = state.autoPlayAll ? "暂停全部预览（悬停单卡仍可预览）" : "循环预览全部卡片";
+        syncAllAutoPlay();
+      };
+    }
+
+    var staggerBtn = document.getElementById("f2m-act-stagger");
+    if (staggerBtn) staggerBtn.onclick = runQuickStagger;
+    var resetBtn = document.getElementById("f2m-act-reset");
+    if (resetBtn) resetBtn.onclick = runQuickReset;
+    var refreshBtn = document.getElementById("f2m-act-refresh");
+    if (refreshBtn) refreshBtn.onclick = function () { refreshSelection(false); };
+
+    // Parameter bindings
+    function bindSelect(id, key, isNum) {
+      var sel = document.getElementById(id);
+      if (!sel) return;
+      sel.value = String(state.params[key]);
+      sel.onchange = function () {
+        state.params[key] = isNum ? Number(sel.value) : sel.value;
+        saveStoredParams(state.params);
+      };
+    }
+    bindSelect("f2m-p-speed", "speed", true);
+    bindSelect("f2m-p-stagger", "stagger", true);
+    bindSelect("f2m-p-dir", "direction", false);
+    bindSelect("f2m-p-style", "style", false);
+    bindSelect("f2m-p-anchor", "anchor", false);
+
+    var repChk = document.getElementById("f2m-p-replace");
+    if (repChk) {
+      repChk.checked = !!state.params.replace;
+      repChk.onchange = function () {
+        state.params.replace = !!repChk.checked;
+        saveStoredParams(state.params);
+      };
+    }
+
+    // Collapsible log console toggle (keeps #mk-log and #mk-log-clear untouched)
+    var logToggle = document.getElementById("f2m-log-toggle");
+    var consoleSec = document.querySelector(".mk-console");
+    if (logToggle && consoleSec) {
+      logToggle.onclick = function () {
+        var collapsed = consoleSec.classList.toggle("is-collapsed");
+        logToggle.textContent = collapsed ? "展开" : "收起";
+      };
+    }
+  }
+
+  // ---- Boot ----
+  function boot() {
+    bindControls();
+    refreshUserClips();
+    if (state.templateDirs.length) rescanTemplates();
+    loadBuiltinCatalog(function () {
+      var total = state.builtinClips.length + state.builtinPresets.length;
+      if (total) log("动效库已就绪：" + total + " 个内置动效" + (state.templates.length ? " · " + state.templates.length + " 个本地模板" : ""), "ok");
+      renderPanel();
+    });
+    refreshSelection(true);
+    if (CEP) {
+      window.addEventListener("focus", function () { refreshSelection(true); });
+      selPollTimer = setInterval(function () {
+        if (!document.hidden) refreshSelection(true);
+      }, 2500);
+    }
+  }
+
+  window.F2AMotionPanel = {
+    refreshSelection: refreshSelection,
+    refreshUserClips: refreshUserClips,
+    addTemplateDir: addTemplateDir,
+    getState: function () { return state; }
+  };
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();

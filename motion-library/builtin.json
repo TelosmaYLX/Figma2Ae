@@ -1,0 +1,5654 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "F2A Motion Library Extractor",
+  "presets": [
+    {
+      "id": "preset-fade-in",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "参数化淡入",
+      "category": "入场",
+      "phase": "in",
+      "description": "可调时长与缓动曲线的纯透明度入场。",
+      "tags": [
+        "参数化",
+        "入场",
+        "淡入",
+        "透明度"
+      ],
+      "defaults": {
+        "move": "fade",
+        "phase": "in",
+        "duration": 0.45,
+        "style": "smooth"
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-pop-in",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "弹簧弹出",
+      "category": "弹跳",
+      "phase": "in",
+      "description": "物理弹簧过冲缩放弹出，支持弹性/回弹/利落曲线。",
+      "tags": [
+        "参数化",
+        "入场",
+        "弹出",
+        "弹性",
+        "缩放"
+      ],
+      "defaults": {
+        "move": "pop",
+        "phase": "in",
+        "duration": 0.5,
+        "style": "spring"
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-grow-in",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "轻柔放大",
+      "category": "缩放",
+      "phase": "in",
+      "description": "柔和放大并渐显入场，适合图片卡片与视觉面板。",
+      "tags": [
+        "参数化",
+        "入场",
+        "缩放",
+        "柔和"
+      ],
+      "defaults": {
+        "move": "grow",
+        "phase": "in",
+        "duration": 0.55,
+        "style": "smooth"
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-slide-in",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "方向滑入",
+      "category": "入场",
+      "phase": "in",
+      "description": "支持上/下/左/右四向自定义距离滑入并自动渐显。",
+      "tags": [
+        "参数化",
+        "入场",
+        "滑入",
+        "方向"
+      ],
+      "defaults": {
+        "move": "slide",
+        "phase": "in",
+        "duration": 0.5,
+        "style": "snappy",
+        "direction": "up",
+        "distance": 96
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "direction": true,
+        "distance": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-drop-in",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "重力坠落弹入",
+      "category": "弹跳",
+      "phase": "in",
+      "description": "带重力回弹手感的坠落入场，支持反弹曲线。",
+      "tags": [
+        "参数化",
+        "入场",
+        "坠落",
+        "弹跳"
+      ],
+      "defaults": {
+        "move": "drop",
+        "phase": "in",
+        "duration": 0.6,
+        "style": "bounce",
+        "distance": 140
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "distance": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-spin-in",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "旋转切入",
+      "category": "旋转",
+      "phase": "in",
+      "description": "旋转并缩放切入，适合徽标、图标与视觉亮点。",
+      "tags": [
+        "参数化",
+        "入场",
+        "旋转"
+      ],
+      "defaults": {
+        "move": "spin",
+        "phase": "in",
+        "duration": 0.55,
+        "style": "snappy"
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-push",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "微距推近",
+      "category": "强调",
+      "phase": "emphasis",
+      "description": "轻微推近缩放（如 +8%），营造镜头呼吸感与海报纵深。",
+      "tags": [
+        "参数化",
+        "强调",
+        "推近",
+        "镜头",
+        "缩放"
+      ],
+      "defaults": {
+        "move": "push",
+        "phase": "in",
+        "duration": 1.6,
+        "style": "smooth",
+        "amount": 8
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-drift",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "缓慢漂移",
+      "category": "强调",
+      "phase": "emphasis",
+      "description": "平滑单向微距漂移，适合背景装饰、云层与光斑。",
+      "tags": [
+        "参数化",
+        "强调",
+        "漂移",
+        "背景",
+        "位移"
+      ],
+      "defaults": {
+        "move": "drift",
+        "phase": "in",
+        "duration": 2.4,
+        "style": "linear",
+        "direction": "right",
+        "distance": 60
+      },
+      "supports": {
+        "duration": true,
+        "direction": true,
+        "distance": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-fade-out",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "参数化淡出",
+      "category": "出场",
+      "phase": "out",
+      "description": "平顺淡出至 0% 透明度。",
+      "tags": [
+        "参数化",
+        "出场",
+        "淡出"
+      ],
+      "defaults": {
+        "move": "fade",
+        "phase": "out",
+        "duration": 0.4,
+        "style": "smooth"
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-slide-out",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "方向滑出",
+      "category": "出场",
+      "phase": "out",
+      "description": "沿指定方向滑出并同步渐隐离场。",
+      "tags": [
+        "参数化",
+        "出场",
+        "滑出",
+        "方向"
+      ],
+      "defaults": {
+        "move": "slide",
+        "phase": "out",
+        "duration": 0.45,
+        "style": "snappy",
+        "direction": "down",
+        "distance": 96
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "direction": true,
+        "distance": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-pop-out",
+      "kind": "procedural",
+      "command": "animate",
+      "name": "缩放收起",
+      "category": "出场",
+      "phase": "out",
+      "description": "快速收缩并淡出离场，适合弹窗与气泡关闭。",
+      "tags": [
+        "参数化",
+        "出场",
+        "缩放",
+        "弹出"
+      ],
+      "defaults": {
+        "move": "pop",
+        "phase": "out",
+        "duration": 0.35,
+        "style": "snappy"
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "stagger": true
+      }
+    },
+    {
+      "id": "preset-text-rise",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "逐字上浮揭示",
+      "category": "文字",
+      "phase": "in",
+      "description": "原生文字动画器：逐字从基线遮罩内上浮显现。",
+      "tags": [
+        "文字",
+        "入场",
+        "上浮",
+        "遮罩",
+        "逐字"
+      ],
+      "defaults": {
+        "style": "rise",
+        "by": "chars",
+        "phase": "in",
+        "duration": 0.45,
+        "stagger": 0.03,
+        "ease": "snappy",
+        "mask": true
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "textBy": true,
+        "textMask": true
+      }
+    },
+    {
+      "id": "preset-text-drop",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "逐字坠落揭示",
+      "category": "文字",
+      "phase": "in",
+      "description": "原生文字动画器：逐字自顶部遮罩线滑落显现。",
+      "tags": [
+        "文字",
+        "入场",
+        "下落",
+        "遮罩",
+        "逐字"
+      ],
+      "defaults": {
+        "style": "drop",
+        "by": "chars",
+        "phase": "in",
+        "duration": 0.45,
+        "stagger": 0.03,
+        "ease": "snappy",
+        "mask": true
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "textBy": true,
+        "textMask": true
+      }
+    },
+    {
+      "id": "preset-text-fade",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "逐字柔光渐显",
+      "category": "文字",
+      "phase": "in",
+      "description": "原生文字动画器：逐字平滑淡入，适合副标题与正文。",
+      "tags": [
+        "文字",
+        "入场",
+        "淡入",
+        "逐字"
+      ],
+      "defaults": {
+        "style": "fade",
+        "by": "chars",
+        "phase": "in",
+        "duration": 0.4,
+        "stagger": 0.03,
+        "ease": "smooth"
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-text-pop",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "逐字弹性跳出",
+      "category": "文字",
+      "phase": "in",
+      "description": "原生文字动画器：字符弹性缩放依次跃出。",
+      "tags": [
+        "文字",
+        "入场",
+        "弹跳",
+        "逐字"
+      ],
+      "defaults": {
+        "style": "pop",
+        "by": "chars",
+        "phase": "in",
+        "duration": 0.45,
+        "stagger": 0.035,
+        "ease": "spring"
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-text-blur",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "逐字聚焦去模糊",
+      "category": "文字",
+      "phase": "in",
+      "description": "原生文字动画器：由虚化模糊逐字聚焦清晰显现。",
+      "tags": [
+        "文字",
+        "入场",
+        "模糊",
+        "电影感",
+        "逐字"
+      ],
+      "defaults": {
+        "style": "blur",
+        "by": "chars",
+        "phase": "in",
+        "duration": 0.5,
+        "stagger": 0.03,
+        "ease": "smooth"
+      },
+      "supports": {
+        "duration": true,
+        "style": true,
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-text-typewriter",
+      "kind": "procedural",
+      "command": "text_reveal",
+      "name": "打字机逐字敲入",
+      "category": "文字",
+      "phase": "in",
+      "description": "原生文字动画器：干脆的打字机逐字显示节奏。",
+      "tags": [
+        "文字",
+        "入场",
+        "打字机",
+        "逐字"
+      ],
+      "defaults": {
+        "style": "typewriter",
+        "by": "chars",
+        "phase": "in",
+        "duration": 0,
+        "stagger": 0.045,
+        "ease": "linear"
+      },
+      "supports": {
+        "textBy": true
+      }
+    },
+    {
+      "id": "preset-trans-wipe",
+      "kind": "procedural",
+      "command": "transition",
+      "name": "色块扫屏转场",
+      "category": "转场",
+      "phase": "transition",
+      "description": "在当前播放头创建可编辑全屏扫光擦除转场层。",
+      "tags": [
+        "转场",
+        "擦除",
+        "扫屏"
+      ],
+      "defaults": {
+        "type": "wipe",
+        "duration": 0.75,
+        "direction": "right",
+        "color": [
+          0.08,
+          0.07,
+          0.12
+        ]
+      },
+      "supports": {
+        "duration": true,
+        "direction": true
+      }
+    },
+    {
+      "id": "preset-trans-bars",
+      "kind": "procedural",
+      "command": "transition",
+      "name": "百叶条纹转场",
+      "category": "转场",
+      "phase": "transition",
+      "description": "多层错峰条纹依次覆盖并揭开画面。",
+      "tags": [
+        "转场",
+        "条纹",
+        "百叶窗"
+      ],
+      "defaults": {
+        "type": "bars",
+        "duration": 0.85,
+        "direction": "right",
+        "bars": 5,
+        "color": [
+          0.08,
+          0.07,
+          0.12
+        ]
+      },
+      "supports": {
+        "duration": true,
+        "direction": true
+      }
+    },
+    {
+      "id": "preset-trans-iris",
+      "kind": "procedural",
+      "command": "transition",
+      "name": "光圈扩散转场",
+      "category": "转场",
+      "phase": "transition",
+      "description": "中心圆环扩张遮屏再收缩揭开，适合焦点切换。",
+      "tags": [
+        "转场",
+        "光圈",
+        "圆形"
+      ],
+      "defaults": {
+        "type": "iris",
+        "duration": 0.8,
+        "color": [
+          0.08,
+          0.07,
+          0.12
+        ]
+      },
+      "supports": {
+        "duration": true
+      }
+    }
+  ],
+  "clips": [
+    {
+      "schemaVersion": 1,
+      "id": "dc97999a-db92-5c0a-bd4d-7985cf2176e4",
+      "slug": "curated-whip-slide-up",
+      "name": "急停上滑入场",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "高速切入后强缓动刹停，适合大标题与主视觉卡片入场。",
+      "sourceStyle": "Minimal",
+      "tags": [
+        "入场",
+        "滑入",
+        "急停",
+        "上浮",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "d0ca1eed3fbab7546ccb7ca13d0916b7fdebb06d64f0497cd0fa83fad2543471",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8675,
+        "layers": [
+          {
+            "name": "急停上滑入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      332.5,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.8675,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "b850aeed-5286-578d-96aa-4775692f8c21",
+      "slug": "curated-whip-slide-left",
+      "name": "急停左滑入场",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "从右侧高速甩入并强减速落位，节奏利落干脆。",
+      "sourceStyle": "Modern",
+      "tags": [
+        "入场",
+        "滑入",
+        "急停",
+        "横向",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "fe7d90a8814ecfa05266d734fed4e62d54a9374fe2ccfa718781e7628016c2a2",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8675,
+        "layers": [
+          {
+            "name": "急停左滑入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      340,
+                      0,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.8675,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "b386c621-9437-5937-913b-a1bf813d1bc5",
+      "slug": "curated-whip-slide-right",
+      "name": "急停右滑入场",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "从左侧高速甩入并强减速落位，适合导航与侧边模块。",
+      "sourceStyle": "Modern",
+      "tags": [
+        "入场",
+        "滑入",
+        "急停",
+        "横向",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "2d59427e816dbdca39c2eb0b57578fe6d8c8ed6c12cf049e05e2b60bb77ea846",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8675,
+        "layers": [
+          {
+            "name": "急停右滑入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      -340,
+                      0,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.8675,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "06f3b371-2d29-59a7-a64d-bf46774b620e",
+      "slug": "curated-whip-slide-down",
+      "name": "急停下滑入场",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "从上方迅捷滑落并柔停，适合顶部横幅与徽章。",
+      "sourceStyle": "Minimal",
+      "tags": [
+        "入场",
+        "滑入",
+        "急停",
+        "下落",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "dc27d1d22c3a668ff091fe3e74314d40e31e9c54df1863ad95fb9b8544696594",
+      "clip": {
+        "origin": 0,
+        "duration": 0.6673,
+        "layers": [
+          {
+            "name": "急停下滑入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      -280,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 78
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 78
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.6673,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 98
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 98
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "cbb8eddf-df08-560a-816f-0b328ea87b2a",
+      "slug": "curated-smooth-float-up",
+      "name": "柔缓上浮入场",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "柔和舒适的纵向上浮曲线，适合正文、副标题与优雅 UI。",
+      "sourceStyle": "Simple",
+      "tags": [
+        "入场",
+        "上浮",
+        "柔和",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "a76407c7f825d7f5b39243c0e0edc9380145017ea44584f11b8adc61a99e9259",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8675,
+        "layers": [
+          {
+            "name": "柔缓上浮入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      340,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.7007,
+                    "value": [
+                      0,
+                      14,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 112.858,
+                        "influence": 34.72
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8675,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 31.74
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "d3321cf8-c538-5caa-a770-a46ef15848d0",
+      "slug": "curated-smooth-glide-right",
+      "name": "柔缓横移入场",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "平顺的横向推进缓动，适合列表项与图文混排。",
+      "sourceStyle": "Easytitle",
+      "tags": [
+        "入场",
+        "横移",
+        "柔和",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "0b3f50a1145ea3438aa3c1409be4437ad5bd6019482338e27bb839bc99567944",
+      "clip": {
+        "origin": 0,
+        "duration": 1.3347,
+        "layers": [
+          {
+            "name": "柔缓横移入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      -339.35,
+                      21.02,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7007,
+                    "value": [
+                      0,
+                      21.02,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.3347,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "60212f52-30cf-52d1-9b6d-6b83bff3aa18",
+      "slug": "curated-diag-swoop-in",
+      "name": "斜向切入入场",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "沿对角线轻快切入落位，增加动感层次。",
+      "sourceStyle": "Fashion",
+      "tags": [
+        "入场",
+        "斜向",
+        "切入",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "511fe8e37f4ea9470af6ea3942114107d1286ee0d49cba7e4a9b2b24acf61a05",
+      "clip": {
+        "origin": 0,
+        "duration": 0.6673,
+        "layers": [
+          {
+            "name": "斜向切入入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      173.9,
+                      -292.16,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.367,
+                    "value": [
+                      94.82,
+                      -176.41,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 756.593,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 756.593,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.6673,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "a881e2bf-c35e-5056-ba80-471aa37ed26a",
+      "slug": "curated-overshoot-up",
+      "name": "过冲回弹上浮",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "越过目标点后轻弹回落，具备鲜活的手调弹性手感。",
+      "sourceStyle": "Bigtypo",
+      "tags": [
+        "入场",
+        "弹跳",
+        "过冲",
+        "上浮",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "e291bb451f821c541ef53873b5fa14cd0948b7a8982efda1f3d5f115b6cd8b99",
+      "clip": {
+        "origin": 0,
+        "duration": 0.7007,
+        "layers": [
+          {
+            "name": "过冲回弹上浮",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      293,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.4004,
+                    "value": [
+                      0,
+                      -8,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 50.13,
+                        "influence": 31.59
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7007,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "feba63c9-59c0-5235-ab4b-c403ec62b986",
+      "slug": "curated-overshoot-left",
+      "name": "过冲回弹左滑",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "从右侧冲过终点再微幅回弹，适合焦点卡片与弹窗。",
+      "sourceStyle": "Minimal",
+      "tags": [
+        "入场",
+        "弹跳",
+        "过冲",
+        "横向",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "e0b3f396a1917f128105fdaae77badb2f97b832ad5c5c86374511a9e8982b444",
+      "clip": {
+        "origin": 0,
+        "duration": 1.368,
+        "layers": [
+          {
+            "name": "过冲回弹左滑",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      277,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 78
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8675,
+                    "value": [
+                      -35,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 98
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 80
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.368,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 81
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "dd825f85-84b6-58cb-a740-13d1c6566276",
+      "slug": "curated-overshoot-right",
+      "name": "过冲回弹右滑",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "从左侧冲过终点再微幅回弹，适合气泡与按钮提示。",
+      "sourceStyle": "Modern",
+      "tags": [
+        "入场",
+        "弹跳",
+        "过冲",
+        "横向",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "1e0c4ab402da003afc474514a7cb8d551bdbfa3105110c3b4d602fb1014dbc63",
+      "clip": {
+        "origin": 0,
+        "duration": 1.2346,
+        "layers": [
+          {
+            "name": "过冲回弹右滑",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      -339.9,
+                      8.06,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.4004,
+                    "value": [
+                      181.12,
+                      8.06,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7341,
+                    "value": [
+                      125.57,
+                      19.12,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 88
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.9676,
+                    "value": [
+                      190.57,
+                      -6.48,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 44
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.2346,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "47f49263-b7e3-53e5-90a2-478e7dd35a6f",
+      "slug": "curated-overshoot-down",
+      "name": "过冲回弹下落",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "自上坠落微超目标位后回弹稳定，适合徽章与掉落标签。",
+      "sourceStyle": "Creative",
+      "tags": [
+        "入场",
+        "弹跳",
+        "过冲",
+        "下落",
+        "位移"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "8bdd99eff2571c1ec32a391f63c5c95bcebd89bb69b4532bb12b262440ab3af9",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8342,
+        "layers": [
+          {
+            "name": "过冲回弹下落",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      -292.86,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.4338,
+                    "value": [
+                      0,
+                      -340,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 91
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8342,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "e4618f4b-9eba-5629-a6a5-18e6e9a8f6ae",
+      "slug": "curated-scale-overshoot",
+      "name": "弹性过冲弹出",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "从小放大至超调后回弹至 100%，极具手调动效质感。",
+      "sourceStyle": "Minimal",
+      "tags": [
+        "入场",
+        "弹跳",
+        "过冲",
+        "缩放",
+        "弹出"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "4c5dedb36abaa80e1c20fb347095f715a6e953cc9815f57ffdf0d3f7fd5636d3",
+      "clip": {
+        "origin": 0,
+        "duration": 0.9343,
+        "layers": [
+          {
+            "name": "弹性过冲弹出",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      50,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 0.1
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 0.1
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 448.638,
+                        "influence": 40
+                      },
+                      {
+                        "speed": 448.638,
+                        "influence": 40
+                      },
+                      {
+                        "speed": 297.711,
+                        "influence": 16.96
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.367,
+                    "value": [
+                      179.7,
+                      179.7,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 30.99
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 87
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 87
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 34.55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7341,
+                    "value": [
+                      99.43,
+                      136.68,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": -1056.734,
+                        "influence": 15.21
+                      },
+                      {
+                        "speed": -1359.07,
+                        "influence": 15.21
+                      },
+                      {
+                        "speed": -13.859,
+                        "influence": 34.35
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": -1056.734,
+                        "influence": 19.45
+                      },
+                      {
+                        "speed": -1359.07,
+                        "influence": 19.45
+                      },
+                      {
+                        "speed": -13.859,
+                        "influence": 31.13
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8342,
+                    "value": [
+                      107.94,
+                      96.94,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 211.677,
+                        "influence": 60.96
+                      },
+                      {
+                        "speed": 211.677,
+                        "influence": 60.96
+                      },
+                      {
+                        "speed": 243.849,
+                        "influence": 36.13
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 211.677,
+                        "influence": 31.22
+                      },
+                      {
+                        "speed": 211.677,
+                        "influence": 31.22
+                      },
+                      {
+                        "speed": 243.849,
+                        "influence": 35.14
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.9343,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "c1db697d-38e8-5d24-9dea-873479e1ffb1",
+      "slug": "curated-scale-bounce-pop",
+      "name": "清脆二次弹入",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "高张力弹性缩放，适合主 CTA 按钮、角标与核心图标。",
+      "sourceStyle": "Minimal",
+      "tags": [
+        "入场",
+        "弹跳",
+        "缩放",
+        "图标"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "3beb5f0c0021aaf11eb12b92ede824bfc9c15f05870adc230004bb1022fc82ea",
+      "clip": {
+        "origin": 0,
+        "duration": 0.9676,
+        "layers": [
+          {
+            "name": "清脆二次弹入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      50,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 448.638,
+                        "influence": 40
+                      },
+                      {
+                        "speed": 448.638,
+                        "influence": 40
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.96
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.4004,
+                    "value": [
+                      179.7,
+                      179.7,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 30.99
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 87
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 87
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 34.55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7674,
+                    "value": [
+                      99.43,
+                      136.68,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": -1056.734,
+                        "influence": 15.21
+                      },
+                      {
+                        "speed": -1359.07,
+                        "influence": 15.21
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 34.35
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": -1056.734,
+                        "influence": 19.45
+                      },
+                      {
+                        "speed": -1359.07,
+                        "influence": 19.45
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 31.13
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8675,
+                    "value": [
+                      107.94,
+                      96.94,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 211.677,
+                        "influence": 60.96
+                      },
+                      {
+                        "speed": 211.677,
+                        "influence": 60.96
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 36.13
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 211.677,
+                        "influence": 31.22
+                      },
+                      {
+                        "speed": 211.677,
+                        "influence": 31.22
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 35.14
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.9676,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "bfb4ac9e-3238-51ec-a1e9-d7144ae9fa1d",
+      "slug": "curated-scale-snappy-in",
+      "name": "急停缩放弹出",
+      "category": "缩放",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "零尺寸爆发放大并迅速收敛，干净利落不拖泥带水。",
+      "sourceStyle": "AE模板 Titles 39020421",
+      "tags": [
+        "入场",
+        "缩放",
+        "弹出",
+        "急停"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "1ea30e682588d1626db45808bc97d7e9e18326043fd84f9c9e8dc4c51cb23d82",
+      "clip": {
+        "origin": 0,
+        "duration": 0.6667,
+        "layers": [
+          {
+            "name": "急停缩放弹出",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      0,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5,
+                    "value": [
+                      105,
+                      105,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 41.19
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 41.19
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.6667,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "f2a1c0be-a81b-5882-bf8c-443a0369ec2a",
+      "slug": "curated-scale-zoom-settle",
+      "name": "大景推近落位",
+      "category": "缩放",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "由大尺寸向内收缩落位，营造电影感冲击开场。",
+      "sourceStyle": "AE模板 Titles 39020421",
+      "tags": [
+        "入场",
+        "缩放",
+        "冲击",
+        "大标题"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "a9220b23f1ecd06b074d8f834c7990cbe21b2ee4a18cc9d35cd91c07c6d3ca6d",
+      "clip": {
+        "origin": 0,
+        "duration": 0.6667,
+        "layers": [
+          {
+            "name": "大景推近落位",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      260,
+                      260,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.6667,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "a81c67cf-2a43-597e-800e-66c3a056d4dd",
+      "slug": "curated-scale-unfold-x",
+      "name": "横向拉开展示",
+      "category": "缩放",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "保持高度不变，沿水平方向展开，适合分割线与色块底条。",
+      "sourceStyle": "Modern",
+      "tags": [
+        "入场",
+        "缩放",
+        "展开",
+        "横向",
+        "线条"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "c5f4be6d65b9e2e787489ab50ac76aa350b60561d7e96806a1bac577302d0f36",
+      "clip": {
+        "origin": 0,
+        "duration": 0.7007,
+        "layers": [
+          {
+            "name": "横向拉开展示",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7007,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 95
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 95
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "9eede1fe-e172-5688-9cae-841a48549ffc",
+      "slug": "curated-scale-unfold-y",
+      "name": "纵向拉开展开",
+      "category": "缩放",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "保持宽度不变，沿垂直方向展开，适合卡片容器与柱状图。",
+      "sourceStyle": "Production",
+      "tags": [
+        "入场",
+        "缩放",
+        "展开",
+        "纵向",
+        "卡片"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "e957a238d55ed4747b9c1847e75bb28ca4c03ec81c7c8b91e9acc2048c5ff998",
+      "clip": {
+        "origin": 0,
+        "duration": 1.6016,
+        "layers": [
+          {
+            "name": "纵向拉开展开",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      100,
+                      0,
+                      100
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 25.72
+                      },
+                      {
+                        "speed": 71.357,
+                        "influence": 25.72
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 25.72
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8342,
+                    "value": [
+                      100,
+                      138.75,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 85
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 85
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 85
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 85
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 85
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 85
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.6016,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "0039e4c8-b719-5529-947d-78b1ebb65e5f",
+      "slug": "curated-scale-pulse",
+      "name": "强调呼吸脉冲",
+      "category": "强调",
+      "phase": "emphasis",
+      "defaultAnchor": "end",
+      "description": "原位放大再回落至 100%，用于引导关注与点击反馈。",
+      "sourceStyle": "Bigtypo",
+      "tags": [
+        "强调",
+        "循环",
+        "缩放",
+        "脉冲",
+        "呼吸"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "d45fea5c56fdcdb2ad4fb509c47c0cbf9e7dd667a154e3ce76addeb9335bba72",
+      "clip": {
+        "origin": 0,
+        "duration": 0.4671,
+        "layers": [
+          {
+            "name": "强调呼吸脉冲",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.2336,
+                    "value": [
+                      125.69,
+                      125.69,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.4671,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "523dadb5-d58b-567c-b739-1a9c61bcf4b9",
+      "slug": "curated-rot-tilt-in",
+      "name": "微倾摆正入场",
+      "category": "旋转",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "小角度倾斜入场后优雅摆正，适合徽章、卡片与装饰贴纸。",
+      "sourceStyle": "Progress",
+      "tags": [
+        "入场",
+        "旋转",
+        "摆正",
+        "轻盈"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "aae60d635e4dcd735a12ecaf60d08488782b44f7a5727726aadea87f3122d883",
+      "clip": {
+        "origin": 0,
+        "duration": 0.9343,
+        "layers": [
+          {
+            "name": "微倾摆正入场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Rotate Z",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 27,
+                    "inInterp": "linear",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": -49.129,
+                        "influence": 19.85
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.3003,
+                    "value": -16.79,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 88
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 80.73
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5339,
+                    "value": 7.15,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 25
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 23.57
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7674,
+                    "value": -1.68,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.9343,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "5237a061-919f-598b-9870-819d4d6cd5d2",
+      "slug": "curated-rot-turn-90",
+      "name": "90° 急停旋入",
+      "category": "旋转",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "高影响度 90° 旋转切入刹停，适合图标与几何图形。",
+      "sourceStyle": "Progress",
+      "tags": [
+        "入场",
+        "旋转",
+        "急停",
+        "90度"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "445046e26e36e944721a1e5e84716f4de1c77e3767c0d0fda340b03af3d9ae64",
+      "clip": {
+        "origin": 0,
+        "duration": 0.6673,
+        "layers": [
+          {
+            "name": "90° 急停旋入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Rotate Z",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 90,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.6673,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 88
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "37346d8e-0188-508d-b4ed-99346b0e63e9",
+      "slug": "curated-rot-flip-180",
+      "name": "180° 动感翻转",
+      "category": "旋转",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "大幅度 180° 高缓动翻转，视觉张力强。",
+      "sourceStyle": "AE模板 Titles 39020421",
+      "tags": [
+        "入场",
+        "旋转",
+        "翻转",
+        "180度"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "5de43037ccb14916e6061d427706f1861f362220398f5fc3733f2d56e3dc0152",
+      "clip": {
+        "origin": 0,
+        "duration": 0.6667,
+        "layers": [
+          {
+            "name": "180° 动感翻转",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Rotate Z",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": -180,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.6667,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "6c08038a-1853-504c-b2fd-9f4557122465",
+      "slug": "curated-rot-swing-emphasis",
+      "name": "轻盈摇摆强调",
+      "category": "强调",
+      "phase": "emphasis",
+      "defaultAnchor": "end",
+      "description": "左右轻摆回归原位，适合角标提醒与俏皮图标。",
+      "sourceStyle": "Minimal",
+      "tags": [
+        "强调",
+        "旋转",
+        "摇摆",
+        "图标"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "fc3332fae2b497f5807f86df0d4b5ce5f56a437b3a7b94573c0e9ca2c02b0879",
+      "clip": {
+        "origin": 0,
+        "duration": 0.9343,
+        "layers": [
+          {
+            "name": "轻盈摇摆强调",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Rotate Z",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.367,
+                    "value": -16,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 88
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 37.52
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.9343,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "8bddd475-6820-56a4-b99f-b12f9443f4a8",
+      "slug": "curated-opacity-silky-in",
+      "name": "丝滑渐显",
+      "category": "入场",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "精细缓动透明度淡入，百搭背景与文字元素。",
+      "sourceStyle": "Minimal",
+      "tags": [
+        "入场",
+        "淡入",
+        "透明度",
+        "柔和"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "4c4d27d8dd57007813a22bb0289a45daed579d3f35e7864efacc20e8f60a8103",
+      "clip": {
+        "origin": 0,
+        "duration": 1.2679,
+        "layers": [
+          {
+            "name": "丝滑渐显",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 78
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 78
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.6673,
+                    "value": 44,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 98
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 98
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.2679,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 50
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 50
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "cf03c0bc-fae2-528a-8e5f-bcc06478438b",
+      "slug": "curated-opacity-glitch-in",
+      "name": "电子闪烁显现",
+      "category": "强调",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "快节奏明暗闪烁后稳定点亮，适合科技感/赛博风格 UI。",
+      "sourceStyle": "Production",
+      "tags": [
+        "入场",
+        "闪烁",
+        "故障",
+        "科技",
+        "透明度"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "d9fccc75ba3236250225d96954786c0ca66f8c519e3386faf99b08fc14d005f0",
+      "clip": {
+        "origin": 0,
+        "duration": 0.5339,
+        "layers": [
+          {
+            "name": "电子闪烁显现",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.0667,
+                    "value": 66,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.1335,
+                    "value": 0,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.2336,
+                    "value": 0,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.3003,
+                    "value": 88,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.367,
+                    "value": 0,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.4671,
+                    "value": 0,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.5339,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "9d19125c-d465-5c17-8ce7-055da661b8a2",
+      "slug": "curated-opacity-flash-pulse",
+      "name": "瞬闪高亮脉冲",
+      "category": "强调",
+      "phase": "emphasis",
+      "defaultAnchor": "end",
+      "description": "快速点亮后柔缓熄灭，适合高光扫过与特效叠层。",
+      "sourceStyle": "Creative",
+      "tags": [
+        "强调",
+        "闪光",
+        "特效",
+        "透明度"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "b2219c090efa5bc9370abcc754e8fefa86422816fbdb4f529d78434c01b3e38b",
+      "clip": {
+        "origin": 0,
+        "duration": 0.9009,
+        "layers": [
+          {
+            "name": "瞬闪高亮脉冲",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.4338,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.9009,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "8eddd6cb-d248-5f3a-b0aa-1fdf0e62d1f8",
+      "slug": "curated-combo-fade-slide",
+      "name": "渐显滑入组合",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "位移滑入同步叠加渐显淡入，最常用的 UI 卡片标准入场。",
+      "sourceStyle": "Modern",
+      "tags": [
+        "组合",
+        "入场",
+        "淡入",
+        "滑入",
+        "UI"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "3849fb61038c9d5123f561aeffa560537e263b73c022ee73610f7831aaca0d31",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8342,
+        "layers": [
+          {
+            "name": "渐显滑入组合",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.8342,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      -340,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.8342,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "47ff7b6d-0d5d-5828-8369-245519466798",
+      "slug": "curated-combo-fade-pop",
+      "name": "渐显弹出组合",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "缩放弹出叠加丝滑渐显，适合弹窗、徽章与头像入场。",
+      "sourceStyle": "AE模板 Titles 39020421",
+      "tags": [
+        "组合",
+        "入场",
+        "淡入",
+        "缩放",
+        "弹窗"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "3c88c38db4714035f97f77597615c93d37ec3214c0a3539fd560f653fd264d92",
+      "clip": {
+        "origin": 0,
+        "duration": 0.3333,
+        "layers": [
+          {
+            "name": "渐显弹出组合",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.1667,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      90,
+                      90,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.3333,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "343c21fe-174e-5dda-9e22-736f43fe9b94",
+      "slug": "curated-combo-slide-scale",
+      "name": "滑入推缩组合",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "位移与缩放联动入场，带来富有空间景深的画面张力。",
+      "sourceStyle": "Simple",
+      "tags": [
+        "组合",
+        "入场",
+        "滑入",
+        "缩放",
+        "景深"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "d3231fd4a99c702f1ccca473fb25598334141187132be14dd307ee4fbac8950a",
+      "clip": {
+        "origin": 0,
+        "duration": 0.7674,
+        "layers": [
+          {
+            "name": "滑入推缩组合",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      -150,
+                      0,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.7674,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 90
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 90
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      0,
+                      100
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.7674,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 90
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 90
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 90
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 90
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 90
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 90
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "37c230eb-64ec-5d9a-bf54-746f9605f0e7",
+      "slug": "curated-combo-slide-spin",
+      "name": "旋滑切入组合",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "横向切入同时伴随旋转摆正，动感活泼。",
+      "sourceStyle": "Progress",
+      "tags": [
+        "组合",
+        "入场",
+        "滑入",
+        "旋转",
+        "动感"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "a60f4610c88436ba141f6d39124857d42bd4b963cb99a31225222e9c5ac0af32",
+      "clip": {
+        "origin": 0,
+        "duration": 0.6673,
+        "layers": [
+          {
+            "name": "旋滑切入组合",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      276,
+                      0,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.6673,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 88
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Rotate Z",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 90,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.6673,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 88
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "6c9e15ba-8b09-58af-9b21-a1429c07ee53",
+      "slug": "curated-combo-spin-pop",
+      "name": "旋扩绽放组合",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "旋转与缩放同步爆发，适合徽章、装饰星芒与 Logo。",
+      "sourceStyle": "Progress",
+      "tags": [
+        "组合",
+        "入场",
+        "旋转",
+        "缩放",
+        "Logo"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "f9b0f0f823de1233e3cc8016018dcc1e9f0c986c6bf26bae64b2bf93fc53e7fd",
+      "clip": {
+        "origin": 0,
+        "duration": 0.7674,
+        "layers": [
+          {
+            "name": "旋扩绽放组合",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Rotate Z",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": -51,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.7674,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 88
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      13.45,
+                      13.45,
+                      100
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.7674,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 88
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 88
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "40ebe515-c6a8-5e40-b644-a749978a6c18",
+      "slug": "curated-combo-kinetic-trio",
+      "name": "动感三联飞入",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "位移、旋转、缩放三重联动，呈现高能量动态海报效果。",
+      "sourceStyle": "Progress",
+      "tags": [
+        "组合",
+        "入场",
+        "位移",
+        "旋转",
+        "缩放",
+        "动感"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "30b7b395b50f752f2be1a3468ce1e81d960bed44f522655ae595fd62f0d977d0",
+      "clip": {
+        "origin": 0,
+        "duration": 1.1011,
+        "layers": [
+          {
+            "name": "动感三联飞入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      -340,
+                      1.82,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.7341,
+                    "value": [
+                      -3.63,
+                      1.82,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 83
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.0344,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Rotate Z",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 36,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7341,
+                    "value": -5,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": -25,
+                        "influence": 83
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": -25,
+                        "influence": 55
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.0677,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0.7341,
+                    "value": [
+                      120.38,
+                      120.38,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": -13.406,
+                        "influence": 55
+                      },
+                      {
+                        "speed": -13.406,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 83
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.1011,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 55
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "96d72823-cda3-5f56-ad98-23178745383b",
+      "slug": "curated-exit-whip-up",
+      "name": "加速上滑退场",
+      "category": "出场",
+      "phase": "out",
+      "defaultAnchor": "start",
+      "description": "由静止强加速向上甩出画面，干脆利落收尾。",
+      "sourceStyle": "Simple",
+      "tags": [
+        "出场",
+        "退场",
+        "滑出",
+        "向上"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "42a14053c93f67d4fad21c57fd43cb33d187ff6788c5684d3e8618dd2e4bd5c5",
+      "clip": {
+        "origin": 0,
+        "duration": 0.7007,
+        "layers": [
+          {
+            "name": "加速上滑退场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.3337,
+                    "value": [
+                      0,
+                      32.5,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.7007,
+                    "value": [
+                      0,
+                      -98,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "072cb629-e67c-5e03-8960-89248d14d35f",
+      "slug": "curated-exit-whip-down",
+      "name": "加速下滑退场",
+      "category": "出场",
+      "phase": "out",
+      "defaultAnchor": "start",
+      "description": "强加速向下退出视野，适合弹窗与底部浮层收起。",
+      "sourceStyle": "Creative",
+      "tags": [
+        "出场",
+        "退场",
+        "滑出",
+        "向下"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "8c16516e37483acd3435866dfa3a2b35fcf7c3915fc10f450077c118cf78ba5f",
+      "clip": {
+        "origin": 0,
+        "duration": 0.7007,
+        "layers": [
+          {
+            "name": "加速下滑退场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 99
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7007,
+                    "value": [
+                      0,
+                      340,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "68eec866-f498-5ec7-9e99-051662819662",
+      "slug": "curated-exit-whip-left",
+      "name": "加速左滑退场",
+      "category": "出场",
+      "phase": "out",
+      "defaultAnchor": "start",
+      "description": "向左加速甩出画面，适合轮播切换与卡片离场。",
+      "sourceStyle": "Minimal",
+      "tags": [
+        "出场",
+        "退场",
+        "滑出",
+        "向左"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "da51b27358713c05bd96d7a7c2bb7c15aaadd3b8f56c3d99fee5eecb272c44df",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8342,
+        "layers": [
+          {
+            "name": "加速左滑退场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 85
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.8342,
+                    "value": [
+                      -131,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "3361cdfe-4004-57df-9dd5-06b210152c8e",
+      "slug": "curated-exit-whip-right",
+      "name": "加速右滑退场",
+      "category": "出场",
+      "phase": "out",
+      "defaultAnchor": "start",
+      "description": "向右加速甩出画面，适合侧边栏与通知收起。",
+      "sourceStyle": "Modern",
+      "tags": [
+        "出场",
+        "退场",
+        "滑出",
+        "向右"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "b1afa5c63757ededaac1e5efb9c26af3639edcd0639f86e1e2e8d378a9586a02",
+      "clip": {
+        "origin": 0,
+        "duration": 0.6673,
+        "layers": [
+          {
+            "name": "加速右滑退场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.6673,
+                    "value": [
+                      312.08,
+                      0,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "18d8e81b-be3a-5128-b7d9-5277f23553b0",
+      "slug": "curated-exit-scale-vanish",
+      "name": "收缩消失退场",
+      "category": "出场",
+      "phase": "out",
+      "defaultAnchor": "start",
+      "description": "加速收缩至零尺寸消失，利落收尾不占画面。",
+      "sourceStyle": "Kinetic",
+      "tags": [
+        "出场",
+        "退场",
+        "缩放",
+        "消失"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "004fa42cb4781c4793f12f7cd668ac4a08289945462549bde634861eb9cf9615",
+      "clip": {
+        "origin": 0,
+        "duration": 1.0677,
+        "layers": [
+          {
+            "name": "收缩消失退场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Scale",
+                    1
+                  ]
+                ],
+                "type": "ThreeD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      100,
+                      100,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 95
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 95
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 29.91
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.4671,
+                    "value": [
+                      125.28,
+                      125.28,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": -26.874,
+                        "influence": 26.87
+                      },
+                      {
+                        "speed": -26.874,
+                        "influence": 26.87
+                      },
+                      {
+                        "speed": -81.606,
+                        "influence": 34.88
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": -26.874,
+                        "influence": 92.63
+                      },
+                      {
+                        "speed": -26.874,
+                        "influence": 92.63
+                      },
+                      {
+                        "speed": -81.606,
+                        "influence": 41.47
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.0677,
+                    "value": [
+                      0,
+                      0,
+                      100
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "linear",
+                    "inEase": [
+                      {
+                        "speed": -78.868,
+                        "influence": 23.16
+                      },
+                      {
+                        "speed": -78.868,
+                        "influence": 23.16
+                      },
+                      {
+                        "speed": -78.868,
+                        "influence": 17.78
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      },
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "440643e1-aeb6-5e94-9de2-0013cad5cbc1",
+      "slug": "curated-exit-spin-out",
+      "name": "旋转离场退场",
+      "category": "出场",
+      "phase": "out",
+      "defaultAnchor": "start",
+      "description": "伴随高缓动旋转退出，适合装饰与动感标语。",
+      "sourceStyle": "Kinetic",
+      "tags": [
+        "出场",
+        "退场",
+        "旋转"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "abd6f0b203ab104e092dae6393f8aedd48b8a244a8c92a6f4883cf4e9ae9203f",
+      "clip": {
+        "origin": 0,
+        "duration": 0.2669,
+        "layers": [
+          {
+            "name": "旋转离场退场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Rotate Z",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.2669,
+                    "value": -90,
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "aec01bf0-a7e6-55da-9f14-81d6f29e50d9",
+      "slug": "curated-exit-fade-out",
+      "name": "丝滑淡出退场",
+      "category": "出场",
+      "phase": "out",
+      "defaultAnchor": "start",
+      "description": "平滑渐隐消失，适合任何元素的柔和收尾。",
+      "sourceStyle": "Vintage",
+      "tags": [
+        "出场",
+        "退场",
+        "淡出",
+        "透明度"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "e426085aa608435793c3a3bc3df848a90271d4beb2a5909d5c960e6aec60d0cf",
+      "clip": {
+        "origin": 0,
+        "duration": 1.0677,
+        "layers": [
+          {
+            "name": "丝滑淡出退场",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 1.0677,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 90
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "30a6d7d2-40eb-5487-bc82-b97796e7e8b6",
+      "slug": "curated-ui-fade-up",
+      "name": "UI 轻盈上浮淡入",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "短距 72px 轻盈上浮配合渐显，网页与移动端 UI 黄金入场。",
+      "sourceStyle": "UI",
+      "tags": [
+        "UI",
+        "组合",
+        "入场",
+        "上浮",
+        "淡入"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "3283512e845e2ea6e390c0c42458fc7150caf2d5f7384ded4e9f2e8b46c9d7ba",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8675,
+        "layers": [
+          {
+            "name": "UI 轻盈上浮淡入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      72,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.8675,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5639,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "dfb9e704-675e-5a49-9ad3-3e0145241dce",
+      "slug": "curated-ui-fade-down",
+      "name": "UI 轻盈下沉淡入",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "短距 72px 轻柔下沉配合渐显，适合下拉菜单与顶部提示条。",
+      "sourceStyle": "UI",
+      "tags": [
+        "UI",
+        "组合",
+        "入场",
+        "下落",
+        "淡入"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "5b717837e23f0603bad17612f6ea5db706d223c670633f13029f811f69ec6473",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8675,
+        "layers": [
+          {
+            "name": "UI 轻盈下沉淡入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      -72,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.8675,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5639,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "c4686fe8-a7a0-52fd-afcb-bcd06f0c5710",
+      "slug": "curated-ui-fade-left",
+      "name": "UI 轻盈左移淡入",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "右侧短距 72px 轻滑配合渐显，适合列表与步进卡片。",
+      "sourceStyle": "UI",
+      "tags": [
+        "UI",
+        "组合",
+        "入场",
+        "横向",
+        "淡入"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "446a5fcb200ae24b5b34c27b6f7b17fe676178fc63e6978250a501145b40d97a",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8675,
+        "layers": [
+          {
+            "name": "UI 轻盈左移淡入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      72,
+                      0,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.8675,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5639,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "ae92cebe-d8bf-52b0-ad50-5349a3d36297",
+      "slug": "curated-ui-fade-right",
+      "name": "UI 轻盈右移淡入",
+      "category": "组合",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "左侧短距 72px 轻滑配合渐显，适合侧边导航与标签组。",
+      "sourceStyle": "UI",
+      "tags": [
+        "UI",
+        "组合",
+        "入场",
+        "横向",
+        "淡入"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "61737690e7b8dc28fb6420f6d68c25ccaaa0894b12d0f4b8f9e45fc46afd81f0",
+      "clip": {
+        "origin": 0,
+        "duration": 0.8675,
+        "layers": [
+          {
+            "name": "UI 轻盈右移淡入",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      -72,
+                      0,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.8675,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.5639,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 75
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "054746f8-8481-5c83-a095-970d8e0f2e37",
+      "slug": "curated-ui-fade-out-up",
+      "name": "UI 轻盈上滑淡出",
+      "category": "出场",
+      "phase": "out",
+      "defaultAnchor": "start",
+      "description": "短距 72px 轻滑配合同步渐隐，干脆柔和的 UI 离场。",
+      "sourceStyle": "UI",
+      "tags": [
+        "UI",
+        "出场",
+        "退场",
+        "上浮",
+        "淡出"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "f0d568843464ef1b0b592ab86afcbda3126da45161aebd9146f249abb5ec4dc3",
+      "clip": {
+        "origin": 0,
+        "duration": 0.7007,
+        "layers": [
+          {
+            "name": "UI 轻盈上滑淡出",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 16.67
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 100
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.3337,
+                    "value": [
+                      0,
+                      23.88,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  },
+                  {
+                    "time": 0.7007,
+                    "value": [
+                      0,
+                      -72,
+                      0
+                    ],
+                    "inInterp": "linear",
+                    "outInterp": "linear"
+                  }
+                ]
+              },
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Opacity",
+                    1
+                  ]
+                ],
+                "type": "OneD",
+                "keys": [
+                  {
+                    "time": 0.2452,
+                    "value": 100,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.7007,
+                    "value": 0,
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
