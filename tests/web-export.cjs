@@ -829,7 +829,7 @@ async function testFidelitySuite() {
     const html = await fsp.readFile(res.entry, 'utf8');
 
     // Static checks on CSS/HTML precision upgrades
-    assert.match(css, /\.f2a-stage\s*\{[^}]*will-change:\s*transform;/, 'Stage composites at 1:1 before downscaling to avoid odd-coordinate half-pixel snapping');
+    assert.doesNotMatch(css, /\.f2a-stage\s*\{[^}]*will-change:\s*transform;/, 'Stage avoids will-change: transform so Chromium rasterizes vectors/text crisply at screen scale instead of stretching a 1x backing bitmap');
     assert.match(css, /\.f2a-reference\s*\{[^}]*background:\s*var\(--f2a-backdrop\);/, 'Reference overlay flattens transparent Figma renders on the page backdrop');
     assert.match(html, /<div class="f2a-reference" hidden><svg class="f2a-reference-svg" viewBox="0 0 420 320" width="420" height="320"><image href="assets\/reference\.png" x="-12" y="-8" width="444" height="336" preserveAspectRatio="none"\/><\/svg><\/div>/, 'Reference uses 4px-aligned SVG with exact render bounds, not stretched 0,0,W,H');
     // Every SVG surface viewBox must sit on 4px multiples so 125%/150%/175% DPI never pixel-snaps it
@@ -991,7 +991,7 @@ async function testFidelitySuite() {
         assert.equal(diffState.refDiffRoot, 'true');
         assert.equal(diffState.inlineOpacity, '');
         assert.equal(diffState.computedOpacity, '1');
-        assert.equal(diffState.willChange, 'transform');
+        assert.equal(diffState.willChange, 'auto');
       } finally {
         socket?.close();
         child.kill();

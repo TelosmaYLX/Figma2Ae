@@ -1544,7 +1544,6 @@ html[data-fit="actual"] .f2a-viewport {
   height: var(--f2a-height);
   transform-origin: 0 0;
   transform: scale(var(--f2a-scale));
-  will-change: transform;
   overflow: hidden;
   isolation: isolate;
 }
@@ -1966,7 +1965,6 @@ ${animations ? `
     var diffOn = !!(refEl && !refEl.hidden && refEl.getAttribute('data-diff') === 'true');
     if (diffOn) root.setAttribute('data-ref-diff', 'true');
     else root.removeAttribute('data-ref-diff');
-    stage.style.willChange = (scale <= 1 || diffOn) ? 'transform' : 'auto';
     return scale;
   }
 
