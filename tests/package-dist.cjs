@@ -213,7 +213,7 @@ async function check() {
     assert.deepEqual(installed.skillDirectories.sort(), [sharedSkills, customSkills, dshSkills].sort());
     assert.equal(await fs.readFile(marker, 'utf8'), 'preserve');
     assert.match(await fs.readFile(installedPanel, 'utf8'), /mk-update/);
-    // Pulling the update installs the Figma 调色 plug-in for AE 2026+ (redirected here).
+    // Pulling the update installs the Figma 调色 plug-in for AE CC 2019+ (redirected here).
     assert.ok((await fs.stat(path.join(fakePlugins, 'F2A/FigmaImageGrade.aex'))).isFile(),
       'the update copies FigmaImageGrade.aex into the AE Plug-ins folder');
     assert.ok((await fs.stat(path.join(target, added))).isFile());

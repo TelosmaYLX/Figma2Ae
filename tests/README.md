@@ -302,9 +302,11 @@ node tests/raster-permissions.cjs
 node tests/native-image-masks.cjs
 ```
 
-`image-adjustments.cjs` 覆盖七项参数、默认原图、带渐变独立蒙版的调色图片和权限错误；不将模拟 PNG 渲染表述为真实 Figma/AE 画面对照。`editable-image-grade.cjs` 分别导出 Figma 调色效果与 LUT 两种模式：效果模式下主合成没有「图片调色」合成，图片外层预合成的图层上有 `F2A Figma Image Grade` 与七项 −17/5/18/−26/21/−21/13，预合成内部的原图层没有重复效果；LUT 模式仍检查七滑杆、联合查找表与「原图 Alpha」模板。`image-grade-effect.cjs` 用临时目录验证插件发现、复制进 AE `Plug-ins/F2A`、只对 AE 2026+ 生效、强制模式与无法写入时的 LUT 降级。`image-grade-panel.cjs` 覆盖面板实时导入：探测到插件时图片元数据带 `imageGradeEffect` 且不生成 LUT 工程；AE 2026+ 未加载时先复制插件并构建、清理「图片调色.aep」；AE 2025 及更早只走 LUT。`install-ae-plugins.cjs` 直接运行安装/更新共用的 PowerShell 脚本，检查插件复制、内容相同跳过与失败只告警。
+`image-adjustments.cjs` 覆盖七项参数、默认原图、带渐变独立蒙版的调色图片和权限错误；不将模拟 PNG 渲染表述为真实 Figma/AE 画面对照。`editable-image-grade.cjs` 分别导出 Figma 调色效果与 LUT 两种模式：效果模式下主合成没有「图片调色」合成，图片外层预合成的图层上有 `F2A Figma Image Grade` 与七项 −17/5/18/−26/21/−21/13，预合成内部的原图层没有重复效果；LUT 模式仍检查七滑杆、联合查找表与「原图 Alpha」模板。`image-grade-effect.cjs` 用临时目录验证插件发现、复制进 AE `Plug-ins/F2A`、只对 AE CC 2019+ 生效、强制模式与无法写入时的 LUT 降级。`image-grade-panel.cjs` 覆盖面板实时导入：探测到插件时图片元数据带 `imageGradeEffect` 且不生成 LUT 工程；AE CC 2019+ 未加载时先复制插件并构建、清理「图片调色.aep」；早于 CC 2019 不复制、直接 LUT。`install-ae-plugins.cjs` 直接运行安装/更新共用的 PowerShell 脚本，检查插件复制、内容相同跳过与失败只告警。
 
 真实 AE 宿主检查先运行 `node tests/prepare-image-grade.cjs` 生成夹具，再用 `node scripts/ae-eval.mjs tests/ae-image-grade.jsx artifacts/image-grade-live/report.json image-grade` 在已运行的 F2A 面板中执行：实际调用 `runImportBatch`，确认效果加在图片外层预合成上、七项数值与 Figma 一致、预合成内部没有重复效果，结束后移除测试期间新增的项目项。
+
+插件兼容性另外用 `py_aep` 写同一调色工程的 AE 16.0（CC 2019）版本，在 AE CC 2019 的 `aerender` 中渲染：红通道 205，与 AE 2026 及 Figma 参考相差不超过 1 色阶（未调色为 254），说明「AE 2026+」之外的老版本也能加载该效果；F2A 支持的 2024–2026 均在其后。
 
 性能报告位于 `artifacts/export-speed/report.json`。对比的是仓库 HEAD 与当前代码的属性读取次数、SVG/字体调用次数和数据尺寸，不代表真实 Figma 文件到 AE 的总耗时。
 

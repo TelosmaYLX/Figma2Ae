@@ -5,7 +5,7 @@
 # retries the copy on first use.
 param(
     [Parameter(Mandatory = $true)][string]$AexPath,
-    [int]$MinVersion = 26,
+    [double]$MinVersion = 16,
     [switch]$Quiet
 )
 
@@ -65,7 +65,7 @@ try {
             }
         }
         if ($targets.Count -eq 0) {
-            Write-Info "未找到 After Effects $MinVersion 及以上的安装，跳过 Figma 调色插件安装。"
+            Write-Info "未找到 After Effects CC 2019 及以上的安装，跳过 Figma 调色插件安装。"
             return
         }
     }

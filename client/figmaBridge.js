@@ -350,7 +350,7 @@
       if (version && version < effect.MIN_AE) {
         // This AE cannot load the plug-in at all; copying it would only mislead.
         status = {available: false, copied: false,
-          reason: '当前 AE ' + version + ' 不支持 Figma 调色插件，需要 AE 2026 及以上'};
+          reason: '当前 AE ' + version + ' 早于 AE CC 2019，不支持 Figma 调色插件'};
       } else {
         try { status = effect.install(ext); } catch (e) { status = {available: false, copied: false, reason: e.message}; }
       }

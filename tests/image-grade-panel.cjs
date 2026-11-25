@@ -45,9 +45,10 @@ async function check() {
     assert.equal(graded.gradeComp, undefined);
     effect.finish();
 
-    // The probe fails on an AE 2026 host: the packaged plug-in is copied for the next start
-    // and this session still builds the LUT grade project.
-    const restart = harness({probeResult: 'NO:26.0x67'});
+    // The probe fails on an AE 2025 host: old AE releases load the effect too, so the
+    // packaged plug-in is copied for the next start and this session still builds the LUT
+    // grade project.
+    const restart = harness({probeResult: 'NO:25.0x...'});
     restart.start('图片调色 重启后生效', 1);
     restart.images('调色图片', false, false, {imageFilters: filters, data: PNG});
     await waitForNative(restart);
@@ -61,9 +62,9 @@ async function check() {
     restart.finish();
     assert.ok(!fs.existsSync(gradeDir), 'the fallback project and LUT tables are cleaned up');
 
-    // An AE older than 2026 cannot load the plug-in: no copy, LUT for real.
+    // An AE older than CC 2019 is not a supported host: no copy, LUT for real.
     fs.rmSync(path.join(plugins, 'F2A'), {recursive: true, force: true});
-    const old = harness({probeResult: 'NO:25.0x...'});
+    const old = harness({probeResult: 'NO:15.0x...'});
     old.start('图片调色 旧版 AE', 1);
     old.images('调色图片', false, false, {imageFilters: filters, data: PNG});
     await waitForNative(old);
@@ -72,7 +73,7 @@ async function check() {
     assert.ok(!fs.existsSync(path.join(plugins, 'F2A')), 'an unsupported AE gets no plug-in copy');
     old.finish();
 
-    console.log('PASS: live import prefers Figma 调色, copies the plug-in for AE 2026+ and only uses LUT when it cannot load');
+    console.log('PASS: live import prefers Figma 调色, copies the plug-in for AE CC 2019+ and only uses LUT when it cannot load');
   } finally {
     if (previous === undefined) delete process.env.F2A_AE_PLUGINS;
     else process.env.F2A_AE_PLUGINS = previous;

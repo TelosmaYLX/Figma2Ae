@@ -11,8 +11,10 @@
  * that is impossible (AE not found, install folder read-only) does the caller fall back to
  * the LUT grade that scripts/aep/image_grade.py builds.
  *
- * The plug-in is built for After Effects 2026+; older AE installs are left alone and an
- * AEP targeting them stays on the LUT path.
+ * The plug-in only uses long-standing effect APIs; it was verified in After Effects
+ * CC 2019 (16.1.3) and AE 2026, so every AE release F2A exports for (2024–2026) loads
+ * it. AE releases older than CC 2019 are not touched, and an AEP target older than that
+ * (never produced by F2A) would stay on the LUT path.
  *
  * This module is plain Node: the CEP panel uses it for the live import, scripts/
  * export-aep.cjs for the offline AEP writer. `F2A_AE_PLUGINS` overrides the discovered
@@ -26,14 +28,14 @@ var execFileSync = require('child_process').execFileSync;
 
 var MATCH_NAME = 'F2A Figma Image Grade';
 var FILE_NAME = 'FigmaImageGrade.aex';
-var MIN_AE = 26;                              // first After Effects release the plug-in targets
+var MIN_AE = 16;                              // AE CC 2019 - oldest release verified to load the effect
 var KEYS = ['exposure', 'contrast', 'saturation', 'temperature', 'tint', 'highlights', 'shadows'];
 var LABELS = ['曝光', '对比度', '饱和度', '白平衡', '着色', '高光', '阴影'];
 var TEMPLATE = 'scripts/aep/figma-image-grade-effect.bin';
 
 // AE stores InstallPath as "<AE>/Support Files", so plug-ins live beside aerender.
-// Every discovered install keeps its version so an export targeting an older AE stays
-// on the LUT path even when a newer AE on the same machine has the plug-in.
+// Every discovered install keeps its version so releases older than AE CC 2019 (which
+// the effect is not verified on and F2A does not export for) are left alone.
 function installs() {
   var found = [], seen = {};
   function add(plugins, version) {
@@ -116,7 +118,7 @@ function install(ext) {
   var found = installed(dirs);
   if (found.length) return {available: true, copied: false, files: found, dirs: dirs};
   if (!dirs.length) return {available: false, copied: false, dirs: dirs,
-    reason: '未找到 After Effects ' + MIN_AE + ' 及以上的安装目录'};
+    reason: '未找到 After Effects CC 2019 及以上的安装目录'};
   var source = bundled(ext);
   if (!source) return {available: false, copied: false, reason: '缺少 FigmaImageGrade.aex', dirs: dirs};
   var files = [], errors = [];
@@ -133,9 +135,10 @@ function install(ext) {
 }
 
 // Decide how this export reproduces Figma's image filters: the native effect or the
-// LUT fallback. `aeVersion` is the AEP version being written; an older target stays on
-// the LUT path because the plug-in only supports AE 2026+. `template` is only needed by
-// the offline writer, which clones the effect definition from disk instead of querying AE.
+// LUT fallback. `aeVersion` is the AEP version being written; only a target older than
+// AE CC 2019 (not something F2A writes) stays on the LUT path. `template` is only needed
+// by the offline writer, which clones the effect definition from disk instead of
+// querying AE.
 function resolve(ext, options) {
   options = options || {};
   var forced = options.mode || process.env.F2A_IMAGE_GRADE_MODE;
@@ -144,7 +147,7 @@ function resolve(ext, options) {
     var major = parseInt(String(options.aeVersion).split('.')[0], 10);
     if (major > 0 && major < MIN_AE) {
       return {mode: 'lut', forced: false, available: false, copied: false,
-        reason: '目标 AE 版本（' + options.aeVersion + '）不支持 Figma 调色插件，需要 AE 2026 及以上'};
+        reason: '目标 AE 版本（' + options.aeVersion + '）早于 AE CC 2019，不支持 Figma 调色插件'};
     }
   }
   var template = options.template || path.join(ext, TEMPLATE);

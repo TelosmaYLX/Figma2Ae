@@ -37,7 +37,7 @@ async function exportAep(packet, directory, options = {}) {
   try {
     if (model.images.some(image => image.imageFilters)) {
       // Prefer the native Figma 调色 effect; the LUT graph is the fallback for machines
-      // where the plug-in cannot be installed and for AEP targets older than AE 2026.
+      // where the plug-in cannot be installed, and for AEP targets older than AE CC 2019.
       // The writer only reads gradeTables in LUT mode.
       const grade = imageGradeEffect.resolve(root, {mode: options.imageGradeMode, aeVersion: model.aeVersion});
       gradeMode = grade.mode;

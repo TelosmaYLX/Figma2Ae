@@ -59,7 +59,7 @@ try {
         throw
     }
 
-    # Pulling an update already installs the native Figma 调色 effect into every AE 2026+
+    # Pulling an update already installs the native Figma 调色 effect into every AE CC 2019+
     # install. The panel retries later if this copy had no permission.
     $f2aGradePlugin = Join-Path (Split-Path -Parent $PSScriptRoot) 'ae-plugins\FigmaImageGrade.aex'
     if (Test-Path -LiteralPath $f2aGradePlugin) {

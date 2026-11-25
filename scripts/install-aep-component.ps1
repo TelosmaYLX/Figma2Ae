@@ -21,7 +21,7 @@ if ($aepSource -ne $aepTarget) {
         Copy-Item -LiteralPath (Join-Path $aepSource $aepPart) -Destination $aepTarget -Recurse -Force
     }
 }
-# Install/update also refreshes the native Figma 调色 effect in every AE 2026+ install.
+# Install/update also refreshes the native Figma 调色 effect in every AE CC 2019+ install.
 $aepGradePlugin = Join-Path $aepTarget 'ae-plugins\FigmaImageGrade.aex'
 if (Test-Path -LiteralPath $aepGradePlugin) {
     try { & (Join-Path $aepSource 'scripts\install-ae-plugins.ps1') -AexPath $aepGradePlugin }

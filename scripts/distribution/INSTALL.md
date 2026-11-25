@@ -60,7 +60,7 @@ powershell -ExecutionPolicy Bypass -File "<扩展包中的 F2A 目录>\scripts\i
   -InstallDirectory "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"
 ```
 
-安装过程会：按 `package-manifest.json` 把文件复制到目标目录（已在目标目录内时只补依赖）→ 在目标目录建 `.venv-aep` 并安装 `scripts\aep\requirements.txt`（**需要联网**）→ 把 **Figma 调色** 插件复制到本机 AE 2026 及以上版本的 `Support Files\Plug-ins\F2A`（失败只警告，首次导出时再试）→ 为 CSXS.9–12 开启 CEP 调试模式 → 注册当前用户的 `f2a-aep` 唤起入口。更新时同样会刷新该插件，重启 AE 后「保留图片调色属性」即可直接使用原生调色效果。
+安装过程会：按 `package-manifest.json` 把文件复制到目标目录（已在目标目录内时只补依赖）→ 在目标目录建 `.venv-aep` 并安装 `scripts\aep\requirements.txt`（**需要联网**）→ 把 **Figma 调色** 插件复制到本机 AE CC 2019 及以上版本的 `Support Files\Plug-ins\F2A`（失败只警告，首次导出时再试）→ 为 CSXS.9–12 开启 CEP 调试模式 → 注册当前用户的 `f2a-aep` 唤起入口。更新时同样会刷新该插件，重启 AE 后「保留图片调色属性」即可直接使用原生调色效果。
 
 ### 1.3 用户级安装（默认，无需管理员）
 

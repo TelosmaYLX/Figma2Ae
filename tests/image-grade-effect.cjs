@@ -74,13 +74,15 @@ function check() {
       assert.equal(resolution.available, false);
     });
 
-    // AEP targets older than AE 2026 stay on the LUT path even when a newer AE on the same
-    // machine has the plug-in: the effect has to exist in the AE that opens the project.
+    // AE 2024/2025 targets use the plug-in exactly like 2026 (verified in AE CC 2019);
+    // only a target older than CC 2019, which F2A never writes, stays on the LUT path.
     withEnv({F2A_AE_PLUGINS: plugins, F2A_IMAGE_GRADE_MODE: undefined}, () => {
-      const old = effect.resolve(root, {aeVersion: '25.0'});
-      assert.equal(old.mode, 'lut');
-      assert.match(old.reason, /2026/);
-      assert.equal(effect.resolve(root, {aeVersion: '26.0'}).mode, 'effect');
+      assert.equal(effect.MIN_AE, 16);
+      for (const aeVersion of ['24.0', '25.0', '26.0'])
+        assert.equal(effect.resolve(root, {aeVersion}).mode, 'effect', aeVersion);
+      const ancient = effect.resolve(root, {aeVersion: '15.0'});
+      assert.equal(ancient.mode, 'lut');
+      assert.match(ancient.reason, /2019/);
     });
 
     // Discovery keeps the AE version so the writer can target only supported installs.
@@ -102,7 +104,7 @@ function check() {
     assert.equal(effect.probeVersion('NO:16.0x...'), 16);
     assert.equal(effect.probeVersion('NO:0'), 0);
     assert.equal(effect.probeVersion('OK'), 0);
-    console.log('PASS: Figma 调色 discovery, copy into AE Plug-ins, AE-version targeting, forced modes, LUT fallback and live probe');
+    console.log('PASS: Figma 调色 discovery, copy into AE Plug-ins, AE 2024–2026 targeting, forced modes, LUT fallback and live probe');
   } finally { fs.rmSync(base, {recursive: true, force: true}); }
 }
 

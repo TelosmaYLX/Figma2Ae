@@ -1,6 +1,6 @@
 'use strict';
 
-// The installer copies the Figma 调色 plug-in into every AE 2026+ install while pulling an
+// The installer copies the Figma 调色 plug-in into every AE CC 2019+ install while pulling an
 // update, so the effect is there after a restart without waiting for the first export.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
