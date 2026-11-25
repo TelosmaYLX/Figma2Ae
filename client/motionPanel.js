@@ -112,7 +112,7 @@
     tab: "builtin",            // "builtin" | "templates" | "user"
     category: "全部",
     query: "",
-    autoPlayAll: true,         // Live-preview visible cards automatically (throttled via IntersectionObserver)
+    autoPlayAll: false,        // Off by default: cards stay still until hovered (or the play toggle is used)
     showParams: false,
     params: loadStoredParams(),
     builtinPresets: [],
@@ -750,6 +750,40 @@
     }
   }
 
+  // Directional variants (上/下/左/右) read in 上、下、左、右 order wherever they appear,
+  // while non-directional entries keep their original position.
+  var DIRECTION_TOKENS = [
+    ["上滑", 0], ["下滑", 1], ["左滑", 2], ["右滑", 3],
+    ["上浮", 0], ["下落", 1], ["下沉", 1], ["上移", 0], ["下移", 1], ["左移", 2], ["右移", 3],
+    ["向上", 0], ["向下", 1], ["向左", 2], ["向右", 3],
+    ["上展开", 0], ["下展开", 1], ["左展开", 2], ["右展开", 3]
+  ];
+  function directionMatch(name) {
+    for (var i = 0; i < DIRECTION_TOKENS.length; i++) {
+      var token = DIRECTION_TOKENS[i][0], at = name.indexOf(token);
+      if (at >= 0) return { rank: DIRECTION_TOKENS[i][1], key: name.slice(0, at) + name.slice(at + token.length) };
+    }
+    return null;
+  }
+  function orderDirectionItems(items) {
+    var families = {}, order = [], i;
+    for (i = 0; i < items.length; i++) {
+      var m = directionMatch(String(items[i].name || ""));
+      if (!m) continue;
+      if (!families[m.key]) { families[m.key] = { refs: [], indices: [] }; order.push(m.key); }
+      families[m.key].refs.push({ item: items[i], rank: m.rank, index: i });
+      families[m.key].indices.push(i);
+    }
+    var out = items.slice();
+    for (i = 0; i < order.length; i++) {
+      var fam = families[order[i]];
+      if (fam.refs.length < 2) continue;
+      var sorted = fam.refs.slice().sort(function (a, b) { return a.rank - b.rank || a.index - b.index; });
+      for (var j = 0; j < fam.indices.length; j++) out[fam.indices[j]] = sorted[j].item;
+    }
+    return out;
+  }
+
   function currentItemsAndCategories() {
     var q = state.query.trim().toLowerCase();
     var all = [];
@@ -783,15 +817,16 @@
       ].join(" ").toLowerCase();
       return hay.indexOf(q) >= 0;
     });
-    return { items: filtered, categories: ["全部"].concat(catSet), total: all.length };
+    return { items: orderDirectionItems(filtered), categories: ["全部"].concat(catSet), total: all.length };
   }
 
   function buildMotionCard(item, isUser) {
     var card = el("div", "f2m-card");
     card.title = (item.description || item.name) + (item.tags && item.tags.length ? "\n标签：" + item.tags.join(" / ") : "");
 
-    var stage = el("div", "f2m-stage");
+    var stage = el("div", "f2m-stage is-applyable");
     stage.setAttribute("data-playable", "1");
+    stage.title = "点击应用「" + item.name + "」";
 
     var meta = item.clip && Preview ? Preview.analyzeClip(item.clip, item.defaultAnchor) : null;
     stage._f2mItem = item;
@@ -844,7 +879,7 @@
 
     card.appendChild(stage);
 
-    // Footer metadata (duration & track info live here instead of crowding the stage) + apply button
+    // Footer metadata (duration & track info live here instead of crowding the stage)
     var foot = el("div", "f2m-foot");
     var info = el("div", "f2m-info");
     info.appendChild(el("div", "f2m-title", item.name));
@@ -856,8 +891,8 @@
     info.appendChild(el("div", "f2m-sub", durStr + " · " + kindText));
     foot.appendChild(info);
 
-    var actions = el("div", "f2m-actions");
     if (isUser) {
+      var actions = el("div", "f2m-actions");
       var delBtn = state.confirmDeleteId === item.id
         ? el("button", "f2m-del is-confirm", "确认")
         : iconButton("f2m-del", "close", "", "删除此动效");
@@ -876,18 +911,15 @@
         renderPanel();
       };
       actions.appendChild(delBtn);
+      foot.appendChild(actions);
     }
-    var applyBtn = el("button", "f2m-apply", "应用");
-    applyBtn.type = "button";
-    applyBtn.onclick = function (ev) {
+    card.appendChild(foot);
+
+    // Clicking the preview applies the motion; hover only previews (auto-loop is off by default).
+    stage.onclick = function (ev) {
       ev.stopPropagation();
       applyMotionItem(item);
     };
-    actions.appendChild(applyBtn);
-    foot.appendChild(actions);
-    card.appendChild(foot);
-
-    // Hover immediately restarts from t=0; visible cards auto-loop when autoPlayAll is enabled
     card.addEventListener("mouseenter", function () {
       stage._f2mHovered = true;
       startStageLoop(stage, item, meta, true);
@@ -895,9 +927,6 @@
     card.addEventListener("mouseleave", function () {
       stage._f2mHovered = false;
       if (!state.autoPlayAll) stopStageLoop(stage, item);
-    });
-    card.addEventListener("dblclick", function () {
-      applyMotionItem(item);
     });
 
     var obs = getStageObserver();
@@ -912,8 +941,9 @@
     card.title = item.pack + " / " + item.category + " / " + item.name;
 
     var selectedVarIdx = 0;
-    var stage = el("div", "f2m-stage is-media");
+    var stage = el("div", "f2m-stage is-media is-applyable");
     stage._f2mTemplate = item;
+    stage.title = "点击" + (item.kind === "ffx" ? "应用" : "导入") + "「" + item.name + "」";
 
     var img = el("img", "f2m-thumb");
     img.alt = item.name;
@@ -993,23 +1023,13 @@
     info.appendChild(el("div", "f2m-title", item.name));
     info.appendChild(el("div", "f2m-sub", item.kind.toUpperCase() + " · " + item.category));
     foot.appendChild(info);
+    card.appendChild(foot);
 
-    var actions = el("div", "f2m-actions");
-    var btn = el("button", "f2m-apply", item.kind === "ffx" ? "应用" : "导入");
-    btn.type = "button";
-    btn.onclick = function (ev) {
+    stage.onclick = function (ev) {
       ev.stopPropagation();
       var chosen = (item.variants && item.variants[selectedVarIdx]) || null;
       applyTemplateItem(item, chosen);
     };
-    actions.appendChild(btn);
-    foot.appendChild(actions);
-    card.appendChild(foot);
-
-    card.addEventListener("dblclick", function () {
-      var chosen = (item.variants && item.variants[selectedVarIdx]) || null;
-      applyTemplateItem(item, chosen);
-    });
 
     return card;
   }

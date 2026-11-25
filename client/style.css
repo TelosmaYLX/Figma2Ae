@@ -297,6 +297,7 @@ body{
   overflow:hidden;
 }
 .f2m-stage.is-media{flex:0 0 84px; height:84px; background:#09070d;}
+.f2m-stage.is-applyable{cursor:pointer;}
 .f2m-demo-box{
   position:relative; width:40px; height:40px; border-radius:10px;
   background:linear-gradient(155deg, #2b243b 0%, #171322 100%);
@@ -383,14 +384,6 @@ body{
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .f2m-actions{display:flex; align-items:center; gap:3px; flex:0 0 auto;}
-.f2m-apply{
-  appearance:none; border:1px solid rgba(167,139,250,.45);
-  background:var(--accent-dim); color:var(--accent-hi);
-  font:inherit; font-size:10px; font-weight:600;
-  padding:3px 7px; border-radius:var(--radius-sm); cursor:pointer;
-  transition:background .12s, color .12s;
-}
-.f2m-apply:hover{background:var(--accent); color:#0b0714;}
 .f2m-del{
   appearance:none; border:1px solid transparent; background:transparent;
   color:var(--text-mute); font:inherit; font-size:10px;
