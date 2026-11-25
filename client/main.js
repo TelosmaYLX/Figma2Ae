@@ -30,6 +30,13 @@
   var clearLog = document.getElementById("mk-log-clear");
   if (clearLog && logList) clearLog.onclick = function () { logList.innerHTML = ""; };
 
+  // CEP's embedded Chromium context menu is oversized and only offers browser commands
+  // (back / reload / print), which do not belong in the panel. Suppress it everywhere so a
+  // right-click in the motion library cannot open that large native menu.
+  document.addEventListener("contextmenu", function (ev) {
+    ev.preventDefault();
+  }, false);
+
   // figmaBridge loads after this file but may report before the log exists, so it calls this
   // guarded hook instead of the widget directly.
   window.MKReport = function (text, isErr) { logLine(text, isErr ? "err" : ""); };
