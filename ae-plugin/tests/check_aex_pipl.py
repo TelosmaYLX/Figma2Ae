@@ -1,0 +1,7 @@
+data = open(r"D:\Tools\F2A\.agents\worktrees\dsh-f012f7f8-067c\ae-plugin\build\FigmaBackgroundBlur.aex", "rb").read()
+gbk = bytes.fromhex("4669676d6120b1b3beb0c4a3bafd")
+utf8 = "Figma 背景模糊".encode("utf-8")
+print("aex size", len(data))
+print("contains GBK name bytes:", data.find(gbk))
+print("contains UTF-8 name bytes:", data.find(utf8))
+print("contains ascii name:", data.find(b"Figma Background Blur"))

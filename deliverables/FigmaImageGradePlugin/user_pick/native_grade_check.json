@@ -1,0 +1,10 @@
+{
+ "case": "native 2560x1440, user's image, filters [-23,5,-21,21,-26,19,-28]",
+ "pixels": 3686400,
+ "channels": 11059200,
+ "mean": 0.0314,
+ "p99": 1,
+ "max": 1,
+ "identical_pct": 96.865,
+ "pixels_with_diff": 319685
+}

@@ -1,0 +1,72 @@
+{
+ "node": {
+  "id": "505:1201",
+  "name": "Circle_Purple",
+  "type": "ELLIPSE",
+  "size": [
+   520,
+   520
+  ]
+ },
+ "filters_ui": [
+  -23,
+  5,
+  -21,
+  21,
+  -26,
+  19,
+  -28
+ ],
+ "source_image": "2560x1440 PNG, scaleMode FILL -> layer scale 36.1111%",
+ "rows": [
+  {
+   "case": "baseline (no grade) - interior: image resampling only",
+   "pixels": 205892,
+   "mean": 0.492,
+   "p99": 4.0,
+   "max": 20.0,
+   "identical_pct": 63.2
+  },
+  {
+   "case": "baseline (no grade) - ellipse edge",
+   "pixels": 9440,
+   "mean": 1.976,
+   "p99": 32.1,
+   "max": 54.3,
+   "identical_pct": 61.44
+  },
+  {
+   "case": "graded - interior (the plug-in's job)",
+   "pixels": 205892,
+   "mean": 1.184,
+   "p99": 5.0,
+   "max": 19.0,
+   "identical_pct": 26.32
+  },
+  {
+   "case": "graded - ellipse edge",
+   "pixels": 9440,
+   "mean": 1.946,
+   "p99": 25.3,
+   "max": 51.2,
+   "identical_pct": 42.36
+  },
+  {
+   "case": "graded - outside the circle",
+   "pixels": 55068,
+   "mean": 0.0,
+   "p99": 0.0,
+   "max": 0.0,
+   "identical_pct": 100.0
+  }
+ ],
+ "graded_whole": {
+  "case": "graded whole node",
+  "pixels": 270400,
+  "mean": 0.969,
+  "p99": 5.0,
+  "max": 51.2,
+  "identical_pct": 41.88
+ },
+ "composite": "both images composited over black (straight alpha)"
+}

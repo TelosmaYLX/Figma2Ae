@@ -1,0 +1,22 @@
+{
+ "case": "AE 16 bpc project render vs NumPy reference of the Figma shader",
+ "controls": [
+  -17,
+  5,
+  18,
+  -26,
+  21,
+  -21,
+  13
+ ],
+ "image": "grade_card_512.png (262,144 distinct colours)",
+ "result_16bpc": {
+  "case": "16bpc",
+  "mean": 0.1748,
+  "p99": 1,
+  "max": 1,
+  "identical_pct": 82.525
+ },
+ "conclusion": "16 bpc 路径与 8 bpc 同样准确：逐通道最大差 1 个色阶",
+ "32bpc_note": "AE 32 bpc 项目开启线性化工作空间后，AE 交给效果的是线性值（不加效果的直通像素也被 AE 改写），与 8/16 bpc 不可直接比较；本效果在 32 bpc 下的行为与 v1.0 一致（SIMD 与标量逐位相同）。"
+}

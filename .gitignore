@@ -15,6 +15,17 @@ pnpm-debug.log*
 *.aseprite
 *.aep~*
 
+# AE plug-in SDK copy and local build output (the SDK is copied in per machine)
+ae-plugin/sdk/
+ae-plugin/build/
+ae-plugin/tests/*.exe
+ae-plugin/tests/*.obj
+ae-plugin/tests/*.dll
+ae-plugin/tests/*.pdb
+
+# Local render scratch and validation captures
+rea-work/
+
 # AE fidelity renders and local replay data
 artifacts/
 
