@@ -640,16 +640,18 @@
     item.video = prev.video;
     if (item.thumb) {
       var img = stage.querySelector(".f2m-thumb");
-      if (img) {
-        img.src = fileUrl(item.thumb);
-        img.hidden = false;
+      if (!img) {
+        img = el("img", "f2m-thumb");
+        img.alt = item.name;
+        stage.insertBefore(img, stage.firstChild);
       }
+      img.src = fileUrl(item.thumb);
     } else if (item.video && !stage.querySelector(".f2m-thumb-video")) {
       addVideoThumbnail(stage, fileUrl(item.video));
     }
     if (item.thumb || item.video) {
       var ph = stage.querySelector(".f2m-media-placeholder");
-      if (ph) ph.hidden = true;
+      if (ph) ph.remove();
     }
     if (item.video) stage.setAttribute("data-video", fileUrl(item.video));
   }
@@ -662,14 +664,158 @@
         var stage = entries[i].target;
         mogrtObserver.unobserve(stage);
         var item = stage._f2mTemplate;
-        if (!item || item.kind !== "mogrt" || item._probed || !scanner) continue;
-        item._probed = true;
-        try {
-          applyMogrtPreview(item, stage, scanner.ensureMogrtPreview(item.file));
-        } catch (e) {}
+        if (!item || item._probed || !scanner) continue;
+        if (item.kind === "mogrt") {
+          item._probed = true;
+          try {
+            applyMogrtPreview(item, stage, scanner.ensureMogrtPreview(item.file));
+          } catch (e) {}
+        } else if (item.kind === "aep" && !item.thumb && !item.video) {
+          item._probed = true;
+          enqueueAepPreview(item, stage);
+        }
       }
     }, { rootMargin: "120px" });
     return mogrtObserver;
+  }
+
+  // ---- AEP template preview: render one frame with a separate aerender process ----
+  // The user's open AE project must not be touched, so this mirrors the MOGRT thumbnail cache:
+  // a Python helper parses the AEP, launches aerender for one frame, and stores the result.
+  var aepPreviewQueue = [];
+  var aepPreviewBusy = false;
+  var aepPreviewUnavailable = false;
+  function aepToolRoot() {
+    if (!HAS_NODE) return "";
+    var roots = [];
+    if (extDir) roots.push(extDir);
+    if (process.env.LOCALAPPDATA) roots.push(path.join(process.env.LOCALAPPDATA, "F2A", "AEP"));
+    for (var i = 0; i < roots.length; i++) {
+      try { if (fs.existsSync(path.join(roots[i], "scripts", "aep", "render_preview.py"))) return roots[i]; } catch (e) {}
+    }
+    return "";
+  }
+  function aepPython(root) {
+    if (!HAS_NODE || !root) return "";
+    var env = process.env.F2A_PYTHON;
+    if (env && fs.existsSync(env)) return env;
+    var candidates = [
+      path.join(root, "runtime", "python", "python.exe"),
+      path.join(root, ".venv-aep", process.platform === "win32" ? "Scripts" : "bin", "python.exe"),
+    ];
+    for (var i = 0; i < candidates.length; i++) {
+      try { if (fs.existsSync(candidates[i])) return candidates[i]; } catch (e) {}
+    }
+    return "";
+  }
+  function aepCacheFor(file) {
+    if (!fs || !path || !scanner) return null;
+    try {
+      var crypto = require("crypto");
+      var st = fs.statSync(file);
+      var key = crypto.createHash("sha1")
+        .update(path.resolve(file) + "|" + st.mtimeMs + "|" + st.size).digest("hex").slice(0, 16);
+      var dir = path.join(scanner.getPackCacheDir(), "aep-" + key);
+      var metaPath = path.join(dir, "meta.json");
+      if (fs.existsSync(metaPath)) {
+        var meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+        if (meta && meta.file && fs.existsSync(meta.file)) {
+          return { dir: dir, thumb: meta.kind === "video" ? null : meta.file, video: meta.kind === "video" ? meta.file : null, meta: meta };
+        }
+      }
+      return { dir: dir, thumb: null, video: null };
+    } catch (e) { return null; }
+  }
+  function applyTemplatePreview(item, stage, thumbPath) {
+    item.thumb = thumbPath;
+    var img = stage.querySelector(".f2m-thumb");
+    if (!img) {
+      img = el("img", "f2m-thumb");
+      img.alt = item.name;
+      stage.insertBefore(img, stage.firstChild);
+    }
+    img.src = fileUrl(thumbPath);
+    var ph = stage.querySelector(".f2m-media-placeholder");
+    if (ph) ph.remove();
+  }
+  function applyAepPreview(item, stage, file, kind) {
+    if (kind === "video") {
+      item.video = file;
+      if (!stage.querySelector(".f2m-thumb-video")) addVideoThumbnail(stage, fileUrl(file));
+      stage.setAttribute("data-video", fileUrl(file));
+    } else {
+      applyTemplatePreview(item, stage, file);
+      return;
+    }
+    var ph = stage.querySelector(".f2m-media-placeholder");
+    if (ph) ph.remove();
+  }
+  function lastJsonLine(text) {
+    var lines = String(text || "").split(/\r?\n/);
+    for (var i = lines.length - 1; i >= 0; i--) {
+      var line = lines[i].trim();
+      if (line.charAt(0) === "{") {
+        try { return JSON.parse(line); } catch (e) {}
+      }
+    }
+    return null;
+  }
+  function pumpAepPreviews() {
+    if (aepPreviewBusy || !aepPreviewQueue.length) return;
+    if (!CEP || !HAS_NODE || aepPreviewUnavailable) return;
+    var root = aepToolRoot();
+    var python = aepPython(root);
+    if (!root || !python) {
+      aepPreviewUnavailable = true;
+      log("AEP 预览组件不可用：找不到 Python 或 render_preview.py", "err");
+      aepPreviewQueue.length = 0;
+      return;
+    }
+    aepPreviewBusy = true;
+    var job = aepPreviewQueue.shift();
+    try { fs.mkdirSync(job.cache.dir, { recursive: true }); } catch (eMk) {}
+    var childProcess = require("child_process");
+    childProcess.execFile(python, [
+      path.join(root, "scripts", "aep", "render_preview.py"),
+      "--aep", job.item.file,
+      "--cache-dir", job.cache.dir,
+    ], { windowsHide: true, timeout: 240000, maxBuffer: 4 * 1024 * 1024 }, function (error, stdout, stderr) {
+      aepPreviewBusy = false;
+      var res = lastJsonLine(stdout);
+      var previewFile = res && res.file ? res.file : "";
+      var previewKind = res && res.kind ? res.kind : "image";
+      var liveStage = job.stage && job.stage.isConnected ? job.stage : (job.item._stage && job.item._stage.isConnected ? job.item._stage : null);
+      if (res && res.ok && previewFile && fs.existsSync(previewFile)) {
+        job.item._previewQueued = false;
+        if (previewKind === "video") job.item.video = previewFile; else job.item.thumb = previewFile;
+        if (liveStage) applyAepPreview(job.item, liveStage, previewFile, previewKind);
+      } else {
+        job.item._previewQueued = false;
+        job.item._previewFailed = true;
+        if (liveStage) {
+          var ph = liveStage.querySelector(".f2m-media-placeholder");
+          if (ph) ph.textContent = "AEP（无预览）";
+        }
+        var message = (res && res.error) || (error && error.message) || (stderr ? String(stderr).slice(0, 200) : "未知错误");
+        log("模板预览生成失败：" + job.item.name + " — " + message, "err");
+      }
+      setTimeout(pumpAepPreviews, 50);
+    });
+  }
+  function enqueueAepPreview(item, stage) {
+    if (!CEP || !HAS_NODE || !scanner) return;
+    if (item._previewQueued || item._previewFailed || item.thumb || item.video) return;
+    var cache = aepCacheFor(item.file);
+    if (!cache) return;
+    if (cache.thumb || cache.video) {
+      applyAepPreview(item, stage, cache.thumb || cache.video, cache.video ? "video" : "image");
+      return;
+    }
+    item._previewQueued = true;
+    var ph = stage.querySelector(".f2m-media-placeholder");
+    if (ph) ph.textContent = "生成预览…";
+    aepPreviewQueue.push({ item: item, stage: stage, cache: cache });
+    pumpAepPreviews();
   }
 
   // ---- DOM Helpers & Flat Vector Icons ----
@@ -908,22 +1054,30 @@
     var selectedVarIdx = 0;
     var stage = el("div", "f2m-stage is-media is-applyable");
     stage._f2mTemplate = item;
+    item._stage = stage;
     stage.title = "点击" + (item.kind === "ffx" ? "应用" : "导入") + "「" + item.name + "」";
 
+    if (item.kind === "aep" && !item.thumb && !item.video) {
+      var cachedPreview = aepCacheFor(item.file);
+      if (cachedPreview) {
+        if (cachedPreview.thumb) item.thumb = cachedPreview.thumb;
+        else if (cachedPreview.video) item.video = cachedPreview.video;
+      }
+    }
     var thumbUrl = item.thumb ? fileUrl(item.thumb) : "";
     var activeVideoUrl = item.video ? fileUrl(item.video) : "";
-    var img = el("img", "f2m-thumb");
-    img.alt = item.name;
     if (thumbUrl) {
+      var img = el("img", "f2m-thumb");
+      img.alt = item.name;
       img.src = thumbUrl;
-    } else {
-      img.hidden = true;
+      stage.appendChild(img);
     }
-    stage.appendChild(img);
 
     if (!thumbUrl && activeVideoUrl) addVideoThumbnail(stage, activeVideoUrl);
     if (!thumbUrl && !activeVideoUrl) {
-      var ph = el("div", "f2m-media-placeholder", item.kind === "ffx" ? "FX" : (item.kind === "mogrt" ? "MOGRT" : "AEP"));
+      var phText = item.kind === "ffx" ? "FX" : (item.kind === "mogrt" ? "MOGRT" : "AEP");
+      if (item.kind === "aep" && item._previewQueued) phText = "生成预览…";
+      var ph = el("div", "f2m-media-placeholder", phText);
       stage.appendChild(ph);
     }
 
@@ -987,6 +1141,10 @@
           try { applyMogrtPreview(item, stage, scanner.ensureMogrtPreview(item.file)); } catch (e) {}
         }, 0);
       }
+    } else if (item.kind === "aep" && !item.thumb && !item.video && !item._probed) {
+      var aepObs = getMogrtObserver();
+      if (aepObs) aepObs.observe(stage);
+      else { item._probed = true; enqueueAepPreview(item, stage); }
     }
 
     card.appendChild(stage);

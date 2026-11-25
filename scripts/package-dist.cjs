@@ -41,7 +41,7 @@ const files = [
     'install-aep-launcher.ps1', 'install-mcp.ps1', 'install-mcp-dsh.cjs',
     'install-f2a.ps1', 'install-files.cjs', 'update-f2a.ps1'].map(f => 'scripts/' + f),
   ...['choose-destination.py', 'packet.cjs', 'requirements.txt', 'writer.py', 'image_grade.py',
-    'image-grade-effects.bin'].map(f => 'scripts/aep/' + f),
+    'render_preview.py', 'image-grade-effects.bin'].map(f => 'scripts/aep/' + f),
   ...['writer.cjs', 'choose-web-destination.ps1'].map(f => 'scripts/web/' + f),
 ];
 
