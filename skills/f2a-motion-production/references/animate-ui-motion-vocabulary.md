@@ -2,7 +2,7 @@
 
 > 内部参考：记录 animate-ui.com 动效语言的盘点、关键参数的源码实测值，以及本轮落地到 F2A 内置动效库的 AU 条目与不可移植边界。
 > 分析日期：**2026-11-24**。分析对象：Animate UI 开源仓库 `imskyleen/animate-ui` 的 `main` 分支快照（`apps/v2` + `packages/react`）。
-> 本文只做记录与映射，不修改代码；所有参数以 `D:\Tools\F2A\artifacts\animate-ui-src\` 下的源码为准，不用印象值。若任务书默认值与源码冲突，以源码为准并在第 5.4 节标注。
+> 本文只做记录与映射，不修改代码；所有参数以 `artifacts/animate-ui-src\` 下的源码为准，不用印象值。若任务书默认值与源码冲突，以源码为准并在第 5.4 节标注。
 
 ---
 

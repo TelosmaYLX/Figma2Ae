@@ -5,7 +5,7 @@ const vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../scripts/aep-server.cjs'),'utf8');
 const launches=[];
 let failure=false;
-const context=vm.createContext({module:{exports:{}},__dirname:path.resolve(__dirname,'../scripts'),process,console,require(name){
+function fakeRequire(name){
   if(name==='node:child_process')return {execFile(file,args,options,callback){
     launches.push({file,args,options});
     queueMicrotask(()=>callback(failure?new Error('Explorer unavailable'):null,'',''));
@@ -13,7 +13,10 @@ const context=vm.createContext({module:{exports:{}},__dirname:path.resolve(__dir
   if(name==='./export-aep.cjs')return require('../scripts/export-aep.cjs');
   if(name==='./export-web.cjs')return require('../scripts/export-web.cjs');
   return require(name);
-}});
+}
+// scripts/aep-server.cjs resolves its reloadable module list from its own folder.
+fakeRequire.resolve = name => path.resolve(__dirname,'../scripts',name);
+const context=vm.createContext({module:{exports:{}},__dirname:path.resolve(__dirname,'../scripts'),process,console,require:fakeRequire});
 vm.runInContext(source,context);
 (async()=>{
   const directory='D:\\导出 位置\\自定义 工程';

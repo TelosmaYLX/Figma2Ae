@@ -1,7 +1,7 @@
 # video-shotcraft 动效词汇与 F2A 映射参考
 
 > 内部参考：记录 video-shotcraft（Claude Code / Codex 技能）镜头配方库的盘点、逐帧参数提取、已落地到 F2A 内置动效库的条目，以及相机 / 文字 / 编排 / 数据 / 节奏各条线的 AE 复刻配方。
-> 分析日期：**2026-11-24**。分析对象：GitHub `Vincentwei1021/video-shotcraft`（`main` 快照）。源快照：`D:\Tools\F2A\artifacts\video-shotcraft-src\video-shotcraft-main\`。
+> 分析日期：**2026-11-24**。分析对象：GitHub `Vincentwei1021/video-shotcraft`（`main` 快照）。源快照：`artifacts/video-shotcraft-src\video-shotcraft-main\`。
 > 帧率约定：配方卡与 demo 的时间表全部是 **30fps**，下文写作 `22f@30`；F2A 侧时长以秒记，换 60fps 时帧值 ×2、秒值不变（见 6.3）。所有数值照录卡片与 demo 源码，不用印象值。
 
 ---
@@ -311,7 +311,7 @@ ae_motion_apply(clip_id=<sc-crash-zoom 的 id>, layer_ids=[<目标预合成>],
 | 类别 | 路径 / 链接 |
 |---|---|
 | 仓库 | https://github.com/Vincentwei1021/video-shotcraft |
-| 本地快照 | `D:\Tools\F2A\artifacts\video-shotcraft-src\video-shotcraft-main\` |
+| 本地快照 | `artifacts/video-shotcraft-src\video-shotcraft-main\` |
 | 许可证 | `LICENSE`（Apache-2.0，`Copyright 2026 Wei Yihao`）；`README.md` 的 License / Acknowledgements 节 |
 | 技能与工作流 | `SKILL.md`、`README.md`、`references/pipeline.md`、`references/music-beat-sync.md`、`references/sound-design.md`、`references/sfx-sourcing.md`、`references/aesthetic-rules.md` |
 | 卡片目录 | `references/shots/{camera,data,effects,interaction,opening,outro,rhythm,transition,typography,ui-entrance}/`（124 张） |

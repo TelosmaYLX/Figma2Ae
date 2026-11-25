@@ -38,7 +38,9 @@ async function check(){
   assert.ok(!/mk-image-folder|mk-feedback|发送反馈/.test(panelHtml),'panel markup drops the folder row and feedback link');
   assert.ok(!/\.mk-image-folder|\.mk-foot|\.mk-fb-|\.mk-lic-/.test(panelCss),'panel styles drop the removed widgets');
   const minSize=fs.readFileSync(path.join(root,'CSXS/manifest.xml'),'utf8').match(/<MinSize><Height>(\d+)<\/Height><Width>(\d+)<\/Width><\/MinSize>/);
-  assert.ok(minSize && Number(minSize[1])<=220 && Number(minSize[2])<=220,'the status-only panel shrinks to its log content');
+  // The panel now stacks the export settings and the collapsible motion library, so the
+  // minimum is taller than the status-only panel used to be; it still has to stay compact.
+  assert.ok(minSize && Number(minSize[1])<=360 && Number(minSize[2])<=420,'the stacked panel stays compact');
 
   // Actual HTTP routes invoke the same host-side setting and native picker used by the panel.
   const endpoint=harness({rememberFolder:false});

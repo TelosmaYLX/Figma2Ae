@@ -3,7 +3,7 @@
 > 内部参考：记录 ui.aceternity.com 免费组件的动效盘点、关键参数的源码实测值、已落地到 F2A 内置动效库的条目，以及"不可移植 / 仅配方"部分的 AE 重建方案。
 > 分析日期：**2026-11-24**；目录快照 `meta.lastUpdated = 2026-11-23T18:17:51.534Z`。
 > 分析对象：Aceternity UI 免费组件（Tailwind CSS v4 + Framer Motion `motion/react`，shadcn registry 分发）。
-> 本文只做记录与映射，不修改代码；所有参数以 `D:\Tools\F2A\artifacts\aceternity-src\<component>.json` 内 `files[].content` 的 TSX 源码为准，不用印象值。
+> 本文只做记录与映射，不修改代码；所有参数以 `artifacts/aceternity-src\<component>.json` 内 `files[].content` 的 TSX 源码为准，不用印象值。
 
 ---
 

@@ -2,7 +2,7 @@
 
 > 内部参考：记录 reactbits.dev 动效语言的盘点、关键参数的源码实测值，以及已落地到 F2A 内置动效库的条目与不可移植边界。
 > 分析日期：**2026-11-24**。分析对象：React Bits **免费组件库**（JS + CSS 变体，`<Component>-JS-CSS` registry）。
-> 本文只做记录与映射，不修改代码；所有参数以 `D:\Tools\F2A\artifacts\reactbits-src\` 下 JSON 内 `files[].content` 的 JSX/CSS 源码为准，不用印象值。
+> 本文只做记录与映射，不修改代码；所有参数以 `artifacts/reactbits-src\` 下 JSON 内 `files[].content` 的 JSX/CSS 源码为准，不用印象值。
 
 ---
 
