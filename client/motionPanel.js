@@ -81,7 +81,7 @@
     vid.className = "f2m-thumb-video";
     vid.muted = true;
     vid.playsInline = true;
-    vid.preload = "metadata";
+    vid.preload = "auto";
     vid.src = url;
     vid.addEventListener("loadedmetadata", function () {
       try { if (!vid.currentTime) vid.currentTime = 0.04; } catch (e) {}
@@ -649,6 +649,24 @@
   }
 
   // ---- Lazy MOGRT Thumbnail Observer ----
+  function applyMogrtPreview(item, stage, prev) {
+    item.thumb = prev.thumb;
+    item.video = prev.video;
+    if (item.thumb) {
+      var img = stage.querySelector(".f2m-thumb");
+      if (img) {
+        img.src = fileUrl(item.thumb);
+        img.hidden = false;
+      }
+    } else if (item.video && !stage.querySelector(".f2m-thumb-video")) {
+      addVideoThumbnail(stage, fileUrl(item.video));
+    }
+    if (item.thumb || item.video) {
+      var ph = stage.querySelector(".f2m-media-placeholder");
+      if (ph) ph.hidden = true;
+    }
+    if (item.video) stage.setAttribute("data-video", fileUrl(item.video));
+  }
   var mogrtObserver = null;
   function getMogrtObserver() {
     if (mogrtObserver || typeof IntersectionObserver === "undefined") return mogrtObserver;
@@ -661,23 +679,7 @@
         if (!item || item.kind !== "mogrt" || item._probed || !scanner) continue;
         item._probed = true;
         try {
-          var prev = scanner.ensureMogrtPreview(item.file);
-          item.thumb = prev.thumb;
-          item.video = prev.video;
-          if (item.thumb) {
-            var img = stage.querySelector(".f2m-thumb");
-            if (img) {
-              img.src = fileUrl(item.thumb);
-              img.hidden = false;
-            }
-          } else if (item.video && !stage.querySelector(".f2m-thumb-video")) {
-            addVideoThumbnail(stage, fileUrl(item.video));
-          }
-          if (item.thumb || item.video) {
-            var ph = stage.querySelector(".f2m-media-placeholder");
-            if (ph) ph.hidden = true;
-          }
-          if (item.video) stage.setAttribute("data-video", fileUrl(item.video));
+          applyMogrtPreview(item, stage, scanner.ensureMogrtPreview(item.file));
         } catch (e) {}
       }
     }, { rootMargin: "120px" });
@@ -1015,6 +1017,12 @@
     if (item.kind === "mogrt" && !item._probed) {
       var obs = getMogrtObserver();
       if (obs) obs.observe(stage);
+      else if (scanner) {
+        item._probed = true;
+        setTimeout(function () {
+          try { applyMogrtPreview(item, stage, scanner.ensureMogrtPreview(item.file)); } catch (e) {}
+        }, 0);
+      }
     }
 
     card.appendChild(stage);
