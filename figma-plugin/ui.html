@@ -9,12 +9,12 @@
      导出为 AEP 工程 button at its bottom. Both actions share the accent fill so they read alike,
      and each panel keeps its settings and its action together. The composition panel has no visible
      heading or hint line; each control keeps its own 11px caption. Layer tools are open beneath the
-     panels; common settings follow in fieldsets, then the collapsible 效果 group, with advanced
-     settings collapsed. Keep the existing dark tokens, 8px control gaps/radii, 12px panel padding
-     and 16px section spacing.
+     panels; common settings follow in fieldsets, then the 效果 group, with the 效果 and 高级选项
+     groups collapsed by default. Keep the existing dark tokens, 8px control gaps/radii, 12px panel
+     padding and 16px section spacing.
      Image and coordinate markers use paired secondary buttons with the existing --surface fill and --line edge.
      Colour preservation and background blur are secondary export effects, so they share the
-     collapsible 效果 group instead of the layer and image fieldsets.
+     效果 group instead of the layer and image fieldsets; both start unchecked.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --surface:#383838; --surface-hover:#464646; --surface-active:#303030; --line:#4b4b4b; --line-hover:#5a5a5a; --accent:#a78bfa; --text:#e8e8e8; --muted:#a3a3a3; --ok:#22c55e; --err:#ef4444; }
@@ -216,7 +216,7 @@
     </div>
     <div class="hint">倍率只影响栅格化图片。</div>
   </fieldset>
-  <details id="effect-options" open>
+  <details id="effect-options">
     <summary>效果</summary>
     <div class="option-spaced">
       <label class="option"><input type="checkbox" id="preserve-image-filters"> 保留图片调色属性</label>

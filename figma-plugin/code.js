@@ -6,7 +6,7 @@
  * Main thread can't open sockets, so: export here -> postMessage -> ui.html ships it.
  */
 
-figma.showUI(__html__, { width: 320, height: 630, themeColors: true });
+figma.showUI(__html__, { width: 320, height: 800, themeColors: true });
 
 
 // ===== ORGANIZE MODE =====

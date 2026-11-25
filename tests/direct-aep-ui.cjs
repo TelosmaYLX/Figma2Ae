@@ -54,12 +54,12 @@ function ui(packet, behavior='success') {
   const imageGroup = html.match(/<fieldset class="settings">\s*<legend>图片<\/legend>[\s\S]*?<\/fieldset>/);
   assert.ok(imageGroup, 'image settings have their own group');
   assert.equal(imageGroup[0].includes('preserve-image-filters'), false, 'colour preservation moved out of the image settings group');
-  // Colour preservation and background blur are effects: they share one collapsible 效果 group
-  // between the image settings and the advanced options, and start open.
+  // Colour preservation and background blur are effects: they share one 效果 group between the
+  // image settings and the advanced options. It starts collapsed, like the advanced options.
   assert.ok(html.indexOf('<legend>图片</legend>') < html.indexOf('id="effect-options"') && html.indexOf('id="effect-options"') < html.indexOf('id="advanced-options"'), 'the effects group sits between image settings and advanced options');
   const effectGroup = html.match(/<details id="effect-options"[^>]*>[\s\S]*?<\/details>/);
   assert.ok(effectGroup, 'effects have their own collapsible group');
-  assert.match(effectGroup[0], /<details id="effect-options"[^>]*\bopen\b[^>]*>/, 'the effects group starts open and can be folded');
+  assert.match(effectGroup[0], /<details id="effect-options">/, 'the effects group starts collapsed and can be unfolded');
   assert.match(effectGroup[0], /<summary>效果<\/summary>/, 'the effects group heading reads 效果');
   assert.match(effectGroup[0], /<label class="option"><input[^>]*id="preserve-image-filters"[^>]*> 保留图片调色属性<\/label>/, 'colour preservation sits in the effects group without a caption');
   assert.match(effectGroup[0], /<label class="option" title="[^"]*"><input[^>]*id="preserve-background-blur"[^>]*> 保留背景模糊<\/label>/, 'background blur sits in the effects group');
@@ -175,6 +175,9 @@ function ui(packet, behavior='success') {
   return {elements,posts,requests,context,done,launches,emit};
 }
 const flush=()=>new Promise(r=>setImmediate(r));
+// The panel keeps one fixed window height; it opens tall enough to show the layer tools in full.
+const pluginCode = fs.readFileSync(require('node:path').join(__dirname, '../figma-plugin/code.js'), 'utf8');
+assert.match(pluginCode, /figma\.showUI\(__html__, \{ width: 320, height: 800, themeColors: true \}\)/, 'the panel opens at its taller initial height');
 (async()=>{
   const packet=await fixture();
   const workspace=ui(packet);

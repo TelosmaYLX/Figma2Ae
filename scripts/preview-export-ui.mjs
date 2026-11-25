@@ -38,7 +38,7 @@ try {
   await command('Page.addScriptToEvaluateOnNewDocument', {source: 'window.WebSocket = function(){this.readyState=1;this.send=function(){};};window.fetch=async()=>({ok:true,json:async()=>({directory:"D:/Figma Assets/项目素材"})});'});
   const metrics = [];
   for (const width of [320, 375, 1280]) {
-    await command('Emulation.setDeviceMetricsOverride', {width, height: 630, deviceScaleFactor: 1, mobile: false});
+    await command('Emulation.setDeviceMetricsOverride', {width, height: 800, deviceScaleFactor: 1, mobile: false});
     const loaded = new Promise(r => events.set('Page.loadEventFired', r));
     await command('Page.navigate', {url: pathToFileURL(path.resolve('figma-plugin/ui.html')).href}); await loaded;
     const result = await command('Runtime.evaluate', {expression: '(async function(){await document.fonts.ready;selCount=1;setConn(true);mcpStatus(true,"MCP 已就绪");return {width:innerWidth,height:innerHeight,mcp:document.getElementById("mcp-status").textContent,contentHeight:document.querySelector(".wrap").getBoundingClientRect().height,overflow:document.documentElement.scrollWidth>innerWidth,markEnabled:!document.getElementById("mark-raster").disabled};})()', awaitPromise: true, returnByValue: true});
