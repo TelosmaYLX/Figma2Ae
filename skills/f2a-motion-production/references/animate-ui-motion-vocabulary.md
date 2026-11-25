@@ -8,7 +8,7 @@
 
 ## 1. 概述
 
-> **2026-11-25 去重精简**：`preset-au-typing`（与通用 `preset-text-typewriter` 重复）、`preset-au-lines-slide`（与 AU 字符/整词版重复）、`au-fade`（与既有纯透明度淡入重复）、`au-menu-in`（与 `au-dialog-in` 的缩放渐显重复）已从内置库移除；当前库总量为 **58 clips / 41 presets**。下文保留原始分析记录，以 `motion-library/builtin.json` 为准。
+> **2026-11-25 去重精简**：`preset-au-typing`（与通用 `preset-text-typewriter` 重复）、`preset-au-lines-slide`（与 AU 字符/整词版重复）、`au-fade`（与既有纯透明度淡入重复）、`au-menu-in`（与 `au-dialog-in` 的缩放渐显重复）已从内置库移除；当前库总量为 **55 clips / 41 presets**。下文保留原始分析记录，以 `motion-library/builtin.json` 为准。
 
 Animate UI（[animate-ui.com](https://animate-ui.com)）是基于 **Motion（`motion/react`，原 Framer Motion）** 的动画下拉原语库：把 shadcn/ui 里 Radix UI / Base UI / React Aria 的 primitives 换成等价组件，只改 import 就获得动画；另有一批 Animate UI 自研组件、9 个视觉背景和两套图标动画库。真正让它区别于普通动效合集的是**一套集中式动效令牌**：`src/utils/motion/index.tsx` 用 `ease / spring / transition / scale / blur / rotate / shift / stagger` 七组令牌表达全站动效，组件只引用令牌而不写魔法数字，并支持 `createMotionTokens(tempo)` 做全局节奏缩放。
 

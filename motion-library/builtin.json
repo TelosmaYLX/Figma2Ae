@@ -480,7 +480,7 @@
       "id": "preset-rb-split-rise",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 逐字上浮",
+      "name": "逐字上浮",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Split Text rise：逐字 40px 上浮、power3.out 落定，1.25s / 50ms 错峰。",
@@ -510,7 +510,7 @@
       "id": "preset-rb-split-fade",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 逐字淡入",
+      "name": "逐字淡入",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Split Text fade：逐字淡入，power2.inOut 曲线，1.25s / 50ms 错峰。",
@@ -539,7 +539,7 @@
       "id": "preset-rb-split-pop",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 逐字弹入",
+      "name": "逐字弹入",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Split Text pop：字符 0→100% 弹性缩放点亮，back.out(1.6) 过冲。",
@@ -568,7 +568,7 @@
       "id": "preset-rb-split-blur",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 逐字聚焦",
+      "name": "逐字聚焦",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Split Text blur：逐字由虚焦到清晰，power2.out 收束。",
@@ -597,7 +597,7 @@
       "id": "preset-rb-split-skew",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 逐字斜切",
+      "name": "逐字斜切",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Split Text skew：逐字从左斜切 -24° 摆正，expo.out 快速启动。",
@@ -626,7 +626,7 @@
       "id": "preset-rb-split-wave",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 逐字波浪",
+      "name": "逐字波浪",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Split Text wave：逐字自下方 0.45em 波浪式浮起，自定义 wave 曲线。",
@@ -655,7 +655,7 @@
       "id": "preset-rb-blurtext",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 柔焦整词",
+      "name": "柔焦整词",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Blur Text blur：整词从 10px 模糊 + 50px 上方落定，200ms 错峰。",
@@ -685,7 +685,7 @@
       "id": "preset-rb-focus",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 聚焦显现",
+      "name": "聚焦显现",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Blur Text focus：整词 112% 缩放 + 14px 模糊收敛到清晰，power2.inOut。",
@@ -714,7 +714,7 @@
       "id": "preset-rb-zoom",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 推近聚焦",
+      "name": "推近聚焦",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Blur Text zoom：整词 140% 推近 + 模糊消散并回落，power2.out。",
@@ -744,7 +744,7 @@
       "id": "preset-rb-scroll-reveal",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 逐词浮现",
+      "name": "逐词浮现",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Scroll Reveal rise：整词 0.8em 上浮 + 轻度模糊淡入，power3.out。",
@@ -775,7 +775,7 @@
       "id": "preset-rb-wave-float",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "RB 字符漂浮",
+      "name": "字符漂浮",
       "category": "文字",
       "phase": "in",
       "description": "React Bits Scroll Float：逐字 1.2em 上浮 + 轻微纵向拉伸回正，back.inOut(2) 缓动。",
@@ -804,7 +804,7 @@
       "id": "preset-ac-text-generate",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "AC 文字逐词生成",
+      "name": "文字逐词生成",
       "category": "文字",
       "phase": "in",
       "description": "Aceternity Text Generate Effect：整词 10px 模糊 + 渐显，0.5s / 0.2s 错峰，近似 Motion 默认 tween 缓动。",
@@ -833,7 +833,7 @@
       "id": "preset-ac-flip-words",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "AC 逐字翻入",
+      "name": "逐字翻入",
       "category": "文字",
       "phase": "in",
       "description": "Aceternity Flip Words：逐字 10px 上浮 + 8px 模糊归零，0.2s / 50ms 错峰。",
@@ -864,7 +864,7 @@
       "id": "preset-ac-layout-flip",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "AC 布局词翻入",
+      "name": "布局词翻入",
       "category": "文字",
       "phase": "in",
       "description": "Aceternity Layout Text Flip：整词自上方 40px 落下 + 10px 模糊归零，0.5s，power2.out。",
@@ -895,7 +895,7 @@
       "id": "preset-au-splitting-text",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "AU 字符右滑入",
+      "name": "字符右滑入",
       "category": "文字",
       "phase": "in",
       "description": "Animate UI Splitting Text 默认：字符自右 150px 滑入并渐显，0.7s / 50ms 错峰，easeOut 近似。",
@@ -926,7 +926,7 @@
       "id": "preset-au-splitting-words",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "AU 整词右滑入",
+      "name": "整词右滑入",
       "category": "文字",
       "phase": "in",
       "description": "Animate UI Splitting Text 整词版：词自右 150px 滑入，0.7s / 200ms 错峰，easeOut 近似。",
@@ -957,7 +957,7 @@
       "id": "preset-sc-blur-slide",
       "kind": "procedural",
       "command": "text_reveal",
-      "name": "SC 逐词模糊滑入",
+      "name": "逐词模糊滑入",
       "category": "文字",
       "phase": "in",
       "description": "video-shotcraft blur-slide：整词 y 64px + 18px 模糊 + 渐显共用一条 quint-out 曲线，0.73s / 133ms 错峰。",
@@ -1636,565 +1636,6 @@
                       {
                         "speed": 0,
                         "influence": 31.74
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "schemaVersion": 1,
-      "id": "60212f52-30cf-52d1-9b6d-6b83bff3aa18",
-      "slug": "curated-diag-swoop-in",
-      "name": "斜向切入入场",
-      "category": "入场",
-      "phase": "in",
-      "defaultAnchor": "end",
-      "description": "沿对角线轻快切入落位，增加动感层次。",
-      "sourceStyle": "Fashion",
-      "tags": [
-        "入场",
-        "斜向",
-        "切入",
-        "位移"
-      ],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "511fe8e37f4ea9470af6ea3942114107d1286ee0d49cba7e4a9b2b24acf61a05",
-      "clip": {
-        "origin": 0,
-        "duration": 0.6673,
-        "layers": [
-          {
-            "name": "斜向切入入场",
-            "tracks": [
-              {
-                "path": [
-                  [
-                    "ADBE Transform Group",
-                    1
-                  ],
-                  [
-                    "ADBE Position",
-                    1
-                  ]
-                ],
-                "type": "ThreeD_SPATIAL",
-                "keys": [
-                  {
-                    "time": 0,
-                    "value": [
-                      173.9,
-                      -292.16,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.367,
-                    "value": [
-                      94.82,
-                      -176.41,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 756.593,
-                        "influence": 33.33
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 756.593,
-                        "influence": 33.33
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.6673,
-                    "value": [
-                      0,
-                      0,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "schemaVersion": 1,
-      "id": "a881e2bf-c35e-5056-ba80-471aa37ed26a",
-      "slug": "curated-overshoot-up",
-      "name": "过冲回弹上浮",
-      "category": "弹跳",
-      "phase": "in",
-      "defaultAnchor": "end",
-      "description": "越过目标点后轻弹回落，具备鲜活的手调弹性手感。",
-      "sourceStyle": "Bigtypo",
-      "tags": [
-        "入场",
-        "弹跳",
-        "过冲",
-        "上浮",
-        "位移"
-      ],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "fe5c768170df5dfa895785fd4f93b7787bb824c900c714ae93cd49820bf89fae",
-      "clip": {
-        "origin": 0,
-        "duration": 0.7007,
-        "layers": [
-          {
-            "name": "过冲回弹上浮",
-            "tracks": [
-              {
-                "path": [
-                  [
-                    "ADBE Transform Group",
-                    1
-                  ],
-                  [
-                    "ADBE Position",
-                    1
-                  ]
-                ],
-                "type": "ThreeD_SPATIAL",
-                "keys": [
-                  {
-                    "time": 0,
-                    "value": [
-                      0,
-                      293,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.4004,
-                    "value": [
-                      0,
-                      -8,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 75
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 50.13,
-                        "influence": 31.59
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.7007,
-                    "value": [
-                      0,
-                      0,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 75
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "schemaVersion": 1,
-      "id": "feba63c9-59c0-5235-ab4b-c403ec62b986",
-      "slug": "curated-overshoot-left",
-      "name": "过冲回弹左滑",
-      "category": "弹跳",
-      "phase": "in",
-      "defaultAnchor": "end",
-      "description": "从右侧冲过终点再微幅回弹，适合焦点卡片与弹窗。",
-      "sourceStyle": "Minimal",
-      "tags": [
-        "入场",
-        "弹跳",
-        "过冲",
-        "横向",
-        "位移"
-      ],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "fcf29dd462d9d6dd4d5d2f829e5ed449215928e5c61718ef2afcfcef590112da",
-      "clip": {
-        "origin": 0,
-        "duration": 1.368,
-        "layers": [
-          {
-            "name": "过冲回弹左滑",
-            "tracks": [
-              {
-                "path": [
-                  [
-                    "ADBE Transform Group",
-                    1
-                  ],
-                  [
-                    "ADBE Position",
-                    1
-                  ]
-                ],
-                "type": "ThreeD_SPATIAL",
-                "keys": [
-                  {
-                    "time": 0,
-                    "value": [
-                      277,
-                      0,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 78
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.8675,
-                    "value": [
-                      -35,
-                      0,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 98
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 80
-                      }
-                    ]
-                  },
-                  {
-                    "time": 1.368,
-                    "value": [
-                      0,
-                      0,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 81
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "schemaVersion": 1,
-      "id": "dd825f85-84b6-58cb-a740-13d1c6566276",
-      "slug": "curated-overshoot-right",
-      "name": "过冲回弹右滑",
-      "category": "弹跳",
-      "phase": "in",
-      "defaultAnchor": "end",
-      "description": "从左侧冲过终点再微幅回弹，适合气泡与按钮提示。",
-      "sourceStyle": "Modern",
-      "tags": [
-        "入场",
-        "弹跳",
-        "过冲",
-        "横向",
-        "位移"
-      ],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "04bf22f2b294ba9add5b9a6727b2e7006cb6fcdd5241571f2542c82725841ece",
-      "clip": {
-        "origin": 0,
-        "duration": 1.2346,
-        "layers": [
-          {
-            "name": "过冲回弹右滑",
-            "tracks": [
-              {
-                "path": [
-                  [
-                    "ADBE Transform Group",
-                    1
-                  ],
-                  [
-                    "ADBE Position",
-                    1
-                  ]
-                ],
-                "type": "ThreeD_SPATIAL",
-                "keys": [
-                  {
-                    "time": 0,
-                    "value": [
-                      -340,
-                      0,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 55
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.7341,
-                    "value": [
-                      23.11,
-                      0,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 75
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 16
-                      }
-                    ]
-                  },
-                  {
-                    "time": 1.2346,
-                    "value": [
-                      0,
-                      0,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 40
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "schemaVersion": 1,
-      "id": "47f49263-b7e3-53e5-90a2-478e7dd35a6f",
-      "slug": "curated-overshoot-down",
-      "name": "过冲回弹下落",
-      "category": "弹跳",
-      "phase": "in",
-      "defaultAnchor": "end",
-      "description": "自上坠落微超目标位后回弹稳定，适合徽章与掉落标签。",
-      "sourceStyle": "Fashion",
-      "tags": [
-        "入场",
-        "弹跳",
-        "过冲",
-        "下落",
-        "位移"
-      ],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "e1e3d9c0629f923f62fac4944467f5e838336f87ac1982c5f46e701fa80b02a0",
-      "clip": {
-        "origin": 0,
-        "duration": 1.1345,
-        "layers": [
-          {
-            "name": "过冲回弹下落",
-            "tracks": [
-              {
-                "path": [
-                  [
-                    "ADBE Transform Group",
-                    1
-                  ],
-                  [
-                    "ADBE Position",
-                    1
-                  ]
-                ],
-                "type": "ThreeD_SPATIAL",
-                "keys": [
-                  {
-                    "time": 0,
-                    "value": [
-                      0,
-                      -340,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.6006,
-                    "value": [
-                      0,
-                      49.42,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 20.852,
-                        "influence": 20
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 20.852,
-                        "influence": 20
-                      }
-                    ]
-                  },
-                  {
-                    "time": 1.1345,
-                    "value": [
-                      0,
-                      0,
-                      0
-                    ],
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 77
                       }
                     ],
                     "outEase": [
@@ -3558,105 +2999,6 @@
                       {
                         "speed": 0,
                         "influence": 55
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "schemaVersion": 1,
-      "id": "8bddd475-6820-56a4-b99f-b12f9443f4a8",
-      "slug": "curated-opacity-silky-in",
-      "name": "丝滑渐显",
-      "category": "入场",
-      "phase": "in",
-      "defaultAnchor": "end",
-      "description": "精细缓动透明度淡入，百搭背景与文字元素。",
-      "sourceStyle": "Minimal",
-      "tags": [
-        "入场",
-        "淡入",
-        "透明度",
-        "柔和"
-      ],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "b5b7de8c6575eb51bc2dbee320472cc00d2f72e0a33743a3868eabf59ece792a",
-      "clip": {
-        "origin": 0,
-        "duration": 1.2679,
-        "layers": [
-          {
-            "name": "丝滑渐显",
-            "tracks": [
-              {
-                "path": [
-                  [
-                    "ADBE Transform Group",
-                    1
-                  ],
-                  [
-                    "ADBE Opacity",
-                    1
-                  ]
-                ],
-                "type": "OneD",
-                "keys": [
-                  {
-                    "time": 0,
-                    "value": 0,
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 78
-                      }
-                    ]
-                  },
-                  {
-                    "time": 0.6673,
-                    "value": 44,
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 98
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 98
-                      }
-                    ]
-                  },
-                  {
-                    "time": 1.2679,
-                    "value": 100,
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 50
                       }
                     ],
                     "outEase": [
@@ -5571,90 +4913,9 @@
     },
     {
       "schemaVersion": 1,
-      "id": "aec01bf0-a7e6-55da-9f14-81d6f29e50d9",
-      "slug": "curated-exit-fade-out",
-      "name": "丝滑淡出退场",
-      "category": "出场",
-      "phase": "out",
-      "defaultAnchor": "start",
-      "description": "平滑渐隐消失，适合任何元素的柔和收尾。",
-      "sourceStyle": "Vintage",
-      "tags": [
-        "出场",
-        "退场",
-        "淡出",
-        "透明度"
-      ],
-      "createdAt": "2026-01-01T00:00:00.000Z",
-      "contentHash": "e8d6997805d4db0c03d80cec7278c38aa2061a94316084e68f5de2684944be79",
-      "clip": {
-        "origin": 0,
-        "duration": 1.0677,
-        "layers": [
-          {
-            "name": "丝滑淡出退场",
-            "tracks": [
-              {
-                "path": [
-                  [
-                    "ADBE Transform Group",
-                    1
-                  ],
-                  [
-                    "ADBE Opacity",
-                    1
-                  ]
-                ],
-                "type": "OneD",
-                "keys": [
-                  {
-                    "time": 0,
-                    "value": 100,
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 33.33
-                      }
-                    ]
-                  },
-                  {
-                    "time": 1.0677,
-                    "value": 0,
-                    "inInterp": "bezier",
-                    "outInterp": "bezier",
-                    "inEase": [
-                      {
-                        "speed": 0,
-                        "influence": 90
-                      }
-                    ],
-                    "outEase": [
-                      {
-                        "speed": 0,
-                        "influence": 16.67
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "schemaVersion": 1,
       "id": "30a6d7d2-40eb-5487-bc82-b97796e7e8b6",
       "slug": "curated-ui-fade-up",
-      "name": "UI 轻盈上浮淡入",
+      "name": "轻盈上浮淡入",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -5795,7 +5056,7 @@
       "schemaVersion": 1,
       "id": "dfb9e704-675e-5a49-9ad3-3e0145241dce",
       "slug": "curated-ui-fade-down",
-      "name": "UI 轻盈下沉淡入",
+      "name": "轻盈下沉淡入",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -5936,7 +5197,7 @@
       "schemaVersion": 1,
       "id": "c4686fe8-a7a0-52fd-afcb-bcd06f0c5710",
       "slug": "curated-ui-fade-left",
-      "name": "UI 轻盈左移淡入",
+      "name": "轻盈左移淡入",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -6077,7 +5338,7 @@
       "schemaVersion": 1,
       "id": "ae92cebe-d8bf-52b0-ad50-5349a3d36297",
       "slug": "curated-ui-fade-right",
-      "name": "UI 轻盈右移淡入",
+      "name": "轻盈右移淡入",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -6218,7 +5479,7 @@
       "schemaVersion": 1,
       "id": "054746f8-8481-5c83-a095-970d8e0f2e37",
       "slug": "curated-ui-fade-out-up",
-      "name": "UI 轻盈上滑淡出",
+      "name": "轻盈上滑淡出",
       "category": "出场",
       "phase": "out",
       "defaultAnchor": "start",
@@ -6347,7 +5608,7 @@
       "schemaVersion": 1,
       "id": "30f333a0-473b-5f0c-a07c-646255e9ae34",
       "slug": "rb-content-rise",
-      "name": "RB 内容上浮",
+      "name": "内容上浮",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -6488,7 +5749,7 @@
       "schemaVersion": 1,
       "id": "387fa934-fe30-52a0-ba74-1f96d881ac94",
       "slug": "rb-content-glide",
-      "name": "RB 内容横移",
+      "name": "内容横移",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -6629,7 +5890,7 @@
       "schemaVersion": 1,
       "id": "5294f4e8-3ed1-5748-95f0-32ef63e8a728",
       "slug": "rb-content-fade",
-      "name": "RB 内容淡入",
+      "name": "内容淡入",
       "category": "入场",
       "phase": "in",
       "defaultAnchor": "end",
@@ -6710,7 +5971,7 @@
       "schemaVersion": 1,
       "id": "800e5d32-a5af-5da4-bd2d-23812094b209",
       "slug": "rb-content-zoom",
-      "name": "RB 内容微缩",
+      "name": "内容微缩",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -6883,7 +6144,7 @@
       "schemaVersion": 1,
       "id": "ca598e48-7628-5c6f-81ac-4cfaedb08b2c",
       "slug": "rb-back-pop",
-      "name": "RB 弹性弹出",
+      "name": "弹性弹出",
       "category": "弹跳",
       "phase": "in",
       "defaultAnchor": "end",
@@ -7056,7 +6317,7 @@
       "schemaVersion": 1,
       "id": "ceb6b7fd-0861-570d-be1d-ff6eed72483e",
       "slug": "rb-exit-sink",
-      "name": "RB 内容下沉退场",
+      "name": "内容下沉退场",
       "category": "出场",
       "phase": "out",
       "defaultAnchor": "start",
@@ -7184,7 +6445,7 @@
       "schemaVersion": 1,
       "id": "077d7a74-b8c5-5d33-84ab-b8ea1a3b2289",
       "slug": "ac-modal-pop",
-      "name": "AC 弹窗弹性入场",
+      "name": "弹窗弹性入场",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -7416,7 +6677,7 @@
       "schemaVersion": 1,
       "id": "f8c9503d-7c03-5b09-997a-7f32a000db4e",
       "slug": "ac-tooltip-pop",
-      "name": "AC 提示卡轻弹",
+      "name": "提示卡轻弹",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -7648,7 +6909,7 @@
       "schemaVersion": 1,
       "id": "a7f4b750-fa87-555f-8556-ff306b271da8",
       "slug": "ac-testimonial-turn",
-      "name": "AC 证言卡旋入",
+      "name": "证言卡旋入",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -7872,7 +7133,7 @@
       "schemaVersion": 1,
       "id": "fcfa51a5-6432-560c-b1cc-3822ab250de9",
       "slug": "ac-flip-line",
-      "name": "AC 标题行翻入",
+      "name": "标题行翻入",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -8013,7 +7274,7 @@
       "schemaVersion": 1,
       "id": "0d4d6c75-66a8-5750-984a-677c3594066f",
       "slug": "au-slide-up",
-      "name": "AU 弹簧上滑",
+      "name": "弹簧上滑",
       "category": "入场",
       "phase": "in",
       "defaultAnchor": "end",
@@ -8103,7 +7364,7 @@
       "schemaVersion": 1,
       "id": "24ca73a7-0815-5b32-80ae-88c66e8b8d7e",
       "slug": "au-zoom-in",
-      "name": "AU 弹簧缩放入场",
+      "name": "弹簧缩放入场",
       "category": "缩放",
       "phase": "in",
       "defaultAnchor": "end",
@@ -8224,7 +7485,7 @@
       "schemaVersion": 1,
       "id": "4804d826-d3f5-544f-bc46-e4bf7d68a4e1",
       "slug": "au-effect",
-      "name": "AU 组合入场",
+      "name": "组合入场",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -8456,7 +7717,7 @@
       "schemaVersion": 1,
       "id": "7383cdef-036c-5876-bd94-81b3e09a697e",
       "slug": "au-dialog-in",
-      "name": "AU 弹窗入场",
+      "name": "弹窗入场",
       "category": "组合",
       "phase": "in",
       "defaultAnchor": "end",
@@ -8628,7 +7889,7 @@
       "schemaVersion": 1,
       "id": "14b1c649-885b-577a-86fc-a6e3638a18be",
       "slug": "os-highlight-sweep",
-      "name": "OS 高亮扫入",
+      "name": "高亮扫入",
       "category": "强调",
       "phase": "in",
       "defaultAnchor": "end",
@@ -8750,7 +8011,7 @@
       "schemaVersion": 1,
       "id": "66cf8ab9-02d4-5484-a99e-c4c5b4ca6938",
       "slug": "sc-crash-zoom",
-      "name": "SC 急推特写",
+      "name": "急推特写",
       "category": "缩放",
       "phase": "in",
       "defaultAnchor": "start",
@@ -8893,6 +8154,450 @@
                         "speed": 0,
                         "influence": 33.33
                       },
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "a881e2bf-c35e-5056-ba80-471aa37ed26a",
+      "slug": "curated-overshoot-up",
+      "name": "过冲回弹上浮",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "过冲回弹入场（统一版）：320px 位移、约 8% 过冲、0.9s，四个方向共用同一时间与曲线。",
+      "sourceStyle": "curated",
+      "tags": [
+        "弹跳",
+        "过冲",
+        "回弹",
+        "上浮"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "f3f374bcd8467b76af07a68c37c5bffd02b496abc71a9e729693407d8e668f2c",
+      "clip": {
+        "origin": 0,
+        "duration": 0.9,
+        "layers": [
+          {
+            "name": "过冲回弹上浮",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      320,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 1887.835,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.52,
+                    "value": [
+                      0,
+                      -26,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.9,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "47f49263-b7e3-53e5-90a2-478e7dd35a6f",
+      "slug": "curated-overshoot-down",
+      "name": "过冲回弹下落",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "过冲回弹入场（统一版）：320px 位移、约 8% 过冲、0.9s，四个方向共用同一时间与曲线。",
+      "sourceStyle": "curated",
+      "tags": [
+        "弹跳",
+        "过冲",
+        "回弹",
+        "下落"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "ceaee7aa4f7cbdd1881899f1f44ff13d5df664ac8e7a302e5358107516a650d4",
+      "clip": {
+        "origin": 0,
+        "duration": 0.9,
+        "layers": [
+          {
+            "name": "过冲回弹下落",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      0,
+                      -320,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 1887.835,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.52,
+                    "value": [
+                      0,
+                      26,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.9,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "feba63c9-59c0-5235-ab4b-c403ec62b986",
+      "slug": "curated-overshoot-left",
+      "name": "过冲回弹左滑",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "过冲回弹入场（统一版）：320px 位移、约 8% 过冲、0.9s，四个方向共用同一时间与曲线。",
+      "sourceStyle": "curated",
+      "tags": [
+        "弹跳",
+        "过冲",
+        "回弹",
+        "左滑"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "e7fcfee5796b9af69d555127bb76b331980aba5ba27612e69326fa6aab5176ae",
+      "clip": {
+        "origin": 0,
+        "duration": 0.9,
+        "layers": [
+          {
+            "name": "过冲回弹左滑",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      320,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 1887.835,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.52,
+                    "value": [
+                      -26,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.9,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "dd825f85-84b6-58cb-a740-13d1c6566276",
+      "slug": "curated-overshoot-right",
+      "name": "过冲回弹右滑",
+      "category": "弹跳",
+      "phase": "in",
+      "defaultAnchor": "end",
+      "description": "过冲回弹入场（统一版）：320px 位移、约 8% 过冲、0.9s，四个方向共用同一时间与曲线。",
+      "sourceStyle": "curated",
+      "tags": [
+        "弹跳",
+        "过冲",
+        "回弹",
+        "右滑"
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "contentHash": "6e7f282d38c0b3dd1b8a2ed59e4ccf7477fcfc6954c70d02c9cbf9fdb2dc6212",
+      "clip": {
+        "origin": 0,
+        "duration": 0.9,
+        "layers": [
+          {
+            "name": "过冲回弹右滑",
+            "tracks": [
+              {
+                "path": [
+                  [
+                    "ADBE Transform Group",
+                    1
+                  ],
+                  [
+                    "ADBE Position",
+                    1
+                  ]
+                ],
+                "type": "ThreeD_SPATIAL",
+                "keys": [
+                  {
+                    "time": 0,
+                    "value": [
+                      -320,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 33.33
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 1887.835,
+                        "influence": 21.5
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.52,
+                    "value": [
+                      26,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 64.5
+                      }
+                    ],
+                    "outEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ]
+                  },
+                  {
+                    "time": 0.9,
+                    "value": [
+                      0,
+                      0,
+                      0
+                    ],
+                    "inInterp": "bezier",
+                    "outInterp": "bezier",
+                    "inEase": [
+                      {
+                        "speed": 0,
+                        "influence": 65
+                      }
+                    ],
+                    "outEase": [
                       {
                         "speed": 0,
                         "influence": 33.33

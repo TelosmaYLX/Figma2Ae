@@ -21,6 +21,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
 import uuid
 from collections import defaultdict
@@ -1175,7 +1176,46 @@ RETIRED_SLUGS = {
     "au-fade",                     # plain opacity fade already covered by curated-opacity-silky-in / rb-content-fade
     "au-menu-in",                  # 90→100% scale over 0.22s duplicates au-dialog-in (80→100% over 0.5s)
     "os-underline-draw",           # same 0→100% scaleX sweep family as os-highlight-sweep
+    # 2026-11-25 second pass: user-requested removals / replacements
+    "curated-diag-swoop-in",       # diagonal entrance removed by request (unstable direction mix)
+    "curated-opacity-silky-in",    # "丝滑渐显" removed by request
+    "curated-exit-fade-out",       # "丝滑淡出退场" removed by request
+    "curated-overshoot-up",        # replaced by the unified overshoot quartet (same travel/speed across directions)
+    "curated-overshoot-left",
+    "curated-overshoot-right",
+    "curated-overshoot-down",
 }
+
+BRAND_PREFIX_RE = re.compile(r"^(?:RB|AC|AU|OS|SC|UI|PB)\s+")
+def strip_brand_prefix(name):
+    """Drop the source-pack prefix (RB/AC/AU/OS/SC/UI/…) from a display name."""
+    return BRAND_PREFIX_RE.sub("", name)
+
+
+def unified_overshoot_clips():
+    """Four identical overshoot entrances (up/down/left/right) so displacement, overshoot and speed match.
+
+    The harvested variants had travels of 277–340px, overshoot ratios of 2.7%–14.5% and durations of
+    0.70–1.37s; that read as four different motions. This uses one template: 320px travel, 8% overshoot,
+    0.9s, with the same two curves on every direction.
+    """
+    specs = [
+        ("curated-overshoot-up", "过冲回弹上浮", [0, 320, 0], [0, -26, 0]),
+        ("curated-overshoot-down", "过冲回弹下落", [0, -320, 0], [0, 26, 0]),
+        ("curated-overshoot-left", "过冲回弹左滑", [320, 0, 0], [-26, 0, 0]),
+        ("curated-overshoot-right", "过冲回弹右滑", [-320, 0, 0], [26, 0, 0]),
+    ]
+    clips = []
+    for slug, name, start, overshoot in specs:
+        clips.append(synth_clip(
+            slug, name, "弹跳", "in", "end",
+            "过冲回弹入场（统一版）：320px 位移、约 8% 过冲、0.9s，四个方向共用同一时间与曲线。",
+            ["弹跳", "过冲", "回弹", name[-2:]],
+            0.9,
+            [("position", [0, 0.52, 0.9], [start, overshoot, [0, 0, 0]], [RB_POWER3_OUT, RB_POWER2_IN_OUT])],
+            source_style="curated",
+        ))
+    return clips
 
 
 def reactbits_clips():
@@ -1639,8 +1679,10 @@ def main():
 
     buckets = harvest_from_source(args.source)
     clips = curate_library(buckets) + reactbits_clips() + aceternity_clips() + animate_ui_clips() + osmo_clips() + video_shotcraft_clips()
-    clips = [c for c in clips if c["slug"] not in RETIRED_SLUGS]
+    clips = [c for c in clips if c["slug"] not in RETIRED_SLUGS] + unified_overshoot_clips()
     presets = procedural_presets()
+    for item in clips + presets:
+        item["name"] = strip_brand_prefix(item["name"])
 
     payload = {
         "schemaVersion": 1,

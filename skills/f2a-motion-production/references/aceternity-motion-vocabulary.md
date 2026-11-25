@@ -9,7 +9,7 @@
 
 ## 1. 概述
 
-> **2026-11-25 去重精简**：`preset-ac-typewriter`（逐字 fade）与通用 `preset-text-fade` 高度重复、`preset-ac-container-flip`（逐字 blur）与 `preset-text-blur` / `preset-rb-split-blur` 高度重复，均已从内置库移除；当前库总量为 **58 clips / 41 presets**。下文保留原始分析记录，以 `motion-library/builtin.json` 为准。
+> **2026-11-25 去重精简**：`preset-ac-typewriter`（逐字 fade）与通用 `preset-text-fade` 高度重复、`preset-ac-container-flip`（逐字 blur）与 `preset-text-blur` / `preset-rb-split-blur` 高度重复，均已从内置库移除；当前库总量为 **55 clips / 41 presets**。下文保留原始分析记录，以 `motion-library/builtin.json` 为准。
 
 ### 1.1 它是什么
 

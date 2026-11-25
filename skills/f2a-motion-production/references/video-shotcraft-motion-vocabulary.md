@@ -190,7 +190,7 @@ F2A 对应：`preset-trans-flash` / `kind: procedural` / `command: transition`�
 
 ### 4.4 库总量与命名
 
-- 当前 `motion-library/builtin.json`：**58 条 curated clips / 41 条 procedural presets**（2026-11-25 去重精简后；以该文件为准）。其中 video-shotcraft 贡献 **1 clip + 2 presets**，其余为既有 Minimal / ReactBits / Aceternity / AnimateUI / Osmo 等包。
+- 当前 `motion-library/builtin.json`：**55 条 curated clips / 41 条 procedural presets**（2026-11-25 去重精简后；以该文件为准）。其中 video-shotcraft 贡献 **1 clip + 2 presets**，其余为既有 Minimal / ReactBits / Aceternity / AnimateUI / Osmo 等包。
 - 命名分工：`preset-sc-*`（文字/转场预设）、`sc-*`（内容片段 slug）、`sourceStyle: VideoShotcraft`、标签含 `VideoShotcraft`。对照其他包：RB `preset-rb-*` / `rb-content-*`，AC `preset-ac-*`，AU `preset-au-*`，OS 三条转场 `preset-trans-fade / split / shutter` 与 `os-highlight-sweep`；通用转场是 `preset-trans-wipe / bars / iris / fade / split / shutter`，本轮新增的 `flash` 是其中一员。
 - `sc-crash-zoom` 归在「缩放」类而非「入场」，因为它是镜头语言不是元素入场；`phase: in` 只表示作用在镜头开头。
 

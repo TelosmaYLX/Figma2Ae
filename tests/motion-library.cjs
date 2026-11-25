@@ -76,6 +76,29 @@ async function check() {
   assert.ok(Array.isArray(builtin.presets) && builtin.presets.length >= 18, 'expected >= 18 procedural presets');
   assert.ok(Array.isArray(builtin.clips) && builtin.clips.length >= 40, 'expected >= 40 curated clips');
 
+  // Display names are source-agnostic: the pack prefixes (RB/AC/AU/OS/SC/UI) were stripped.
+  for (const item of [...builtin.clips, ...builtin.presets]) {
+    assert.doesNotMatch(item.name, /^(?:RB|AC|AU|OS|SC|UI|PB)\s/, 'brand prefix leaked into display name: ' + item.name);
+  }
+  // The four overshoot entrances share one tuned template: 320px travel, ~8% overshoot, 0.9s.
+  const overshoots = builtin.clips.filter(item => item.slug.startsWith('curated-overshoot'));
+  assert.equal(overshoots.length, 4, 'expected the four unified overshoot clips');
+  const overshootRef = overshoots[0].clip.layers[0].tracks[0];
+  for (const clip of overshoots) {
+    const tr = clip.clip.layers[0].tracks[0];
+    assert.ok(Math.abs(clip.clip.duration - 0.9) < 1e-6, 'overshoot duration must be 0.9s: ' + clip.slug);
+    assert.deepEqual(tr.keys.map(k => Math.round(k.time * 1000) / 1000), [0, 0.52, 0.9], 'overshoot key timing: ' + clip.slug);
+    const start = tr.keys[0].value, mid = tr.keys[1].value, end = tr.keys[2].value;
+    const travel = Math.hypot(end[0] - start[0], end[1] - start[1]);
+    const overshoot = Math.hypot(mid[0] - end[0], mid[1] - end[1]);
+    assert.ok(Math.abs(travel - 320) < 0.5, clip.slug + ' travel is not 320px: ' + travel);
+    assert.ok(Math.abs(overshoot - 26) < 0.5, clip.slug + ' overshoot is not 26px: ' + overshoot);
+    assert.ok(Math.abs(overshoot / travel - 26 / 320) < 0.002, clip.slug + ' overshoot ratio differs');
+    assert.deepEqual(tr.keys.map(k => [k.inEase && k.inEase[0] && k.inEase[0].influence, k.outEase && k.outEase[0] && k.outEase[0].influence]),
+      overshootRef.keys.map(k => [k.inEase && k.inEase[0] && k.inEase[0].influence, k.outEase && k.outEase[0] && k.outEase[0].influence]),
+      'overshoot easing differs across directions: ' + clip.slug);
+  }
+
   const seenIds = new Set();
   for (const item of builtin.clips) {
     assert.equal(item.schemaVersion, 1);
