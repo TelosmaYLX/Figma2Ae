@@ -9,7 +9,7 @@
 | 分类 | `F2A 插件` |
 | 参数 | 曝光、对比度、饱和度、白平衡、着色、高光、阴影（Figma 面板数值 −100 ~ +100，默认 0） |
 | 版本 | 1.3.0（PiPL 622593） |
-| 二进制 | `FigmaImageGrade.aex`（x64，46,080 B，SHA256 `b16819f997f97b0a2872468cd0a71cb9719230432fdf7625235737a4cabc1861`，`/arch:AVX2` 编译，需要 AVX2 CPU） |
+| 二进制 | `FigmaImageGrade.aex`（x64，46,080 B，SHA256 `2faa1c8c790a0eeb182969aba39e61e09e8473cdfe955982ec20e0387d2b1f20`，`/arch:AVX2` 编译，需要 AVX2 CPU） |
 | 构建 | After Effects SDK 27.0 (Windows) + MSVC 19.44 (v143) + MSBuild |
 | 已验证宿主 | After Effects CC 2019（16.1.3）与 After Effects 2026（26.0x67），Windows x64，8 bpc，简体中文 UI。插件只调用长期存在的效果 API：两个宿主用 `aerender` 渲染同一调色工程，红通道为 204–205，与 Figma 参考 205 相差不超过 1 色阶（未调色为 254）。 |
 | 多帧渲染 | PiPL 与 `PF_Cmd_GLOBAL_SETUP` 均声明 `PF_OutFlag2_SUPPORTS_THREADED_RENDERING` |

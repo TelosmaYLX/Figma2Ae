@@ -62,7 +62,7 @@ resource 'PiPL' (16000) {
 			0x02000000
 		},
 		AE_Effect_Global_OutFlags_2 {
-			0x8000000
+			0x48000000 /* threaded rendering and UTF-8 strings, matching GlobalSetup */
 		},
 		/* [11] */
 		AE_Effect_Match_Name {
