@@ -9,7 +9,7 @@
 | Match Name（脚本用） | `F2A Figma Background Blur` |
 | 分类 | `F2A 插件` |
 | 版本 | 1.8.0 |
-| 二进制 | `FigmaBackgroundBlur.aex`（x64，44,032 B，SHA256 `bb75d001b4428e9d6c0368be73bfb829dddc1d322e051e2a7a9074ced203d985`；仓库不含二进制，按下文构建即可得到同一文件） |
+| 二进制 | `FigmaBackgroundBlur.aex`（x64，44,032 B，SHA256 `bb75d001b4428e9d6c0368be73bfb829dddc1d322e051e2a7a9074ced203d985`） |
 | 构建 | After Effects SDK 27.0 (Windows) + MSVC 19.44 (v143) + MSBuild |
 | 已验证宿主 | After Effects 2026（26.0x67），Windows x64，8 bpc，简体中文 UI |
 | 多帧渲染 | PiPL `AE_Effect_Global_OutFlags_2` 与 `PF_Cmd_GLOBAL_SETUP` 均声明 `PF_OutFlag2_SUPPORTS_THREADED_RENDERING` |
@@ -143,9 +143,10 @@ v1.8 的结构性改动：
 
 ## 8. 文件清单
 
-仓库内只保留源码、构建/校验脚本、说明与指标 JSON（演示工程、演示视频、插件二进制和对照图属于验证产物，不随仓库分发，可用 `ae-plugin/tests/` 下的脚本重新生成）：
+仓库内保留源码、构建/校验脚本、说明、指标 JSON 与编译好的插件二进制（演示工程、演示视频和对照图属于验证产物，不随仓库分发，可用 `ae-plugin/tests/` 下的脚本重新生成）：
 
 ```
+FigmaBackgroundBlur.aex                        # v1.8 插件二进制（x64，44,032 B，已安装到 AE 2026/2027）
 fidelity_metrics.json                          # 全部指标、架构说明与参数来源
 src/                                           # 源码：kernel + 插件 + PiPL + vcxproj
 src/Win/FigmaBackgroundBlur.vcxproj            # VS 工程（Release x64）
