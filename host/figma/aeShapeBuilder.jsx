@@ -2141,94 +2141,6 @@ var AEShapeBuilder = (function () {
     return applied;
   }
 
-  // ---- Figma 背景模糊 (native plug-in effect on an adjustment layer) ----
-  // Figma's backdrop blur samples the artwork painted behind the node inside the node's fill
-  // silhouette. The AE equivalent is an adjustment layer sized like the node, masked by its
-  // fill path, carrying the F2A Figma Background Blur plug-in, sitting directly under the node
-  // and parented to it so the blurred region follows every transform.
-  function backgroundBlurEllipse(w, h) {
-    var sh = new Shape(), cx = w / 2, cy = h / 2;
-    var rx = w / 2, ry = h / 2, kx = 0.5522847498 * rx, ky = 0.5522847498 * ry;
-    sh.vertices = [[cx, cy - ry], [cx + rx, cy], [cx, cy + ry], [cx - rx, cy]];
-    sh.inTangents = [[-kx, 0], [0, -ky], [kx, 0], [0, ky]];
-    sh.outTangents = [[kx, 0], [0, ky], [-kx, 0], [0, -ky]];
-    sh.closed = true;
-    return sh;
-  }
-
-  function backgroundBlurMaskShape(mask) {
-    if (!mask) return null;
-    if (mask.kind === 'path' && mask.d) {
-      // The writer receives parsed subpaths; the host parses the same node-local SVG path.
-      var parts = null;
-      try { parts = SVGParser.parsePathData(mask.d); } catch (eparse) { return null; }
-      if (!parts || parts.length !== 1) return null;
-      var sh = new Shape();
-      sh.vertices = parts[0].verts;
-      sh.inTangents = parts[0].inT;
-      sh.outTangents = parts[0].outT;
-      sh.closed = true;
-      return sh;
-    }
-    if (mask.kind === 'rect') return roundedRectShape(0, 0, mask.w, mask.h, mask.r || 0);
-    if (mask.kind === 'ellipse') return backgroundBlurEllipse(mask.w, mask.h);
-    return null;
-  }
-
-  function addFigmaBackgroundBlur(layer, req) {
-    var fx = layer.property("ADBE Effect Parade").addProperty("F2A Figma Background Blur");
-    var start = req.startOffset || [0.5, 0], end = req.endOffset || [0.5, 1];
-    var values = [req.mode === 'progressive' ? 2 : 1, req.radius || 0,
-      req.startRadius || 0, req.endRadius || 0,
-      (start[0] || 0) * 100, (start[1] || 0) * 100,
-      (end[0] || 0) * 100, (end[1] || 0) * 100, 0];
-    for (var i = 0; i < values.length; i++) fx.property(i + 1).setValue(values[i]);
-    return fx;
-  }
-
-  // Runs after organize(): the source precomp layers exist by then.
-  function applyBackgroundBlurs(requests) {
-    if (!requests || !requests.length) return 0;
-    var applied = 0, failed = 0;
-    beginUndo("Figma -> Background blur");
-    try {
-      for (var i = 0; i < requests.length; i++) {
-        var req = requests[i];
-        var source = _containerLayers[req.container];
-        if (!source) { failed++; _diag.push("BG blur source " + (req.name || "?")); continue; }
-        try {
-          var comp = source.containingComp;
-          var W = Math.max(1, Math.round(req.size[0])), H = Math.max(1, Math.round(req.size[1]));
-          var layer = comp.layers.addSolid([0, 0, 0], req.name || "背景模糊", W, H, 1);
-          layer.name = req.name || "背景模糊";
-          layer.adjustmentLayer = true;
-          var tg = layer.property("ADBE Transform Group");
-          tg.property("ADBE Anchor Point").setValue([req.size[0] / 2, req.size[1] / 2, 0]);
-          tg.property("ADBE Position").setValue([req.position[0], req.position[1], 0]);
-          if (req.rotation) tg.property("ADBE Rotate Z").setValue(req.rotation);
-          var scale = req.scale || [100, 100];
-          tg.property("ADBE Scale").setValue([scale[0], scale[1], 100]);
-          var shape = backgroundBlurMaskShape(req.mask);
-          if (!shape) throw new Error("背景模糊遮罩无效");
-          var atom = layer.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
-          atom.name = "背景模糊区域";
-          atom.property("ADBE Mask Shape").setValue(shape);
-          try { atom.maskMode = MaskMode.ADD; } catch (emode) {}
-          atom.property("ADBE Mask Feather").setValue([0, 0]);
-          addFigmaBackgroundBlur(layer, req);
-          layer.moveAfter(source);                 // only the artwork ABOVE this layer stays sharp
-          // ExtendScript's `parent` setter keeps the layer's place in the composition (it rewrites
-          // the local transform); `setParentWithJump` would move the whole blur region away.
-          try { layer.parent = source; }
-          catch (eparent) { _diag.push("BG blur parent " + (req.name || "?")); }
-          applied++;
-        } catch (e) { failed++; _diag.push("BG blur " + (req.name || "?") + ":" + String(e).substr(0, 40)); }
-      }
-    } finally { endUndo(); }
-    if (applied) _diag.push("背景模糊 " + applied + (failed ? "/" + (applied + failed) : ""));
-    return applied;
-  }
-
   function buildImages(comp, images, folder, containers) {
     if (!comp || !(comp instanceof CompItem) || !images || !images.length) return 0;
     _containerLayers = {}; _gradeRequests = [];
@@ -2319,7 +2231,7 @@ var AEShapeBuilder = (function () {
   }
 
   return { withUndo: withUndo, build: build, buildText: createTextLayers, buildImages: buildImages, organize: organize,
-    applyImageGrades: applyImageGrades, applyBackgroundBlurs: applyBackgroundBlurs,
+    applyImageGrades: applyImageGrades,
     // Flat imports need the same z correction as precomposed ones, but without building groups.
     restack: function (comp) { restackByZ(); relinkMattes(); refreshTextSkewPivots(comp); verifyStack(comp); placeReferences(comp); },
     getDiag: function () {

@@ -59,21 +59,12 @@ try {
         throw
     }
 
-    # Pulling an update already installs the native F2A effects (Figma 调色 + Figma 背景模糊)
-    # into every AE CC 2019+ install. The panel retries later if this copy had no permission.
-    $f2aPluginFolder = Join-Path (Split-Path -Parent $PSScriptRoot) 'ae-plugins'
-    $f2aPluginFiles = @()
-    if (Test-Path -LiteralPath $f2aPluginFolder -PathType Container) {
-        $f2aPluginFiles = @(Get-ChildItem -LiteralPath $f2aPluginFolder -Filter '*.aex' -File -ErrorAction SilentlyContinue |
-            ForEach-Object { $_.FullName })
-    }
-    if ($f2aPluginFiles.Count -eq 0) {
-        $f2aGradePlugin = Join-Path $f2aPluginFolder 'FigmaImageGrade.aex'
-        if (Test-Path -LiteralPath $f2aGradePlugin) { $f2aPluginFiles = @($f2aGradePlugin) }
-    }
-    if ($f2aPluginFiles.Count -gt 0) {
-        try { & (Join-Path $PSScriptRoot 'install-ae-plugins.ps1') -AexPath $f2aPluginFiles }
-        catch { Write-Warning ('F2A AE 插件安装失败：' + $_.Exception.Message) }
+    # Pulling an update already installs the native Figma 调色 effect into every AE CC 2019+
+    # install. The panel retries later if this copy had no permission.
+    $f2aGradePlugin = Join-Path (Split-Path -Parent $PSScriptRoot) 'ae-plugins\FigmaImageGrade.aex'
+    if (Test-Path -LiteralPath $f2aGradePlugin) {
+        try { & (Join-Path $PSScriptRoot 'install-ae-plugins.ps1') -AexPath $f2aGradePlugin }
+        catch { Write-Warning ('Figma 调色插件安装失败：' + $_.Exception.Message) }
     }
 
     if (-not $Update) {

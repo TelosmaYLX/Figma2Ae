@@ -39,9 +39,6 @@ var _ignoreHidden = true;
 var _convertMasks = false;      // original-compatible default: masks stay ordinary Figma layers
 var _nativeImageMasks = false;
 var _preserveImageFilters = false;
-var _preserveBackgroundBlur = false;
-var _backgroundBlurRequests = [];   // Figma BACKGROUND_BLUR -> AE adjustment layer requests
-var _backgroundBlurSkipped = 0;     // requests that lost their source layer (reported in the panel)
 var _directAep = false;
 var _webTarget = false;
 var _independentMasks = {};
@@ -485,134 +482,6 @@ function _imageGradePasses(n, organize, rootId) {
   });
   return passes;
 }
-// ===== BACKGROUND BLUR (Figma backdrop blur -> AE adjustment layer) =====
-// Figma's BACKGROUND_BLUR samples the artwork painted behind the node inside the node's own
-// fill silhouette. AE can reproduce that with an adjustment layer carrying the F2A plug-in
-// effect: same size as the node, a mask from the node's fill path, placed directly below the
-// node's layer and parented to it, so the blurred region follows every transform.
-function _backgroundBlurPaints(n) {
-  try {
-    var fills = n.fills;
-    if (!fills || fills === figma.mixed) return false;
-    for (var i = 0; i < fills.length; i++) {
-      var paint = fills[i];
-      if (paint.visible === false) continue;
-      // Figma paints no backdrop blur at all when every visible fill is fully transparent.
-      if (paint.opacity != null && paint.opacity <= 0) continue;
-      return true;
-    }
-  } catch (e) {}
-  return false;
-}
-function _backgroundBlurMask(n) {
-  if (n.type === 'TEXT') return null;
-  var geometry = null;
-  try { geometry = n.fillGeometry || []; } catch (e) { return null; }
-  // One contour is the shape this adjustment layer can carry. Holes (several subpaths) would
-  // need mask subtraction the writer does not model, so those nodes stay rasterised.
-  if (geometry.length !== 1 || !geometry[0] || !geometry[0].data) return null;
-  if ((geometry[0].data.match(/[Mm]/g) || []).length !== 1) return null;
-  return { kind: 'path', d: geometry[0].data, windingRule: geometry[0].windingRule || 'NONZERO' };
-}
-// True when the export structure can give this node a source precomp layer to parent to.
-function _backgroundBlurSupported(n, organize) {
-  if (!_preserveBackgroundBlur || _webTarget) return false;
-  if (_maskSourceByNode[n.id]) return false;
-  if (_precompLayers) return true;
-  return !!organize && _isContainer(n);
-}
-function _queueBackgroundBlur(n, effect, organize) {
-  if (!_backgroundBlurSupported(n, organize)) return false;
-  // Figma paints nothing when every visible fill is fully transparent: keep the node editable
-  // and simply leave the effect out instead of baking a PNG for it.
-  if (!_backgroundBlurPaints(n)) return true;
-  // radius 0 paints nothing; keeping the layer editable and skipping the effect matches Figma.
-  if (!((effect.radius || 0) > 0)) return true;
-  var mask = _backgroundBlurMask(n);
-  if (!mask) return false;
-  var m = n.absoluteTransform;
-  if (!m || !m[0] || !m[1] || !(n.width > 0) || !(n.height > 0)) return false;
-  var a = m[0][0], b = m[1][0], c = m[0][1], d = m[1][1];
-  var sx = Math.sqrt(a * a + b * b), sy = (a * d - b * c) / sx;
-  // A sheared or flipped node cannot be decomposed into the AE adjustment layer transform.
-  if (!(sx > 1e-6) || !(sy > 1e-6)) return false;
-  if (Math.abs(a * c + b * d) > 1e-6 * Math.max(sx * sx, 1e-6)) return false;
-  _backgroundBlurRequests.push({
-    nodeId: n.id, node: n, effect: effect, mask: mask,
-    matrix: [a, b, c, d, m[0][2], m[1][2]],
-    size: [n.width, n.height], z: _zOf(n),
-    name: String(n.name || '图层').slice(0, 40)
-  });
-  return true;
-}
-// The precomp layer standing for a container id, plus the comp origin it lives in. Mirrors the
-// comp_bounds formula in the host/AEP writer so positions line up pixel for pixel.
-function _containerBoundsAt(c) {
-  var cb = (!c.clip && c.cb) ? c.cb : c;
-  var left = Math.floor(Math.min(c.x, cb.x) + 1e-6), top = Math.floor(Math.min(c.y, cb.y) + 1e-6);
-  return { x: left, y: top,
-    w: Math.ceil(Math.max(c.x + c.w, cb.x + cb.w) - 1e-6) - left,
-    h: Math.ceil(Math.max(c.y + c.h, cb.y + cb.h) - 1e-6) - top };
-}
-// Resolve every queued request against the final container table (wrappers included), and ship
-// plain comp-space numbers: the host and the AEP writer then only build the layer, mask and effect.
-function _finalizeBackgroundBlurs(containers, mainOrigin, matrixShift) {
-  var out = [], skipped = 0, i;
-  if (!_backgroundBlurRequests.length) return out;
-  containers = containers || [];
-  var shift = matrixShift || { x: 0, y: 0 };
-  var byId = {};
-  for (i = 0; i < containers.length; i++) byId[containers[i].id] = containers[i];
-  for (i = 0; i < _backgroundBlurRequests.length; i++) {
-    var req = _backgroundBlurRequests[i];
-    if (_rasterByNode[req.nodeId]) { skipped++; continue; }
-    var source = byId[req.nodeId] || null;
-    if (!source) {
-      // Leaves get a "<nodeId>-layer-precomp" wrapper from 「单图层嵌套预合成」.
-      var wrapId = req.nodeId + '-layer-precomp';
-      for (var cid in byId) {
-        var candidate = byId[cid];
-        if (candidate.singleLayer && (candidate.id === wrapId || candidate.id.indexOf(wrapId + '-') === 0)) {
-          source = candidate; break;
-        }
-      }
-    }
-    if (!source) { skipped++; continue; }
-    var path = source.path || [], originX = mainOrigin.x, originY = mainOrigin.y;
-    if (path.length) {
-      var parent = byId[path[path.length - 1]];
-      if (!parent) { skipped++; continue; }
-      var bounds = _containerBoundsAt(parent);
-      originX = bounds.x; originY = bounds.y;
-    }
-    var m = req.matrix, w = req.size[0], h = req.size[1];
-    var scaleX = Math.sqrt(m[0] * m[0] + m[1] * m[1]);
-    var scaleY = (m[0] * m[3] - m[1] * m[2]) / scaleX;
-    var progressive = req.effect.blurType === 'PROGRESSIVE';
-    var start = (progressive && req.effect.startOffset) || { x: 0.5, y: 0 };
-    var end = (progressive && req.effect.endOffset) || { x: 0.5, y: 1 };
-    out.push({
-      sourceId: req.nodeId,
-      name: req.name + ' 背景模糊',
-      container: source.id,
-      z: req.z,
-      size: [w, h],
-      position: [m[0] * (w / 2) + m[2] * (h / 2) + m[4] - shift.x - originX,
-                 m[1] * (w / 2) + m[3] * (h / 2) + m[5] - shift.y - originY],
-      rotation: Math.atan2(m[1], m[0]) * 180 / Math.PI,
-      scale: [scaleX * 100, scaleY * 100],
-      mask: req.mask,
-      mode: progressive ? 'progressive' : 'uniform',
-      radius: req.effect.radius || 0,
-      startRadius: progressive ? (req.effect.startRadius || 0) : 0,
-      endRadius: progressive ? (req.effect.radius || 0) : 0,
-      startOffset: [start.x || 0, start.y || 0],
-      endOffset: [end.x != null ? end.x : 0.5, end.y != null ? end.y : 1]
-    });
-  }
-  if (skipped) _backgroundBlurSkipped = skipped;
-  return out;
-}
 function _singleImageNeedsRaster(n) {
   if (!n || _isContainer(n) || n.type === 'TEXT' || _maskSourceByNode[n.id]) return false;
   var image = false, crop = false;
@@ -630,19 +499,14 @@ function _singleImageNeedsRaster(n) {
   } catch (e) { return false; }
   if (_maskByNode[n.id] || _usesIndependentMask(n)) return false;
   if (image && crop) _requireRasterOption(n, 'imageCrops', '的自定义图片裁剪需要固定为 PNG');
-  var effect = _rasterOptions.effects && (n.effects || []).some(function (e) {
-    if (e.visible === false) return false;
-    // A preserved backdrop blur becomes an adjustment layer, not a reason to bake the picture.
-    return !(_preserveBackgroundBlur && !_webTarget && e.type === 'BACKGROUND_BLUR');
-  });
+  var effect = _rasterOptions.effects && (n.effects || []).some(function (e) { return e.visible !== false; });
   return image && (crop || effect);
 }
 function _collectRasterCandidates(root, organize) {
   var out = [];
   _rasterByNode = {};
   _independentMasks = {};
-  // Re-collecting after the shadow bake must not queue the same adjustment layer twice.
-  _backgroundBlurRequests = [];  for (var mergedId in _blendMerged) _rasterByNode[mergedId] = true;
+  for (var mergedId in _blendMerged) _rasterByNode[mergedId] = true;
   _subtreeFlagsByNode = {};
   function add(n) { out.push({ node: n }); _markRaster(n); }
   function scan(n) {
@@ -673,20 +537,9 @@ function _collectRasterCandidates(root, organize) {
       throw _layerError(n, '图层「' + n.name + '」包含不支持的' + unsupportedPaint.join('、') + '填充或描边，请将该容器标记为图片');
     }
     var visibleEffects = (n.effects || []).filter(function (e) { return e.visible !== false; });
-    var backgroundBlur = null;
-    for (var be = 0; be < visibleEffects.length; be++)
-      if (visibleEffects[be].type === 'BACKGROUND_BLUR') { backgroundBlur = visibleEffects[be]; break; }
-    if (backgroundBlur && (!_webTarget || _rasterOptions.effects)) {
-      var blurPreserved = false;
-      // The whole point of 「保留背景模糊」: replace the Figma PNG with an AE adjustment layer
-      // that calls the F2A plug-in. Only fall back to the old bake when that is not possible.
-      if (!_webTarget && _preserveBackgroundBlur && n !== root)
-        blurPreserved = _queueBackgroundBlur(n, backgroundBlur, organize);
-      if (!blurPreserved) {
-        _requireRasterOption(n, 'effects', '的背景模糊需要转为图片');
-        add(n); return;
-      }
-      visibleEffects = visibleEffects.filter(function (e) { return e !== backgroundBlur; });
+    if (visibleEffects.some(function (e) { return e.type === 'BACKGROUND_BLUR'; }) && (!_webTarget || _rasterOptions.effects)) {
+      _requireRasterOption(n, 'effects', '的背景模糊需要转为图片');
+      add(n); return;
     }
     if (_directAep && visibleEffects.length) {
       _requireRasterOption(n, 'effects', '的' + visibleEffects.map(_effectName).join('、') + '暂不能原生写入 AEP');
@@ -1444,8 +1297,7 @@ function collectContainers(root) {
               if ((e.radius || 0) > blur) blur = e.radius || 0;
             } else if (e.type === 'BACKGROUND_BLUR') {
               if (_webTarget) { if ((e.radius || 0) > bgBlur) bgBlur = e.radius || 0; }
-              // Preserved backdrop blur is an adjustment layer, not a layer blur on this precomp.
-              else if (!_preserveBackgroundBlur && (e.radius || 0) > blur) blur = e.radius || 0;
+              else if ((e.radius || 0) > blur) blur = e.radius || 0;
             }
           }
         } catch (ee) {}
@@ -1769,10 +1621,6 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _webTarget = options.target === 'web';
   _nativeImageMasks = options.nativeImageMasks === true;
   _preserveImageFilters = options.preserveImageFilters === true;
-  // Only AE/AEP targets: web export already writes Figma's backdrop blur as CSS.
-  _preserveBackgroundBlur = options.preserveBackgroundBlur === true && options.target !== 'web';
-  _backgroundBlurRequests = [];
-  _backgroundBlurSkipped = 0;
   // Keep the legacy API argument as the default for callers without per-category settings.
   var rasterDefaults = rasterGroups !== false, rasterOptions = options.rasterize || {};
   _rasterOptions = {};
@@ -2126,10 +1974,6 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
 
     }
 
-    // Backdrop-blur adjustment layers: resolved against the final container table (wrappers
-    // included) and handed over in frame-relative comp coordinates.
-    var backgroundBlurs = _finalizeBackgroundBlurs(containers, { x: 0, y: 0 }, origin);
-
     var frame = rootBounds || bbox;
     figma.ui.postMessage({ type: 'ship', name: rootName || name,
                            exportCommandId: commandId,
@@ -2137,8 +1981,6 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
                            newComp: options.target === 'ae' && (!!rootFrame || (originals.length === 1 && originals[0].type === 'FRAME')),
                            shift: svgShift, nodes: nodeShapes, nodeOrigin: origin, bytes: svg.length,
                            containers: containers, organize: !!(organize || (containers && containers.length)), preserveImageFilters: _preserveImageFilters,
-                           preserveBackgroundBlur: _preserveBackgroundBlur, backgroundBlurs: backgroundBlurs,
-                           backgroundBlurSkipped: _backgroundBlurSkipped,
                            imageCount: images.length, imageBatch: true,
                            vnStats: _vnStats, blendStats: blendBake.stats });
     await shipImages(images, commandId);      // sequential, chunked — see shipImages for why
@@ -2165,9 +2007,6 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     _blendPaintMerged = {};
     _precompLayers = false;
     _webTarget = false;
-    _preserveBackgroundBlur = false;
-    _backgroundBlurRequests = [];
-    _backgroundBlurSkipped = 0;
     _exporting = false;
     figma.ui.postMessage({ type: 'export-state', busy: false });
   }
@@ -2373,8 +2212,6 @@ function collectShapes(root, organize, rasterFillByNode) {
         if (gef.visible === false) continue;
         // organize mode: a container's blur goes on its precomp, not down onto the children
         if (organize && isGroup) continue;
-        // A preserved backdrop blur is an adjustment layer, not a blur inherited by the content.
-        if (gef.type === 'BACKGROUND_BLUR' && _preserveBackgroundBlur && !_webTarget) continue;
         if ((gef.type === 'LAYER_BLUR' || gef.type === 'BACKGROUND_BLUR') && (gef.radius || 0) > groupBlur) {
           groupBlur = gef.radius || 0;
         }

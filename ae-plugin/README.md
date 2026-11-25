@@ -4,7 +4,7 @@ Two After Effects effects that reproduce Figma's own renderer:
 
 | Plug-in | What it does | Source, binary and docs |
 |---|---|---|
-| `Figma 背景模糊` (`FigmaBackgroundBlur`) | Figma's background-blur algorithm (uniform triangular kernel, progressive count ramp), applied on an adjustment layer whose mask (or Alpha source) defines the node's fill silhouette | `FigmaBackgroundBlurPlugin/` |
+| `Figma 背景模糊` (`FigmaBackgroundBlur`) | Figma's background-blur algorithm (uniform triangular kernel, progressive count ramp), applied to the layer below via an adjustment layer bound to a shape layer | `FigmaBackgroundBlurPlugin/` |
 | `Figma 调色` (`FigmaImageGrade`) | Figma's seven image-fill filters (exposure, contrast, saturation, temperature, tint, highlights, shadows) at Figma's exact control scale | `FigmaImageGradePlugin/` |
 
 Both are x64 `.aex` plug-ins built with the After Effects SDK 27, support multi-frame
@@ -34,29 +34,6 @@ rendering, use Chinese UI names, and are validated against Figma's own PNG expor
 The packaged Windows build ships the binary at `ae-plugins/FigmaImageGrade.aex`;
 `scripts/aep/figma_grade.py` carries the serialized effect definition used by the
 direct AEP writer.
-
-## Figma 背景模糊 in the F2A export
-
-`FigmaBackgroundBlur.aex` is the default path for **保留背景模糊**:
-
-1. The Figma → AE import and the direct AEP writer replace the baked Figma PNG with a
-   **same-size adjustment layer**: a mask built from the source layer's fill path, the
-   `Figma 背景模糊` effect restoring Figma's uniform radius or progressive start/end
-   radii and offsets, placed directly under the source layer and parented to it so the
-   blurred region follows every transform. The full data contract is
-   `scripts/aep/background-blur-export.md`.
-2. Install/update copies `FigmaBackgroundBlur.aex` next to `FigmaImageGrade.aex` into
-   `…/Support Files/Plug-ins/F2A/` (AE CC 2019+). The live import probes the running
-   host before exporting; when the effect is not loaded the panel retries the copy,
-   tells the user to restart AE and bakes the blurred layers as PNG for this session.
-   The offline AEP writer always embeds the effect, so opening that project needs the
-   plug-in installed (the packaged build ships it and the installer copies it).
-3. Nodes without a visible fill, with a holed silhouette, a sheared/flipped matrix or
-   another effect that still forces rasterisation keep the old PNG path.
-
-The packaged Windows build ships the binary at `ae-plugins/FigmaBackgroundBlur.aex`;
-`scripts/aep/figma_blur.py` + `scripts/aep/figma-background-blur-effect.bin` carry the
-serialized effect definition used by the direct AEP writer.
 
 ## Layout
 

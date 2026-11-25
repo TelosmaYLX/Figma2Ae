@@ -111,27 +111,11 @@ function start(opts) {
     if (req.url === '/image-folder') {
       function reply(error, directory) {
         res.writeHead(error ? 400 : 200, {'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});
-        res.end(JSON.stringify(error ? {error:error.message} : {directory:directory || null, preserveImageFilters:true, singleLayerLabel:true, preserveBackgroundBlur:true}));
+        res.end(JSON.stringify(error ? {error:error.message} : {directory:directory || null, preserveImageFilters:true, singleLayerLabel:true}));
       }
       try {
         if (req.method === 'GET' && opts.onGetImageFolder) reply(null, opts.onGetImageFolder());
         else if (req.method === 'POST' && opts.onChooseImageFolder) opts.onChooseImageFolder(reply);
-        else reply(new Error('请重新打开 AE 的 F2A 面板'));
-      } catch (error) { reply(error); }
-      return;
-    }
-    // Pre-export probe for 「保留背景模糊」: the Figma side must know whether the running AE
-    // session has loaded the F2A Figma 背景模糊 plug-in before it decides raster vs adjustment
-    // layer. The handler copies the packaged .aex when possible; the running session still needs
-    // an AE restart, so this call may report "copied but not loaded".
-    if (req.url === '/background-blur') {
-      function reply(error, status) {
-        var body = error ? {error:error.message} : (status || {available:false, reason:'未检测到 AE 插件'});
-        res.writeHead(error ? 400 : 200, {'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});
-        res.end(JSON.stringify(body));
-      }
-      try {
-        if (req.method === 'GET' && opts.onBackgroundBlur) opts.onBackgroundBlur(reply);
         else reply(new Error('请重新打开 AE 的 F2A 面板'));
       } catch (error) { reply(error); }
       return;
@@ -193,7 +177,6 @@ function start(opts) {
       // reason, because `containers` was dropped right here.
       var msg = null, svg, name, texts = null, effects = null, shift = null, nodes = null;
       var containers = null, organize = false, imageCount = 0, vnStats = null, compSize = null, compDuration = null, compFrameRate = null;
-      var backgroundBlurs = null;
       if (text.charAt(0) === '{') {
         msg = JSON.parse(text);
         if (msg.type === 'export-abort') {
@@ -220,7 +203,6 @@ function start(opts) {
         }
         svg = msg.svg; name = msg.name; texts = msg.texts || null; effects = msg.effects || null; shift = msg.shift || null; nodes = msg.nodes || null;
         containers = msg.containers || null; organize = !!msg.organize; imageCount = msg.imageCount || 0; vnStats = msg.vnStats || null;
-        backgroundBlurs = msg.backgroundBlurs || null;
         compSize = msg.compSize || null;
         compDuration = msg.compDuration || null;
         compFrameRate = msg.compFrameRate || null;
@@ -231,8 +213,7 @@ function start(opts) {
       if (!svg || svg.indexOf('<svg') === -1) return { ok: false, error: 'no svg in message' };
       var result = onSvg(svg, { name: name, via: meta.via, texts: texts, effects: effects, shift: shift, nodes: nodes,
                                 containers: containers, organize: organize, imageCount: imageCount, vnStats: vnStats,
-                                compSize: compSize, compDuration: compDuration, compFrameRate: compFrameRate,
-                                backgroundBlurs: backgroundBlurs });
+                                compSize: compSize, compDuration: compDuration, compFrameRate: compFrameRate });
       return result || { ok: true };
     } catch (e) {
       onStatus('handle error: ' + e.message);

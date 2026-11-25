@@ -99,17 +99,11 @@ async function check() {
     assert.deepEqual(packaged.sort(), [...manifest.files.map(entry => entry.path), 'package-manifest.json'].sort());
     assert.ok(packaged.includes('licenses/cursor-talk-to-figma-mcp.txt'));
     assert.ok(packaged.includes('licenses/figwright.txt'));
-    // The native Figma 调色 / Figma 背景模糊 effects, the serializers that let the direct
-    // writer add them, and the shared client plug-in core the panel probes with.
+    // The native Figma 调色 effect and the serializer that lets the direct writer add it.
     assert.ok(packaged.includes('ae-plugins/FigmaImageGrade.aex'));
-    assert.ok(packaged.includes('ae-plugins/FigmaBackgroundBlur.aex'));
     assert.ok(packaged.includes('scripts/aep/figma_grade.py'));
-    assert.ok(packaged.includes('scripts/aep/figma_blur.py'));
     assert.ok(packaged.includes('scripts/aep/figma-image-grade-effect.bin'));
-    assert.ok(packaged.includes('scripts/aep/figma-background-blur-effect.bin'));
     assert.ok(packaged.includes('client/figmaImageGradeEffect.js'));
-    assert.ok(packaged.includes('client/figmaAePlugin.js'));
-    assert.ok(packaged.includes('client/figmaBackgroundBlurEffect.js'));
     assert.ok(packaged.includes('scripts/install-ae-plugins.ps1'));
     assert.ok(packaged.includes('scripts/install-f2a.ps1'));
     assert.ok(packaged.includes('scripts/update-f2a.ps1'));
@@ -156,8 +150,8 @@ async function check() {
       await fs.mkdir(path.dirname(file), {recursive:true});
       await fs.writeFile(file, text);
     };
-    // The updater installs the native F2A effects (Figma 调色 + Figma 背景模糊); redirect
-    // that copy so the test never touches this machine's real After Effects installation.
+    // The updater installs the Figma 调色 plug-in; redirect that copy so the test never
+    // touches this machine's real After Effects installation.
     const fakePlugins = path.join(scratch, 'fake-ae-plugins');
     const installEnv = {...env, USERPROFILE:profile, CODEX_HOME:'', DSH_HOME:'', CLAUDE_CONFIG_DIR:'',
       F2A_AE_PLUGINS: fakePlugins};
@@ -219,11 +213,9 @@ async function check() {
     assert.deepEqual(installed.skillDirectories.sort(), [sharedSkills, customSkills, dshSkills].sort());
     assert.equal(await fs.readFile(marker, 'utf8'), 'preserve');
     assert.match(await fs.readFile(installedPanel, 'utf8'), /mk-update/);
-    // Pulling the update installs both native AE effects for AE CC 2019+ (redirected here).
+    // Pulling the update installs the Figma 调色 plug-in for AE CC 2019+ (redirected here).
     assert.ok((await fs.stat(path.join(fakePlugins, 'F2A/FigmaImageGrade.aex'))).isFile(),
       'the update copies FigmaImageGrade.aex into the AE Plug-ins folder');
-    assert.ok((await fs.stat(path.join(fakePlugins, 'F2A/FigmaBackgroundBlur.aex'))).isFile(),
-      'the update copies FigmaBackgroundBlur.aex into the AE Plug-ins folder');
     assert.ok((await fs.stat(path.join(target, added))).isFile());
     for (const file of removed) await assert.rejects(fs.access(path.join(target, file)), {code:'ENOENT'});
     const skillEntry = await fs.readFile(path.join(target, 'skills', skill, 'SKILL.md'), 'utf8');
@@ -252,8 +244,6 @@ async function check() {
       const base = 'http://127.0.0.1:' + service.address().port;
       const health = await (await fetch(base + '/health')).json();
       assert.equal(health.service, 'f2a-aep'); assert.equal(health.version, 3);
-      assert.equal(health.preserveImageFilters, true);
-      assert.equal(health.preserveBackgroundBlur, true);
       const exporting = fetch(base + '/export', {method: 'POST', body: JSON.stringify({packet: await fixture()})});
       const earlyResponse = await Promise.race([picker.then(() => null), exporting]);
       assert.equal(earlyResponse, null, earlyResponse && await earlyResponse.text());

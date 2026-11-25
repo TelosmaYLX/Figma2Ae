@@ -50,17 +50,15 @@ function ui(packet, behavior='success') {
   const layerGroup = html.match(/<fieldset class="settings">\s*<legend>图层<\/legend>[\s\S]*?<\/fieldset>/);
   assert.ok(layerGroup, 'layer settings have their own group');
   assert.match(layerGroup[0], /id="precomp-layers"[^>]*> 单图层嵌套预合成/, 'single-layer precomp option sits in the layer settings group');
-  // Colour and backdrop-blur preservation belong to their own 效果 group, above advanced options.
-  const effectsGroup = html.match(/<fieldset class="settings">\s*<legend>效果<\/legend>[\s\S]*?<\/fieldset>/);
-  assert.ok(effectsGroup, 'effect preservation options have their own group');
-  assert.match(effectsGroup[0], /id="preserve-image-filters"[^>]*> 保留图片调色属性<\/label>\s*<div class="option-hint">优先用 Figma 调色插件还原，缺失时退回 LUT 调色。<\/div>/, 'colour preservation sits in the effect group with its caption aligned to the group hint');
-  assert.match(effectsGroup[0], /id="preserve-background-blur"[^>]*> 保留背景模糊<\/label>/, 'background blur preservation sits in the effect group');
+  // Colour preservation belongs to the image group, above advanced options, with its own caption.
+  const imageGroup = html.match(/<fieldset class="settings">\s*<legend>图片<\/legend>[\s\S]*?<\/fieldset>/);
+  assert.ok(imageGroup, 'image settings have their own group');
+  assert.match(imageGroup[0], /<div class="option-spaced">\s*<label class="option"><input[^>]*id="preserve-image-filters"[^>]*> 保留图片调色属性<\/label>\s*<div class="option-hint">优先用 Figma 调色插件还原，缺失时退回 LUT 调色。<\/div>/, 'colour preservation sits in the image group with its caption aligned to the group hint');
   assert.match(html, /\.option-hint \{[^}]*margin-top:4px/, 'the caption keeps a compact gap under its option');
   assert.match(html, /select:focus,select:focus-visible \{ outline:none; \}/, 'dropdowns no longer draw the accent focus ring');
   assert.equal(html.includes('在 AE 图片图层的「效果控件」中调色或打关键帧。'), false, 'the old advanced caption is gone');
   assert.equal(html.includes('图片填充'), false, 'the empty advanced image group is gone');
   assert.ok(html.indexOf('id="preserve-image-filters"') < html.indexOf('id="advanced-options"'), 'the image option no longer lives under advanced options');
-  assert.ok(html.indexOf('id="preserve-background-blur"') < html.indexOf('id="advanced-options"'), 'the blur option no longer lives under advanced options');
   let finish, clock=0, healthCalls=0;
   const done=new Promise(r=>{finish=r;});
   const launches=[];
@@ -78,7 +76,6 @@ function ui(packet, behavior='success') {
         return {ok:true,json:async()=>({service:'f2a-aep',version:behavior==='old-service'?2:3,
           aeVersions:behavior==='old-version-service'?undefined:['24.0','25.0','26.0'],
           preserveImageFilters:behavior!=='old-grade-service',
-          preserveBackgroundBlur:behavior!=='old-blur-service',
           singleLayerLabel:behavior!=='old-label-service'})};
       }
       if(url.endsWith('/aep/start')){
@@ -119,9 +116,8 @@ function ui(packet, behavior='success') {
       assert.equal(message.rasterGroups,undefined,'No broad hidden rasterization switch');
       for(const [key,id] of Object.entries(rasterControls))assert.equal(message.rasterize[key],elements[id].checked,key+' is independently transmitted');
       assert.equal(message.preserveImageFilters,elements['preserve-image-filters'].checked);
-      assert.equal(message.preserveBackgroundBlur,elements['preserve-background-blur'].checked);
       assert.equal(message.precompLayers,elements['precomp-layers'].checked);
-      emit({...packet,type:'ship',preserveImageFilters:message.preserveImageFilters,preserveBackgroundBlur:message.preserveBackgroundBlur,imageCount:packet.images.length});
+      emit({...packet,type:'ship',preserveImageFilters:message.preserveImageFilters,imageCount:packet.images.length});
       if(behavior==='export-error'){emit({type:'error',message:'Figma error'});finish();return;}
       for(let i=0;i<packet.images.length;i++){
         if(behavior==='missing-image'&&i===0)continue;
@@ -140,10 +136,8 @@ function ui(packet, behavior='success') {
   assert.equal(elements.nodemode,undefined);assert.equal(elements.convertmask,undefined);
   assert.equal(elements.rastergroups,undefined);
   assert.equal(elements['preserve-image-filters'].checked,false);
-  assert.equal(elements['preserve-background-blur'].checked,false);
   assert.equal(elements['precomp-layers'].checked,true);
   if(['image-grade','old-grade-service'].includes(behavior))elements['preserve-image-filters'].checked=true;
-  if(['background-blur','old-blur-service'].includes(behavior))elements['preserve-background-blur'].checked=true;
   assert.equal(elements.rastertexts,undefined,'Text modes are mutually exclusive');
   for(const id of Object.values(rasterControls))assert.equal(elements[id].checked,true,id+' preserves automatic handling by default');
   if(behavior==='merged-masks')elements['native-image-masks'].value='merge';
@@ -199,7 +193,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
     for(let i=0;i<200&&stale.context.aepBusy;i++)await flush();
     assert.equal(stale.requests.some(r=>r.url.endsWith('/export')),true,'Old AEP service still works when single-layer precomp is turned off');
   }
-  for(const behavior of ['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','old-version-service','background-blur','old-blur-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
+  for(const behavior of ['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','shadow-error','warnings','offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','old-version-service','cancel','picker-error','server-error','layer-error','export-error','missing-image','open-error']){
     const h=ui(packet,behavior);h.elements['export-aep'].onclick();
     for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
     assert.equal(h.context.aepBusy,false,behavior+' must release the export lock');
@@ -209,7 +203,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
     assert.equal(h.requests.some(r=>r.url.endsWith('/select-directory')),false,'The UI must not choose a folder ahead of validation');
     const selection=h.posts.find(m=>m.type==='ship-selection');
     if(selection){assert.equal(selection.outlineTexts,!['editable-text','png-text'].includes(behavior));assert.equal(selection.rasterTexts,behavior==='png-text');}
-    if(['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','warnings','open-error','background-blur'].includes(behavior)){
+    if(['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','warnings','open-error'].includes(behavior)){
       const request=JSON.parse(h.requests.find(r=>r.url.endsWith('/export')).options.body);
       assert.deepEqual(Object.keys(request),['packet']);
       const body=request.packet;
@@ -221,19 +215,17 @@ const flush=()=>new Promise(r=>setImmediate(r));
 
       if(behavior==='shadow')assert.equal(body.images[0].shadowBase,null);
       assert.deepEqual(body.frame,packet.frame);assert.equal(body.texts.length,1);
-      if(behavior==='background-blur')assert.equal(body.preserveBackgroundBlur,true,'AEP packets carry the blur option');
       if(behavior==='warnings')assert.match(h.elements.msg.textContent,/AEP 导出失败.*未导出的属性/);
       else assert.match(h.elements.msg.textContent,/已导出到 D:\\导出 位置/);
       assert.equal(h.elements.msg.textContent.includes('report.json'),false);
     }
-    if(['offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','old-version-service','old-blur-service'].includes(behavior)){
+    if(['offline','launch-error','bridge-offline','bridge-old','missing-component','old-service','old-version-service'].includes(behavior)){
       assert.equal(h.posts.filter(m=>m.type==='ship-selection').length,0);
       assert.equal(h.requests.some(r=>r.url.endsWith('/export')),false);
     }
     if(behavior==='cancel')assert.equal(h.elements.msg.textContent,'已取消导出。');
     if(behavior==='old-service')assert.match(h.elements.msg.textContent,/请重启/);
     if(behavior==='old-version-service')assert.match(h.elements.msg.textContent,/请更新 AEP 导出组件/);
-    if(behavior==='old-blur-service')assert.match(h.elements.msg.textContent,/保留背景模糊需要更新/);
     if(['cold-start','offline','launch-error','bridge-offline','bridge-old','missing-component'].includes(behavior))assert.deepEqual(h.launches,['http://127.0.0.1:7365/aep/start']);
     else assert.equal(h.launches.length,0,'A running service never needs to launch again');
     if(behavior==='offline')assert.match(h.elements.msg.textContent,/服务启动超时/);
@@ -257,7 +249,7 @@ const flush=()=>new Promise(r=>setImmediate(r));
       assert.equal(h.elements['locate-layer'].disabled,false);
     }
     if(behavior==='server-error')assert.equal(h.elements['locate-layer'].hidden,true,'Errors without an original layer ID have no locate action');
-    if(['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','open-error','background-blur'].includes(behavior)){
+    if(['success','ae24','ae25','custom-comp','native-masks','merged-masks','editable-text','png-text','flat','cold-start','shadow','open-error'].includes(behavior)){
       assert.equal(h.elements['open-aep-folder'].hidden,false);
       h.elements['open-aep-folder'].onclick();h.elements['open-aep-folder'].onclick();
       assert.equal(h.requests.filter(r=>r.url.endsWith('/open-directory')).length,1,'Opening has its own click lock');

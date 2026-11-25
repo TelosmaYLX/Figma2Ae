@@ -360,7 +360,8 @@
   function submitImport(job, imagesPath, folder) {
     var data = job.data;
     data.imagesPath = imagesPath || ''; data.imageFolder = folder || '';
-    job.images = null;    var file = saveJsonTemp(data, 'batch').replace(/\\/g, '/');
+    job.images = null;
+    var file = saveJsonTemp(data, 'batch').replace(/\\/g, '/');
     flash('正在导入 AE…');
     evalES('runImportBatch(' + esLiteral(file) + ')', function (res) {
       finishImport('AE: ' + res, /error/i.test(res));
@@ -445,26 +446,6 @@
       onGetImageFolder: getImageFolder,
       onChooseImageFolder: MKFigma.selectImageFolder,
       onStartAep: function (callback) { log("Figma 请求启动 AEP 导出组件…"); require(ext + '/client/aepLauncher.js').start(callback); },
-      // 「保留背景模糊」 pre-export probe. The Figma UI asks this before export because the
-      // answer decides whether the blurred layer is baked into a PNG or kept editable.
-      onBackgroundBlur: function (reply) {
-        function finish(error, status) {
-          if (error) reply(error);
-          else reply(null, status || {available: false, reason: '未检测到 AE 插件'});
-        }
-        var blur;
-        try { blur = require(ext + '/client/figmaBackgroundBlurEffect.js'); }
-        catch (loadError) { finish(new Error('请更新并重新打开 AE 的 F2A 面板')); return; }
-        try {
-          blur.ensure(ext, function (script, callback) { evalES(script, callback); }, function (status) {
-            if (status && !status.available && status.copied)
-              log('已将 Figma 背景模糊插件安装到 AE 插件目录，重启 AE 后生效；本次背景模糊转为图片');
-            else if (status && !status.available)
-              log('Figma 背景模糊插件不可用（' + (status.reason || '未安装') + '）；本次背景模糊转为图片');
-            finish(null, status);
-          });
-        } catch (probeError) { finish(probeError); }
-      },
       onStatus: function (s) {
         if (/listening/.test(s)) { setConn(true); return; }
         // A stale panel context can still hold the port; say so instead of waiting forever.
@@ -530,13 +511,8 @@
         var cp = (meta.organize && meta.containers && meta.containers.length)
                    ? saveJsonTemp(meta.containers, 'containers').replace(/\\/g, '/') : "";
         if (cp) flash("分组预合成：" + meta.containers.length + " 个组");
-        // Backdrop-blur adjustment layers: same list the AEP writer consumes. Saved as its own
-        // temp file so the host can build them after every precomp layer exists.
-        var bp = (meta.backgroundBlurs && meta.backgroundBlurs.length)
-                   ? saveJsonTemp(meta.backgroundBlurs, 'bgblur').replace(/\\/g, '/') : "";
-        if (bp) log("背景模糊：将生成 " + meta.backgroundBlurs.length + " 个调整图层");
         var job = { data: {name: meta.name || '', svgPath: arg, textsPath: tp, gradMapPath: gp, effectsPath: ep,
-                           shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp, backgroundBlursPath: bp},
+                           shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp},
                     ready: !meta.imageCount, expectedImages: meta.imageCount || 0, targetReady: false, images: null };
         importQueue.push(job);
         // Bind the target before the PNG wait or folder dialog can change the active viewer.

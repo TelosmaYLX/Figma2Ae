@@ -67,7 +67,6 @@ async function exportAep(packet, directory, options = {}) {
   }
   const result = JSON.parse(await fs.readFile(path.join(directory, 'report.json'), 'utf8'));
   result.imageGrade = gradeMode;
-  result.backgroundBlur = model.backgroundBlurs.length ? 'effect' : null;
   result.totalMs = Math.round(performance.now() - started);
   // Packet may contain large base64 images. Keep only the deliverable and diagnostics.
   return {...result, directory, project: path.join(directory, 'project.aep')};

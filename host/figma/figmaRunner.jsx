@@ -79,7 +79,6 @@ function _mkReadJson(pathStr) {
 }
 
 var _mkContainers = null;    // organize mode: collapsed only after text AND images are in
-var _mkBackgroundBlurs = null; // backdrop-blur adjustment layers, applied after organize()
 
 // Collapse every Figma container into its own precomp. Runs LAST, from the panel, because
 // pictures arrive in a separate message — precomposing before them would leave the footage
@@ -94,21 +93,17 @@ function runOrganize(comp) {
     if (!_mkContainers || !_mkContainers.length) {
       AEShapeBuilder.restack(comp);
       var graded = 0; try { graded = AEShapeBuilder.applyImageGrades(); } catch (egrade) {}
-      var blurred = 0; try { blurred = AEShapeBuilder.applyBackgroundBlurs(_mkBackgroundBlurs); } catch (eblur) {}
-      _mkBackgroundBlurs = null;
       var fd = ""; try { fd = AEShapeBuilder.getDiag(); } catch (ef) {}
-      return "no groups" + (graded ? " | 调色 " + graded : "") + (blurred ? " | 背景模糊 " + blurred : "") + (fd ? " | " + fd : "");
+      return "no groups" + (graded ? " | 调色 " + graded : "") + (fd ? " | " + fd : "");
     }
     var n = 0;
     n = AEShapeBuilder.organize(comp, _mkContainers);
     _mkContainers = null;
     var graded = 0; try { graded = AEShapeBuilder.applyImageGrades(); } catch (egrade2) {}
-    var blurred = 0; try { blurred = AEShapeBuilder.applyBackgroundBlurs(_mkBackgroundBlurs); } catch (eblur2) {}
-    _mkBackgroundBlurs = null;
     var d = ""; try { d = AEShapeBuilder.getDiag(); } catch (ed) {}
-    return n + " 个预合成" + (graded ? " | 调色 " + graded : "") + (blurred ? " | 背景模糊 " + blurred : "") + (d ? " | " + d : "");
+    return n + " 个预合成" + (graded ? " | 调色 " + graded : "") + (d ? " | " + d : "");
     });
-  } catch (e) { _mkContainers = null; _mkBackgroundBlurs = null; try { AEShapeBuilder.applyImageGrades(); } catch (egrade3) {} return "organize error: " + e.toString(); }
+  } catch (e) { _mkContainers = null; try { AEShapeBuilder.applyImageGrades(); } catch (egrade3) {} return "organize error: " + e.toString(); }
 }
 
 // The panel waits for the complete payload, then calls this ONCE. An undo group must never
@@ -197,7 +192,6 @@ function runImportBatch(jobPath) {
         }
         var status = runImport(job.svgPath, job.textsPath, job.gradMapPath, job.effectsPath,
                                job.shiftX || 0, job.shiftY || 0, job.nodesPath, job.containersPath,
-                               job.backgroundBlursPath || '',
                                job.imagesPath ? _mkReadJson(job.imagesPath) : null, job.imageFolder, comp);
         if (/^(ERROR|node error)/i.test(status)) return status;
         if (job.imagesPath && job.imageFolder) {
@@ -214,7 +208,6 @@ function runImportBatch(jobPath) {
         return result;
       } finally {
         _mkContainers = null;
-        _mkBackgroundBlurs = null;
         if (created) {
           if (complete || created.numLayers) created.openInViewer();
           else created.remove();
@@ -224,16 +217,13 @@ function runImportBatch(jobPath) {
   } catch (e) { return "batch error: " + e.toString(); }
 }
 
-function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY, nodesPath, containersPath, backgroundBlursPath, imageMasks, imageFolder, comp) {
+function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY, nodesPath, containersPath, imageMasks, imageFolder, comp) {
   comp = comp || (app.project ? app.project.activeItem : null);
   var gradPresets = null, effects = null;
   try { gradPresets = _mkReadJson(gradMapPath); } catch (eg) {}
   try { effects = _mkReadJson(effectsPath); } catch (ee) {}
   _mkContainers = null;
   try { if (containersPath && containersPath.length) _mkContainers = _mkReadJson(containersPath); } catch (ec) {}
-  _mkBackgroundBlurs = null;
-  try { if (backgroundBlursPath && backgroundBlursPath.length) _mkBackgroundBlurs = _mkReadJson(backgroundBlursPath); } catch (eb) {}
-  if (_mkBackgroundBlurs && !_mkBackgroundBlurs.length) _mkBackgroundBlurs = null;
 
   var status;
   var nodes = null;

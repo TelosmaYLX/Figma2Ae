@@ -30,7 +30,6 @@ function harness({rememberFolder = true, failImages = false, lockedImageName, sh
         native.push({file, job, id: JSON.parse(fs.readFileSync(job.nodesPath, 'utf8'))[0]?.id}); pending.push(callback);
       } else if (script === 'mkFigmaTargetCompId()') callback(String(activeCompId));
       else if (script.indexOf('F2A 调色插件检测') !== -1) callback(probeResult || 'NO:probe');
-      else if (script.indexOf('F2A Figma Background Blur') !== -1) callback(probeResult || 'NO:probe');
       else if (/itemByID\(\d+\);return c\.duration/.test(script)) callback('2,24');
       else if (script.startsWith('mkChooseImageFolder(')) pickers.push(callback);
       else { assert.ok(!/^runImport\(|^runImportImages\(|^runOrganize\(/.test(script), 'Old split import entry must not be called'); if (callback) callback('loaded'); }
