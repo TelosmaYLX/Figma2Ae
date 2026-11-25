@@ -50,11 +50,21 @@ function ui(packet, behavior='success') {
   const layerGroup = html.match(/<fieldset class="settings">\s*<legend>图层<\/legend>[\s\S]*?<\/fieldset>/);
   assert.ok(layerGroup, 'layer settings have their own group');
   assert.match(layerGroup[0], /id="precomp-layers"[^>]*> 单图层嵌套预合成/, 'single-layer precomp option sits in the layer settings group');
-  // Colour preservation belongs to the image group, above advanced options, with its own caption.
+  assert.equal(layerGroup[0].includes('preserve-background-blur'), false, 'background blur moved out of the layer settings group');
   const imageGroup = html.match(/<fieldset class="settings">\s*<legend>图片<\/legend>[\s\S]*?<\/fieldset>/);
   assert.ok(imageGroup, 'image settings have their own group');
-  assert.match(imageGroup[0], /<div class="option-spaced">\s*<label class="option"><input[^>]*id="preserve-image-filters"[^>]*> 保留图片调色属性<\/label>\s*<div class="option-hint">优先用 Figma 调色插件还原，缺失时退回 LUT 调色。<\/div>/, 'colour preservation sits in the image group with its caption aligned to the group hint');
-  assert.match(html, /\.option-hint \{[^}]*margin-top:4px/, 'the caption keeps a compact gap under its option');
+  assert.equal(imageGroup[0].includes('preserve-image-filters'), false, 'colour preservation moved out of the image settings group');
+  // Colour preservation and background blur are effects: they share one collapsible 效果 group
+  // between the image settings and the advanced options, and start open.
+  assert.ok(html.indexOf('<legend>图片</legend>') < html.indexOf('id="effect-options"') && html.indexOf('id="effect-options"') < html.indexOf('id="advanced-options"'), 'the effects group sits between image settings and advanced options');
+  const effectGroup = html.match(/<details id="effect-options"[^>]*>[\s\S]*?<\/details>/);
+  assert.ok(effectGroup, 'effects have their own collapsible group');
+  assert.match(effectGroup[0], /<details id="effect-options"[^>]*\bopen\b[^>]*>/, 'the effects group starts open and can be folded');
+  assert.match(effectGroup[0], /<summary>效果<\/summary>/, 'the effects group heading reads 效果');
+  assert.match(effectGroup[0], /<label class="option"><input[^>]*id="preserve-image-filters"[^>]*> 保留图片调色属性<\/label>/, 'colour preservation sits in the effects group without a caption');
+  assert.match(effectGroup[0], /<label class="option" title="[^"]*"><input[^>]*id="preserve-background-blur"[^>]*> 保留背景模糊<\/label>/, 'background blur sits in the effects group');
+  assert.equal(html.includes('优先用 Figma 调色插件还原，缺失时退回 LUT 调色。'), false, 'the panel no longer explains the LUT fallback');
+  assert.equal(html.includes('option-hint'), false, 'the removed caption leaves no dead style');
   assert.match(html, /select:focus,select:focus-visible \{ outline:none; \}/, 'dropdowns no longer draw the accent focus ring');
   assert.equal(html.includes('在 AE 图片图层的「效果控件」中调色或打关键帧。'), false, 'the old advanced caption is gone');
   assert.equal(html.includes('图片填充'), false, 'the empty advanced image group is gone');

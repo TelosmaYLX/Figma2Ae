@@ -9,10 +9,12 @@
      导出为 AEP 工程 button at its bottom. Both actions share the accent fill so they read alike,
      and each panel keeps its settings and its action together. The composition panel has no visible
      heading or hint line; each control keeps its own 11px caption. Layer tools are open beneath the
-     panels; common settings follow, with advanced settings collapsed. Keep the existing dark tokens,
-     8px control gaps/radii, 12px panel padding and 16px section spacing.
+     panels; common settings follow in fieldsets, then the collapsible 效果 group, with advanced
+     settings collapsed. Keep the existing dark tokens, 8px control gaps/radii, 12px panel padding
+     and 16px section spacing.
      Image and coordinate markers use paired secondary buttons with the existing --surface fill and --line edge.
-     Background blur is a secondary export setting and uses the existing .option checkbox beside layer settings.
+     Colour preservation and background blur are secondary export effects, so they share the
+     collapsible 效果 group instead of the layer and image fieldsets.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --surface:#383838; --surface-hover:#464646; --surface-active:#303030; --line:#4b4b4b; --line-hover:#5a5a5a; --accent:#a78bfa; --text:#e8e8e8; --muted:#a3a3a3; --ok:#22c55e; --err:#ef4444; }
@@ -75,9 +77,6 @@
   .option-stack input { margin-top:2px; }
   .option-stack small { display:block; margin-top:4px; font-size:11px; line-height:1.5; color:var(--muted); }
   .option-spaced { margin-top:8px; }
-  /* Description under a standalone option: left-aligned like the group hint above it,
-     not indented under the checkbox label. */
-  .option-hint { margin-top:4px; font-size:11px; line-height:1.5; color:var(--muted); }
   .setting-row { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:36px; }
   .setting-row + .setting-row { margin-top:8px; }
   .setting-row select { min-width:88px; max-width:65%; min-height:36px; padding:8px; border:0; border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
@@ -182,7 +181,6 @@
     <legend>图层</legend>
     <label class="option" title="将 Figma 分组转换为 AE 预合成。"><input type="checkbox" id="organize" checked> 保留分组层级</label>
     <label class="option" title="为每个单图层（含画框底色）外层单独嵌套一个同名预合成，并以黄色图层标记。"><input type="checkbox" id="precomp-layers" checked> 单图层嵌套预合成</label>
-    <label class="option" title="在 AE 中用调整图层保留可编辑的背景模糊。"><input type="checkbox" id="preserve-background-blur"> 保留背景模糊</label>
     <label class="option"><input type="checkbox" id="enableclip" checked> 保留画框裁剪</label>
     <label class="option"><input type="checkbox" id="ignorehidden" checked> 忽略隐藏图层</label>
   </fieldset>
@@ -217,11 +215,14 @@
       </select>
     </div>
     <div class="hint">倍率只影响栅格化图片。</div>
+  </fieldset>
+  <details id="effect-options" open>
+    <summary>效果</summary>
     <div class="option-spaced">
       <label class="option"><input type="checkbox" id="preserve-image-filters"> 保留图片调色属性</label>
-      <div class="option-hint">优先用 Figma 调色插件还原，缺失时退回 LUT 调色。</div>
+      <label class="option" title="在 AE 中用调整图层保留可编辑的背景模糊。"><input type="checkbox" id="preserve-background-blur"> 保留背景模糊</label>
     </div>
-  </fieldset>
+  </details>
   <details id="advanced-options">
     <summary>高级选项</summary>
     <div class="advanced-group">
