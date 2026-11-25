@@ -330,14 +330,23 @@ body{
   background:linear-gradient(135deg, #ede9fe, #a78bfa);
 }
 .f2m-trans-frame.is-fade .f2m-trans-bar,
-.f2m-trans-frame.is-split .f2m-trans-bar,
-.f2m-trans-frame.is-shutter .f2m-trans-bar,
 .f2m-trans-frame.is-flash .f2m-trans-bar{
   position:absolute; inset:0; flex:none; width:100%; height:100%;
 }
+/* Split/shutter use two half-frame panels like the AE transition (they meet at the cut). */
+.f2m-trans-frame.is-split .f2m-trans-bar,
+.f2m-trans-frame.is-shutter .f2m-trans-bar{
+  position:absolute; flex:none;
+}
+.f2m-trans-frame.is-split .f2m-trans-bar{width:50%; height:100%; top:0;}
+.f2m-trans-frame.is-split .f2m-trans-bar:nth-child(1){left:0;}
+.f2m-trans-frame.is-split .f2m-trans-bar:nth-child(2){right:0;}
+.f2m-trans-frame.is-shutter .f2m-trans-bar{width:100%; height:50%; left:0;}
+.f2m-trans-frame.is-shutter .f2m-trans-bar:nth-child(1){top:0;}
+.f2m-trans-frame.is-shutter .f2m-trans-bar:nth-child(2){top:auto; bottom:0;}
 .f2m-trans-iris{
-  width:76px; height:76px; border-radius:50%;
-  border:20px solid #ede9fe; background:transparent;
+  width:80px; height:80px; border-radius:50%;
+  border:40px solid #ede9fe; background:transparent;
   box-sizing:border-box;
 }
 

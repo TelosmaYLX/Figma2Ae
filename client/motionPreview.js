@@ -327,6 +327,7 @@
         kind: "transition",
         transType: d.type || "wipe",
         direction: dir,
+        duration: Number(d.duration) || 0.8,
         progress: u
       };
     }

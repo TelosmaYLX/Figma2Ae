@@ -98,7 +98,7 @@
     try { localStorage.setItem(LS_DIRS, JSON.stringify(dirs)); } catch (e) {}
   }
   function loadStoredParams() {
-    var def = { speed: 1, stagger: 0.06, direction: "up", style: "snappy", anchor: "auto", replace: true };
+    var def = { speed: 1, direction: "up", style: "snappy", anchor: "auto", replace: true };
     try {
       var raw = localStorage.getItem(LS_PARAMS);
       return raw ? Object.assign(def, JSON.parse(raw)) : def;
@@ -250,16 +250,17 @@
   }
 
   function applyTransitionVisual(stageEl, res) {
-    var u = res.progress;
+    var u = Math.max(0, Math.min(1, res.progress));
+    function smooth(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
     if (res.transType === "iris") {
       var ring = stageEl.querySelector(".f2m-trans-iris");
       if (!ring) return;
-      // Grows 0..0.5 to cover, then opens 0.5..1 via shrinking border
-      var s = u <= 0.5 ? (u * 2) : 1;
-      var hole = u <= 0.5 ? 0 : ((u - 0.5) * 2);
-      ring.style.transform = "scale(" + (0.05 + s * 1.45).toFixed(3) + ")";
-      ring.style.borderWidth = ((1 - hole) * 38).toFixed(1) + "px";
-      ring.style.opacity = u > 0.96 || u < 0.02 ? "0" : "0.95";
+      // AE: a filled disc grows to the frame's far-corner radius at the cut, then the stroke thins to open a hole.
+      var grow = Math.min(1, u / 0.5);
+      var hole = u <= 0.5 ? 0 : Math.min(1, (u - 0.5) / 0.5);
+      ring.style.transform = "scale(" + Math.max(0.001, grow).toFixed(3) + ")";
+      ring.style.borderWidth = ((1 - hole) * 40).toFixed(1) + "px";
+      ring.style.opacity = (u < 0.01 || hole > 0.99) ? "0" : "1";
       return;
     }
     if (res.transType === "fade") {
@@ -271,29 +272,46 @@
     if (res.transType === "flash") {
       var flashBar = stageEl.querySelector(".f2m-trans-bar");
       if (!flashBar) return;
-      var grow = Math.min(1, u / 0.35);
-      flashBar.style.transform = "scale(" + (0.08 + 1.15 * grow).toFixed(3) + ")";
-      flashBar.style.opacity = String(u <= 0.5 ? 1 : Math.max(0, 1 - (u - 0.5) / 0.5).toFixed(3));
+      // AE: burst reaches 130% within the first 0.2s (capped before the cut), then a slow exposure fall.
+      var dur = Number(res.duration) || 0.9;
+      var growEnd = Math.max(0.12, Math.min(0.5, 0.2 / dur));
+      var fg = smooth(u / growEnd);
+      flashBar.style.transform = "scale(" + (0.05 + 1.25 * fg).toFixed(3) + ")";
+      var fop = u <= 0.5 ? 1 : Math.max(0, 1 - smooth((u - 0.5) / 0.5));
+      flashBar.style.opacity = String(fop.toFixed(3));
       return;
     }
     if (res.transType === "split" || res.transType === "shutter") {
       var panels = stageEl.querySelectorAll(".f2m-trans-bar");
       var axis = res.transType === "split" ? "translateX" : "translateY";
+      var moved = u <= 0.5 ? smooth(u / 0.5) : smooth((u - 0.5) / 0.5);
       for (var pi = 0; pi < panels.length; pi++) {
-        // panel 0 enters from the start side, panel 1 mirrors it; both meet at 0% on the cut
-        var pdir = pi === 0 ? -1 : 1;
-        var pt = pdir * (105 - 210 * u);
+        // AE: half-frame panels slide in from ±0.78 of the frame, cover one half each at the cut, then cross out.
+        var from = pi === 0 ? -106 : 106;
+        var to = pi === 0 ? 206 : -206;
+        var pt = u <= 0.5 ? from * (1 - moved) : to * moved;
         panels[pi].style.transform = axis + "(" + pt.toFixed(1) + "%)";
       }
       return;
     }
     var bars = stageEl.querySelectorAll(".f2m-trans-bar");
     var horiz = res.direction === "left" || res.direction === "right";
-    var sign = (res.direction === "left" || res.direction === "up") ? -1 : 1;
-    for (var i = 0; i < bars.length; i++) {
-      var delay = bars.length > 1 ? (i / (bars.length - 1)) * 0.22 : 0;
-      var bu = Math.max(0, Math.min(1, (u - delay) / (1 - 0.22)));
-      var pct = -sign * 105 + sign * 210 * bu;
+    var k = (res.direction === "left" || res.direction === "up") ? -1 : 1;
+    var n = bars.length;
+    var st = n > 1 ? 0.25 / (n - 1) : 0;
+    var sweep = Math.max(0.001, 0.5 - (n - 1) * st);
+    var startPct = -k * 105;
+    var endPct = k * 105;
+    for (var i = 0; i < n; i++) {
+      // AE: bar i starts at ts+i*st, covers at tm-(n-1-i)*st, leaves at tm+i*st, exiting over the same sweep.
+      var inStart = i * st;
+      var cover = 0.5 - (n - 1 - i) * st;
+      var outStart = 0.5 + i * st;
+      var pct;
+      if (u <= inStart) pct = startPct;
+      else if (u < cover) pct = startPct * (1 - smooth((u - inStart) / sweep));
+      else if (u <= outStart) pct = 0;
+      else pct = endPct * smooth((u - outStart) / sweep);
       bars[i].style.transform = horiz ? ("translateX(" + pct.toFixed(1) + "%)") : ("translateY(" + pct.toFixed(1) + "%)");
     }
   }
@@ -392,7 +410,6 @@
     }
     var speed = Number(state.params.speed) || 1;
     var timeScale = 1 / speed;
-    var stagger = Number(state.params.stagger) || 0;
     var replaceTracks = !!state.params.replace;
 
     if (item.clip) {
@@ -401,7 +418,6 @@
         name: item.name,
         clip: item.clip,
         time_scale: timeScale,
-        stagger: stagger,
         position_anchor: anchor,
         scale_relative: true,
         replaceTracks: replaceTracks
@@ -428,12 +444,10 @@
       if (item.supports && item.supports.duration && opts.duration) {
         opts.duration = Math.max(0.08, Math.round((opts.duration * timeScale) * 1000) / 1000);
       }
-      if (item.supports && item.supports.stagger && stagger > 0) opts.stagger = stagger;
       var presetPath = writeJobTemp({
         name: item.name,
         command: item.command,
         options: opts,
-        layerStagger: stagger,
         replaceTracks: replaceTracks
       }, "preset");
       evalES("mkMotionApplyPreset(" + esLiteral(presetPath) + ")", function (raw) {
@@ -490,34 +504,6 @@
     } catch (e) {
       report("模板处理失败：" + e.message, true);
     }
-  }
-
-  function runQuickStagger() {
-    if (!CEP) { log("预览模式：错峰交错", "ok"); return; }
-    var off = Number(state.params.stagger) > 0 ? Number(state.params.stagger) : 0.06;
-    var jobPath = writeJobTemp({
-      name: "错峰交错",
-      command: "stagger",
-      options: { offset_seconds: off, order: "forward" }
-    }, "stagger");
-    evalES("mkMotionApplyPreset(" + esLiteral(jobPath) + ")", function (raw) {
-      var res = parseEsJson(raw);
-      if (res.ok) log("已错峰交错 " + res.result.layers + " 层（间隔 " + off + "s）", "ok");
-      else report("错峰失败：" + res.error, true);
-    });
-  }
-
-  function runQuickReset() {
-    if (!CEP) { log("预览模式：重置选中图层动效", "ok"); return; }
-    evalES("mkMotionResetSelected()", function (raw) {
-      var res = parseEsJson(raw);
-      if (res.ok) {
-        log("已清理 " + res.layers + " 层的 " + res.cleared + " 条动效轨道（可 Ctrl+Z 撤销）", "ok");
-        refreshSelection(true);
-      } else {
-        report("重置失败：" + res.error, true);
-      }
-    });
   }
 
   // ---- User Clip Save / Record / Import ----
@@ -1301,10 +1287,6 @@
       };
     }
 
-    var staggerBtn = document.getElementById("f2m-act-stagger");
-    if (staggerBtn) staggerBtn.onclick = runQuickStagger;
-    var resetBtn = document.getElementById("f2m-act-reset");
-    if (resetBtn) resetBtn.onclick = runQuickReset;
     var refreshBtn = document.getElementById("f2m-act-refresh");
     if (refreshBtn) refreshBtn.onclick = function () { refreshSelection(false); };
 
@@ -1320,7 +1302,6 @@
       };
     }
     bindSelect("f2m-p-speed", "speed", true);
-    bindSelect("f2m-p-stagger", "stagger", true);
     bindSelect("f2m-p-dir", "direction", false);
     bindSelect("f2m-p-style", "style", false);
     bindSelect("f2m-p-anchor", "anchor", false);
