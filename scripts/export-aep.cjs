@@ -8,6 +8,7 @@ const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
 const aeFilename = require('../host/figma/aeFilename.js');
 const {normalize, AE_VERSIONS} = require('./aep/packet.cjs');
+const imageGradeEffect = require('../client/figmaImageGradeEffect.js');
 const root = path.resolve(__dirname, '..');
 const run = promisify(execFile);
 
@@ -32,12 +33,20 @@ async function exportAep(packet, directory, options = {}) {
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
   await fs.mkdir(directory, {recursive: true});
   const input = path.join(directory, 'packet.json');
-  let gradeTables;
+  let gradeTables, gradeMode = null;
   try {
     if (model.images.some(image => image.imageFilters)) {
-      gradeTables = await fs.mkdtemp(path.join(os.tmpdir(), 'f2a-grade-'));
-      model.gradeTables = gradeTables;
-      require('../client/figmaImageGrade.js').writeTables(gradeTables, model.images);
+      // Prefer the native Figma 调色 effect; the LUT graph is the fallback for machines
+      // where the plug-in cannot be installed. The writer only reads gradeTables in LUT mode.
+      const grade = imageGradeEffect.resolve(root, {mode: options.imageGradeMode});
+      gradeMode = grade.mode;
+      if (grade.mode === 'effect') {
+        model.imageGradeEffect = true;
+      } else {
+        gradeTables = await fs.mkdtemp(path.join(os.tmpdir(), 'f2a-grade-'));
+        model.gradeTables = gradeTables;
+        require('../client/figmaImageGrade.js').writeTables(gradeTables, model.images);
+      }
     }
     await fs.writeFile(input, JSON.stringify(model));
     await run(pythonPath(options), [path.join(__dirname, 'aep/writer.py'), input, directory],
@@ -56,6 +65,7 @@ async function exportAep(packet, directory, options = {}) {
     if (gradeTables) await fs.rm(gradeTables, {recursive:true, force:true});
   }
   const result = JSON.parse(await fs.readFile(path.join(directory, 'report.json'), 'utf8'));
+  result.imageGrade = gradeMode;
   result.totalMs = Math.round(performance.now() - started);
   // Packet may contain large base64 images. Keep only the deliverable and diagnostics.
   return {...result, directory, project: path.join(directory, 'project.aep')};

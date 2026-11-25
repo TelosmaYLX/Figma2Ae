@@ -311,18 +311,42 @@
   function submitImageImport(job, list, folder) {
     function submit() { submitImport(job, saveJsonTemp(list, 'images').replace(/\\/g, '/'), folder); }
     if (!list.some(function (im) { return !!im.imageFilters; })) { submit(); return; }
-    function prepare(duration, frameRate) {
-      require(ext + '/client/figmaImageGrade.js').prepareImport(ext, list, folder, duration, frameRate, function (error, cleanup) {
-        if (error) { finishImport('图片调色导入失败：' + error.message, true); return; }
-        job.cleanGrades = cleanup;
-        try { submit(); } catch (e) { finishImport('图片导入失败：' + e.message, true); }
+    var effect = require(ext + '/client/figmaImageGradeEffect.js');
+    // Preferred: the native Figma 调色 effect on each element's outer precomp, with Figma's
+    // values. AE has no scripting API to list installed effects, so probe the live host; only
+    // then copy the packaged .aex into the AE plug-in folder and, as the last resort, build
+    // the LUT grade that requires a separate Python/aerender-style import project.
+    function useEffect() {
+      var graded = 0;
+      for (var i = 0; i < list.length; i++)
+        if (list[i].imageFilters) { list[i].imageGradeEffect = true; graded++; }
+      log("图片调色：使用 Figma 调色插件还原 " + graded + " 张图片");
+      submit();
+    }
+    function useLut(status) {
+      if (status && status.available && status.copied)
+        log("已将 Figma 调色插件安装到 AE 插件目录，重启 AE 后生效；本次使用 LUT 降级调色");
+      else if (status && !status.available)
+        log("Figma 调色插件不可用（" + (status.reason || '未安装') + "）；本次使用 LUT 降级调色");
+      function prepare(duration, frameRate) {
+        require(ext + '/client/figmaImageGrade.js').prepareImport(ext, list, folder, duration, frameRate, function (error, cleanup) {
+          if (error) { finishImport('图片调色导入失败：' + error.message, true); return; }
+          job.cleanGrades = cleanup;
+          try { submit(); } catch (e) { finishImport('图片导入失败：' + e.message, true); }
+        });
+      }
+      if (!job.data.compId) { prepare(job.data.compDuration || 10, job.data.compFrameRate || 30); return; }
+      evalES('(function(){var c=app.project.itemByID(' + job.data.compId + ');return c.duration+","+c.frameRate;})()', function (value) {
+        var timing = String(value).split(',');
+        if (!(Number(timing[0]) > 0 && Number(timing[1]) > 0)) { finishImport('目标合成已关闭', true); return; }
+        prepare(Number(timing[0]), Number(timing[1]));
       });
     }
-    if (!job.data.compId) { prepare(job.data.compDuration || 10, job.data.compFrameRate || 30); return; }
-    evalES('(function(){var c=app.project.itemByID(' + job.data.compId + ');return c.duration+","+c.frameRate;})()', function (value) {
-      var timing = String(value).split(',');
-      if (!(Number(timing[0]) > 0 && Number(timing[1]) > 0)) { finishImport('目标合成已关闭', true); return; }
-      prepare(Number(timing[0]), Number(timing[1]));
+    evalES(effect.PROBE_SCRIPT, function (probe) {
+      if (effect.parseProbe(probe)) { useEffect(); return; }
+      var status;
+      try { status = effect.install(ext); } catch (e) { status = {available: false, reason: e.message}; }
+      useLut(status);
     });
   }
   function submitImport(job, imagesPath, folder) {

@@ -9,6 +9,7 @@ const {promisify} = require('node:util');
 const {once} = require('node:events');
 const {createHash} = require('node:crypto');
 const {fixture} = require('./direct-aep.cjs');
+const {gradePacket, inspectEffect} = require('./editable-image-grade.cjs');
 const {privacyIssues} = require('../scripts/package-dist.cjs');
 const surehand = require('../mcp/vendor/surehand/catalog.json');
 const {version} = require('../version.json');
@@ -98,6 +99,11 @@ async function check() {
     assert.deepEqual(packaged.sort(), [...manifest.files.map(entry => entry.path), 'package-manifest.json'].sort());
     assert.ok(packaged.includes('licenses/cursor-talk-to-figma-mcp.txt'));
     assert.ok(packaged.includes('licenses/figwright.txt'));
+    // The native Figma 调色 effect and the serializer that lets the direct writer add it.
+    assert.ok(packaged.includes('ae-plugins/FigmaImageGrade.aex'));
+    assert.ok(packaged.includes('scripts/aep/figma_grade.py'));
+    assert.ok(packaged.includes('scripts/aep/figma-image-grade-effect.bin'));
+    assert.ok(packaged.includes('client/figmaImageGradeEffect.js'));
     assert.ok(packaged.includes('mcp/vendor/surehand/LICENSE'));
     assert.ok(packaged.includes('skills/f2a-figma-layer-tidy/SKILL.md'));
     assert.equal(manifest.files.find(file => file.path === 'mcp/vendor/surehand/surehand-ae.mjs')?.sha256, surehand.sha256);
@@ -247,6 +253,14 @@ async function check() {
       if (service.listening) await new Promise(resolve => service.close(resolve));
     }
     console.log('PASS: extracted Chinese/space path, fresh Python venv, Tk, real AEP export drains on update');
+    // The packaged writer can add the native Figma 调色 effect without After Effects: the
+    // effect definition and slider values are serialized into the AEP.
+    const gradedPacket = gradePacket();
+    const gradedResult = await require(path.join(target, 'scripts/export-aep.cjs'))
+      .exportAep(gradedPacket, path.join(scratch, '导出 调色'), {imageGradeMode: 'effect'});
+    assert.equal(gradedResult.imageGrade, 'effect');
+    await run(python, ['-c', inspectEffect, gradedResult.project, 'flat', gradedPacket.name], {env, windowsHide: true});
+    console.log('PASS: packaged native Figma 调色 effect carries the seven Figma values');
     const tools = await checkMcp(target);
     console.log('PASS: extracted MCP server + relay, no node_modules, initialized and listed ' + tools + ' tools');
   } finally {

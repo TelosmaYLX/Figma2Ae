@@ -127,6 +127,10 @@ class Writer:
         self.counts = {'shapes': 0, 'texts': 0, 'images': 0, 'precomps': 0, 'mattes': 0}
         self.mask_defs = {}
         self.image_mask_defs = {}
+        # Native Figma 调色 effect (preferred) instead of the LUT grade graph.
+        self.grade_effect = packet.get('imageGradeEffect') is True
+        self.container_layers = {}
+        self.grade_requests = []
         self.current_layer = packet['name']
         self.current_item = {}
 
@@ -548,25 +552,66 @@ class Writer:
             return fill
         return layer
 
+    def outer_grade_container(self, item):
+        """The single-layer precomp wrapping this element, when the export made one."""
+        path = item.get('path') or []
+        if not path:
+            return None
+        last = path[-1]
+        for container in self.data.get('containers') or []:
+            if container.get('id') == last and container.get('singleLayer'):
+                return last
+        return None
+
+    def queue_grade(self, layer, item):
+        """Put Figma 调色 on the element's outer precomp layer (or on the layer itself).
+
+        The precomp layer comes from the container table; z-order can create it after
+        the picture, so the request is applied once every layer exists.
+        """
+        filters = item.get('imageFilters')
+        if not filters:
+            return
+        container_id = self.outer_grade_container(item)
+        if container_id is None:
+            from figma_grade import add as add_figma_grade
+            add_figma_grade(layer, filters)
+            return
+        self.grade_requests.append((container_id, filters, layer, item))
+
+    def apply_grade_requests(self):
+        from figma_grade import add as add_figma_grade
+        for container_id, filters, fallback, item in self.grade_requests:
+            layer = self.container_layers.get(container_id) or fallback
+            try:
+                add_figma_grade(layer, filters)
+            except Exception as error:
+                self.fail('image-grade', item, '图片调色效果写入失败：' + str(error))
+        self.grade_requests = []
+
     def image(self, context, item, index):
         filters = item.get('imageFilters')
         wrap_crop = item.get('matte') and (filters or item.get('maskId') or item.get('maskSource'))
         if not wrap_crop:
             return self.image_layer(context, item, index)
         crop_comp = self.comp(item['name'] + ' crop', context['comp'].width, context['comp'].height, self.precomps)
-        inner = self.image_layer({**context, 'comp': crop_comp}, {**item, 'blend': 'NORMAL'}, index)
-        if filters:
+        inner = self.image_layer({**context, 'comp': crop_comp}, {**item, 'blend': 'NORMAL'}, index, grade=False)
+        if filters and not self.grade_effect:
             from image_grade import bind_grade_controls, publish_inputs
             publish_inputs(crop_comp, inner)
         layer = context['comp'].add(crop_comp)
         if filters:
-            bind_grade_controls(layer, filters)
+            if self.grade_effect:
+                self.queue_grade(layer, item)
+            else:
+                from image_grade import bind_grade_controls
+                bind_grade_controls(layer, filters)
         self.transform(layer)
         self.common(layer, {**item, 'opacity': 1})
         self.counts['precomps'] += 1
         return layer
 
-    def image_layer(self, context, item, index):
+    def image_layer(self, context, item, index, grade=True):
         ext = item.get('ext', 'png').lower()
         if ext not in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
             raise ValueError('不支持的图片格式：' + ext)
@@ -576,12 +621,13 @@ class Writer:
         footage = self.project.import_file(ImportOptions(str(asset)))
         footage.parent_folder = self.assets
         source = footage
-        if item.get('imageFilters'):
-            from image_grade import bind_grade_controls, build_grade
+        if item.get('imageFilters') and not self.grade_effect:
+            from image_grade import build_grade
             source = build_grade(self.precomps, footage, item['imageFilters'], item['gradeId'],
                                  Path(self.data['gradeTables']), self.data['duration'], self.data['frameRate'])
         layer = context['comp'].add(source)
-        if item.get('imageFilters'):
+        if item.get('imageFilters') and not self.grade_effect:
+            from image_grade import bind_grade_controls
             bind_grade_controls(layer, item['imageFilters'])
         self.common(layer, item)
         nw, nh = footage.width, footage.height
@@ -618,6 +664,8 @@ class Writer:
             mask.transform.rotation.value = item.get('rotation', 0)
             layer.set_track_matte(mask, TrackMatteType.ALPHA)
             self.counts['mattes'] += 1
+        if grade and self.grade_effect and not item.get('reference'):
+            self.queue_grade(layer, item)
         self.counts['images'] += 1
         return layer
 
@@ -685,6 +733,7 @@ class Writer:
                 layer.collapse_transformation = item.get('collapseForBlends', False)
                 self.transform(layer, child['x'] - context['x'], child['y'] - context['y'])
                 self.center_anchor(layer, layer.source_rect_at_time(0, False))
+                self.container_layers[item['id']] = layer
                 if item.get('clip'):
                     mask = layer['ADBE Mask Parade'].add_property('ADBE Mask Atom')
                     mask.name = 'Clip content'
@@ -699,6 +748,7 @@ class Writer:
             else:
                 layer = self.image(context, item, index)
             self.apply_mask(context, layer, item)
+        self.apply_grade_requests()
         for layer in self.main.layers:
             if getattr(layer, 'guide_layer', False):
                 layer.move_to_beginning()
@@ -729,6 +779,7 @@ def main():
               'composition': writer.main.name, 'compositionId': writer.main.id,
               'width': packet['width'], 'height': packet['height'], 'frameRate': packet['frameRate'],
               'duration': packet['duration'], 'counts': writer.counts, 'warnings': writer.warnings,
+              'imageGrade': 'effect' if writer.grade_effect else None,
               'writeMs': round((time.perf_counter() - started) * 1000)}
     (output / 'report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
 

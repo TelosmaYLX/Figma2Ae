@@ -35,6 +35,8 @@ var AEShapeBuilder = (function () {
   var _fontMiss = {}, _fontMissList = [];   // families we had to substitute (not installed)
   var _txtOk = 0, _txtNo = 0;               // text layers measured vs not (sourceRect health)
   var _imgSlots = [];                       // z-order placeholders left where pictures belong
+  var _containerLayers = {};                // container id -> the precomp layer that stands for it
+  var _gradeRequests = [];                  // Figma 调色 effects waiting for their outer precomp
   // Folder this script lives in (host/figma) — used to load bundled .ffx templates.
   var _MK_DIR = (function () {
     try { return File($.fileName).parent.fsName.replace(/\\/g, "/"); } catch (e) { return ""; }
@@ -396,6 +398,17 @@ var AEShapeBuilder = (function () {
         // layers in the same stack order, including pairs nested by an outer mask scope.
         var memberSlots = {}, movingPairs = [];
         for (j = 0; j < members.length; j++) memberSlots[members[j]] = j + 1;
+        // Precomp layers standing in for inner containers move into this new comp too; keep
+        // their handles so a picture's outer precomp can still be found after nesting.
+        var movingContainers = [];
+        for (var cid in _containerLayers) {
+          try {
+            var cl = _containerLayers[cid];
+            if (cl.containingComp.id !== comp.id) continue;
+            var containerSlot = memberSlots[cl.index];
+            if (containerSlot) movingContainers.push({ id: cid, slot: containerSlot });
+          } catch (ecl) {}
+        }
         for (j = 0; j < _mattePairs.length; j++) {
           var pair = _mattePairs[j];
           try {
@@ -416,6 +429,10 @@ var AEShapeBuilder = (function () {
           try { if (comp.layer(j).source === pc) { pcLayer = comp.layer(j); break; } } catch (efind) {}
         }
         if (!pcLayer) { _diag.push("precomp " + (c.name || "?") + ": layer not found"); continue; }
+        for (j = 0; j < movingContainers.length; j++) {
+          try { _containerLayers[movingContainers[j].id] = pc.layer(movingContainers[j].slot); } catch (ecm) {}
+        }
+        _containerLayers[c.id] = pcLayer;
 
         var tg = pcLayer.property("ADBE Transform Group");
         // An unclipped Figma container can draw outside its own box. With collapse disabled,
@@ -1291,6 +1308,7 @@ var AEShapeBuilder = (function () {
     var baseName = opts.name || "UI Shapes";
     var shapes = model.shapes, N = shapes.length, i;
     _diag = []; _fontMiss = {}; _fontMissList = []; _imgSlots = []; _layerPaths = []; _mattePairs = []; _referenceLayers = [];
+    _containerLayers = {}; _gradeRequests = [];
     _maskDefs = {};
     _imageMaskDefs = {}; _imageMaskFolder = '';
     registerImageMasks(opts.imageMasks, opts.imageFolder);
@@ -2073,8 +2091,59 @@ var AEShapeBuilder = (function () {
     return lyr;
   }
 
-  function buildImages(comp, images, folder) {
+  // ---- Figma 调色 (native plug-in effect) ----
+  // The effect is preferred over the LUT grade composition: one effect on the element's
+  // outer precomp restores Figma's seven values and stays keyframeable. A picture always has
+  // such an outer precomp once 「单图层嵌套预合成」 (containers with singleLayer) is on, so the
+  // effect goes on that precomp layer in the parent comp; only a picture without a wrapper is
+  // graded on the layer itself.
+  var _gradeKeys = ['exposure', 'contrast', 'saturation', 'temperature', 'tint', 'highlights', 'shadows'];
+
+  function addFigmaImageGrade(layer, filters) {
+    var fx = layer.property("ADBE Effect Parade").addProperty("F2A Figma Image Grade");
+    for (var i = 0; i < _gradeKeys.length; i++) {
+      var value = filters ? filters[_gradeKeys[i]] : 0;
+      fx.property(i + 1).setValue((value || 0) * 100);   // 1..7 are 曝光…阴影
+    }
+    return fx;
+  }
+
+  function gradeContainerId(im, containers) {
+    var path = im.path || [];
+    if (!path.length || !containers) return null;
+    var last = path[path.length - 1];
+    for (var i = 0; i < containers.length; i++)
+      if (containers[i].id === last && containers[i].singleLayer) return last;
+    return null;
+  }
+
+  function queueImageGrade(layer, im, containers) {
+    var id = gradeContainerId(im, containers);
+    if (id) { _gradeRequests.push({ container: id, filters: im.imageFilters, name: im.name, layer: layer }); return; }
+    try { addFigmaImageGrade(layer, im.imageFilters); }
+    catch (e) { _diag.push("IMG grade " + (im.name || "?") + ":" + String(e).substr(0, 40)); }
+  }
+
+  // Called after organize(): the wrapper precomp layers exist by then. A wrapper that was
+  // skipped (no measurable box) leaves its picture on the nearest ancestor; grade it through
+  // the layer reference captured at build time instead.
+  function applyImageGrades() {
+    if (!_gradeRequests.length) return 0;
+    var applied = 0, failed = 0;
+    for (var i = 0; i < _gradeRequests.length; i++) {
+      var req = _gradeRequests[i];
+      var layer = _containerLayers[req.container] || req.layer;
+      try { addFigmaImageGrade(layer, req.filters); applied++; }
+      catch (e) { failed++; _diag.push("IMG grade " + (req.name || "?") + ":" + String(e).substr(0, 40)); }
+    }
+    _gradeRequests = [];
+    if (applied) _diag.push("image grades " + applied + (failed ? "/" + (applied + failed) : ""));
+    return applied;
+  }
+
+  function buildImages(comp, images, folder, containers) {
     if (!comp || !(comp instanceof CompItem) || !images || !images.length) return 0;
+    _containerLayers = {}; _gradeRequests = [];
     registerImageMasks(images, folder);
     var made = 0;
     beginUndo("Figma -> Images");
@@ -2153,6 +2222,7 @@ var AEShapeBuilder = (function () {
           if (mt) trackLayer(mt, im.path, im.z, null, true);   // rides with its footage
           if (nodeMatte) trackLayer(nodeMatte, im.path, imz, null, true);
           if (im.hidden) { try { lyr.enabled = false; } catch (ehi) {} }
+          if (im.imageGradeEffect && im.imageFilters) queueImageGrade(lyr, im, containers);
           made++;
         } catch (eImg) { _diag.push("IMG:" + String(eImg).substr(0, 40)); }
       }
@@ -2161,6 +2231,7 @@ var AEShapeBuilder = (function () {
   }
 
   return { withUndo: withUndo, build: build, buildText: createTextLayers, buildImages: buildImages, organize: organize,
+    applyImageGrades: applyImageGrades,
     // Flat imports need the same z correction as precomposed ones, but without building groups.
     restack: function (comp) { restackByZ(); relinkMattes(); refreshTextSkewPivots(comp); verifyStack(comp); placeReferences(comp); },
     getDiag: function () {

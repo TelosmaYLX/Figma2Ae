@@ -92,16 +92,18 @@ function runOrganize(comp) {
     // The optimized restack is a no-op when the comp is already ordered.
     if (!_mkContainers || !_mkContainers.length) {
       AEShapeBuilder.restack(comp);
+      var graded = 0; try { graded = AEShapeBuilder.applyImageGrades(); } catch (egrade) {}
       var fd = ""; try { fd = AEShapeBuilder.getDiag(); } catch (ef) {}
-      return "no groups" + (fd ? " | " + fd : "");
+      return "no groups" + (graded ? " | 调色 " + graded : "") + (fd ? " | " + fd : "");
     }
     var n = 0;
     n = AEShapeBuilder.organize(comp, _mkContainers);
     _mkContainers = null;
+    var graded = 0; try { graded = AEShapeBuilder.applyImageGrades(); } catch (egrade2) {}
     var d = ""; try { d = AEShapeBuilder.getDiag(); } catch (ed) {}
-    return n + " 个预合成" + (d ? " | " + d : "");
+    return n + " 个预合成" + (graded ? " | 调色 " + graded : "") + (d ? " | " + d : "");
     });
-  } catch (e) { _mkContainers = null; return "organize error: " + e.toString(); }
+  } catch (e) { _mkContainers = null; try { AEShapeBuilder.applyImageGrades(); } catch (egrade3) {} return "organize error: " + e.toString(); }
 }
 
 // The panel waits for the complete payload, then calls this ONCE. An undo group must never
@@ -283,7 +285,7 @@ function runImportImages(imagesJsonPath, folder, comp) {
     if (!comp || !(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
     var images = _mkReadJson(imagesJsonPath);
     if (!images || !images.length) return "no images";
-    var n = AEShapeBuilder.buildImages(comp, images, folder);
+    var n = AEShapeBuilder.buildImages(comp, images, folder, _mkContainers);
     var d = ""; try { d = AEShapeBuilder.getDiag(); } catch (ed) {}
     return "已导入 " + n + "/" + images.length + " 张图片" + (d ? " | " + d : "");
   } catch (e) { return "image error: " + e.toString(); }

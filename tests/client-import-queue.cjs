@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '..'), output = path.join(root, 'artifacts/undo/client', String(process.pid));
 let testId = 0;
-function harness({rememberFolder = true, failImages = false, lockedImageName, shadowRenderer, nativeFolder, activeCompId = 101, tempSuffix = ''} = {}) {
+function harness({rememberFolder = true, failImages = false, lockedImageName, shadowRenderer, nativeFolder, activeCompId = 101, tempSuffix = '', probeResult} = {}) {
   const dir = path.join(output, String(++testId) + tempSuffix), assets = path.join(dir, 'assets');
   fs.mkdirSync(assets, {recursive: true});
   const native = [], pending = [], pickers = [], messages = [], folderCalls = [], elements = {}, launchCalls=[];
@@ -29,6 +29,8 @@ function harness({rememberFolder = true, failImages = false, lockedImageName, sh
         const job = JSON.parse(fs.readFileSync(file, 'utf8'));
         native.push({file, job, id: JSON.parse(fs.readFileSync(job.nodesPath, 'utf8'))[0]?.id}); pending.push(callback);
       } else if (script === 'mkFigmaTargetCompId()') callback(String(activeCompId));
+      else if (script.indexOf('F2A 调色插件检测') !== -1) callback(probeResult || 'NO:probe');
+      else if (/itemByID\(\d+\);return c\.duration/.test(script)) callback('2,24');
       else if (script.startsWith('mkChooseImageFolder(')) pickers.push(callback);
       else { assert.ok(!/^runImport\(|^runImportImages\(|^runOrganize\(/.test(script), 'Old split import entry must not be called'); if (callback) callback('loaded'); }
     }
@@ -50,7 +52,7 @@ function harness({rememberFolder = true, failImages = false, lockedImageName, sh
   return Object.assign(result,{native, pending, pickers, messages, elements, storage, window, folderCalls, assets, get callbacks(){return callbacks;},
     setActiveComp(id) { activeCompId = id; },
     start(id, imageCount, compSize) { return callbacks.onSvg('<svg width="10" height="10"></svg>', {name: id, nodes: [{id, fills: [], strokes: []}], texts: [], effects: [], imageCount, compSize}); },
-    images(id, reference = false, shadow = false) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3, reference, hidden: reference, external: shadow, shadowBase: shadow ? {data:'clean'} : null}] : []); },
+    images(id, reference = false, shadow = false, extra = {}) { callbacks.onImages(id ? [{name: id, ext: 'png', data: Buffer.from(id).toString('base64'), z: 3, reference, hidden: reference, external: shadow, shadowBase: shadow ? {data:'clean'} : null, ...extra}] : []); },
     abort(message){callbacks.onAbort(message);},
     finish() { assert.equal(active, 1); active--; pending.shift()('OK'); }
   });

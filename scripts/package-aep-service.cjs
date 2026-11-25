@@ -53,12 +53,19 @@ async function build(output) {
   const nodeLicense = await fetch(`https://raw.githubusercontent.com/nodejs/node/${process.version}/LICENSE`);
   if (!nodeLicense.ok) throw new Error('Cannot retrieve the license for the bundled Node version.');
   await fs.writeFile(path.join(bundledNode, 'LICENSE.txt'), await nodeLicense.text());
-  const scripts = ['start-aep-export.ps1', 'install-aep-launcher.ps1', 'install-aep-component.ps1', 'aep-server.cjs', 'open-aep-directory.ps1', 'export-aep.cjs', 'install-mcp.ps1', 'install-mcp-dsh.cjs'];
+  const scripts = ['start-aep-export.ps1', 'install-aep-launcher.ps1', 'install-aep-component.ps1', 'aep-server.cjs', 'open-aep-directory.ps1', 'export-aep.cjs', 'export-web.cjs', 'install-mcp.ps1', 'install-mcp-dsh.cjs'];
   await fs.mkdir(path.join(output, 'scripts'));
   for (const file of scripts) await fs.copyFile(path.join(root, 'scripts', file), path.join(output, 'scripts', file));
+  await fs.cp(path.join(root, 'scripts/web'), path.join(output, 'scripts/web'), {recursive:true});
   await fs.cp(path.join(root, 'scripts/aep'), path.join(output, 'scripts/aep'), {recursive:true, filter: source => path.basename(source) !== '__pycache__'});
   await fs.mkdir(path.join(output, 'client'), {recursive:true});
-  await fs.copyFile(path.join(root, 'client/figmaImageGrade.js'), path.join(output, 'client/figmaImageGrade.js'));
+  for (const file of ['figmaImageGrade.js', 'figmaImageGradeEffect.js'])
+    await fs.copyFile(path.join(root, 'client', file), path.join(output, 'client', file));
+  // The Figma 调色 plug-in ships with the export component so a machine without it in the
+  // AE install gets it copied into Plug-ins/F2A on first use.
+  await fs.mkdir(path.join(output, 'ae-plugins'), {recursive:true});
+  await fs.copyFile(path.join(root, 'ae-plugin/FigmaImageGradePlugin/FigmaImageGrade.aex'),
+    path.join(output, 'ae-plugins/FigmaImageGrade.aex'));
   await fs.mkdir(path.join(output, 'host/figma'), {recursive:true});
   for (const file of ['aeFilename.js', 'svgParser.js'])
     await fs.copyFile(path.join(root, 'host/figma', file), path.join(output, 'host/figma', file));

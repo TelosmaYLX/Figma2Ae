@@ -60,7 +60,8 @@ function normalize(packet) {
   return {
     name: packet.name || 'Figma', aeVersion, width, height, frameRate, duration,
     shapes: model.shapes, texts: packet.texts || [], images: packet.images || [],
-    containers: packet.organize ? packet.containers || [] : [], effects: packet.effects || []
+    containers: packet.organize ? packet.containers || [] : [], effects: packet.effects || [],
+    imageGradeEffect: packet.imageGradeEffect === true,
   };
 }
 

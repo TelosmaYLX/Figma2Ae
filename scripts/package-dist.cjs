@@ -41,6 +41,7 @@ const files = [
     'install-aep-launcher.ps1', 'install-mcp.ps1', 'install-mcp-dsh.cjs',
     'install-f2a.ps1', 'install-files.cjs', 'update-f2a.ps1'].map(f => 'scripts/' + f),
   ...['choose-destination.py', 'packet.cjs', 'requirements.txt', 'writer.py', 'image_grade.py',
+    'figma_grade.py', 'figma-image-grade-effect.bin',
     'render_preview.py', 'image-grade-effects.bin'].map(f => 'scripts/aep/' + f),
   ...['writer.cjs', 'choose-web-destination.ps1'].map(f => 'scripts/web/' + f),
 ];
@@ -68,6 +69,9 @@ function releaseFigmaManifest(source) {
 async function stagePackage(target) {
   const identifiers = [path.basename(os.homedir()), os.hostname()];
   const entries = files.map(file => [file, file]);
+  // The native Figma 调色 effect ships beside the runtime: the panel copies it into the
+  // user's AE Plug-ins folder when that install does not have it yet.
+  entries.push(['ae-plugin/FigmaImageGradePlugin/FigmaImageGrade.aex', 'ae-plugins/FigmaImageGrade.aex']);
   for (const file of ['README.txt', 'INSTALL.md', 'install.cmd']) entries.push(['scripts/distribution/' + file, file]);
   for (const vendor of ['cursor-talk-to-figma-mcp', 'figwright']) {
     entries.push(['mcp/vendor/' + vendor + '/LICENSE', 'licenses/' + vendor + '.txt']);

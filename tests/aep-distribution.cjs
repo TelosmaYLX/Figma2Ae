@@ -18,7 +18,7 @@ async function check() {
   const testRoot = await fs.mkdtemp(path.join(root, 'artifacts/aep-distribution-'));
   const target = path.join(testRoot, '设备 中文');
   await fs.cp(source, target, {recursive:true});
-  const env = {...process.env, PATH:path.join(process.env.SystemRoot, 'System32'), PYTHONPATH:'Z:/unavailable-python', PYTHONHOME:'Z:/unavailable-python'};
+  const env = {...process.env, PATH:path.join(process.env.SystemRoot, 'System32'), PYTHONPATH:'Z:/unavailable-python', PYTHONHOME:'Z:/unavailable-python', F2A_IMAGE_GRADE_MODE:'lut'};
   delete env.F2A_PYTHON;
   const pythonRoot = path.join(target, 'runtime/python');
   const python = path.join(pythonRoot, 'python.exe'), node = path.join(target, 'runtime/node/node.exe');
