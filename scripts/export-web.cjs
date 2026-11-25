@@ -81,16 +81,13 @@ async function publishWeb(packet, destinationFor, options = {}) {
 }
 
 if (require.main === module) {
-  const args = process.argv.slice(2);
-  const animations = args.includes('--animations');
-  const positional = args.filter(arg => arg !== '--animations');
-  const [input, output] = positional;
+  const [input, output] = process.argv.slice(2);
   if (!input || !output) {
-    console.error('Usage: node scripts/export-web.cjs packet.json output-directory [--animations]');
+    console.error('Usage: node scripts/export-web.cjs packet.json output-directory');
     process.exitCode = 1;
   } else {
     fs.readFile(path.resolve(input), 'utf8')
-      .then(source => exportWeb(JSON.parse(source), path.resolve(output), animations ? {animations: true} : {}))
+      .then(source => exportWeb(JSON.parse(source), path.resolve(output)))
       .then(result => console.log(JSON.stringify(result, null, 2)))
       .catch(error => { console.error(error.message); process.exitCode = 1; });
   }

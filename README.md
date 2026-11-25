@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 交付一个页面，或从设计稿开始做动效 | **导出为 AEP 工程** | 独立工程和配套素材，可指定 AE 2024、2025 或 2026 |
 | 给正在制作的合成补一个按钮、标题或组件 | **发送到 After Effects** | 选区图层加入活动合成，也可按画框尺寸自动建合成 |
-| 直接输出像素级前端网页 | **导出为 HTML 网页** | 独立的 `index.html` + `style.css` + `main.js` + `assets/`（可选附带动效脚本），无需 AE/Python |
+| 直接输出像素级前端网页 | **导出为 HTML 网页** | 独立的 `index.html` + `style.css` + `main.js` + `assets/` 静态页面，无需 AE/Python |
 
 ## 快速开始
 
@@ -54,11 +54,9 @@ flowchart LR
 
 1. 启动本地导出服务（仓库开发模式运行 `node scripts/aep-server.cjs --workspace`，或使用已更新的 F2A 服务）。
 2. 在 Figma 选中画框或图层，点击 **导出为 HTML 网页**，选择保存文件夹即可输出纯净的像素级静态前端项目（`index.html`、`style.css`、`main.js`、`layers.json`、`assets/`）。
-3. 如需继续编排页面动效与互动，可勾选 **附带动效脚本**（默认关闭），导出时会额外附带 WAAPI 动效运行时与 `animations.js` 入口脚本。
-4. 点击 **浏览器预览** 或直接双击 `index.html` 即可打开（支持 `file://` 本地直接预览，无需启动开发服务器）：
-   - 按 `Shift+I`（或在网址后加 `?inspector=1`）打开内置调试条，支持 **原图对照**、**差值比对**、**图层框高亮**、**1:1 像素切换**（勾选动效脚本时还提供 **演示入场**）；
-   - 勾选 **附带动效脚本** 后，可在 `animations.js` 中直接通过 `F2A.layer('图层名')`、`F2A.animate(...)`、`F2A.timeline([...])`、`F2A.on('按钮', 'click', ...)`、`F2A.setState(...)` 编排动效与交互。
-   - 也支持命令行直接转换：`node scripts/export-web.cjs packet.json output-dir`（追加 `--animations` 可附带动效脚本）。
+3. 点击 **浏览器预览** 或直接双击 `index.html` 即可打开（支持 `file://` 本地直接预览，无需启动开发服务器）：
+   - 按 `Shift+I`（或在网址后加 `?inspector=1`）打开内置调试条，支持 **原图对照**、**差值比对**、**图层框高亮**、**1:1 像素切换**；
+   - 也支持命令行直接转换：`node scripts/export-web.cjs packet.json output-dir`。
 
 ### 把图层送入当前合成
 
