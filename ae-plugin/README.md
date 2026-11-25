@@ -2,39 +2,55 @@
 
 Two After Effects effects that reproduce Figma's own renderer:
 
-| Plug-in | What it does | Deliverable |
+| Plug-in | What it does | Source, binary and docs |
 |---|---|---|
-| `Figma 背景模糊` (`FigmaBackgroundBlur`) | Figma's background-blur algorithm (uniform triangular kernel, progressive count ramp), applied to the layer below via an adjustment layer bound to a shape layer | `deliverables/FigmaBackgroundBlurPlugin/` |
-| `Figma 调色` (`FigmaImageGrade`) | Figma's seven image-fill filters (exposure, contrast, saturation, temperature, tint, highlights, shadows) at Figma's exact control scale | `deliverables/FigmaImageGradePlugin/` |
+| `Figma 背景模糊` (`FigmaBackgroundBlur`) | Figma's background-blur algorithm (uniform triangular kernel, progressive count ramp), applied to the layer below via an adjustment layer bound to a shape layer | `FigmaBackgroundBlurPlugin/` |
+| `Figma 调色` (`FigmaImageGrade`) | Figma's seven image-fill filters (exposure, contrast, saturation, temperature, tint, highlights, shadows) at Figma's exact control scale | `FigmaImageGradePlugin/` |
 
 Both are x64 `.aex` plug-ins built with the After Effects SDK 27, support multi-frame
 rendering, use Chinese UI names, and are validated against Figma's own PNG exports
-(see each deliverable's `fidelity_metrics.json`).
+(see each plug-in's `fidelity_metrics.json`).
+
+## Figma 调色 in the F2A export
+
+`FigmaImageGrade.aex` is the default path for **保留图片调色属性**:
+
+1. The Figma → AE import and the direct AEP writer put `Figma 调色` on the image
+   element's **outer precomp layer** (the same-named minimal precomp created by
+   「单图层嵌套预合成」) and restore Figma's seven values, instead of building the
+   LUT grade composition graph.
+2. When the effect is not installed, F2A copies `FigmaImageGrade.aex` to
+   `…/Adobe After Effects <version>/Support Files/Plug-ins/F2A/` and uses the
+   effect. After Effects only loads new plug-ins on start, so the panel tells the
+   user to restart AE and uses the LUT fallback for the running session.
+3. Only when the copy fails (read-only install, missing AE, …) does the export
+   fall back to the embedded LUT grade ("图片调色" compositions).
+
+The packaged Windows build ships the binary at `ae-plugins/FigmaImageGrade.aex`;
+`scripts/aep/figma_grade.py` carries the serialized effect definition used by the
+direct AEP writer.
 
 ## Layout
 
 ```
 ae-plugin/
-  README.md          this file
-  tests/             build hooks, validation and benchmark tooling
-  sdk/               local copy of the AE SDK - NOT committed (see below)
-  build/             MSBuild output - NOT committed
-deliverables/
-  FigmaBackgroundBlurPlugin/   FigmaBackgroundBlur.aex, src/, tools/, build.ps1, metrics, README
-  FigmaImageGradePlugin/       FigmaImageGrade.aex, src/, tools/, metrics, README, user_pick/*.json
-  FigmaVsAE/                   fidelity_metrics.json (first blur study, numbers only)
+  README.md                      this file
+  FigmaBackgroundBlurPlugin/     .aex, src/, tools/, metrics, README
+  FigmaImageGradePlugin/         .aex, src/, tools/, metrics, README, user_pick/*.json
+  tests/                         build hooks, validation and benchmark tooling
+  sdk/                           local copy of the AE SDK - NOT committed
+  build/                         MSBuild output - NOT committed
 ```
 
 The repository keeps **sources, build/validation scripts, docs, metric JSON and the
 compiled `.aex` plug-ins**. Demo `.aep` / `.mp4` files and the PNG comparison renders
 are validation artifacts: they are not distributed with the repo and can be
 regenerated with the scripts in `tests/` (see `build_demo*.jsx`,
-`render_demo_frames.jsx`, `build_grade_demo.jsx`, `check_*.py`). Each deliverable
+`render_demo_frames.jsx`, `build_grade_demo.jsx`, `check_*.py`). Each plug-in
 README records the binary size / SHA256 it was built from, so a rebuild can be
 verified against the shipped file.
 
-The plug-in sources live in each deliverable's `src/` folder - that is the copy to
-keep. To build, copy them over the SDK template:
+To build, copy the sources over the SDK template:
 
 ```powershell
 # 1. copy the SDK into the workspace (it is not committed)
@@ -43,12 +59,12 @@ robocopy D:\AfterEffectsSDK_27.0_win ae-plugin\sdk\AfterEffectsSDK_27.0_win /E
 
 # 2. copy the plug-in source into the SDK template folder
 $tpl = "ae-plugin\sdk\AfterEffectsSDK_27.0_win\Examples\Template"
-Copy-Item deliverables\FigmaImageGradePlugin\src\* "$tpl\FigmaImageGrade\" -Recurse -Force
-Copy-Item deliverables\FigmaBackgroundBlurPlugin\src\* "$tpl\FigmaBackgroundBlur\" -Recurse -Force
+Copy-Item ae-plugin\FigmaImageGradePlugin\src\* "$tpl\FigmaImageGrade\" -Recurse -Force
+Copy-Item ae-plugin\FigmaBackgroundBlurPlugin\src\* "$tpl\FigmaBackgroundBlur\" -Recurse -Force
 
 # 3. build with MSBuild (VsDevCmd for x64), then patch the localized PiPL strings
 #    see tests\patch_pipl_name_grade.py / tests\patch_pipl_name.py and the
-#    "构建" section of each deliverable README
+#    "构建" section of each plug-in README
 ```
 
 ## Tooling (`tests/`)
@@ -61,6 +77,9 @@ Copy-Item deliverables\FigmaBackgroundBlurPlugin\src\* "$tpl\FigmaBackgroundBlur
 * `bench_*.jsx` / `probe_*.jsx` - in-AE benchmarks and structural probes.
 * `patch_pipl_name*.py` - post-build GBK patch of the localized PiPL name/category
   (the compiler cannot emit GBK string literals).
+* `extract_figma_grade_effect.py` - dump the `Figma 调色` effect definition from a
+  saved AEP into `scripts/aep/figma-image-grade-effect.bin` (the direct AEP writer
+  uses it to add the effect without AE).
 
 The `.aex`, `.obj`, `__pycache__` and local SDK copies are ignored by git; the
-renders used for validation live in the deliverable folders, not in `tests/`.
+renders used for validation live outside the repository.
