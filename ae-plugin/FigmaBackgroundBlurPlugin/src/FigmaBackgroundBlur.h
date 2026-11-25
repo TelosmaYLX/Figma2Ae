@@ -1,12 +1,11 @@
 /*******************************************************************/
 /*  FigmaBackgroundBlur.h                                          */
 /*                                                                 */
-/*  "Figma 背景模糊" - After Effects effect plug-in (v1.3)          */
+/*  "Figma 背景模糊" - After Effects effect plug-in                 */
 /*  Real-time reproduction of Figma's background-blur renderer:    */
 /*    - separable triangular (Bartlett) kernel                     */
 /*    - shape-clamped normalized convolution (Figma clamp)         */
-/*    - the blur region is driven by a SHAPE LAYER'S ALPHA CHANNEL */
-/*      (put the effect on an adjustment layer, pick the shape)    */
+/*    - adjustment layer masks define the blur region             */
 /*                                                                 */
 /*  Algorithm reverse-engineered from Figma 126.8.16 (see the      */
 /*  analysis documents in the project workspace).                  */
@@ -52,7 +51,7 @@ typedef unsigned short PixelType;
 
 #define MAJOR_VERSION 1
 #define MINOR_VERSION 8
-#define BUG_VERSION 0
+#define BUG_VERSION 1
 #define STAGE_VERSION PF_Stage_DEVELOP
 #define BUILD_VERSION 1
 

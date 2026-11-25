@@ -6,7 +6,7 @@
 #   - Visual Studio 2022 (v143 toolset) or VS BuildTools + Windows 10 SDK
 #   - Python 3 (used by tools/patch_pipl_name.py, see note below)
 #
-# Usage:  powershell -ExecutionPolicy Bypass -File build.ps1
+# Usage:  powershell -ExecutionPolicy Bypass -File build.ps1 [-SkipInstall]
 #
 # NOTE (PiPL encoding): After Effects on a Chinese Windows installation decodes
 # PiPL strings with the system ANSI code page (CP936). The SDK PiPL toolchain does
@@ -14,6 +14,8 @@
 # length ASCII placeholders and tools/patch_pipl_name.py rewrites the compiled
 # resource with the Chinese name/category (same byte lengths, so the PiPL layout is
 # unchanged). Do not skip the patch step.
+param([switch]$SkipInstall)
+
 $ErrorActionPreference = "Stop"
 
 $Here    = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -66,7 +68,11 @@ Write-Host "Patching PiPL strings: $Aex"
 & $Python (Join-Path $Here "tools\patch_pipl_name.py") $Aex
 if ($LASTEXITCODE -ne 0) { throw "PiPL patch failed with exit code $LASTEXITCODE" }
 
-# 4) Install into After Effects 2026 (adjust the path for another AE version)
+# 4) Update the plug-in that F2A packages.
+Copy-Item $Aex (Join-Path $Here "FigmaBackgroundBlur.aex") -Force
+if ($SkipInstall) { return }
+
+# 5) Install into After Effects 2026 (adjust the path for another AE version)
 $PluginDir = "D:\Software\Adobe\Adobe After Effects 2026\Support Files\Plug-ins\F2A"
 New-Item -ItemType Directory -Force -Path $PluginDir | Out-Null
 Copy-Item $Aex (Join-Path $PluginDir "FigmaBackgroundBlur.aex") -Force

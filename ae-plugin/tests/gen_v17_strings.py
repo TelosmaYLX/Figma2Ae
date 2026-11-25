@@ -32,6 +32,7 @@ TableString g_strs[StrID_NUMTYPES] = {
     StrID_Name,
 {name},
     StrID_Description,
+    // The adjustment layer mask defines the blur region.
 {description},
     StrID_Mode_Param_Name,
 {mode},
@@ -65,10 +66,7 @@ char* GetStringPtr(int strNum)
 
 STRINGS = {
     "name": "Figma 背景模糊",
-    "description": (
-        "复现 Figma 背景模糊（均匀/渐变）：区域取自 Alpha源 轮廓或调整层自身遮罩；"
-        "渐变线按区域包围盒百分比定义，区域移动时自动跟随。v1.8"
-    ),
+    "description": "使用调整层遮罩限定模糊区域。",
     "mode": "模式",
     "mode_choices": "均匀|渐变",
     "radius": "背景模糊半径 (px)",

@@ -51,7 +51,7 @@ resource 'PiPL' (16000) {
 		},
 		/* [8] */
 		AE_Effect_Version {
-			786433 /* 1.8 */
+			788481 /* 1.8.1 */
 		},
 		/* [9] */
 		AE_Effect_Info_Flags {
@@ -59,7 +59,7 @@ resource 'PiPL' (16000) {
 		},
 		/* [10] */
 		AE_Effect_Global_OutFlags {
-			0x02000000
+			0x06000000 /* deep color and parameter UI updates, matching GlobalSetup */
 		},
 		AE_Effect_Global_OutFlags_2 {
 			0x48000000 /* threaded rendering and UTF-8 strings, matching GlobalSetup */

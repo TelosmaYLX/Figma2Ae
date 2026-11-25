@@ -857,10 +857,11 @@ static PF_Err About(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef* param
 {
     AEGP_SuiteHandler suites(in_data->pica_basicP);
     suites.ANSICallbacksSuite1()->sprintf(out_data->return_msg,
-                                          "%s v%d.%d\r%s",
+                                          "%s v%d.%d.%d\r%s",
                                           STR(StrID_Name),
                                           MAJOR_VERSION,
                                           MINOR_VERSION,
+                                          BUG_VERSION,
                                           STR(StrID_Description));
     return PF_Err_NONE;
 }
@@ -868,7 +869,7 @@ static PF_Err About(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef* param
 static PF_Err GlobalSetup(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef* params[], PF_LayerDef* output)
 {
     out_data->my_version = PF_VERSION(MAJOR_VERSION, MINOR_VERSION, BUG_VERSION, STAGE_VERSION, BUILD_VERSION);
-    out_data->out_flags |= PF_OutFlag_DEEP_COLOR_AWARE;
+    out_data->out_flags |= PF_OutFlag_DEEP_COLOR_AWARE | PF_OutFlag_SEND_UPDATE_PARAMS_UI;
     out_data->out_flags2 |= PF_OutFlag2_SUPPORTS_THREADED_RENDERING;
     out_data->out_flags2 |= PF_OutFlag2_STRINGS_ARE_UTF8;
     return PF_Err_NONE;
@@ -889,7 +890,7 @@ static PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef*
     def.u.pd.value = def.u.pd.dephault;
     def.u.pd.u.PF_DEF_NAMESPTR = STR(StrID_Mode_Choices);
     def.uu.id = FGB_MODE_DISK_ID;
-    def.flags = 0;
+    def.flags = PF_ParamFlag_SUPERVISE;
     ERR(PF_ADD_PARAM(in_data, -1, &def));
 
     AEFX_CLR_STRUCT(def);
@@ -980,17 +981,18 @@ static PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef*
                          0,
                          FGB_GRAD_EY_DISK_ID);
 
+    // Hide the retired controls while retaining their disk IDs and behavior
+    // for existing projects. New effects use the adjustment layer's masks.
     AEFX_CLR_STRUCT(def);
-    PF_ADD_CHECKBOXX(STR(StrID_AAEdge_Param_Name), FALSE, 0, FGB_AA_EDGE_DISK_ID);
+    def.ui_flags = PF_PUI_INVISIBLE;
+    PF_ADD_CHECKBOX(STR(StrID_AAEdge_Param_Name), "", FALSE, 0, FGB_AA_EDGE_DISK_ID);
 
-    // Optional source layer: its alpha silhouette defines the blur region.
-    // Leave it at <none> to use the adjustment layer own masks instead.
     AEFX_CLR_STRUCT(def);
     def.param_type = PF_Param_LAYER;
     PF_STRNNCPY(def.PF_DEF_NAME, STR(StrID_MaskLayer_Param_Name), sizeof(def.PF_DEF_NAME));
     def.u.ld.dephault = PF_LayerDefault_NONE;
+    def.ui_flags = PF_PUI_INVISIBLE;
     def.uu.id = FGB_MASK_LAYER_DISK_ID;
-    def.flags = 0;
     ERR(PF_ADD_PARAM(in_data, -1, &def));
 
     out_data->num_params = FGB_NUM_PARAMS;
@@ -1029,30 +1031,11 @@ static PF_Err UpdateParameterUI(PF_InData* in_data, PF_OutData* out_data, PF_Par
 
     AEFX_SuiteScoper<PF_ParamUtilsSuite3> paramUtils(in_data, kPFParamUtilsSuite, kPFParamUtilsSuiteVersion3, out_data);
 
-    for (size_t i = 0; i < sizeof(rules) / sizeof(rules[0]); ++i)
+    for (const UiRule& rule : rules)
     {
-        const PF_ParamIndex index = rules[i].index;
-        if (params[index] == nullptr)
-        {
-            continue;
-        }
-
-        const bool isDisabled = (params[index]->ui_flags & PF_PUI_DISABLED) != 0;
-        if (isDisabled == rules[i].disable)
-        {
-            continue; // already in the wanted state
-        }
-
-        PF_ParamDef copy = *params[index]; // the host hands us read-only params
-        if (rules[i].disable)
-        {
-            copy.ui_flags |= PF_PUI_DISABLED;
-        }
-        else
-        {
-            copy.ui_flags &= ~PF_PUI_DISABLED;
-        }
-        ERR(paramUtils->PF_UpdateParamUI(in_data->effect_ref, index, &copy));
+        PF_ParamDef copy = *params[rule.index]; // the host hands us read-only params
+        copy.ui_flags = (copy.ui_flags & ~PF_PUI_DISABLED) | (rule.disable ? PF_PUI_DISABLED : 0);
+        ERR(paramUtils->PF_UpdateParamUI(in_data->effect_ref, rule.index, &copy));
     }
 
     return err;
