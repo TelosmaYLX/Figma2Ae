@@ -103,8 +103,8 @@ body{
   border-bottom:1px solid var(--border-soft);
 }
 .f2m-ctx-left{display:flex; align-items:center; gap:6px; min-width:0; flex:1 1 auto;}
-.f2m-ctx-text{
-  font-size:11px; color:var(--text-dim);
+.f2m-ctx-title{
+  font-size:11px; font-weight:600; color:var(--text-dim); letter-spacing:.02em;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .f2m-svg-ico{width:12px; height:12px; display:block; flex:0 0 auto;}

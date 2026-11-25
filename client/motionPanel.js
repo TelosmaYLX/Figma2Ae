@@ -145,7 +145,6 @@
     templateDirs: loadStoredDirs(),
     templates: [],
     templatePageLimit: 48,
-    selection: { hasComp: false, compName: "", time: 0, selected: [] },
     recording: null,           // { snapshotFile, snapshot, startedAt }
     saveFormOpen: false,
     dirInputOpen: false,
@@ -204,25 +203,6 @@
     }
     state.templates = all;
     state.templatePageLimit = 48;
-  }
-
-  // ---- AE Selection polling ----
-  var selPollTimer = null;
-  function refreshSelection(silent) {
-    if (!CEP) {
-      state.selection = { hasComp: false, compName: "预览模式", time: 0, selected: [] };
-      renderSelectionBar();
-      return;
-    }
-    evalES("mkMotionGetSelectionInfo()", function (raw) {
-      var res = parseEsJson(raw);
-      if (res && res.ok) {
-        state.selection = res;
-      } else if (!silent && res && res.error) {
-        log(res.error, "err");
-      }
-      renderSelectionBar();
-    });
   }
 
   // ---- Live 60fps preview animation loop (only visible or hovered stages run) ----
@@ -450,8 +430,7 @@
         var res = parseEsJson(raw);
         if (res.ok) {
           log("已应用「" + item.name + "」→ " + res.layers + " 层（" + res.tracks + " 条轨道，单步可撤销）", "ok");
-          refreshSelection(true);
-        } else {
+            } else {
           report("应用「" + item.name + "」失败：" + res.error, true);
         }
       });
@@ -479,8 +458,7 @@
         if (res.ok) {
           var n = res.result && (res.result.layers || res.result.staggered);
           log("已应用「" + item.name + "」" + (n ? "→ " + n + " 层" : "") + "（单步可撤销）", "ok");
-          refreshSelection(true);
-        } else {
+            } else {
           report("应用「" + item.name + "」失败：" + res.error, true);
         }
       });
@@ -520,8 +498,7 @@
           } else {
             log("已导入模板合成「" + (res.compName || item.name) + "」到当前时间轴", "ok");
           }
-          refreshSelection(true);
-        } else {
+            } else {
           report("导入「" + item.name + "」失败：" + res.error, true);
         }
       });
@@ -742,25 +719,6 @@
     if (iconName) btn.appendChild(svgIcon(iconName));
     if (labelText) btn.appendChild(el("span", "", labelText));
     return btn;
-  }
-
-  function renderSelectionBar() {
-    var textEl = document.getElementById("f2m-ctx-text");
-    if (!textEl) return;
-    var s = state.selection;
-    if (!s || !s.hasComp) {
-      textEl.textContent = CEP ? "未打开活动合成" : "预览模式 · 内置动效可实时悬停预览";
-      return;
-    }
-    var n = s.selected ? s.selected.length : 0;
-    var tStr = (Math.round((s.time || 0) * 100) / 100).toFixed(2) + "s";
-    if (n === 0) {
-      textEl.textContent = s.compName + " · 未选中图层 · " + tStr;
-    } else if (n === 1) {
-      textEl.textContent = "已选「" + s.selected[0].name + "」· " + tStr;
-    } else {
-      textEl.textContent = s.compName + " · 已选 " + n + " 层 · " + tStr;
-    }
   }
 
   // Directional variants (上/下/左/右) read in 上、下、左、右 order wherever they appear,
@@ -1261,7 +1219,6 @@
   }
 
   function renderPanel() {
-    renderSelectionBar();
     renderTabs();
     renderSubbar();
     renderGrid();
@@ -1316,8 +1273,6 @@
       };
     }
 
-    var refreshBtn = document.getElementById("f2m-act-refresh");
-    if (refreshBtn) refreshBtn.onclick = function () { refreshSelection(false); };
 
     // Parameter bindings
     function bindSelect(id, key, isNum) {
@@ -1391,17 +1346,9 @@
       if (total) log("动效库已就绪：" + total + " 个内置动效" + (state.templates.length ? " · " + state.templates.length + " 个本地模板" : ""), "ok");
       renderPanel();
     });
-    refreshSelection(true);
-    if (CEP) {
-      window.addEventListener("focus", function () { refreshSelection(true); });
-      selPollTimer = setInterval(function () {
-        if (!document.hidden) refreshSelection(true);
-      }, 2500);
-    }
   }
 
   window.F2AMotionPanel = {
-    refreshSelection: refreshSelection,
     refreshUserClips: refreshUserClips,
     addTemplateDir: addTemplateDir,
     getState: function () { return state; }
