@@ -8,6 +8,8 @@
 
 ## 1. 概述
 
+> **2026-11-25 去重精简**：`rb-content-focus` 与 `rb-content-zoom` 运动高度重复（97%→100% vs 95%→100%），已从内置库移除；当前库总量为 **58 clips / 41 presets**。下文保留原始分析记录，以 `motion-library/builtin.json` 为准。
+
 React Bits（[reactbits.dev](https://reactbits.dev)）是一个开源的 React UI 动效组件集合：组件按语义分为 **Text Animations / Animations / Components / Backgrounds / Micro** 五类，每个组件提供四种实现变体（JS-TS × CSS-Tailwind），通过 shadcn 或 jsrepo registry 安装，源码可直接复制进项目。动画实现分两大阵营：**GSAP**（`gsap` + `ScrollTrigger` + `SplitText`，大量文字与滚动类组件）与 **Motion (Framer)**（`motion/react`，Blur Text、Rotating Text 等声明式 spring）；Backgrounds 与部分视觉组件则依赖 **three.js / ogl** 的 WebGL 着色器。
 
 本文的目的不是复刻 React Bits，而是把它的动效语汇**蒸馏成 F2A 的 AE 动效词汇**：哪些可以直接用 AE 关键帧或原生文字动画器重建，哪些只能用近似，哪些不应该进入 AE 关键帧体系。F2A 已据此在 `motion-library/builtin.json` 增加 11 条 `preset-rb-*` 文字预设与 7 条 `rb-*` 关键帧片段（见第 4 节），其生成逻辑位于 `scripts/extract-motion-library.py` 的 `procedural_presets()` 与 `reactbits_clips()`。

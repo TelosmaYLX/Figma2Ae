@@ -9,6 +9,8 @@
 
 ## 1. 概述
 
+> **2026-11-25 去重精简**：`os-underline-draw` 与 `os-highlight-sweep` 同为 Scale X 0→100% 宽度扫入、仅时长/曲线略异，已移除下划线版；当前库总量为 **58 clips / 41 presets**。下文保留原始分析记录，以 `motion-library/builtin.json` 为准。
+
 ### 1.1 Osmo 是什么
 
 Osmo（[osmo.supply](https://www.osmo.supply)）是面向 **Webflow 与 HTML/CSS/JS** 的**付费会员制**创意动效资源平台，由 Dennis Snellenberg、Ilja van Eck 等创作（公开页脚与 FAQ 口径）。公开页标题为“Osmo Resources Collection - Webflow & HTML/CSS/JS Components”，公开导航可见的产品线：

@@ -9,6 +9,8 @@
 
 ## 1. 概述
 
+> **2026-11-25 去重精简**：`preset-ac-typewriter`（逐字 fade）与通用 `preset-text-fade` 高度重复、`preset-ac-container-flip`（逐字 blur）与 `preset-text-blur` / `preset-rb-split-blur` 高度重复，均已从内置库移除；当前库总量为 **58 clips / 41 presets**。下文保留原始分析记录，以 `motion-library/builtin.json` 为准。
+
 ### 1.1 它是什么
 
 Aceternity UI（[ui.aceternity.com](https://ui.aceternity.com)）是 Tailwind + Framer Motion 的 React/Next.js 动效组件集合。它不发 npm 包，而是用 shadcn CLI 把源码直接写进项目：`npx shadcn@latest add @aceternity/<component>`，因此**组件源码就是交付形态**——动效参数"可抄"，但没有统一运行时抽象：一部分是 `motion/react` 声明式动画，一部分是 CSS transition / Tailwind keyframes，一部分把 `style.transform` 直接绑到指针事件或 `requestAnimationFrame`，还有一部分是 three.js / Canvas 着色器或 tsparticles 粒子引擎。

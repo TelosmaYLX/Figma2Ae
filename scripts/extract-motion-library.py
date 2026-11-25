@@ -1167,6 +1167,17 @@ def synth_clip(slug, name, category, phase, default_anchor, description, tags, d
     return make_artifact(slug, name, category, phase, default_anchor, description, tags, tracks, source_style=source_style)
 
 
+# Cards whose motion is a near-duplicate of another shipped card are retired from the library.
+# (2026-11-25 cleanup: keep the clearer/canonical variant out of each duplicated family.)
+RETIRED_SLUGS = {
+    "curated-smooth-glide-right",  # same keys/duration as curated-whip-slide-right (only final ease influence differs)
+    "rb-content-focus",            # 97→100% scale + fade is a subtle subset of rb-content-zoom (95→100%)
+    "au-fade",                     # plain opacity fade already covered by curated-opacity-silky-in / rb-content-fade
+    "au-menu-in",                  # 90→100% scale over 0.22s duplicates au-dialog-in (80→100% over 0.5s)
+    "os-underline-draw",           # same 0→100% scaleX sweep family as os-highlight-sweep
+}
+
+
 def reactbits_clips():
     """Content reveals distilled from React Bits' Animated Content / Fade Content / Bubble Menu."""
     return [
@@ -1559,16 +1570,6 @@ def procedural_presets():
          "sourceStyle": "Aceternity",
          "defaults": {"style": "riseBlur", "by": "chars", "phase": "in", "direction": "up", "duration": 0.2, "stagger": 0.05, "ease": "power2Out", "distance": 10},
          "supports": {"duration": True, "textBy": True}},
-        {"id": "preset-ac-typewriter", "kind": "procedural", "command": "text_reveal", "name": "AC 打字机字幕", "category": "文字", "phase": "in",
-         "description": "Aceternity Typewriter Effect：逐字 0.3s 渐显、0.1s 错峰，easeInOut；光标闪烁未打包。", "tags": ["Aceternity", "文字", "入场", "打字机", "逐字"],
-         "sourceStyle": "Aceternity",
-         "defaults": {"style": "fade", "by": "chars", "phase": "in", "duration": 0.3, "stagger": 0.1, "ease": "power2InOut"},
-         "supports": {"duration": True, "textBy": True}},
-        {"id": "preset-ac-container-flip", "kind": "procedural", "command": "text_reveal", "name": "AC 逐字模糊翻牌", "category": "文字", "phase": "in",
-         "description": "Aceternity Container Text Flip：逐字 10px 模糊归零，0.3s / 20ms 错峰，easeInOut。", "tags": ["Aceternity", "文字", "入场", "模糊", "逐字"],
-         "sourceStyle": "Aceternity",
-         "defaults": {"style": "blur", "by": "chars", "phase": "in", "duration": 0.3, "stagger": 0.02, "ease": "power2InOut"},
-         "supports": {"duration": True, "textBy": True}},
         {"id": "preset-ac-layout-flip", "kind": "procedural", "command": "text_reveal", "name": "AC 布局词翻入", "category": "文字", "phase": "in",
          "description": "Aceternity Layout Text Flip：整词自上方 40px 落下 + 10px 模糊归零，0.5s，power2.out。", "tags": ["Aceternity", "文字", "入场", "翻入", "整词"],
          "sourceStyle": "Aceternity",
@@ -1586,17 +1587,6 @@ def procedural_presets():
          "sourceStyle": "AnimateUI",
          "defaults": {"style": "rise", "by": "words", "phase": "in", "direction": "left", "duration": 0.7, "stagger": 0.2, "ease": "expoOut", "distance": 150},
          "supports": {"duration": True, "textBy": True}},
-        {"id": "preset-au-lines-slide", "kind": "procedural", "command": "text_reveal", "name": "AU 逐行右滑入", "category": "文字", "phase": "in",
-         "description": "Animate UI Splitting Text 多行版：行自右 150px 滑入，0.7s / 300ms 错峰，easeOut 近似。", "tags": ["AnimateUI", "文字", "入场", "滑入", "逐行"],
-         "sourceStyle": "AnimateUI",
-         "defaults": {"style": "rise", "by": "lines", "phase": "in", "direction": "left", "duration": 0.7, "stagger": 0.3, "ease": "expoOut", "distance": 150},
-         "supports": {"duration": True, "textBy": True}},
-        {"id": "preset-au-typing", "kind": "procedural", "command": "text_reveal", "name": "AU 打字机", "category": "文字", "phase": "in",
-         "description": "Animate UI Typing Text：每字 100ms 依次敲入；光标闪烁与回删循环未打包。", "tags": ["AnimateUI", "文字", "入场", "打字机", "逐字"],
-         "sourceStyle": "AnimateUI",
-         "defaults": {"style": "typewriter", "by": "chars", "phase": "in", "duration": 0, "stagger": 0.1, "ease": "linear"},
-         "supports": {"textBy": True}},
-
         # video-shotcraft shot recipes (Apache-2.0) — typography/blur-slide defaults.
         {"id": "preset-sc-blur-slide", "kind": "procedural", "command": "text_reveal", "name": "SC 逐词模糊滑入", "category": "文字", "phase": "in",
          "description": "video-shotcraft blur-slide：整词 y 64px + 18px 模糊 + 渐显共用一条 quint-out 曲线，0.73s / 133ms 错峰。", "tags": ["VideoShotcraft", "文字", "入场", "模糊", "整词"],
@@ -1649,6 +1639,7 @@ def main():
 
     buckets = harvest_from_source(args.source)
     clips = curate_library(buckets) + reactbits_clips() + aceternity_clips() + animate_ui_clips() + osmo_clips() + video_shotcraft_clips()
+    clips = [c for c in clips if c["slug"] not in RETIRED_SLUGS]
     presets = procedural_presets()
 
     payload = {

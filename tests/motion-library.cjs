@@ -200,7 +200,7 @@ async function check() {
   const rbPop = rbPresets.find(item => item.id === 'preset-rb-split-pop');
   for (const ch of preview.evaluatePresetAt(rbPop, {}, 0).chars) assert.ok(ch.scale < 0.05, 'pop starts at zero scale');
   for (const ch of preview.evaluatePresetAt(rbPop, {}, 1).chars) assert.ok(ch.opacity > 0.95, 'pop finishes opaque');
-  const rbClips = ['rb-content-rise', 'rb-content-glide', 'rb-content-fade', 'rb-content-zoom', 'rb-content-focus', 'rb-back-pop', 'rb-exit-sink'];
+  const rbClips = ['rb-content-rise', 'rb-content-glide', 'rb-content-fade', 'rb-content-zoom', 'rb-back-pop', 'rb-exit-sink'];
   for (const slug of rbClips) {
     const clip = builtin.clips.find(item => item.slug === slug);
     assert.ok(clip, 'missing React Bits clip ' + slug);
@@ -209,8 +209,8 @@ async function check() {
 
   // Aceternity pack: Framer Motion entrances distilled into text presets and two-key clips.
   const acPresets = builtin.presets.filter(item => item.id.startsWith('preset-ac-'));
-  assert.ok(acPresets.length >= 5, 'expected the Aceternity text preset pack');
-  const acTextStyles = new Set(['blur', 'fade', 'riseBlur']);
+  assert.ok(acPresets.length >= 3, 'expected the Aceternity text preset pack');
+  const acTextStyles = new Set(['blur', 'riseBlur']);
   const acTextEases = new Set(['power2Out', 'power2InOut']);
   for (const preset of acPresets) {
     assert.equal(preset.command, 'text_reveal', preset.id + ' must be a text reveal');
@@ -253,9 +253,9 @@ async function check() {
 
   // Animate UI pack: its shared entrance spring (200/20) distilled into presets and clips.
   const auPresets = builtin.presets.filter(item => item.id.startsWith('preset-au-'));
-  assert.ok(auPresets.length >= 4, 'expected the Animate UI text preset pack');
-  const auTextStyles = new Set(['rise', 'typewriter']);
-  const auTextEases = new Set(['expoOut', 'linear']);
+  assert.ok(auPresets.length >= 2, 'expected the Animate UI text preset pack');
+  const auTextStyles = new Set(['rise']);
+  const auTextEases = new Set(['expoOut']);
   for (const preset of auPresets) {
     assert.equal(preset.command, 'text_reveal', preset.id + ' must be a text reveal');
     assert.ok(auTextStyles.has(preset.defaults.style), preset.id + ' has an unknown text style');
@@ -270,7 +270,7 @@ async function check() {
       }
     }
   }
-  const auClips = ['au-fade', 'au-slide-up', 'au-zoom-in', 'au-effect', 'au-dialog-in', 'au-menu-in'];
+  const auClips = ['au-slide-up', 'au-zoom-in', 'au-effect', 'au-dialog-in'];
   for (const slug of auClips) {
     const clip = builtin.clips.find(item => item.slug === slug);
     assert.ok(clip, 'missing Animate UI clip ' + slug);
@@ -285,14 +285,12 @@ async function check() {
   }
   assert.ok(auZoomPeak > 1.02 && auZoomPeak < 1.12, 'Animate UI entrance spring has a mild single overshoot');
   assert.ok(Math.abs(preview.evaluateClipAt(auZoom.clip, auZoom.clip.duration, auZoom.defaultAnchor, auZoomMeta).scaleX - 1) < 1e-3, 'zoom lands at 100%');
-  // Slide has no opacity track, and Fade only animates opacity.
+  // Slide has no opacity track.
   const auSlide = builtin.clips.find(item => item.slug === 'au-slide-up');
   assert.ok(!auSlide.clip.layers[0].tracks.some(tr => tr.path[1][0] === 'ADBE Opacity'), 'Slide keeps its own opacity');
-  const auFade = builtin.clips.find(item => item.slug === 'au-fade');
-  assert.ok(auFade.clip.layers[0].tracks.every(tr => tr.path[1][0] === 'ADBE Opacity'), 'Fade only animates opacity');
 
   // Osmo pack: width-sweep clips plus the transition families distilled from the public collection.
-  const osClips = ['os-highlight-sweep', 'os-underline-draw'];
+  const osClips = ['os-highlight-sweep'];
   for (const slug of osClips) {
     const clip = builtin.clips.find(item => item.slug === slug);
     assert.ok(clip, 'missing Osmo clip ' + slug);
