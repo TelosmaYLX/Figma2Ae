@@ -226,8 +226,14 @@ body{
   display:inline-flex; align-items:center; gap:4px;
   padding:3px 6px; border-radius:99px;
   background:var(--bg-2); border:1px solid var(--border);
-  font-size:10px; color:var(--text-dim); max-width:150px;
+  font:inherit; font-size:10px; color:var(--text-dim); max-width:150px;
+  cursor:pointer; appearance:none;
 }
+.f2m-dir-pill.active{
+  background:var(--accent); border-color:var(--accent); color:#0b0714; font-weight:600;
+}
+.f2m-dir-pill.active .f2m-dir-rm{color:#0b0714;}
+.f2m-dir-pill.active .f2m-dir-rm:hover{color:var(--danger);}
 .f2m-dir-pill span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .f2m-dir-rm{
   appearance:none; border:0; background:transparent; color:var(--text-mute);

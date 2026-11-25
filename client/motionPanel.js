@@ -144,6 +144,7 @@
     userClips: [],
     templateDirs: loadStoredDirs(),
     templates: [],
+    templateDirFilter: null,
     templatePageLimit: 48,
     recording: null,           // { snapshotFile, snapshot, startedAt }
     saveFormOpen: false,
@@ -196,12 +197,20 @@
     for (var i = 0; i < state.templateDirs.length; i++) {
       try {
         var list = scanner.scanTemplateDirectory(state.templateDirs[i]);
-        for (var j = 0; j < list.length; j++) all.push(list[j]);
+        var rootLabel = path ? path.basename(state.templateDirs[i]) : state.templateDirs[i];
+        for (var j = 0; j < list.length; j++) {
+          list[j].rootDir = state.templateDirs[i];
+          list[j].rootLabel = rootLabel;
+          all.push(list[j]);
+        }
       } catch (e) {
         log("扫描模板目录失败：" + e.message, "err");
       }
     }
     state.templates = all;
+    if (state.templateDirFilter && state.templateDirs.indexOf(state.templateDirFilter) < 0) {
+      state.templateDirFilter = null;
+    }
     state.templatePageLimit = 48;
   }
 
@@ -901,6 +910,11 @@
     return out;
   }
 
+  function folderFilteredTemplates() {
+    if (!state.templateDirFilter) return state.templates;
+    return state.templates.filter(function (item) { return item.rootDir === state.templateDirFilter; });
+  }
+
   function currentItemsAndCategories() {
     var q = state.query.trim().toLowerCase();
     var all = [];
@@ -916,8 +930,8 @@
       for (var j = 0; j < state.builtinPresets.length; j++) merged.push(state.builtinPresets[j]);
       all = merged;
     } else if (state.tab === "templates") {
-      for (var t = 0; t < state.templates.length; t++) addCat(state.templates[t].category);
-      all = state.templates;
+      all = folderFilteredTemplates();
+      for (var t = 0; t < all.length; t++) addCat(all[t].category);
     } else {
       all = state.userClips;
     }
@@ -1187,14 +1201,42 @@
         };
         row.appendChild(rescanBtn);
 
+        var allPill = el("button", "f2m-dir-pill" + (state.templateDirFilter ? "" : " active"), "全部");
+        allPill.type = "button";
+        allPill.title = "显示所有导入目录";
+        allPill.onclick = function () {
+          state.templateDirFilter = null;
+          state.category = "全部";
+          state.templatePageLimit = 48;
+          renderPanel();
+        };
+        row.appendChild(allPill);
+
         state.templateDirs.forEach(function (dir) {
           var label = path ? path.basename(dir) : dir;
-          var pill = el("span", "f2m-dir-pill");
-          pill.title = dir;
+          var active = state.templateDirFilter === dir;
+          var pill = el("span", "f2m-dir-pill" + (active ? " active" : ""));
+          pill.title = active ? "取消「" + label + "」筛选" : "只看「" + label + "」";
+          pill.setAttribute("role", "button");
+          pill.tabIndex = 0;
           pill.appendChild(el("span", "", label));
+          function toggleFilter(ev) {
+            if (ev) ev.stopPropagation();
+            state.templateDirFilter = active ? null : dir;
+            state.category = "全部";
+            state.templatePageLimit = 48;
+            renderPanel();
+          }
+          pill.onclick = toggleFilter;
+          pill.onkeydown = function (ev) {
+            if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggleFilter(ev); }
+          };
           var rmBtn = iconButton("f2m-dir-rm", "close", "", "移除目录");
-          rmBtn.onclick = function () {
+          rmBtn.onkeydown = function (ev) { ev.stopPropagation(); };
+          rmBtn.onclick = function (ev) {
+            ev.stopPropagation();
             state.templateDirs = state.templateDirs.filter(function (d) { return d !== dir; });
+            if (state.templateDirFilter === dir) state.templateDirFilter = null;
             saveStoredDirs(state.templateDirs);
             rescanTemplates();
             renderPanel();
@@ -1365,7 +1407,7 @@
     var builtinCount = state.builtinClips.length + state.builtinPresets.length;
     var map = {
       builtin: "内置动效 (" + builtinCount + ")",
-      templates: "本地模板 (" + state.templates.length + ")",
+      templates: "本地模板 (" + folderFilteredTemplates().length + ")",
       user: "我的动效 (" + state.userClips.length + ")"
     };
     var btns = document.querySelectorAll(".f2m-tab");
