@@ -9,7 +9,7 @@
 | Match Name（脚本用） | `F2A Figma Background Blur` |
 | 分类 | `F2A 插件` |
 | 版本 | 1.8.0 |
-| 二进制 | `FigmaBackgroundBlur.aex`（x64，44,032 B，SHA256 `bb75d001b4428e9d6c0368be73bfb829dddc1d322e051e2a7a9074ced203d985`） |
+| 二进制 | `FigmaBackgroundBlur.aex`（x64，44,032 B，SHA256 `bb75d001b4428e9d6c0368be73bfb829dddc1d322e051e2a7a9074ced203d985`；仓库不含二进制，按下文构建即可得到同一文件） |
 | 构建 | After Effects SDK 27.0 (Windows) + MSVC 19.44 (v143) + MSBuild |
 | 已验证宿主 | After Effects 2026（26.0x67），Windows x64，8 bpc，简体中文 UI |
 | 多帧渲染 | PiPL `AE_Effect_Global_OutFlags_2` 与 `PF_Cmd_GLOBAL_SETUP` 均声明 `PF_OutFlag2_SUPPORTS_THREADED_RENDERING` |
@@ -143,19 +143,15 @@ v1.8 的结构性改动：
 
 ## 8. 文件清单
 
+仓库内只保留源码、构建/校验脚本、说明与指标 JSON（演示工程、演示视频、插件二进制和对照图属于验证产物，不随仓库分发，可用第 9 节的脚本重新生成）：
+
 ```
-FigmaBackgroundBlur.aex                        # v1.7 插件二进制
-FigmaBackgroundBlurPlugin_Demo.aep             # 演示工程（6 个合成）
-FigmaBackgroundBlurPlugin_Demo.mp4             # 实时演示（1200×800/30fps/5s/150 帧）
-figma_progressive_reference.png                # Figma 渐变模式参考图（节点 505:1207）
-figma_original.png                             # Figma 均匀模式参考图
-AE_plugin_vs_Figma_side_by_side.png            # 并排对照（左 Figma / 右 插件）
-AE_plugin_vs_Figma_progressive_diff_x8.png     # 渐变模式差异图（|Δ|×8）
 fidelity_metrics.json                          # 全部指标、架构说明与参数来源
-demo_stills/                                   # 演示截帧 + A/B 静帧
-src/                                           # 源码 + vcxproj
-tools/patch_pipl_name.py                       # PiPL 中文名称后处理
+src/                                           # 源码：kernel + 插件 + PiPL + vcxproj
+src/Win/FigmaBackgroundBlur.vcxproj            # VS 工程（Release x64）
+tools/patch_pipl_name.py                       # PiPL 中文名称（GBK）后处理
 build.ps1                                      # 一键构建 + 安装
+README.md
 ```
 
 演示工程合成：

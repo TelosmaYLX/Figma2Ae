@@ -20,9 +20,17 @@ ae-plugin/
   sdk/               local copy of the AE SDK - NOT committed (see below)
   build/             MSBuild output - NOT committed
 deliverables/
-  FigmaBackgroundBlurPlugin/   .aex, demo .aep / .mp4, metrics, README, src/
-  FigmaImageGradePlugin/       .aex, demo .aep / .mp4, metrics, README, src/
+  FigmaBackgroundBlurPlugin/   src/, tools/, build.ps1, fidelity_metrics.json, README
+  FigmaImageGradePlugin/       src/, tools/, fidelity_metrics.json, README, user_pick/*.json
+  FigmaVsAE/                   fidelity_metrics.json (first blur study, numbers only)
 ```
+
+The repository keeps **sources, build/validation scripts, docs and metric JSON only**.
+Built `.aex` binaries, demo `.aep` / `.mp4` files and the PNG comparison renders are
+validation artifacts: they are not distributed with the repo and can be regenerated
+with the scripts in `tests/` (see `build_demo*.jsx`, `render_demo_frames.jsx`,
+`build_grade_demo.jsx`, `check_*.py`). Each deliverable README records the exact
+binary size / SHA256 it produced, so a rebuild can be verified.
 
 The plug-in sources live in each deliverable's `src/` folder - that is the copy to
 keep. To build, copy them over the SDK template:

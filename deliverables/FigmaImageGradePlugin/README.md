@@ -9,7 +9,7 @@
 | 分类 | `F2A 插件` |
 | 参数 | 曝光、对比度、饱和度、白平衡、着色、高光、阴影（Figma 面板数值 −100 ~ +100，默认 0） |
 | 版本 | 1.3.0（PiPL 622593） |
-| 二进制 | `FigmaImageGrade.aex`（x64，46,080 B，SHA256 `b16819f997f97b0a2872468cd0a71cb9719230432fdf7625235737a4cabc1861`，`/arch:AVX2` 编译，需要 AVX2 CPU） |
+| 二进制 | `FigmaImageGrade.aex`（x64，46,080 B，SHA256 `b16819f997f97b0a2872468cd0a71cb9719230432fdf7625235737a4cabc1861`，`/arch:AVX2` 编译，需要 AVX2 CPU；仓库不含二进制，按下文构建即可得到同一文件） |
 | 构建 | After Effects SDK 27.0 (Windows) + MSVC 19.44 (v143) + MSBuild |
 | 已验证宿主 | After Effects 2026（26.0x67），Windows x64，8 bpc，简体中文 UI |
 | 多帧渲染 | PiPL 与 `PF_Cmd_GLOBAL_SETUP` 均声明 `PF_OutFlag2_SUPPORTS_THREADED_RENDERING` |
@@ -128,23 +128,20 @@ Figma 里选中的这一层：520×520 椭圆，图片填充 2560×1440（`scale
 
 所以：**调色本身逐通道 ≤1 级**；整层到像素级的差异来自两边图像缩放与遮罩抗锯齿，是"效果之外"的管线差异。
 
-产物见 `user_pick/`：`figma_node_520.png`、`ae_repro_520.png`、`side_by_side_520.png`、`diff_graded_x10.png`、`diff_baseline_no_grade_x10.png`、`native_grade_check.json`、`comparison_520.json`，以及复现工程 `UserPick_Comparison.aep`。
+产物见 `user_pick/`：`native_grade_check.json`、`comparison_520.json`、`deep_color_check.json` 保留在仓库里（数值结果）；对照图（`figma_node_520.png`、`ae_repro_520.png`、`side_by_side_520.png`、`diff_*_x10.png`）和复现工程 `UserPick_Comparison.aep` 属于验证产物，不随仓库分发，可用 `ae-plugin/tests/` 下的脚本重新生成。
 
 ## 7. 文件清单
 
+仓库内只保留源码、构建/校验脚本、说明与指标 JSON（演示工程、演示视频、插件二进制和对照图属于验证产物，不随仓库分发，可用 `ae-plugin/tests/` 下的脚本重新生成）：
+
 ```
-FigmaImageGrade.aex                     # v1.0 插件二进制（已安装到 AE 2026）
-FigmaImageGradePlugin_Demo.aep          # 演示工程（5 个合成）
-FigmaImageGradePlugin_Demo.mp4          # 滑杆动画演示 1200×800/30fps/3s/90 帧
-AE_vs_Figma_side_by_side.png            # 左 Figma 导出 / 右 插件渲染
-Figma_reference_export.png              # Figma 真实导出（混合值）
-AE_render.png                           # 插件渲染（同图同参数）
-AE_vs_Figma_diff_x8.png                 # 两者差值 ×8（几乎全黑）
-adjustment_layer_example.png            # 调整层用法示例
-demo_frame_keyframed.png                # 关键帧演示截帧
-fidelity_metrics.json                   # 全部指标与算法/验证记录
+fidelity_metrics.json                   # 全部指标、算法与验证记录
+user_pick/native_grade_check.json       # 用户选中图层的调色精度（原生分辨率）
+user_pick/comparison_520.json           # 用户选中图层的整层对比指标
+user_pick/deep_color_check.json         # 16 bpc 深度通道验证
 src/                                    # 源码：kernel + 插件 + PiPL + vcxproj
 tools/patch_pipl_name_grade.py          # PiPL 中文名（GBK）后处理
+tools/grade_cli.cpp                     # 内核基准 / 逐位校验工具
 README.md
 ```
 
