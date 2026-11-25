@@ -59,13 +59,15 @@ async function build(output) {
   await fs.cp(path.join(root, 'scripts/web'), path.join(output, 'scripts/web'), {recursive:true});
   await fs.cp(path.join(root, 'scripts/aep'), path.join(output, 'scripts/aep'), {recursive:true, filter: source => path.basename(source) !== '__pycache__'});
   await fs.mkdir(path.join(output, 'client'), {recursive:true});
-  for (const file of ['figmaImageGrade.js', 'figmaImageGradeEffect.js'])
+  for (const file of ['figmaImageGrade.js', 'figmaImageGradeEffect.js', 'figmaAePlugin.js', 'figmaBackgroundBlurEffect.js'])
     await fs.copyFile(path.join(root, 'client', file), path.join(output, 'client', file));
-  // The Figma 调色 plug-in ships with the export component so a machine without it in the
-  // AE install gets it copied into Plug-ins/F2A on first use.
+  // The native F2A effects (Figma 调色 + Figma 背景模糊) ship with the export component so
+  // a machine without them in the AE install gets them copied into Plug-ins/F2A on first use.
   await fs.mkdir(path.join(output, 'ae-plugins'), {recursive:true});
   await fs.copyFile(path.join(root, 'ae-plugin/FigmaImageGradePlugin/FigmaImageGrade.aex'),
     path.join(output, 'ae-plugins/FigmaImageGrade.aex'));
+  await fs.copyFile(path.join(root, 'ae-plugin/FigmaBackgroundBlurPlugin/FigmaBackgroundBlur.aex'),
+    path.join(output, 'ae-plugins/FigmaBackgroundBlur.aex'));
   await fs.mkdir(path.join(output, 'host/figma'), {recursive:true});
   for (const file of ['aeFilename.js', 'svgParser.js'])
     await fs.copyFile(path.join(root, 'host/figma', file), path.join(output, 'host/figma', file));

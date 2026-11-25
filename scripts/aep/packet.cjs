@@ -9,6 +9,50 @@ function layerError(node, message, cause) {
   return error;
 }
 
+// 「保留背景模糊」requests are shipped next to the layer model. Validate the few
+// values the writer depends on and parse the fill silhouette once here, so the
+// Python side only has to feed the geometry into a mask atom.
+function invalid(node, message) {
+  return layerError(node, '图层「' + (node.name || '未知') + '」的背景模糊无法导出：' + message);
+}
+
+function pair(node, value, label) {
+  if (!Array.isArray(value) || value.length < 2 ||
+      typeof value[0] !== 'number' || typeof value[1] !== 'number' ||
+      !Number.isFinite(value[0]) || !Number.isFinite(value[1])) {
+    throw invalid(node, label + '无效');
+  }
+  return [value[0], value[1]];
+}
+
+function backgroundBlurs(packet) {
+  if (packet.backgroundBlurs == null) return [];
+  if (!Array.isArray(packet.backgroundBlurs)) throw new Error('背景模糊数据无效');
+  return packet.backgroundBlurs.map(value => {
+    const request = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    if (typeof request.name !== 'string' || !request.name) throw invalid(request, '缺少图层名称');
+    if (typeof request.container !== 'string' || !request.container) throw invalid(request, '缺少源图层容器');
+    const size = pair(request, request.size, '尺寸');
+    const position = pair(request, request.position, '位置');
+    if (typeof request.rotation !== 'number' || !Number.isFinite(request.rotation)) throw invalid(request, '旋转角度无效');
+    const scale = pair(request, request.scale, '缩放');
+    if (typeof request.radius !== 'number' || !Number.isFinite(request.radius)) throw invalid(request, '模糊半径无效');
+    if (request.mode !== 'uniform' && request.mode !== 'progressive') throw invalid(request, '模糊模式无效');
+    const mask = request.mask;
+    if (!mask || typeof mask !== 'object') throw invalid(request, '缺少遮罩路径');
+    let subpaths = null;
+    if (mask.kind === 'path') {
+      if (typeof mask.d !== 'string' || !mask.d) throw invalid(request, '遮罩路径为空');
+      try { subpaths = parser.parsePathData(mask.d); } catch (error) { throw invalid(request, '遮罩路径无法解析'); }
+      // The writer models one mask atom, so holes would silently lose their subtraction.
+      if (subpaths.length !== 1 || !subpaths[0].verts.length) throw invalid(request, '遮罩路径必须只有一条子路径');
+    } else if (mask.kind !== 'rect' && mask.kind !== 'ellipse') {
+      throw invalid(request, '不支持的遮罩类型 ' + mask.kind);
+    }
+    return {...request, size, position, scale, mask: {...mask, subpaths}};
+  });
+}
+
 function normalize(packet) {
   const aeVersion = packet.aeVersion ?? '26.0';
   if (!AE_VERSIONS.includes(aeVersion)) throw new Error('请选择 AE 2024、2025 或 2026 工程版本');
@@ -62,6 +106,7 @@ function normalize(packet) {
     shapes: model.shapes, texts: packet.texts || [], images: packet.images || [],
     containers: packet.organize ? packet.containers || [] : [], effects: packet.effects || [],
     imageGradeEffect: packet.imageGradeEffect === true,
+    backgroundBlurs: backgroundBlurs(packet),
   };
 }
 

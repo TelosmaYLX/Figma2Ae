@@ -215,9 +215,14 @@
       </select>
     </div>
     <div class="hint">倍率只影响栅格化图片。</div>
+  </fieldset>
+  <fieldset class="settings">
+    <legend>效果</legend>
+    <label class="option"><input type="checkbox" id="preserve-image-filters"> 保留图片调色属性</label>
+    <div class="option-hint">优先用 Figma 调色插件还原，缺失时退回 LUT 调色。</div>
     <div class="option-spaced">
-      <label class="option"><input type="checkbox" id="preserve-image-filters"> 保留图片调色属性</label>
-      <div class="option-hint">优先用 Figma 调色插件还原，缺失时退回 LUT 调色。</div>
+      <label class="option"><input type="checkbox" id="preserve-background-blur"> 保留背景模糊</label>
+      <div class="option-hint">用同尺寸调整图层调用 Figma 背景模糊插件，并父级到源图层；插件缺失时转为图片。</div>
     </div>
   </fieldset>
   <details id="advanced-options">
@@ -285,6 +290,7 @@
   }
   var CHECKBOX_SETTINGS = [
     'organize', 'precomp-layers', 'enableclip', 'ignorehidden', 'preserve-image-filters',
+    'preserve-background-blur',
     'raster-effects', 'raster-paints', 'raster-image-crops', 'raster-masks', 'raster-booleans',
     'mergeblends', 'rasterallgroups', 'rasterinstances'
   ];
@@ -399,6 +405,8 @@
     return imageFolderRequest('GET').then(function (result) {
       if (forImport && $('preserve-image-filters').checked && !result.preserveImageFilters)
         throw new Error('保留图片调色需要更新并重新打开 AE 的 F2A 面板。');
+      if (forImport && $('preserve-background-blur').checked && !result.preserveBackgroundBlur)
+        throw new Error('保留背景模糊需要更新并重新打开 AE 的 F2A 面板。');
       if (forImport && $('precomp-layers').checked && !result.singleLayerLabel)
         throw new Error('单图层嵌套预合成标黄需要更新并重新打开 AE 的 F2A 面板。');
       showImageFolder(result.directory); return imageFolder;
@@ -457,6 +465,7 @@
       precompLayers: $('precomp-layers').checked,
       rasterScale: Number($('raster-scale').value), nativeImageMasks: $('native-image-masks').value === 'separate',
       preserveImageFilters: $('preserve-image-filters').checked,
+      preserveBackgroundBlur: $('preserve-background-blur').checked,
       ignoreHidden: $('ignorehidden').checked, convertMasks: true,
       rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked,
         masks: $('raster-masks').checked, booleans: $('raster-booleans').checked},
@@ -470,6 +479,7 @@
     }
     var params = message.params || {}, settings = exportSettings(true);
     if (typeof params.preserveImageFilters === 'boolean') settings.preserveImageFilters = params.preserveImageFilters;
+    if (typeof params.preserveBackgroundBlur === 'boolean') settings.preserveBackgroundBlur = params.preserveBackgroundBlur;
     if (params.textMode) {
       settings.outlineTexts = params.textMode === 'vector';
       settings.rasterTexts = params.textMode === 'png';
@@ -482,17 +492,50 @@
     updateButton(); say('正在导出选区…');
     return true;
   }
+  // The live import can only use the adjustment-layer path when the current AE session has
+  // loaded the Figma 背景模糊 plug-in. Ask the panel (through the bridge) before the Figma
+  // export runs, because that answer decides whether the layer is rasterised or kept editable.
+  function backgroundBlurProbe() {
+    return fetch('http://127.0.0.1:' + PORT + '/background-blur').then(function (response) {
+      return response.json().then(function (result) {
+        if (!response.ok) throw new Error(result.error || '背景模糊插件检测失败');
+        return result;
+      });
+    });
+  }
   function beginExport(direct, format) {
-    exportFormat = format || (direct ? 'aep' : 'ae');
-    var settings = exportSettings(direct, exportFormat);
-    organize = settings.organize;
-    aepMode = direct; aepPacket = null; imgAsm = null;
-    imageTasks = Promise.resolve(); processingImages = imageProcessingFailed = false;
-    aepResultId = null; $('open-aep-folder').hidden = true; $('open-web-preview').hidden = true;
-    exporting = true; updateButton();
-    blendNotice = '';
-    say((organize || settings.precompLayers) ? '正在导出可编辑分组…' : '正在导出…');
-    parent.postMessage({ pluginMessage: Object.assign({type:'ship-selection'}, settings) }, '*');
+    var settings = exportSettings(direct, format);
+    function start() {
+      exportFormat = format || (direct ? 'aep' : 'ae');
+      organize = settings.organize;
+      aepMode = direct; aepPacket = null; imgAsm = null;
+      imageTasks = Promise.resolve(); processingImages = imageProcessingFailed = false;
+      aepResultId = null; $('open-aep-folder').hidden = true; $('open-web-preview').hidden = true;
+      exporting = true; updateButton();
+      blendNotice = '';
+      say((organize || settings.precompLayers) ? '正在导出可编辑分组…' : '正在导出…');
+      parent.postMessage({ pluginMessage: Object.assign({type:'ship-selection'}, settings) }, '*');
+    }
+    // Web export writes backdrop blur as CSS already; the offline AEP writer embeds the effect
+    // itself, so only the live import path depends on the plug-in being loaded right now.
+    if (!settings.preserveBackgroundBlur || format === 'web' || direct) {
+      settings.preserveBackgroundBlur = !!settings.preserveBackgroundBlur && format !== 'web';
+      start();
+      return;
+    }
+    backgroundBlurProbe().then(function (status) {
+      if (status && status.available) { settings.preserveBackgroundBlur = true; start(); return; }
+      settings.preserveBackgroundBlur = false;
+      var reason = (status && status.reason) || '未安装或未加载';
+      log((status && status.copied)
+        ? '已安装 Figma 背景模糊插件，重启 AE 后生效；本次背景模糊转为图片'
+        : 'Figma 背景模糊插件不可用（' + reason + '）；本次背景模糊转为图片');
+      start();
+    }, function (error) {
+      settings.preserveBackgroundBlur = false;
+      log('背景模糊插件检测失败：' + error.message + '；本次背景模糊转为图片');
+      start();
+    });
   }
   $('ship').onclick = function () {
     if (folderBusy || exporting || aepBusy) return;
@@ -545,6 +588,7 @@
       }
       if (!info.aeVersions || info.aeVersions.indexOf($('aep-version').value) === -1) throw new Error('请更新 AEP 导出组件后重启服务。');
       if ($('preserve-image-filters').checked && !info.preserveImageFilters) throw new Error('保留图片调色需要更新并重启 AEP 导出组件。');
+      if ($('preserve-background-blur').checked && format !== 'web' && !info.preserveBackgroundBlur) throw new Error('保留背景模糊需要更新并重启 AEP 导出组件' + (workspacePlugin ? '，或运行 node scripts/aep-server.cjs --workspace。' : '。'));
       if ($('precomp-layers').checked && !info.singleLayerLabel) throw new Error('单图层嵌套预合成标黄需要更新并重启 AEP 导出组件' + (workspacePlugin ? '，或运行 node scripts/aep-server.cjs --workspace。' : '。'));
     });
   }
@@ -833,10 +877,12 @@
         else { exporting = aepMode = aepBusy = false; updateButton(); say(empty, 'err'); }
         return;
       }
+      if (msg.backgroundBlurSkipped) log('有 ' + msg.backgroundBlurSkipped + ' 个背景模糊未能转换为调整图层');
       if (aepMode) {
         aepPacket = {name: msg.name, frame: msg.frame, svg: msg.svg, nodes: msg.nodes, texts: msg.texts,
           effects: msg.effects, shift: msg.shift, containers: msg.containers, organize: msg.organize,
-          preserveImageFilters: msg.preserveImageFilters === true, imageCount: msg.imageCount || 0, images: []};
+          preserveImageFilters: msg.preserveImageFilters === true, imageCount: msg.imageCount || 0, images: [],
+          preserveBackgroundBlur: msg.preserveBackgroundBlur === true, backgroundBlurs: msg.backgroundBlurs || null};
         if (!aepPacket.imageCount) finishAep();
         return;
       }
@@ -844,7 +890,8 @@
                       compSize: msg.newComp ? msg.frame : null,
                       compDuration: msg.newComp ? selectedNumber('aep-duration', 10) : null,
                       compFrameRate: msg.newComp ? selectedNumber('aep-fps', 30) : null,
-                      containers: msg.containers || null, organize: !!msg.organize, imageCount: msg.imageCount || 0, imageBatch: !!msg.imageBatch, vnStats: msg.vnStats || null };
+                      containers: msg.containers || null, organize: !!msg.organize, imageCount: msg.imageCount || 0, imageBatch: !!msg.imageBatch, vnStats: msg.vnStats || null,
+                      backgroundBlurs: msg.backgroundBlurs || null };
       var kb = Math.round((msg.bytes || msg.svg.length) / 1024);
       if (connected && ws && ws.readyState === 1) { ws.send(JSON.stringify(payload)); say('正在向 AE 发送 ' + kb + ' KB 数据…'); }
       else { shipHttp(payload); }

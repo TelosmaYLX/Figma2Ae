@@ -21,11 +21,21 @@ if ($aepSource -ne $aepTarget) {
         Copy-Item -LiteralPath (Join-Path $aepSource $aepPart) -Destination $aepTarget -Recurse -Force
     }
 }
-# Install/update also refreshes the native Figma 调色 effect in every AE CC 2019+ install.
-$aepGradePlugin = Join-Path $aepTarget 'ae-plugins\FigmaImageGrade.aex'
-if (Test-Path -LiteralPath $aepGradePlugin) {
-    try { & (Join-Path $aepSource 'scripts\install-ae-plugins.ps1') -AexPath $aepGradePlugin }
-    catch { Write-Warning ('Figma 调色插件安装失败：' + $_.Exception.Message) }
+# Install/update also refreshes the native F2A effects (Figma 调色 + Figma 背景模糊) in
+# every AE CC 2019+ install.
+$aepPluginFolder = Join-Path $aepTarget 'ae-plugins'
+$aepPluginFiles = @()
+if (Test-Path -LiteralPath $aepPluginFolder -PathType Container) {
+    $aepPluginFiles = @(Get-ChildItem -LiteralPath $aepPluginFolder -Filter '*.aex' -File -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.FullName })
+}
+if ($aepPluginFiles.Count -eq 0) {
+    $aepGradePlugin = Join-Path $aepPluginFolder 'FigmaImageGrade.aex'
+    if (Test-Path -LiteralPath $aepGradePlugin) { $aepPluginFiles = @($aepGradePlugin) }
+}
+if ($aepPluginFiles.Count -gt 0) {
+    try { & (Join-Path $aepSource 'scripts\install-ae-plugins.ps1') -AexPath $aepPluginFiles }
+    catch { Write-Warning ('F2A AE 插件安装失败：' + $_.Exception.Message) }
 }
 & (Join-Path $aepTarget 'scripts\install-aep-launcher.ps1')
 Write-Output ('Installed: ' + $aepTarget)

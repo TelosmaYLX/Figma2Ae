@@ -124,11 +124,14 @@ class Writer:
         self.main = self.comp(packet['name'], packet['width'], packet['height'], self.folder)
         self.contexts = {None: {'comp': self.main, 'x': 0, 'y': 0}}
         self.warnings = []
-        self.counts = {'shapes': 0, 'texts': 0, 'images': 0, 'precomps': 0, 'mattes': 0}
+        self.counts = {'shapes': 0, 'texts': 0, 'images': 0, 'precomps': 0, 'mattes': 0,
+                       'backgroundBlurs': 0}
         self.mask_defs = {}
         self.image_mask_defs = {}
         # Native Figma 调色 effect (preferred) instead of the LUT grade graph.
         self.grade_effect = packet.get('imageGradeEffect') is True
+        # 「保留背景模糊」: adjustment layers carrying the F2A Figma Background Blur plug-in.
+        self.background_blurs = packet.get('backgroundBlurs') or []
         self.container_layers = {}
         self.grade_requests = []
         self.current_layer = packet['name']
@@ -589,6 +592,67 @@ class Writer:
                 self.fail('image-grade', item, '图片调色效果写入失败：' + str(error))
         self.grade_requests = []
 
+    def blur_mask_shape(self, request):
+        """The mask atom path standing in for the source layer's fill silhouette.
+
+        ``path`` is what the Figma plug-in always ships (one subpath, parsed by
+        packet.cjs). ``rect`` / ``ellipse`` are handled defensively for callers
+        that carry the primitive instead of the SVG data.
+        """
+        mask = request.get('mask') or {}
+        size = request.get('size') or [1, 1]
+        if (mask.get('kind') or 'path') == 'path':
+            sub = mask['subpaths'][0]
+            return Shape(sub['verts'], sub['inT'], sub['outT'], closed=bool(sub['closed']))
+        if mask.get('kind') == 'rect':
+            return self.rounded_rect(mask.get('x', 0), mask.get('y', 0),
+                                     mask.get('w', size[0]), mask.get('h', size[1]), mask.get('r', 0))
+        rx, ry = mask.get('w', size[0]) / 2, mask.get('h', size[1]) / 2
+        k = 0.5522847498
+        return Shape([[rx, 0], [rx * 2, ry], [rx, ry * 2], [0, ry]],
+                     [[-rx * k, 0], [0, -ry * k], [rx * k, 0], [0, ry * k]],
+                     [[rx * k, 0], [0, ry * k], [-rx * k, 0], [0, -ry * k]], closed=True)
+
+    def apply_background_blurs(self):
+        """Turn every 「保留背景模糊」 request into an AE adjustment layer.
+
+        Runs once every source layer exists: a request names the container
+        precomp layer that stands for its artwork, which the z-order may create
+        after the request's own layer. The adjustment layer is sized like the
+        source, masked by its fill path and parented to it, so moving/rotating/
+        scaling the source carries the blurred region along.
+        """
+        from figma_blur import add as add_figma_blur
+        for request in self.background_blurs:
+            source = self.container_layers.get(request.get('container'))
+            if source is None:
+                self.fail('background-blur', request, '找不到背景模糊的源图层')
+            size = request['size']
+            width, height = max(1, round(size[0])), max(1, round(size[1]))
+            name = request.get('name') or '背景模糊'
+            comp = source.containing_comp
+            solid = comp.add_solid([0, 0, 0], name, width, height)
+            solid.name = name
+            solid.adjustment_layer = True
+            solid.transform.anchor_point.value = [size[0] / 2, size[1] / 2, 0]
+            solid.transform.position.value = [request['position'][0], request['position'][1], 0]
+            solid.transform.rotation.value = request['rotation']
+            solid.transform.scale.value = [request['scale'][0], request['scale'][1], 100]
+            atom = solid['ADBE Mask Parade'].add_property('ADBE Mask Atom')
+            atom.name = '背景模糊区域'
+            atom.mask_mode = MaskMode.ADD
+            atom['ADBE Mask Feather'].value = [0, 0]
+            atom['ADBE Mask Shape'].value = self.blur_mask_shape(request)
+            try:
+                add_figma_blur(solid, request)
+            except Exception as error:
+                self.fail('background-blur', request, '背景模糊效果写入失败：' + str(error))
+            # Directly below its source layer (Figma paints the blur first), then
+            # parented: py-aep compensates the transform so the comp look is kept.
+            solid.move_after(source)
+            solid.parent = source
+            self.counts['backgroundBlurs'] += 1
+
     def image(self, context, item, index):
         filters = item.get('imageFilters')
         wrap_crop = item.get('matte') and (filters or item.get('maskId') or item.get('maskSource'))
@@ -748,6 +812,7 @@ class Writer:
             else:
                 layer = self.image(context, item, index)
             self.apply_mask(context, layer, item)
+        self.apply_background_blurs()
         self.apply_grade_requests()
         for layer in self.main.layers:
             if getattr(layer, 'guide_layer', False):
@@ -780,6 +845,8 @@ def main():
               'width': packet['width'], 'height': packet['height'], 'frameRate': packet['frameRate'],
               'duration': packet['duration'], 'counts': writer.counts, 'warnings': writer.warnings,
               'imageGrade': 'effect' if writer.grade_effect else None,
+              'backgroundBlur': 'effect' if writer.background_blurs else None,
+              'backgroundBlurs': writer.counts['backgroundBlurs'],
               'writeMs': round((time.perf_counter() - started) * 1000)}
     (output / 'report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
 

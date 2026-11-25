@@ -15,7 +15,7 @@ node tests/package-dist.cjs
 检查会实际解压 ZIP 到中文及空格路径，校验文件清单、哈希及隐私扫描，创建全新的
 Python 虚拟环境并安装依赖，通过包内 HTTP 服务生成真实 AEP（含带 Figma 调色效果的工程），
 再启动无 `node_modules` 的 MCP 服务并枚举工具。更新器测试把 `F2A_AE_PLUGINS` 指向临时目录，
-验证更新会把 Figma 调色插件复制进 `Plug-ins/F2A`，不会写入本机真实 AE 安装。安装脚本只做
+验证更新会把 Figma 调色与 Figma 背景模糊插件复制进 `Plug-ins/F2A`，不会写入本机真实 AE 安装。安装脚本只做
 Windows PowerShell 语法检查，不写入本机注册表；没有执行第二台设备安装或真实 Figma/AE 界面验收。
 
 ## 内置 MCP
@@ -290,7 +290,7 @@ node tests/client-import-queue.cjs
 
 检查包含裁剪与多蒙版边界、父样式隔离、异常还原、原图不变、原生组遮罩不重复、图片/路径/字体/效果失败的具体错误，以及桥接取消失败批次后继续下一次导入。AEP 检查生成真实二进制文件，但 Figma API/PNG 渲染仍使用模拟对象；没有将这些检查表述为新的在线 Figma 或 AE 画面对照。
 
-图片填充的曝光、对比度、饱和度、白平衡、着色、高光、阴影任一非零时，默认把图片本身由 Figma 渲染为 PNG，以保留调色和填充不透明度；独立蒙版不与图片合并。七项均为默认值或缺省时仍读取原始图片。勾选「图片 → 保留图片调色属性」后，可承载原生控制的图片改由 **Figma 调色** 插件效果还原：效果加在图片所在元素的**外层预合成**上，七项数值与 Figma 面板一致并可以打关键帧；只有插件缺失且无法复制到 AE 插件目录时，才退回内置的 LUT「图片调色」合成。默认关闭时该规则使用“模糊、阴影和特殊效果”权限，关闭后会定位到需要转图的图片。
+图片填充的曝光、对比度、饱和度、白平衡、着色、高光、阴影任一非零时，默认把图片本身由 Figma 渲染为 PNG，以保留调色和填充不透明度；独立蒙版不与图片合并。七项均为默认值或缺省时仍读取原始图片。勾选「效果 → 保留图片调色属性」后，可承载原生控制的图片改由 **Figma 调色** 插件效果还原：效果加在图片所在元素的**外层预合成**上，七项数值与 Figma 面板一致并可以打关键帧；只有插件缺失且无法复制到 AE 插件目录时，才退回内置的 LUT「图片调色」合成。默认关闭时该规则使用“模糊、阴影和特殊效果”权限，关闭后会定位到需要转图的图片。
 
 ```powershell
 node tests/image-adjustments.cjs
@@ -307,6 +307,19 @@ node tests/native-image-masks.cjs
 真实 AE 宿主检查先运行 `node tests/prepare-image-grade.cjs` 生成夹具，再用 `node scripts/ae-eval.mjs tests/ae-image-grade.jsx artifacts/image-grade-live/report.json image-grade` 在已运行的 F2A 面板中执行：实际调用 `runImportBatch`，确认效果加在图片外层预合成上、七项数值与 Figma 一致、预合成内部没有重复效果，结束后移除测试期间新增的项目项。
 
 插件兼容性另外用 `py_aep` 写同一调色工程的 AE 16.0（CC 2019）版本，在 AE CC 2019 的 `aerender` 中渲染：红通道 205，与 AE 2026 及 Figma 参考相差不超过 1 色阶（未调色为 254），说明「AE 2026+」之外的老版本也能加载该效果；F2A 支持的 2024–2026 均在其后。
+
+图片背景模糊默认由 Figma 渲染成 PNG（补边画布只采样其前方背景）。勾选「效果 → 保留背景模糊」后，能安全还原的图层改为在 AE/AEP 中生成同尺寸调整图层：源图层填充轮廓作遮罩、`F2A Figma Background Blur` 效果复原均匀/渐变半径、放在源图层正下方并父级到源图层；没有可见填充、带洞轮廓、剪切/翻转矩阵或仍会被其它效果转图时保持原 PNG 路径。实时导入先探测宿主，插件未加载就先复制 `FigmaBackgroundBlur.aex` 并让本次退回 PNG；离线 AEP 始终写入效果，安装/更新负责把两个插件都放进 AE 插件目录。数据约定见 `scripts/aep/background-blur-export.md`。
+
+```powershell
+node tests/figma-background-blur.cjs
+node tests/background-blur-panel.cjs
+node tests/image-blur-effect.cjs
+node tests/aep-background-blur.cjs
+```
+
+`figma-background-blur.cjs` 用实际导出函数覆盖请求内容、默认转图、无可见填充、带洞回退与 web 目标；`background-blur-panel.cjs` 覆盖实时导入把 `backgroundBlurs` 传给宿主、探测并复制插件、旧 AE 不复制；`image-blur-effect.cjs` 验证共享插件核心与 `ensure`；`aep-background-blur.cjs` 用真实 AEP 回读调整图层尺寸/位置/旋转/缩放、遮罩、效果十项参数、父级与层序，并覆盖多子路径和缺源图层的拒绝。
+
+真实 AE 检查先运行 `node tests/prepare-background-blur.cjs`，再用 `node scripts/ae-eval.mjs tests/ae-background-blur.jsx artifacts/background-blur-live/report.json background-blur` 在已运行的 F2A 面板中执行：实际调用 `runImportBatch`，确认调整图层尺寸/遮罩/效果数值、父级到玻璃卡片预合成、移动源图层后跟随，并保存 `render.png` 供视觉核对；结束后移除测试期间新增的项目项。
 
 性能报告位于 `artifacts/export-speed/report.json`。对比的是仓库 HEAD 与当前代码的属性读取次数、SVG/字体调用次数和数据尺寸，不代表真实 Figma 文件到 AE 的总耗时。
 
