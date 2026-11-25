@@ -345,7 +345,7 @@ body{
 .f2m-trans-frame.is-shutter .f2m-trans-bar:nth-child(1){top:0;}
 .f2m-trans-frame.is-shutter .f2m-trans-bar:nth-child(2){top:auto; bottom:0;}
 .f2m-trans-iris{
-  width:80px; height:80px; border-radius:50%;
+  flex:0 0 auto; width:80px; height:80px; border-radius:50%;
   border:40px solid #ede9fe; background:transparent;
   box-sizing:border-box;
 }
