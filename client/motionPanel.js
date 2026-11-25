@@ -852,13 +852,7 @@
       var p1 = document.createElementNS(ns, "path");
       p1.setAttribute("d", "M6 5h12v3.6H9.8v3.1h6.4v3.4H9.8V19H6V5z");
       p1.setAttribute("fill", "#f4f1ff");
-      var p2 = document.createElementNS(ns, "circle");
-      p2.setAttribute("cx", "17.2");
-      p2.setAttribute("cy", "17.2");
-      p2.setAttribute("r", "2.2");
-      p2.setAttribute("fill", "#a78bfa");
       mark.appendChild(p1);
-      mark.appendChild(p2);
       box.appendChild(mark);
       stage.appendChild(box);
     }
