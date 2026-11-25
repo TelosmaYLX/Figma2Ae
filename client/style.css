@@ -103,16 +103,22 @@ body{
   border-bottom:1px solid var(--border-soft);
 }
 .f2m-ctx-left{display:flex; align-items:center; gap:6px; min-width:0; flex:1 1 auto;}
-.f2m-ctx-dot{width:6px; height:6px; border-radius:50%; flex:0 0 auto; background:var(--text-mute);}
-.f2m-ctx-dot.on{background:var(--ok); box-shadow:0 0 0 3px rgba(52,211,153,.15);}
-.f2m-ctx-dot.idle{background:#f59e0b;}
-.f2m-ctx-dot.off{background:var(--text-mute);}
 .f2m-ctx-text{
   font-size:11px; color:var(--text-dim);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .f2m-svg-ico{width:12px; height:12px; display:block; flex:0 0 auto;}
 .f2m-ctx-acts{display:flex; align-items:center; gap:4px; flex:0 0 auto;}
+#f2m-act-collapse .f2m-svg-ico{transition:transform .15s;}
+.f2m-shell.is-collapsed{flex:0 0 auto;}
+.f2m-shell.is-collapsed .f2m-ctx{border-bottom:none;}
+.f2m-shell.is-collapsed #f2m-act-collapse .f2m-svg-ico{transform:rotate(180deg);}
+.f2m-shell.is-collapsed .f2m-tabs,
+.f2m-shell.is-collapsed .f2m-toolbar,
+.f2m-shell.is-collapsed .f2m-params,
+.f2m-shell.is-collapsed .f2m-subbar,
+.f2m-shell.is-collapsed .f2m-cats,
+.f2m-shell.is-collapsed .f2m-scroll{display:none;}
 .f2m-mini-act{
   appearance:none; border:1px solid var(--border); background:var(--surface);
   color:var(--text-dim); font:inherit; font-size:10px; padding:2px 6px;

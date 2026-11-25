@@ -101,6 +101,14 @@
   // ---- Persistent panel state ----
   var LS_DIRS = "f2a.motionTemplateDirs";
   var LS_PARAMS = "f2a.motionParams";
+  var LS_COLLAPSED = "f2a.motionCollapsed";
+
+  function loadStoredCollapsed() {
+    try { return localStorage.getItem(LS_COLLAPSED) === "1"; } catch (e) { return false; }
+  }
+  function saveStoredCollapsed(collapsed) {
+    try { localStorage.setItem(LS_COLLAPSED, collapsed ? "1" : "0"); } catch (e) {}
+  }
 
   function loadStoredDirs() {
     try {
@@ -128,6 +136,7 @@
     category: "全部",
     query: "",
     autoPlayAll: false,        // Off by default: cards stay still until hovered (or the play toggle is used)
+    collapsed: loadStoredCollapsed(), // Fold the whole motion library down to its header strip
     showParams: false,
     params: loadStoredParams(),
     builtinPresets: [],
@@ -737,16 +746,13 @@
 
   function renderSelectionBar() {
     var textEl = document.getElementById("f2m-ctx-text");
-    var dotEl = document.getElementById("f2m-ctx-dot");
-    if (!textEl || !dotEl) return;
+    if (!textEl) return;
     var s = state.selection;
     if (!s || !s.hasComp) {
-      dotEl.className = "f2m-ctx-dot off";
       textEl.textContent = CEP ? "未打开活动合成" : "预览模式 · 内置动效可实时悬停预览";
       return;
     }
     var n = s.selected ? s.selected.length : 0;
-    dotEl.className = "f2m-ctx-dot " + (n > 0 ? "on" : "idle");
     var tStr = (Math.round((s.time || 0) * 100) / 100).toFixed(2) + "s";
     if (n === 0) {
       textEl.textContent = s.compName + " · 未选中图层 · " + tStr;
@@ -1335,6 +1341,32 @@
       repChk.onchange = function () {
         state.params.replace = !!repChk.checked;
         saveStoredParams(state.params);
+      };
+    }
+
+    // Collapsible motion library: the header strip stays, everything under it folds away.
+    var shellEl = document.querySelector(".f2m-shell");
+    var collapseBtn = document.getElementById("f2m-act-collapse");
+    function paintCollapsed() {
+      if (shellEl) shellEl.classList.toggle("is-collapsed", !!state.collapsed);
+      if (collapseBtn) {
+        var label = state.collapsed ? "展开动效库" : "折叠动效库";
+        collapseBtn.title = label;
+        collapseBtn.setAttribute("aria-label", label);
+        collapseBtn.setAttribute("aria-expanded", String(!state.collapsed));
+      }
+    }
+    paintCollapsed();
+    if (collapseBtn) {
+      collapseBtn.onclick = function () {
+        state.collapsed = !state.collapsed;
+        saveStoredCollapsed(state.collapsed);
+        paintCollapsed();
+        if (state.collapsed) {
+          activeLoops.forEach(function (entry, stageEl) { stopStageLoop(stageEl, entry && entry.item); });
+        } else {
+          renderGrid();
+        }
       };
     }
 
