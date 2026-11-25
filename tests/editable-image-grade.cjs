@@ -171,6 +171,11 @@ async function check() {
       path.join(directory, 'crop'), {imageGradeMode: 'lut'});
     await run(python, ['-c', inspectLut, cropped.project, packet.name, 'crop'], {windowsHide: true});
 
+    // An AEP targeting AE 2024/2025 stays on the LUT graph: the plug-in needs AE 2026+.
+    const older = await exportAep({...gradePacket(), aeVersion: '25.0'}, path.join(directory, 'ae25'));
+    assert.equal(older.imageGrade, 'lut');
+    await run(python, ['-c', inspectLut, older.project, packet.name], {windowsHide: true});
+
     // Panel live import fallback: the CEP path builds the same LUT project when the effect
     // cannot be used, and leaves the exported PNG bytes untouched.
     const placed = {...image, file: '0000.png'};

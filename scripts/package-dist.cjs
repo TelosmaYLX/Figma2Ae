@@ -38,7 +38,7 @@ const files = [
   ...['server.cjs', 'relay.cjs', 'launcher.cjs', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/' + f),
   ...['surehand-ae.mjs', 'LICENSE', 'THIRD_PARTY_LICENSES.txt'].map(f => 'mcp/vendor/surehand/' + f),
   ...['aep-server.cjs', 'export-aep.cjs', 'export-web.cjs', 'open-aep-directory.ps1', 'start-aep-export.ps1',
-    'install-aep-launcher.ps1', 'install-mcp.ps1', 'install-mcp-dsh.cjs',
+    'install-aep-launcher.ps1', 'install-ae-plugins.ps1', 'install-mcp.ps1', 'install-mcp-dsh.cjs',
     'install-f2a.ps1', 'install-files.cjs', 'update-f2a.ps1'].map(f => 'scripts/' + f),
   ...['choose-destination.py', 'packet.cjs', 'requirements.txt', 'writer.py', 'image_grade.py',
     'figma_grade.py', 'figma-image-grade-effect.bin',

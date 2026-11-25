@@ -1,4 +1,4 @@
-param([string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'F2A\AEP'))
+﻿param([string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'F2A\AEP'))
 
 $ErrorActionPreference = 'Stop'
 $aepSource = Split-Path -Parent $PSScriptRoot
@@ -20,6 +20,12 @@ if ($aepSource -ne $aepTarget) {
     foreach ($aepPart in @('runtime', 'scripts', 'host', 'client', 'figma-plugin', 'cep-extension', 'mcp', 'ae-plugins', 'runtime-manifest.json', 'README.txt')) {
         Copy-Item -LiteralPath (Join-Path $aepSource $aepPart) -Destination $aepTarget -Recurse -Force
     }
+}
+# Install/update also refreshes the native Figma 调色 effect in every AE 2026+ install.
+$aepGradePlugin = Join-Path $aepTarget 'ae-plugins\FigmaImageGrade.aex'
+if (Test-Path -LiteralPath $aepGradePlugin) {
+    try { & (Join-Path $aepSource 'scripts\install-ae-plugins.ps1') -AexPath $aepGradePlugin }
+    catch { Write-Warning ('Figma 调色插件安装失败：' + $_.Exception.Message) }
 }
 & (Join-Path $aepTarget 'scripts\install-aep-launcher.ps1')
 Write-Output ('Installed: ' + $aepTarget)

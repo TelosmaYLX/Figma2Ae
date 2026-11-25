@@ -104,6 +104,9 @@ async function check() {
     assert.ok(packaged.includes('scripts/aep/figma_grade.py'));
     assert.ok(packaged.includes('scripts/aep/figma-image-grade-effect.bin'));
     assert.ok(packaged.includes('client/figmaImageGradeEffect.js'));
+    assert.ok(packaged.includes('scripts/install-ae-plugins.ps1'));
+    assert.ok(packaged.includes('scripts/install-f2a.ps1'));
+    assert.ok(packaged.includes('scripts/update-f2a.ps1'));
     assert.ok(packaged.includes('mcp/vendor/surehand/LICENSE'));
     assert.ok(packaged.includes('skills/f2a-figma-layer-tidy/SKILL.md'));
     assert.equal(manifest.files.find(file => file.path === 'mcp/vendor/surehand/surehand-ae.mjs')?.sha256, surehand.sha256);
@@ -115,9 +118,11 @@ async function check() {
       if (entry) assert.equal(createHash('sha256').update(data).digest('hex'), entry.sha256, file);
     }
     // Check Windows PowerShell 5.1 syntax without changing this device's installation or registry.
-    await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-      '$e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($env:F2A_INSTALL_SCRIPT, [ref]$null, [ref]$e); if ($e) { $e; exit 1 }'],
-    {windowsHide: true, env: {...process.env, F2A_INSTALL_SCRIPT: path.join(target, 'scripts/install-f2a.ps1')}});
+    for (const script of ['install-f2a.ps1', 'install-ae-plugins.ps1']) {
+      await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        '$e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($env:F2A_INSTALL_SCRIPT, [ref]$null, [ref]$e); if ($e) { $e; exit 1 }'],
+      {windowsHide: true, env: {...process.env, F2A_INSTALL_SCRIPT: path.join(target, 'scripts/' + script)}});
+    }
     console.log('PASS: ZIP inventory, hashes, licenses, privacy scan, no runtimes/local data, installer syntax');
 
     // Prepare dependencies exactly where the recipient installer places them. No developer venv.
@@ -145,7 +150,11 @@ async function check() {
       await fs.mkdir(path.dirname(file), {recursive:true});
       await fs.writeFile(file, text);
     };
-    const installEnv = {...env, USERPROFILE:profile, CODEX_HOME:'', DSH_HOME:'', CLAUDE_CONFIG_DIR:''};
+    // The updater installs the Figma 调色 plug-in; redirect that copy so the test never
+    // touches this machine's real After Effects installation.
+    const fakePlugins = path.join(scratch, 'fake-ae-plugins');
+    const installEnv = {...env, USERPROFILE:profile, CODEX_HOME:'', DSH_HOME:'', CLAUDE_CONFIG_DIR:'',
+      F2A_AE_PLUGINS: fakePlugins};
     const otherPackage = path.join(scratch, 'another-package');
     const otherFile = path.join(otherPackage, 'owned.txt');
     await writeFixture(path.join(otherPackage, 'package-manifest.json'), JSON.stringify({name:'another-package', files:[{path:'owned.txt'}]}));
@@ -204,6 +213,9 @@ async function check() {
     assert.deepEqual(installed.skillDirectories.sort(), [sharedSkills, customSkills, dshSkills].sort());
     assert.equal(await fs.readFile(marker, 'utf8'), 'preserve');
     assert.match(await fs.readFile(installedPanel, 'utf8'), /mk-update/);
+    // Pulling the update installs the Figma 调色 plug-in for AE 2026+ (redirected here).
+    assert.ok((await fs.stat(path.join(fakePlugins, 'F2A/FigmaImageGrade.aex'))).isFile(),
+      'the update copies FigmaImageGrade.aex into the AE Plug-ins folder');
     assert.ok((await fs.stat(path.join(target, added))).isFile());
     for (const file of removed) await assert.rejects(fs.access(path.join(target, file)), {code:'ENOENT'});
     const skillEntry = await fs.readFile(path.join(target, 'skills', skill, 'SKILL.md'), 'utf8');

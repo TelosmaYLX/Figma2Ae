@@ -53,7 +53,7 @@ async function build(output) {
   const nodeLicense = await fetch(`https://raw.githubusercontent.com/nodejs/node/${process.version}/LICENSE`);
   if (!nodeLicense.ok) throw new Error('Cannot retrieve the license for the bundled Node version.');
   await fs.writeFile(path.join(bundledNode, 'LICENSE.txt'), await nodeLicense.text());
-  const scripts = ['start-aep-export.ps1', 'install-aep-launcher.ps1', 'install-aep-component.ps1', 'aep-server.cjs', 'open-aep-directory.ps1', 'export-aep.cjs', 'export-web.cjs', 'install-mcp.ps1', 'install-mcp-dsh.cjs'];
+  const scripts = ['start-aep-export.ps1', 'install-aep-launcher.ps1', 'install-ae-plugins.ps1', 'install-aep-component.ps1', 'aep-server.cjs', 'open-aep-directory.ps1', 'export-aep.cjs', 'export-web.cjs', 'install-mcp.ps1', 'install-mcp-dsh.cjs'];
   await fs.mkdir(path.join(output, 'scripts'));
   for (const file of scripts) await fs.copyFile(path.join(root, 'scripts', file), path.join(output, 'scripts', file));
   await fs.cp(path.join(root, 'scripts/web'), path.join(output, 'scripts/web'), {recursive:true});

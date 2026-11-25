@@ -326,6 +326,8 @@
     function useLut(status) {
       if (status && status.available && status.copied)
         log("已将 Figma 调色插件安装到 AE 插件目录，重启 AE 后生效；本次使用 LUT 降级调色");
+      else if (status && status.available)
+        log("Figma 调色插件已安装但当前 AE 尚未加载，重启 AE 后生效；本次使用 LUT 降级调色");
       else if (status && !status.available)
         log("Figma 调色插件不可用（" + (status.reason || '未安装') + "）；本次使用 LUT 降级调色");
       function prepare(duration, frameRate) {
@@ -344,8 +346,14 @@
     }
     evalES(effect.PROBE_SCRIPT, function (probe) {
       if (effect.parseProbe(probe)) { useEffect(); return; }
-      var status;
-      try { status = effect.install(ext); } catch (e) { status = {available: false, reason: e.message}; }
+      var version = effect.probeVersion(probe), status;
+      if (version && version < effect.MIN_AE) {
+        // This AE cannot load the plug-in at all; copying it would only mislead.
+        status = {available: false, copied: false,
+          reason: '当前 AE ' + version + ' 不支持 Figma 调色插件，需要 AE 2026 及以上'};
+      } else {
+        try { status = effect.install(ext); } catch (e) { status = {available: false, copied: false, reason: e.message}; }
+      }
       useLut(status);
     });
   }

@@ -19,12 +19,15 @@ rendering, use Chinese UI names, and are validated against Figma's own PNG expor
    element's **outer precomp layer** (the same-named minimal precomp created by
    「单图层嵌套预合成」) and restore Figma's seven values, instead of building the
    LUT grade composition graph.
-2. When the effect is not installed, F2A copies `FigmaImageGrade.aex` to
-   `…/Adobe After Effects <version>/Support Files/Plug-ins/F2A/` and uses the
-   effect. After Effects only loads new plug-ins on start, so the panel tells the
-   user to restart AE and uses the LUT fallback for the running session.
-3. Only when the copy fails (read-only install, missing AE, …) does the export
-   fall back to the embedded LUT grade ("图片调色" compositions).
+2. Installing or pulling an F2A update already copies `FigmaImageGrade.aex` into
+   `…/Adobe After Effects <version>/Support Files/Plug-ins/F2A/` for every AE 2026+
+   install (`scripts/install-ae-plugins.ps1`). If the plug-in is still missing — for
+   example the AE folder is read-only — the panel retries the copy on first use.
+   After Effects only loads new plug-ins on start, so the panel tells the user to
+   restart AE and uses the LUT fallback for the running session.
+3. AEP targets older than AE 2026 stay on the LUT path: the plug-in only supports
+   AE 2026 and newer. Only when the copy fails (read-only install, missing AE, …)
+   does the export fall back to the embedded LUT grade ("图片调色" compositions).
 
 The packaged Windows build ships the binary at `ae-plugins/FigmaImageGrade.aex`;
 `scripts/aep/figma_grade.py` carries the serialized effect definition used by the

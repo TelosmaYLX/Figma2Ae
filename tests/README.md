@@ -13,9 +13,10 @@ node tests/package-dist.cjs
 再运行 `install.cmd`。安装时联网安装固定版本的 Python 依赖，选定客户端后可一键配置 MCP。
 
 检查会实际解压 ZIP 到中文及空格路径，校验文件清单、哈希及隐私扫描，创建全新的
-Python 虚拟环境并安装依赖，通过包内 HTTP 服务生成真实 AEP，再启动无 `node_modules`
-的 MCP 服务并枚举工具。安装脚本只做 Windows PowerShell 语法检查，不写入本机注册表；
-没有执行第二台设备安装或真实 Figma/AE 界面验收。
+Python 虚拟环境并安装依赖，通过包内 HTTP 服务生成真实 AEP（含带 Figma 调色效果的工程），
+再启动无 `node_modules` 的 MCP 服务并枚举工具。更新器测试把 `F2A_AE_PLUGINS` 指向临时目录，
+验证更新会把 Figma 调色插件复制进 `Plug-ins/F2A`，不会写入本机真实 AE 安装。安装脚本只做
+Windows PowerShell 语法检查，不写入本机注册表；没有执行第二台设备安装或真实 Figma/AE 界面验收。
 
 ## 内置 MCP
 
@@ -296,11 +297,12 @@ node tests/image-adjustments.cjs
 node tests/editable-image-grade.cjs
 node tests/image-grade-effect.cjs
 node tests/image-grade-panel.cjs
+node tests/install-ae-plugins.cjs
 node tests/raster-permissions.cjs
 node tests/native-image-masks.cjs
 ```
 
-`image-adjustments.cjs` 覆盖七项参数、默认原图、带渐变独立蒙版的调色图片和权限错误；不将模拟 PNG 渲染表述为真实 Figma/AE 画面对照。`editable-image-grade.cjs` 分别导出 Figma 调色效果与 LUT 两种模式：效果模式下主合成没有「图片调色」合成，图片外层预合成的图层上有 `F2A Figma Image Grade` 与七项 −17/5/18/−26/21/−21/13，预合成内部的原图层没有重复效果；LUT 模式仍检查七滑杆、联合查找表与「原图 Alpha」模板。`image-grade-effect.cjs` 用临时目录验证插件发现、复制进 AE `Plug-ins/F2A`、强制模式与无法写入时的 LUT 降级。`image-grade-panel.cjs` 覆盖面板实时导入：探测到插件时图片元数据带 `imageGradeEffect` 且不生成 LUT 工程，探测失败时才构建并清理「图片调色.aep」。
+`image-adjustments.cjs` 覆盖七项参数、默认原图、带渐变独立蒙版的调色图片和权限错误；不将模拟 PNG 渲染表述为真实 Figma/AE 画面对照。`editable-image-grade.cjs` 分别导出 Figma 调色效果与 LUT 两种模式：效果模式下主合成没有「图片调色」合成，图片外层预合成的图层上有 `F2A Figma Image Grade` 与七项 −17/5/18/−26/21/−21/13，预合成内部的原图层没有重复效果；LUT 模式仍检查七滑杆、联合查找表与「原图 Alpha」模板。`image-grade-effect.cjs` 用临时目录验证插件发现、复制进 AE `Plug-ins/F2A`、只对 AE 2026+ 生效、强制模式与无法写入时的 LUT 降级。`image-grade-panel.cjs` 覆盖面板实时导入：探测到插件时图片元数据带 `imageGradeEffect` 且不生成 LUT 工程；AE 2026+ 未加载时先复制插件并构建、清理「图片调色.aep」；AE 2025 及更早只走 LUT。`install-ae-plugins.cjs` 直接运行安装/更新共用的 PowerShell 脚本，检查插件复制、内容相同跳过与失败只告警。
 
 真实 AE 宿主检查先运行 `node tests/prepare-image-grade.cjs` 生成夹具，再用 `node scripts/ae-eval.mjs tests/ae-image-grade.jsx artifacts/image-grade-live/report.json image-grade` 在已运行的 F2A 面板中执行：实际调用 `runImportBatch`，确认效果加在图片外层预合成上、七项数值与 Figma 一致、预合成内部没有重复效果，结束后移除测试期间新增的项目项。
 

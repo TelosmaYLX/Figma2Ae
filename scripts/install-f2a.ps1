@@ -59,6 +59,14 @@ try {
         throw
     }
 
+    # Pulling an update already installs the native Figma 调色 effect into every AE 2026+
+    # install. The panel retries later if this copy had no permission.
+    $f2aGradePlugin = Join-Path (Split-Path -Parent $PSScriptRoot) 'ae-plugins\FigmaImageGrade.aex'
+    if (Test-Path -LiteralPath $f2aGradePlugin) {
+        try { & (Join-Path $PSScriptRoot 'install-ae-plugins.ps1') -AexPath $f2aGradePlugin }
+        catch { Write-Warning ('Figma 调色插件安装失败：' + $_.Exception.Message) }
+    }
+
     if (-not $Update) {
         foreach ($f2aVersion in 9..12) {
             $f2aKey = 'HKCU:\Software\Adobe\CSXS.' + $f2aVersion
