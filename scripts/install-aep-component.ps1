@@ -27,6 +27,10 @@ if (Test-Path -LiteralPath $aepGradePlugin) {
     try { & (Join-Path $aepSource 'scripts\install-ae-plugins.ps1') -AexPath $aepGradePlugin }
     catch { Write-Warning ('Figma 调色插件安装失败：' + $_.Exception.Message) }
 }
+$aepBlurPlugin = Join-Path $aepTarget 'ae-plugins\FigmaBackgroundBlur.aex'
+if (Test-Path -LiteralPath $aepBlurPlugin) {
+    & (Join-Path $aepSource 'scripts\install-ae-plugins.ps1') -AexPath $aepBlurPlugin -MinVersion 24
+}
 & (Join-Path $aepTarget 'scripts\install-aep-launcher.ps1')
 Write-Output ('Installed: ' + $aepTarget)
 Write-Output ('Figma plugin: ' + (Join-Path $aepTarget 'figma-plugin\manifest.json'))

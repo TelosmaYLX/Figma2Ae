@@ -66,6 +66,8 @@ async function build(output) {
   await fs.mkdir(path.join(output, 'ae-plugins'), {recursive:true});
   await fs.copyFile(path.join(root, 'ae-plugin/FigmaImageGradePlugin/FigmaImageGrade.aex'),
     path.join(output, 'ae-plugins/FigmaImageGrade.aex'));
+  await fs.copyFile(path.join(root, 'ae-plugin/FigmaBackgroundBlurPlugin/FigmaBackgroundBlur.aex'),
+    path.join(output, 'ae-plugins/FigmaBackgroundBlur.aex'));
   await fs.mkdir(path.join(output, 'host/figma'), {recursive:true});
   for (const file of ['aeFilename.js', 'svgParser.js'])
     await fs.copyFile(path.join(root, 'host/figma', file), path.join(output, 'host/figma', file));

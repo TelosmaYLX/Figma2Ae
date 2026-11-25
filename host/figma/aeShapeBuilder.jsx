@@ -36,6 +36,7 @@ var AEShapeBuilder = (function () {
   var _txtOk = 0, _txtNo = 0;               // text layers measured vs not (sourceRect health)
   var _imgSlots = [];                       // z-order placeholders left where pictures belong
   var _containerLayers = {};                // container id -> the precomp layer that stands for it
+  var _blurRequests = [];
   var _gradeRequests = [];                  // Figma 调色 effects waiting for their outer precomp
   // Folder this script lives in (host/figma) — used to load bundled .ffx templates.
   var _MK_DIR = (function () {
@@ -396,8 +397,13 @@ var AEShapeBuilder = (function () {
 
         // Precompose invalidates the old layer wrappers. Rebind pairs to the new comp's
         // layers in the same stack order, including pairs nested by an outer mask scope.
-        var memberSlots = {}, movingPairs = [];
+        var memberSlots = {}, movingPairs = [], movingBlurs = [];
         for (j = 0; j < members.length; j++) memberSlots[members[j]] = j + 1;
+        for (j = 0; j < _blurRequests.length; j++) {
+          var blur = _blurRequests[j], source = blur.source;
+          if (source.containingComp.id === comp.id && memberSlots[source.index])
+            movingBlurs.push({blur: blur, slot: memberSlots[source.index]});
+        }
         // Precomp layers standing in for inner containers move into this new comp too; keep
         // their handles so a picture's outer precomp can still be found after nesting.
         var movingContainers = [];
@@ -418,6 +424,7 @@ var AEShapeBuilder = (function () {
           } catch (epair) {}
         }
         var pc = comp.layers.precompose(members, c.name || "Group", true);
+        for (j = 0; j < movingBlurs.length; j++) movingBlurs[j].blur.source = pc.layer(movingBlurs[j].slot);
         for (j = 0; j < movingPairs.length; j++) {
           movingPairs[j].pair.lyr = pc.layer(movingPairs[j].layer);
           movingPairs[j].pair.mt = pc.layer(movingPairs[j].matte);
@@ -491,6 +498,7 @@ var AEShapeBuilder = (function () {
         }
         var containerMatte = applyNodeMask(pcLayer, c);
         trackLayer(pcLayer, c.path || [], c.z, containerMatte);
+        queueBackgroundBlur(pcLayer, c);
         if (containerMatte) trackLayer(containerMatte, c.path || [], c.z, null, true);
         sizes.push((c.name || "?") + "(" + members.length + ")");
         made++;
@@ -1308,7 +1316,7 @@ var AEShapeBuilder = (function () {
     var baseName = opts.name || "UI Shapes";
     var shapes = model.shapes, N = shapes.length, i;
     _diag = []; _fontMiss = {}; _fontMissList = []; _imgSlots = []; _layerPaths = []; _mattePairs = []; _referenceLayers = [];
-    _containerLayers = {}; _gradeRequests = [];
+    _containerLayers = {}; _gradeRequests = []; _blurRequests = [];
     _maskDefs = {};
     _imageMaskDefs = {}; _imageMaskFolder = '';
     registerImageMasks(opts.imageMasks, opts.imageFolder);
@@ -1445,6 +1453,7 @@ var AEShapeBuilder = (function () {
           applyBlend(lyr, sdata.blend);
           var nodeMatte = applyNodeMask(lyr, sdata);
           trackLayer(lyr, sdata.path, sdata.z, nodeMatte);
+          queueBackgroundBlur(lyr, sdata);
           if (nodeMatte) trackLayer(nodeMatte, sdata.path, sdata.z, null, true);
           // Node mode walks hidden nodes too (SVG export dropped them silently), so the eye
           // has to be honoured here or an invisible Figma layer arrives fully visible.
@@ -2108,6 +2117,47 @@ var AEShapeBuilder = (function () {
     return fx;
   }
 
+  function queueBackgroundBlur(source, item) {
+    if (item.backgroundBlur) _blurRequests.push({source: source, blur: item.backgroundBlur});
+  }
+
+  function applyBackgroundBlurs() {
+    var requests = _blurRequests;
+    _blurRequests = [];
+    for (var i = 0; i < requests.length; i++) {
+      var source = requests[i].source, blur = requests[i].blur;
+      var paths = SVGParser.parsePathData(blur.mask);
+      if (paths.length !== 1 || !paths[0].closed) throw new Error(blur.name + '：遮罩路径无法解析');
+      var layer = source.containingComp.layers.addSolid([0, 0, 0], blur.name,
+        Math.max(1, Math.ceil(blur.size[0])), Math.max(1, Math.ceil(blur.size[1])), 1);
+      try {
+        layer.adjustmentLayer = true;
+        layer.enabled = blur.enabled;
+        var transform = layer.property('ADBE Transform Group');
+        transform.property('ADBE Anchor Point').setValue([0, 0]);
+        transform.property('ADBE Position').setValue(blur.position);
+        transform.property('ADBE Rotate Z').setValue(blur.rotation);
+        transform.property('ADBE Scale').setValue(blur.scale);
+        transform.property('ADBE Opacity').setValue(blur.opacity * 100);
+        var mask = layer.property('ADBE Mask Parade').addProperty('ADBE Mask Atom');
+        mask.name = '背景模糊区域';
+        mask.maskMode = MaskMode.ADD;
+        mask.property('ADBE Mask Shape').setValue(toShape(paths[0]));
+        for (var f = 0; f < blur.effects.length; f++) {
+          var effect = layer.property('ADBE Effect Parade').addProperty('F2A Figma Background Blur');
+          var values = blur.effects[f];
+          for (var p = 0; p < values.length; p++) effect.property(p + 1).setValue(values[p]);
+        }
+        layer.moveAfter(source);
+        layer.parent = source;
+      } catch (error) {
+        var solid = layer.source;
+        layer.remove(); solid.remove();
+        throw new Error(blur.name + '：' + error.toString());
+      }
+    }
+  }
+
   function gradeContainerId(im, containers) {
     var path = im.path || [];
     if (!path.length || !containers) return null;
@@ -2219,6 +2269,7 @@ var AEShapeBuilder = (function () {
           var imz = (im.z != null) ? im.z : (slotZ != null ? slotZ : 0);
           if (mt) _mattePairs.push({ lyr: lyr, mt: mt });
           trackLayer(lyr, im.path, imz, nodeMatte || mt, false, im.external);
+          queueBackgroundBlur(lyr, im);
           if (mt) trackLayer(mt, im.path, im.z, null, true);   // rides with its footage
           if (nodeMatte) trackLayer(nodeMatte, im.path, imz, null, true);
           if (im.hidden) { try { lyr.enabled = false; } catch (ehi) {} }
@@ -2232,6 +2283,7 @@ var AEShapeBuilder = (function () {
 
   return { withUndo: withUndo, build: build, buildText: createTextLayers, buildImages: buildImages, organize: organize,
     applyImageGrades: applyImageGrades,
+    applyBackgroundBlurs: applyBackgroundBlurs,
     // Flat imports need the same z correction as precomposed ones, but without building groups.
     restack: function (comp) { restackByZ(); relinkMattes(); refreshTextSkewPivots(comp); verifyStack(comp); placeReferences(comp); },
     getDiag: function () {

@@ -216,6 +216,8 @@ async function check() {
     // Pulling the update installs the Figma 调色 plug-in for AE CC 2019+ (redirected here).
     assert.ok((await fs.stat(path.join(fakePlugins, 'F2A/FigmaImageGrade.aex'))).isFile(),
       'the update copies FigmaImageGrade.aex into the AE Plug-ins folder');
+    assert.ok((await fs.stat(path.join(fakePlugins, 'F2A/FigmaBackgroundBlur.aex'))).isFile(),
+      'the update copies FigmaBackgroundBlur.aex into the AE Plug-ins folder');
     assert.ok((await fs.stat(path.join(target, added))).isFile());
     for (const file of removed) await assert.rejects(fs.access(path.join(target, file)), {code:'ENOENT'});
     const skillEntry = await fs.readFile(path.join(target, 'skills', skill, 'SKILL.md'), 'utf8');

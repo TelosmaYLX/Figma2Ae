@@ -76,6 +76,7 @@ function ui(packet, behavior='success') {
         return {ok:true,json:async()=>({service:'f2a-aep',version:behavior==='old-service'?2:3,
           aeVersions:behavior==='old-version-service'?undefined:['24.0','25.0','26.0'],
           preserveImageFilters:behavior!=='old-grade-service',
+          preserveBackgroundBlur:behavior!=='old-blur-service',
           singleLayerLabel:behavior!=='old-label-service'})};
       }
       if(url.endsWith('/aep/start')){
@@ -116,8 +117,10 @@ function ui(packet, behavior='success') {
       assert.equal(message.rasterGroups,undefined,'No broad hidden rasterization switch');
       for(const [key,id] of Object.entries(rasterControls))assert.equal(message.rasterize[key],elements[id].checked,key+' is independently transmitted');
       assert.equal(message.preserveImageFilters,elements['preserve-image-filters'].checked);
+      assert.equal(message.preserveBackgroundBlur,elements['preserve-background-blur'].checked);
       assert.equal(message.precompLayers,elements['precomp-layers'].checked);
-      emit({...packet,type:'ship',preserveImageFilters:message.preserveImageFilters,imageCount:packet.images.length});
+      emit({...packet,type:'ship',preserveImageFilters:message.preserveImageFilters,
+        preserveBackgroundBlur:message.preserveBackgroundBlur,imageCount:packet.images.length});
       if(behavior==='export-error'){emit({type:'error',message:'Figma error'});finish();return;}
       for(let i=0;i<packet.images.length;i++){
         if(behavior==='missing-image'&&i===0)continue;
@@ -136,8 +139,10 @@ function ui(packet, behavior='success') {
   assert.equal(elements.nodemode,undefined);assert.equal(elements.convertmask,undefined);
   assert.equal(elements.rastergroups,undefined);
   assert.equal(elements['preserve-image-filters'].checked,false);
+  assert.equal(elements['preserve-background-blur'].checked,false);
   assert.equal(elements['precomp-layers'].checked,true);
   if(['image-grade','old-grade-service'].includes(behavior))elements['preserve-image-filters'].checked=true;
+  if(['background-blur','old-blur-service'].includes(behavior))elements['preserve-background-blur'].checked=true;
   assert.equal(elements.rastertexts,undefined,'Text modes are mutually exclusive');
   for(const id of Object.values(rasterControls))assert.equal(elements[id].checked,true,id+' preserves automatic handling by default');
   if(behavior==='merged-masks')elements['native-image-masks'].value='merge';
@@ -174,6 +179,13 @@ const flush=()=>new Promise(r=>setImmediate(r));
     const upload=h.requests.find(r=>r.url.endsWith('/export'));
     if(mode==='image-grade')assert.equal(JSON.parse(upload.options.body).packet.preserveImageFilters,true);
     else {assert.equal(upload,undefined);assert.match(h.elements.msg.textContent,/保留图片调色需要更新/);}
+  }
+  for(const mode of ['background-blur','old-blur-service']){
+    const h=ui(packet,mode);h.elements['export-aep'].onclick();
+    for(let i=0;i<200&&h.context.aepBusy;i++)await flush();
+    const upload=h.requests.find(r=>r.url.endsWith('/export'));
+    if(mode==='background-blur')assert.equal(JSON.parse(upload.options.body).packet.preserveBackgroundBlur,true);
+    else {assert.equal(upload,undefined);assert.match(h.elements.msg.textContent,/保留背景模糊需要更新/);}
   }
   {
     const stale=ui(packet,'old-label-service');stale.elements['export-aep'].onclick();

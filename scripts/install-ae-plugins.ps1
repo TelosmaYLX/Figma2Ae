@@ -1,8 +1,5 @@
 ﻿#Requires -Version 5.1
-# Best-effort copy of the Figma 调色 effect into every supported After Effects install.
-# The F2A installers run this so pulling an update already installs the plug-in; failures
-# are warnings only, because export can still fall back to the LUT grade and the panel
-# retries the copy on first use.
+# Copy the packaged effect into supported After Effects installations.
 param(
     [Parameter(Mandatory = $true)][string]$AexPath,
     [double]$MinVersion = 16,
@@ -65,7 +62,7 @@ try {
             }
         }
         if ($targets.Count -eq 0) {
-            Write-Info "未找到 After Effects CC 2019 及以上的安装，跳过 Figma 调色插件安装。"
+            Write-Info "未找到兼容的 After Effects 安装，跳过 ${fileName}。"
             return
         }
     }
@@ -90,15 +87,15 @@ try {
     }
 
     if ($copied.Count -gt 0) {
-        Write-Info "Figma 调色插件已复制到 $($copied.Count) 个 After Effects 安装（重启 AE 后生效）："
+        Write-Info "$fileName 已复制到 $($copied.Count) 个 After Effects 安装（重启 AE 后生效）："
         foreach ($file in $copied) { Write-Info "  $file" }
     }
     if ($fresh.Count -gt 0) {
-        Write-Info "Figma 调色插件已是最新：$($fresh.Count) 个 AE 安装"
+        Write-Info "$fileName 已是最新（$($fresh.Count) 个 AE 安装）"
     }
     foreach ($issue in $failed) {
-        Write-Warning ('Figma 调色插件复制失败，将在首次导出时重试：' + $issue)
+        Write-Warning ($fileName + ' 复制失败：' + $issue)
     }
 } catch {
-    Write-Warning ('Figma 调色插件安装失败，将在首次导出时重试：' + $_.Exception.Message)
+    Write-Warning ('AE 插件安装失败：' + $_.Exception.Message)
 }

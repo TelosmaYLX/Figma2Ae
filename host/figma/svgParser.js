@@ -858,7 +858,7 @@ var SVGParser = (function () {
     c.fill = null; c.gradient = null; c.fillOpacity = 1;
     c.stroke = null; c.strokeGradient = null; c.strokeOpacity = 1;
     c.strokeWidth = 0;
-    if (!first) c.fx = null;
+    if (!first) { c.fx = null; delete c.backgroundBlur; }
     return c;
   }
 
@@ -907,6 +907,7 @@ var SVGParser = (function () {
       var sh = {
         name: nd.name || 'Shape',
         srcIndex: i,                     // keyed to the node list, so presets can be matched
+        backgroundBlur: nd.backgroundBlur,
         maskId: nd.maskId || null,       // content masked by this Figma mask root
         maskSource: nd.maskSource || null, // mask geometry only; never build it as visible art
         maskType: nd.maskType || 'ALPHA',

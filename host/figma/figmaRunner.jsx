@@ -92,6 +92,7 @@ function runOrganize(comp) {
     // The optimized restack is a no-op when the comp is already ordered.
     if (!_mkContainers || !_mkContainers.length) {
       AEShapeBuilder.restack(comp);
+      AEShapeBuilder.applyBackgroundBlurs();
       var graded = 0; try { graded = AEShapeBuilder.applyImageGrades(); } catch (egrade) {}
       var fd = ""; try { fd = AEShapeBuilder.getDiag(); } catch (ef) {}
       return "no groups" + (graded ? " | 调色 " + graded : "") + (fd ? " | " + fd : "");
@@ -99,6 +100,7 @@ function runOrganize(comp) {
     var n = 0;
     n = AEShapeBuilder.organize(comp, _mkContainers);
     _mkContainers = null;
+    AEShapeBuilder.applyBackgroundBlurs();
     var graded = 0; try { graded = AEShapeBuilder.applyImageGrades(); } catch (egrade2) {}
     var d = ""; try { d = AEShapeBuilder.getDiag(); } catch (ed) {}
     return n + " 个预合成" + (graded ? " | 调色 " + graded : "") + (d ? " | " + d : "");
@@ -164,6 +166,13 @@ function runImportBatch(jobPath) {
     if (!job) return "ERROR: 导入数据不存在。";
     var project = app.project;
     if (!project) return "ERROR: 请先打开 AE 项目。";
+    if (job.backgroundBlur) {
+      var effects = app.effects, loaded = false;
+      for (var e = 0; e < effects.length; e++) {
+        if (effects[e].matchName === 'F2A Figma Background Blur') { loaded = true; break; }
+      }
+      if (!loaded) return 'ERROR: 请安装 FigmaBackgroundBlur 插件并重启 AE。';
+    }
     var comp = project.activeItem, size = job.compSize;
     var width, height;
     if (size) {

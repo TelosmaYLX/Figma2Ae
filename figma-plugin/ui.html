@@ -12,6 +12,7 @@
      panels; common settings follow, with advanced settings collapsed. Keep the existing dark tokens,
      8px control gaps/radii, 12px panel padding and 16px section spacing.
      Image and coordinate markers use paired secondary buttons with the existing --surface fill and --line edge.
+     Background blur is a secondary export setting and uses the existing .option checkbox beside layer settings.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --surface:#383838; --surface-hover:#464646; --surface-active:#303030; --line:#4b4b4b; --line-hover:#5a5a5a; --accent:#a78bfa; --text:#e8e8e8; --muted:#a3a3a3; --ok:#22c55e; --err:#ef4444; }
@@ -181,6 +182,7 @@
     <legend>图层</legend>
     <label class="option" title="将 Figma 分组转换为 AE 预合成。"><input type="checkbox" id="organize" checked> 保留分组层级</label>
     <label class="option" title="为每个单图层（含画框底色）外层单独嵌套一个同名预合成，并以黄色图层标记。"><input type="checkbox" id="precomp-layers" checked> 单图层嵌套预合成</label>
+    <label class="option" title="在 AE 中用调整图层保留可编辑的背景模糊。"><input type="checkbox" id="preserve-background-blur"> 保留背景模糊</label>
     <label class="option"><input type="checkbox" id="enableclip" checked> 保留画框裁剪</label>
     <label class="option"><input type="checkbox" id="ignorehidden" checked> 忽略隐藏图层</label>
   </fieldset>
@@ -284,7 +286,7 @@
     };
   }
   var CHECKBOX_SETTINGS = [
-    'organize', 'precomp-layers', 'enableclip', 'ignorehidden', 'preserve-image-filters',
+    'organize', 'precomp-layers', 'enableclip', 'ignorehidden', 'preserve-image-filters', 'preserve-background-blur',
     'raster-effects', 'raster-paints', 'raster-image-crops', 'raster-masks', 'raster-booleans',
     'mergeblends', 'rasterallgroups', 'rasterinstances'
   ];
@@ -399,6 +401,8 @@
     return imageFolderRequest('GET').then(function (result) {
       if (forImport && $('preserve-image-filters').checked && !result.preserveImageFilters)
         throw new Error('保留图片调色需要更新并重新打开 AE 的 F2A 面板。');
+      if (forImport && $('preserve-background-blur').checked && !result.preserveBackgroundBlur)
+        throw new Error('保留背景模糊需要更新并重新打开 AE 的 F2A 面板。');
       if (forImport && $('precomp-layers').checked && !result.singleLayerLabel)
         throw new Error('单图层嵌套预合成标黄需要更新并重新打开 AE 的 F2A 面板。');
       showImageFolder(result.directory); return imageFolder;
@@ -457,6 +461,7 @@
       precompLayers: $('precomp-layers').checked,
       rasterScale: Number($('raster-scale').value), nativeImageMasks: $('native-image-masks').value === 'separate',
       preserveImageFilters: $('preserve-image-filters').checked,
+      preserveBackgroundBlur: target !== 'web' && $('preserve-background-blur').checked,
       ignoreHidden: $('ignorehidden').checked, convertMasks: true,
       rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked,
         masks: $('raster-masks').checked, booleans: $('raster-booleans').checked},
@@ -470,6 +475,7 @@
     }
     var params = message.params || {}, settings = exportSettings(true);
     if (typeof params.preserveImageFilters === 'boolean') settings.preserveImageFilters = params.preserveImageFilters;
+    if (typeof params.preserveBackgroundBlur === 'boolean') settings.preserveBackgroundBlur = params.preserveBackgroundBlur;
     if (params.textMode) {
       settings.outlineTexts = params.textMode === 'vector';
       settings.rasterTexts = params.textMode === 'png';
@@ -545,6 +551,7 @@
       }
       if (!info.aeVersions || info.aeVersions.indexOf($('aep-version').value) === -1) throw new Error('请更新 AEP 导出组件后重启服务。');
       if ($('preserve-image-filters').checked && !info.preserveImageFilters) throw new Error('保留图片调色需要更新并重启 AEP 导出组件。');
+      if ($('preserve-background-blur').checked && !info.preserveBackgroundBlur) throw new Error('保留背景模糊需要更新并重启 AEP 导出组件。');
       if ($('precomp-layers').checked && !info.singleLayerLabel) throw new Error('单图层嵌套预合成标黄需要更新并重启 AEP 导出组件' + (workspacePlugin ? '，或运行 node scripts/aep-server.cjs --workspace。' : '。'));
     });
   }
@@ -836,7 +843,8 @@
       if (aepMode) {
         aepPacket = {name: msg.name, frame: msg.frame, svg: msg.svg, nodes: msg.nodes, texts: msg.texts,
           effects: msg.effects, shift: msg.shift, containers: msg.containers, organize: msg.organize,
-          preserveImageFilters: msg.preserveImageFilters === true, imageCount: msg.imageCount || 0, images: []};
+          preserveImageFilters: msg.preserveImageFilters === true, preserveBackgroundBlur: msg.preserveBackgroundBlur === true,
+          imageCount: msg.imageCount || 0, images: []};
         if (!aepPacket.imageCount) finishAep();
         return;
       }

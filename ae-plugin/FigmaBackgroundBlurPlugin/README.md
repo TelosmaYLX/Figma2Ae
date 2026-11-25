@@ -9,10 +9,12 @@
 | Match Name（脚本用） | `F2A Figma Background Blur` |
 | 分类 | `F2A 插件` |
 | 版本 | 1.8.0 |
-| 二进制 | `FigmaBackgroundBlur.aex`（x64，44,032 B，SHA256 `bb75d001b4428e9d6c0368be73bfb829dddc1d322e051e2a7a9074ced203d985`） |
+| 二进制 | `FigmaBackgroundBlur.aex`（x64，44,032 B，SHA256 `708bda5a77b849e545227bd0570b1c653488111b933b279f2e8d269053ebc60e`） |
 | 构建 | After Effects SDK 27.0 (Windows) + MSVC 19.44 (v143) + MSBuild |
 | 已验证宿主 | After Effects 2026（26.0x67），Windows x64，8 bpc，简体中文 UI |
 | 多帧渲染 | PiPL `AE_Effect_Global_OutFlags_2` 与 `PF_Cmd_GLOBAL_SETUP` 均声明 `PF_OutFlag2_SUPPORTS_THREADED_RENDERING` |
+
+随 F2A 分发的二进制已同步 PiPL 与 `GlobalSetup` 的 UTF‑8 标志，以便 AE 脚本添加效果。渲染指标使用原始 v1.8 二进制记录。
 
 ## 1. v1.7 的架构变化（区域跟随 + 渐变跟随）
 

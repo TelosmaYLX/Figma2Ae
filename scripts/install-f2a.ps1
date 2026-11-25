@@ -66,6 +66,10 @@ try {
         try { & (Join-Path $PSScriptRoot 'install-ae-plugins.ps1') -AexPath $f2aGradePlugin }
         catch { Write-Warning ('Figma 调色插件安装失败：' + $_.Exception.Message) }
     }
+    $f2aBlurPlugin = Join-Path (Split-Path -Parent $PSScriptRoot) 'ae-plugins\FigmaBackgroundBlur.aex'
+    if (Test-Path -LiteralPath $f2aBlurPlugin) {
+        & (Join-Path $PSScriptRoot 'install-ae-plugins.ps1') -AexPath $f2aBlurPlugin -MinVersion 24
+    }
 
     if (-not $Update) {
         foreach ($f2aVersion in 9..12) {

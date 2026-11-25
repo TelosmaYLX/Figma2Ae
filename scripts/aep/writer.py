@@ -131,6 +131,7 @@ class Writer:
         self.grade_effect = packet.get('imageGradeEffect') is True
         self.container_layers = {}
         self.grade_requests = []
+        self.blur_requests = []
         self.current_layer = packet['name']
         self.current_item = {}
 
@@ -748,6 +749,15 @@ class Writer:
             else:
                 layer = self.image(context, item, index)
             self.apply_mask(context, layer, item)
+            if item.get('backgroundBlur'):
+                self.blur_requests.append((layer, item['backgroundBlur']))
+        if self.blur_requests:
+            from figma_blur import add_adjustment
+            for source, request in self.blur_requests:
+                try:
+                    add_adjustment(source, request)
+                except Exception as error:
+                    self.fail('background-blur', request, str(error))
         self.apply_grade_requests()
         for layer in self.main.layers:
             if getattr(layer, 'guide_layer', False):

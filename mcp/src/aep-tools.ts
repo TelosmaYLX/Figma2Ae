@@ -15,16 +15,19 @@ export function registerAepTools(server: McpServer,
       duration: z.number().positive().max(10800).optional().describe('Override the Figma panel composition duration in seconds.'),
       frameRate: z.number().min(1).max(999).optional().describe('Override the Figma panel composition frame rate.'),
       preserveImageFilters: z.boolean().optional().describe('Override the panel option to keep editable image-fill color adjustments.'),
+      preserveBackgroundBlur: z.boolean().optional().describe('Override the panel option to keep editable background blur in AE.'),
     },
     annotations: { destructiveHint: false, readOnlyHint: false },
-  }, async ({ destination, textMode, aeVersion, duration, frameRate, preserveImageFilters }, { signal }) => {
+  }, async ({ destination, textMode, aeVersion, duration, frameRate, preserveImageFilters, preserveBackgroundBlur }, { signal }) => {
     try {
       const entry = path.join(__dirname, '..', 'scripts', 'export-aep.cjs');
       if (!existsSync(entry)) throw new Error('缺少 AEP 导出组件，请重新安装 F2A');
       const { publishAep } = require(entry);
-      const packet = await send('f2a_export_aep', { textMode, aeVersion, duration, frameRate, preserveImageFilters }, signal);
+      const packet = await send('f2a_export_aep', { textMode, aeVersion, duration, frameRate, preserveImageFilters, preserveBackgroundBlur }, signal);
       if (preserveImageFilters && !(packet as {preserveImageFilters?: boolean})?.preserveImageFilters)
         throw new Error('当前 Figma 插件未启用图片调色导出，请重新运行新版 F2A。');
+      if (preserveBackgroundBlur && !(packet as {preserveBackgroundBlur?: boolean})?.preserveBackgroundBlur)
+        throw new Error('当前 Figma 插件未启用背景模糊导出，请重新运行新版 F2A。');
       const result = await publishAep(packet, () => destination, { signal });
       return { content: [{ type: 'text', text: JSON.stringify(result) }] };
     } catch (error) {

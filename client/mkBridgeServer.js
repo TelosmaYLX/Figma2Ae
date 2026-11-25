@@ -111,7 +111,7 @@ function start(opts) {
     if (req.url === '/image-folder') {
       function reply(error, directory) {
         res.writeHead(error ? 400 : 200, {'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*'});
-        res.end(JSON.stringify(error ? {error:error.message} : {directory:directory || null, preserveImageFilters:true, singleLayerLabel:true}));
+        res.end(JSON.stringify(error ? {error:error.message} : {directory:directory || null, preserveImageFilters:true, singleLayerLabel:true, preserveBackgroundBlur:true}));
       }
       try {
         if (req.method === 'GET' && opts.onGetImageFolder) reply(null, opts.onGetImageFolder());

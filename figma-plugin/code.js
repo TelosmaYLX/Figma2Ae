@@ -39,6 +39,8 @@ var _ignoreHidden = true;
 var _convertMasks = false;      // original-compatible default: masks stay ordinary Figma layers
 var _nativeImageMasks = false;
 var _preserveImageFilters = false;
+var _preserveBackgroundBlur = false;
+var _editableBackdrops = {};
 var _directAep = false;
 var _webTarget = false;
 var _independentMasks = {};
@@ -482,7 +484,31 @@ function _imageGradePasses(n, organize, rootId) {
   });
   return passes;
 }
-function _singleImageNeedsRaster(n) {
+function _backgroundBlurs(n, effects, organize, rootId) {
+  if (_maskByNode[n.id] || _maskSourceByNode[n.id] || n.type === 'TEXT') return null;
+  var fills = n.fills;
+  if (!fills || fills === figma.mixed || !fills.some(function (p) { return p.visible !== false && p.opacity !== 0; })) return null;
+  var geometry = n.fillGeometry || [];
+  if (geometry.length !== 1 || (geometry[0].data.match(/[Mm]/g) || []).length !== 1 || !/[Zz]\s*$/.test(geometry[0].data)) return null;
+  var m = n.absoluteTransform, a = m[0][0], b = m[1][0], c = m[0][1], d = m[1][1];
+  var sx = Math.sqrt(a * a + b * b), sy = (a * d - b * c) / sx;
+  if (!(sx > 0 && Math.abs(sy) > 0 && n.width > 0 && n.height > 0) ||
+      Math.abs(a * c + b * d) > 1e-6 * sx * Math.abs(sy)) return null;
+  return {
+    sourceId: _exportSourceIds[n.id] || n.id,
+    name: n.name + ' 背景模糊', size: [n.width, n.height],
+    opacity: _opacityChain(n, organize, rootId), enabled: !_isHidden(n),
+    position: [m[0][2], m[1][2]], rotation: Math.atan2(b, a) * 180 / Math.PI,
+    scale: [sx * 100, sy * 100], mask: geometry[0].data,
+    effects: effects.map(function (e) {
+      if (e.blurType !== 'PROGRESSIVE') return [1, e.radius];
+      return [2, 0, e.startRadius, e.radius, e.startOffset.x * 100, e.startOffset.y * 100,
+        e.endOffset.x * 100, e.endOffset.y * 100];
+    })
+  };
+}
+
+function _singleImageNeedsRaster(n, effects) {
   if (!n || _isContainer(n) || n.type === 'TEXT' || _maskSourceByNode[n.id]) return false;
   var image = false, crop = false;
   try {
@@ -499,13 +525,14 @@ function _singleImageNeedsRaster(n) {
   } catch (e) { return false; }
   if (_maskByNode[n.id] || _usesIndependentMask(n)) return false;
   if (image && crop) _requireRasterOption(n, 'imageCrops', '的自定义图片裁剪需要固定为 PNG');
-  var effect = _rasterOptions.effects && (n.effects || []).some(function (e) { return e.visible !== false; });
+  var effect = _rasterOptions.effects && effects.length;
   return image && (crop || effect);
 }
 function _collectRasterCandidates(root, organize) {
   var out = [];
   _rasterByNode = {};
   _independentMasks = {};
+  _editableBackdrops = {};
   for (var mergedId in _blendMerged) _rasterByNode[mergedId] = true;
   _subtreeFlagsByNode = {};
   function add(n) { out.push({ node: n }); _markRaster(n); }
@@ -537,9 +564,14 @@ function _collectRasterCandidates(root, organize) {
       throw _layerError(n, '图层「' + n.name + '」包含不支持的' + unsupportedPaint.join('、') + '填充或描边，请将该容器标记为图片');
     }
     var visibleEffects = (n.effects || []).filter(function (e) { return e.visible !== false; });
-    if (visibleEffects.some(function (e) { return e.type === 'BACKGROUND_BLUR'; }) && (!_webTarget || _rasterOptions.effects)) {
-      _requireRasterOption(n, 'effects', '的背景模糊需要转为图片');
-      add(n); return;
+    var backdrops = visibleEffects.filter(function (e) { return e.type === 'BACKGROUND_BLUR'; });
+    if (backdrops.length && (!_webTarget || _rasterOptions.effects)) {
+      var backdrop = _preserveBackgroundBlur && _backgroundBlurs(n, backdrops, organize, root.id);
+      if (!backdrop) {
+        _requireRasterOption(n, 'effects', '的背景模糊需要转为图片');
+        add(n); return;
+      }
+      visibleEffects = visibleEffects.filter(function (e) { return e.type !== 'BACKGROUND_BLUR'; });
     }
     if (_directAep && visibleEffects.length) {
       _requireRasterOption(n, 'effects', '的' + visibleEffects.map(_effectName).join('、') + '暂不能原生写入 AEP');
@@ -570,7 +602,8 @@ function _collectRasterCandidates(root, organize) {
         if (!_isContainer(n)) { add(n); return; }
       }
       out.push({ node: n, fillOnly: true, gradePasses: gradePasses });
-    } else if (_singleImageNeedsRaster(n)) { add(n); return; }
+    } else if (_singleImageNeedsRaster(n, visibleEffects)) { add(n); return; }
+    if (backdrop) _editableBackdrops[n.id] = backdrop;
     if (_convertMasks) {
       var runs = _maskRuns(n);
       for (var mi = 0; mi < runs.length; mi++) {
@@ -902,17 +935,25 @@ async function _bakeBlendStacks(root, organize) {
 
 // The clean pass removes foreground pixels from the full Figma render.
 async function _bakeNodeShadow(n, root, organize) {
-  var effects = n.effects || [];
+  var effects = n.effects || [], preserve = !!_editableBackdrops[n.id];
   if (n.type === 'TEXT') {
     var segments = n.getStyledTextSegments(['fontName']);
     for (var f = 0; f < segments.length; f++) await figma.loadFontAsync(segments[f].fontName);
   }
-  var image = _rasterMeta(n, root, organize);
-  image.rasterBytes = await _exportRasterPng(image);
-  var fullBounds = image.rasterBounds;
-  n.effects = effects.filter(function (e) { return e.type !== 'DROP_SHADOW' || e.visible === false; });
-  var cleanImage = _rasterMeta(n, root, organize);
-  var clean = await _exportRasterPng(cleanImage), cleanBounds = cleanImage.rasterBounds;
+  var withoutShadow = effects.filter(function (e) { return e.type !== 'DROP_SHADOW' || e.visible === false; });
+  function isNotBackdrop(e) { return e.type !== 'BACKGROUND_BLUR'; }
+  if (preserve) n.effects = effects.filter(isNotBackdrop);
+  var image, cleanImage, clean;
+  try {
+    image = _rasterMeta(n, root, organize);
+    image.rasterBytes = await _exportRasterPng(image);
+    n.effects = preserve ? withoutShadow.filter(isNotBackdrop) : withoutShadow;
+    cleanImage = _rasterMeta(n, root, organize);
+    clean = await _exportRasterPng(cleanImage);
+  } finally {
+    if (preserve) n.effects = withoutShadow;
+  }
+  var fullBounds = image.rasterBounds, cleanBounds = cleanImage.rasterBounds;
   image.shadowBase = { data: figma.base64Encode(clean), dx: (cleanBounds.x - fullBounds.x) * _rasterRenderScale,
     dy: (cleanBounds.y - fullBounds.y) * _rasterRenderScale, w: cleanBounds.width * _rasterRenderScale, h: cleanBounds.height * _rasterRenderScale };
   image.name += '_投影'; image.blend = 'NORMAL'; image.z -= 0.01; image.shadow = true;
@@ -1297,7 +1338,7 @@ function collectContainers(root) {
               if ((e.radius || 0) > blur) blur = e.radius || 0;
             } else if (e.type === 'BACKGROUND_BLUR') {
               if (_webTarget) { if ((e.radius || 0) > bgBlur) bgBlur = e.radius || 0; }
-              else if ((e.radius || 0) > blur) blur = e.radius || 0;
+              else if (!_editableBackdrops[n.id] && (e.radius || 0) > blur) blur = e.radius || 0;
             }
           }
         } catch (ee) {}
@@ -1396,6 +1437,62 @@ function _stripOwnerTags(list) {
     delete list[i]._ownerId;
     delete list[i]._layerName;
   }
+}
+
+// Bind to the outer precomp when present, otherwise to the lowest artwork layer
+// belonging to the node. Image placeholders and separate shadows are not artwork.
+function _bindBackgroundBlurs(containers, shapes, images, origin) {
+  var owners = {}, compOrigins = {}, byId = {};
+  containers.forEach(function (c) {
+    byId[c.id] = c;
+    var box = !c.clip && c.cb ? c.cb : c;
+    compOrigins[c.id] = [Math.floor(Math.min(c.x, box.x) + 1e-6), Math.floor(Math.min(c.y, box.y) + 1e-6)];
+    if (_editableBackdrops[c.id]) owners[c.id] = c;
+  });
+  [images, shapes].forEach(function (rows) {
+    rows.forEach(function (row) {
+      var id = row._ownerId;
+      if (!_editableBackdrops[id] || owners[id] || row.reference || row.shadow || row.maskSource || row.imageFill) return;
+      var path = row.path || [], wrapper = path[path.length - 1];
+      owners[id] = wrapper && wrapper.indexOf(id + '-layer-precomp') === 0 ? byId[wrapper] : row;
+    });
+  });
+  for (var id in _editableBackdrops) {
+    if (_rasterByNode[id]) continue;
+    var owner = owners[id], request = _editableBackdrops[id];
+    if (!owner) throw _layerError(request, '找不到「' + request.name + '」的源图层');
+    var path = owner.path || [];
+    request.position[0] -= origin.x; request.position[1] -= origin.y;
+    for (var p = path.length - 1; p >= 0; p--) {
+      var offset = compOrigins[path[p]];
+      if (!offset) continue;
+      request.position[0] -= offset[0]; request.position[1] -= offset[1];
+      break;
+    }
+    owner.backgroundBlur = request;
+  }
+}
+
+// A transparent pass-through group can see its siblings' backdrop in Figma.
+// An AE precomp would hide that backdrop from the adjustment layer inside it.
+function _flattenBackdropGroups(root, containers, channels) {
+  var flatten = {};
+  for (var id in _editableBackdrops) {
+    if (_rasterByNode[id]) continue;
+    for (var p = _exportNodesById[id].parent; p && p !== root && _isContainer(p); p = p.parent) {
+      if (p.blendMode !== 'PASS_THROUGH' || p.opacity !== 1 || p.clipsContent || _maskByNode[p.id] ||
+          (p.fills && p.fills.length) || (p.strokes && p.strokes.length) ||
+          (p.effects || []).some(function (e) { return e.visible !== false; }) || _maskRuns(p).length) break;
+      flatten[p.id] = true;
+    }
+  }
+  for (var i = containers.length - 1; i >= 0; i--) if (flatten[containers[i].id]) containers.splice(i, 1);
+  if (!Object.keys(flatten).length) return;
+  channels.concat([containers]).forEach(function (rows) {
+    rows.forEach(function (row) {
+      if (row.path) row.path = row.path.filter(function (id) { return !flatten[id]; });
+    });
+  });
 }
 
 // Wrap each single layer (text, shape, image, rasterized item, and painted frame background)
@@ -1621,6 +1718,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _webTarget = options.target === 'web';
   _nativeImageMasks = options.nativeImageMasks === true;
   _preserveImageFilters = options.preserveImageFilters === true;
+  _preserveBackgroundBlur = options.preserveBackgroundBlur === true && !_webTarget;
+  if (_preserveBackgroundBlur) useNodes = true;
   // Keep the legacy API argument as the default for callers without per-category settings.
   var rasterDefaults = rasterGroups !== false, rasterOptions = options.rasterize || {};
   _rasterOptions = {};
@@ -1771,6 +1870,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     }
     _nestIndependentMasks(node, !!organize, [nodeShapes || [], texts, images, containers || []], containers);
     if (containers && containers.length) _distributeBlendMasks(node, [nodeShapes || [], texts, images], containers);
+    if (organize && Object.keys(_editableBackdrops).length) _flattenBackdropGroups(node, containers, [nodeShapes, texts, images]);
 
     // Disable clipping only AFTER the container table has captured it. The root is exported
     // uncut so off-frame artwork survives, then collectContainers restores that boundary as an
@@ -1781,7 +1881,6 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     }
 
     if (_precompLayers) _wrapSingleLayers(node, !!organize, realContainerIds, nodeShapes, texts, images, containers);
-    _stripOwnerTags(nodeShapes); _stripOwnerTags(texts); _stripOwnerTags(images);
     if (containers && containers.length) _markBlendPassThrough(containers, [nodeShapes || [], texts, images]);
 
     // In node mode a leaf carries its own shadows (nd.fx), but a shadow set on a GROUP has no
@@ -1974,6 +2073,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
 
     }
 
+    if (_preserveBackgroundBlur) _bindBackgroundBlurs(containers || [], nodeShapes, images, origin);
+    _stripOwnerTags(nodeShapes); _stripOwnerTags(texts); _stripOwnerTags(images);
     var frame = rootBounds || bbox;
     figma.ui.postMessage({ type: 'ship', name: rootName || name,
                            exportCommandId: commandId,
@@ -1981,6 +2082,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
                            newComp: options.target === 'ae' && (!!rootFrame || (originals.length === 1 && originals[0].type === 'FRAME')),
                            shift: svgShift, nodes: nodeShapes, nodeOrigin: origin, bytes: svg.length,
                            containers: containers, organize: !!(organize || (containers && containers.length)), preserveImageFilters: _preserveImageFilters,
+                           preserveBackgroundBlur: _preserveBackgroundBlur,
                            imageCount: images.length, imageBatch: true,
                            vnStats: _vnStats, blendStats: blendBake.stats });
     await shipImages(images, commandId);      // sequential, chunked — see shipImages for why
@@ -2007,6 +2109,8 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     _blendPaintMerged = {};
     _precompLayers = false;
     _webTarget = false;
+    _preserveBackgroundBlur = false;
+    _editableBackdrops = {};
     _exporting = false;
     figma.ui.postMessage({ type: 'export-state', busy: false });
   }
@@ -2210,6 +2314,7 @@ function collectShapes(root, organize, rasterFillByNode) {
       for (var gi = 0; gi < ge.length; gi++) {
         var gef = ge[gi];
         if (gef.visible === false) continue;
+        if (gef.type === 'BACKGROUND_BLUR' && _editableBackdrops[n.id]) continue;
         // organize mode: a container's blur goes on its precomp, not down onto the children
         if (organize && isGroup) continue;
         if ((gef.type === 'LAYER_BLUR' || gef.type === 'BACKGROUND_BLUR') && (gef.radius || 0) > groupBlur) {
@@ -2434,7 +2539,7 @@ function collectEffects(root, rootBox) {
           } else if (e.type === 'LAYER_BLUR') {
             effs.push({ kind: 'blur', radius: e.radius || 0 });
           } else if (e.type === 'BACKGROUND_BLUR') {
-            effs.push({ kind: 'bgblur', radius: e.radius || 0 });
+            if (!_editableBackdrops[n.id]) effs.push({ kind: 'bgblur', radius: e.radius || 0 });
           }
         }
         if (effs.length) out.push({ id: n.id, x: b.x - rootBox.x, y: b.y - rootBox.y, w: b.width, h: b.height, effects: effs });
@@ -2589,6 +2694,7 @@ async function shipImages(images, commandId) {
                  opacity: im.opacity, rotation: im.rotation, matte: im.matte,
                  blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0), maskId: im.maskId || null,
                  hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, shadowBase: im.shadowBase || null, mergedBlend: !!im.mergedBlend, external: !!im.external };
+    if (im.backgroundBlur) meta.backgroundBlur = im.backgroundBlur;
     if (im.imageFilters) {
       meta.imageFilters = {};
       _imageAdjustmentNames.forEach(function (key) { meta.imageFilters[key] = im.imageFilters[key] || 0; });
@@ -2627,6 +2733,7 @@ function _blurOf(n) {
       for (var i = 0; i < es.length; i++) {
         var e = es[i];
         if (e.visible === false) continue;
+        if (e.type === 'BACKGROUND_BLUR' && _editableBackdrops[p.id]) continue;
         if ((e.type === 'LAYER_BLUR' || e.type === 'BACKGROUND_BLUR') && (e.radius || 0) > b) b = e.radius || 0;
       }
     } catch (er) {}

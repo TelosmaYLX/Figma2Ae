@@ -309,6 +309,7 @@
     importing = false; pumpImport();
   }
   function submitImageImport(job, list, folder) {
+    if (list.some(function (im) { return !!im.backgroundBlur; })) job.data.backgroundBlur = true;
     function submit() { submitImport(job, saveJsonTemp(list, 'images').replace(/\\/g, '/'), folder); }
     if (!list.some(function (im) { return !!im.imageFilters; })) { submit(); return; }
     var effect = require(ext + '/client/figmaImageGradeEffect.js');
@@ -512,7 +513,8 @@
                    ? saveJsonTemp(meta.containers, 'containers').replace(/\\/g, '/') : "";
         if (cp) flash("分组预合成：" + meta.containers.length + " 个组");
         var job = { data: {name: meta.name || '', svgPath: arg, textsPath: tp, gradMapPath: gp, effectsPath: ep,
-                           shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp},
+                           shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp,
+                           backgroundBlur: (meta.nodes || []).concat(meta.containers || []).some(function (row) { return !!row.backgroundBlur; })},
                     ready: !meta.imageCount, expectedImages: meta.imageCount || 0, targetReady: false, images: null };
         importQueue.push(job);
         // Bind the target before the PNG wait or folder dialog can change the active viewer.

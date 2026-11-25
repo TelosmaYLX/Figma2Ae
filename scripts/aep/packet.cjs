@@ -57,10 +57,19 @@ function normalize(packet) {
   if (!Number.isFinite(frameRate) || frameRate < 1 || frameRate > 999) {
     throw new Error('帧率须在 1–999 fps 之间');
   }
+  const texts = packet.texts || [], images = packet.images || [];
+  const containers = packet.organize ? packet.containers || [] : [];
+  const parseBlur = item => {
+    const blur = item.backgroundBlur;
+    if (!blur) return item;
+    const [maskPath, extra] = parser.parsePathData(blur.mask);
+    if (!maskPath?.closed || extra) throw layerError(blur, '背景模糊遮罩路径无法解析');
+    return {...item, backgroundBlur: {...blur, maskPath}};
+  };
   return {
     name: packet.name || 'Figma', aeVersion, width, height, frameRate, duration,
-    shapes: model.shapes, texts: packet.texts || [], images: packet.images || [],
-    containers: packet.organize ? packet.containers || [] : [], effects: packet.effects || [],
+    shapes: model.shapes.map(parseBlur), texts, images: images.map(parseBlur),
+    containers: containers.map(parseBlur), effects: packet.effects || [],
     imageGradeEffect: packet.imageGradeEffect === true,
   };
 }
