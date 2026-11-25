@@ -427,6 +427,7 @@ async function check() {
     await fsp.writeFile(path.join(stDir, 'Special Titles.aep'), 'RIFXmain');
     await fsp.writeFile(path.join(stDir, 'Special Titles copy 17.x.aep'), 'RIFXdup');
     await fsp.writeFile(path.join(stDir, 'preview.mp4'), 'MP4prev');
+    await fsp.writeFile(path.join(stDir, 'cover.png'), 'PNGcover');
 
     const scanned = scanner.scanTemplateDirectory(tmp);
     assert.equal(scanned.length, 4, 'Titles Factory aep + ffx + mogrt + main standalone aep (legacy copy skipped)');
@@ -436,6 +437,7 @@ async function check() {
     assert.equal(ffxItem.name, 'Glow');
     const stItem = scanned.find(x => x.name === 'Special Titles');
     assert.ok(stItem && stItem.video && stItem.video.endsWith('preview.mp4'));
+    assert.ok(stItem.thumb && stItem.thumb.endsWith('cover.png'), 'generic cover.png is used as the AEP thumbnail');
 
     const cacheDir = path.join(tmp, 'cache');
     const mPrev = scanner.ensureMogrtPreview(mogrtFile, cacheDir);

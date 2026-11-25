@@ -354,6 +354,9 @@ body{
 .f2m-thumb{
   width:100%; height:100%; object-fit:cover; display:block;
 }
+.f2m-thumb-video{
+  width:100%; height:100%; object-fit:cover; display:block; background:#09070d;
+}
 .f2m-vid{
   position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#000;
 }

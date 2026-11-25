@@ -84,6 +84,26 @@ function findSiblingPreviewVideo(dir) {
   return null;
 }
 
+// Packs often ship one generic cover image (预览.png / preview.jpg) instead of <aep>.png.
+const PREVIEW_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp'];
+const GENERIC_PREVIEW_NAMES = ['预览', 'preview', 'cover', 'thumbnail', 'poster'];
+function findBasePreviewImage(dir, base) {
+  for (const ext of PREVIEW_IMAGE_EXTS) {
+    const file = path.join(dir, base + ext);
+    if (fs.existsSync(file)) return file;
+  }
+  return null;
+}
+function findGenericPreviewImage(dir) {
+  for (const stem of GENERIC_PREVIEW_NAMES) {
+    for (const ext of PREVIEW_IMAGE_EXTS) {
+      const file = path.join(dir, stem + ext);
+      if (fs.existsSync(file)) return file;
+    }
+  }
+  return null;
+}
+
 function scanTitlesFactoryPack(projectDir, packLabel) {
   const pkgDir = path.join(projectDir, 'Package');
   const imgDir = path.join(projectDir, 'Images');
@@ -104,6 +124,7 @@ function scanTitlesFactoryPack(projectDir, packLabel) {
       const aeps = fs.readdirSync(catPkg)
         .filter(f => /\.aep$/i.test(f) && !/auto-save/i.test(f))
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      const catFallbackThumb = aeps.length === 1 ? findGenericPreviewImage(catImg) : null;
 
       for (const aepFile of aeps) {
         const base = aepFile.replace(/\.aep$/i, '');
@@ -134,7 +155,7 @@ function scanTitlesFactoryPack(projectDir, packLabel) {
           category: cat.name,
           name: base,
           file: aepPath,
-          thumb: hasPng ? pngPath : null,
+          thumb: hasPng ? pngPath : catFallbackThumb,
           video: variants[0] ? (variants[0].inVideo || variants[0].outVideo) : null,
           variants: variants,
           defaultComp: variants[0] ? variants[0].compName : base,
@@ -202,11 +223,12 @@ function scanTemplateDirectory(rootDir) {
       ? aeps.filter(n => !/\b(cs6|copy\s+\d+\.x)\b/i.test(n))
       : aeps;
     const finalAeps = filteredAeps.length ? filteredAeps : aeps;
+    const dirFallbackThumb = finalAeps.length === 1 ? findGenericPreviewImage(dir) : null;
 
     for (const aepName of finalAeps) {
       const aepPath = path.join(dir, aepName);
       const base = aepName.replace(/\.aep$/i, '');
-      const matchingPng = path.join(dir, base + '.png');
+      const thumbPath = findBasePreviewImage(dir, base) || dirFallbackThumb;
       items.push({
         id: 'aep-' + createHash('sha1').update(aepPath).digest('hex').slice(0, 12),
         kind: 'aep',
@@ -214,7 +236,7 @@ function scanTemplateDirectory(rootDir) {
         category: 'AEP 模板',
         name: base,
         file: aepPath,
-        thumb: fs.existsSync(matchingPng) ? matchingPng : null,
+        thumb: thumbPath,
         video: siblingVideo,
         variants: [],
       });

@@ -75,6 +75,21 @@
     return "file:///" + encodeURI(normalized).replace(/#/g, "%23").replace(/\?/g, "%3F");
   }
 
+  // A pack without a still image can still preview its first video frame as the card thumbnail.
+  function addVideoThumbnail(stageEl, url) {
+    var vid = document.createElement("video");
+    vid.className = "f2m-thumb-video";
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.preload = "metadata";
+    vid.src = url;
+    vid.addEventListener("loadedmetadata", function () {
+      try { if (!vid.currentTime) vid.currentTime = 0.04; } catch (e) {}
+    });
+    stageEl.appendChild(vid);
+    return vid;
+  }
+
   // ---- Load standalone ExtendScript motion engine into AE ----
   if (CEP && extDir) {
     var motionHost = (extDir + "/host/motion").replace(/\\/g, "/");
@@ -654,9 +669,13 @@
             if (img) {
               img.src = fileUrl(item.thumb);
               img.hidden = false;
-              var ph = stage.querySelector(".f2m-media-placeholder");
-              if (ph) ph.hidden = true;
             }
+          } else if (item.video && !stage.querySelector(".f2m-thumb-video")) {
+            addVideoThumbnail(stage, fileUrl(item.video));
+          }
+          if (item.thumb || item.video) {
+            var ph = stage.querySelector(".f2m-media-placeholder");
+            if (ph) ph.hidden = true;
           }
           if (item.video) stage.setAttribute("data-video", fileUrl(item.video));
         } catch (e) {}
@@ -925,21 +944,23 @@
     stage._f2mTemplate = item;
     stage.title = "点击" + (item.kind === "ffx" ? "应用" : "导入") + "「" + item.name + "」";
 
+    var thumbUrl = item.thumb ? fileUrl(item.thumb) : "";
+    var activeVideoUrl = item.video ? fileUrl(item.video) : "";
     var img = el("img", "f2m-thumb");
     img.alt = item.name;
-    if (item.thumb) {
-      img.src = fileUrl(item.thumb);
+    if (thumbUrl) {
+      img.src = thumbUrl;
     } else {
       img.hidden = true;
     }
     stage.appendChild(img);
 
-    if (!item.thumb) {
+    if (!thumbUrl && activeVideoUrl) addVideoThumbnail(stage, activeVideoUrl);
+    if (!thumbUrl && !activeVideoUrl) {
       var ph = el("div", "f2m-media-placeholder", item.kind === "ffx" ? "FX" : (item.kind === "mogrt" ? "MOGRT" : "AEP"));
       stage.appendChild(ph);
     }
 
-    var activeVideoUrl = item.video ? fileUrl(item.video) : "";
     if (activeVideoUrl) stage.setAttribute("data-video", activeVideoUrl);
 
     // Variant switcher for Titles Factory (A1 / A2 / A3) — subtle pill on top-right
