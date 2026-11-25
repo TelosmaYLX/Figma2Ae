@@ -902,7 +902,7 @@ static PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef*
                          FGB_RADIUS_DFLT,
                          PF_Precision_HUNDREDTHS,
                          0,
-                         0,
+                         PF_ParamFlag_START_COLLAPSED,
                          FGB_RADIUS_DISK_ID);
 
     AEFX_CLR_STRUCT(def);
@@ -914,7 +914,7 @@ static PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef*
                          0.0,
                          PF_Precision_HUNDREDTHS,
                          0,
-                         0,
+                         PF_ParamFlag_START_COLLAPSED,
                          FGB_START_RADIUS_DISK_ID);
 
     AEFX_CLR_STRUCT(def);
@@ -926,7 +926,7 @@ static PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef*
                          FGB_RADIUS_DFLT,
                          PF_Precision_HUNDREDTHS,
                          0,
-                         0,
+                         PF_ParamFlag_START_COLLAPSED,
                          FGB_END_RADIUS_DISK_ID);
 
     // Ramp endpoints, in PERCENT of the blur bounds (Figma's node-normalised
@@ -942,7 +942,7 @@ static PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef*
                          50.0,
                          PF_Precision_TENTHS,
                          0,
-                         0,
+                         PF_ParamFlag_START_COLLAPSED,
                          FGB_GRAD_SX_DISK_ID);
 
     AEFX_CLR_STRUCT(def);
@@ -954,7 +954,7 @@ static PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef*
                          0.0,
                          PF_Precision_TENTHS,
                          0,
-                         0,
+                         PF_ParamFlag_START_COLLAPSED,
                          FGB_GRAD_SY_DISK_ID);
 
     AEFX_CLR_STRUCT(def);
@@ -966,7 +966,7 @@ static PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef*
                          50.0,
                          PF_Precision_TENTHS,
                          0,
-                         0,
+                         PF_ParamFlag_START_COLLAPSED,
                          FGB_GRAD_EX_DISK_ID);
 
     AEFX_CLR_STRUCT(def);
@@ -978,7 +978,7 @@ static PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, PF_ParamDef*
                          100.0,
                          PF_Precision_TENTHS,
                          0,
-                         0,
+                         PF_ParamFlag_START_COLLAPSED,
                          FGB_GRAD_EY_DISK_ID);
 
     // Hide the retired controls while retaining their disk IDs and behavior
