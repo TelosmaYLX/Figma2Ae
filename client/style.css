@@ -427,13 +427,32 @@ body{
 .f2m-more-wrap{grid-column:1 / -1; display:flex; justify-content:center; padding:6px 0 4px;}
 
 /* ---------- Live log ----------
-   Docked cleanly at the bottom with collapsible toggle so the motion gallery gets primary space. */
+   Docked cleanly at the bottom with collapsible toggle so the motion gallery gets primary space.
+   The height is a remembered CSS variable dragged from the top grip: the console used to be pinned
+   to one fixed height, which left no way to read more lines on a tall panel. */
 .mk-console{
-  display:flex; flex-direction:column; flex:0 0 72px; min-height:22px;
-  margin:0 14px 2px;
+  display:flex; flex-direction:column; flex:0 0 var(--log-height,72px); min-height:22px;
+  margin:0 14px 2px; position:relative;
 }
 .mk-console.is-collapsed{flex:0 0 auto;}
 .mk-console.is-collapsed .mk-console-list{display:none;}
+.mk-console.is-collapsed .mk-console-resize{display:none;}
+.mk-console.is-resizing{user-select:none;}
+/* The grip lives in the gap above the console, so it costs the list no height; the bar it draws
+   is only visible on hover/focus/drag to stay out of the way. */
+.mk-console-resize{
+  position:absolute; top:-7px; left:0; right:0; height:8px; z-index:4;
+  cursor:ns-resize; touch-action:none;
+}
+.mk-console-resize::before{
+  content:""; position:absolute; top:50%; left:50%; width:36px; height:3px;
+  margin:-1.5px 0 0 -18px; border-radius:2px; background:var(--border);
+  transition:background .12s;
+}
+.mk-console-resize:hover::before,
+.mk-console-resize:focus-visible::before,
+.mk-console.is-resizing .mk-console-resize::before{background:var(--accent);}
+.mk-console-resize:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 .mk-console-head{
   display:flex; align-items:center; justify-content:space-between;
   margin:0 2px 4px; font-size:10px; font-weight:700; letter-spacing:1.6px;

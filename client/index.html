@@ -113,8 +113,10 @@
     <div class="f2m-scroll"><div class="f2m-grid" id="f2m-grid"></div></div>
   </section>
 
-  <!-- Live log: every bridge, MCP and import message lands here with a timestamp. -->
+  <!-- Live log: every bridge, MCP and import message lands here with a timestamp.
+       Its top grip drags the console taller or shorter; double-click restores the default. -->
   <section class="mk-console" aria-label="运行日志">
+    <div class="mk-console-resize" id="mk-log-resize" role="separator" aria-orientation="horizontal" aria-label="调整日志高度" tabindex="0" title="拖动调整日志高度，双击恢复默认"></div>
     <div class="mk-console-head">
       <span>运行日志</span>
       <div class="f2m-console-acts">
