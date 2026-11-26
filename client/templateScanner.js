@@ -521,6 +521,24 @@ function renameUserClip(id, name, libDir) {
   return Object.assign({}, rec, { file, source: 'user' });
 }
 
+// Exporting writes the record in the same schemaVersion: 1 format importUserClipFile reads
+// (and the MCP ae_motion_import accepts), so a file moved to another machine round-trips.
+function exportUserClip(id, targetPath, libDir) {
+  const root = libDir || getUserLibraryDir();
+  const cleanId = String(id || '');
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRe.test(cleanId)) throw new Error('动效 ID 无效。');
+  const file = path.join(root, cleanId + '.json');
+  if (!fs.existsSync(file)) throw new Error('未找到该自存动效。');
+  const rec = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
+  if (!rec || rec.schemaVersion !== 1 || rec.id !== cleanId) throw new Error('动效文件格式无效。');
+  if (hashClip(rec.clip) !== rec.contentHash) throw new Error('动效文件校验失败（contentHash 不匹配）。');
+  const target = String(targetPath || '').trim();
+  if (!target) throw new Error('请选择导出位置。');
+  fs.writeFileSync(target, JSON.stringify(rec, null, 2), { encoding: 'utf8' });
+  return target;
+}
+
 module.exports = {
   getUserLibraryDir,
   getPackCacheDir,
@@ -536,4 +554,5 @@ module.exports = {
   importUserClipFile,
   deleteUserClip,
   renameUserClip,
+  exportUserClip,
 };

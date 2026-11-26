@@ -612,6 +612,26 @@
     }
   }
 
+  // Saved clips can go back out as JSON: the exported record uses the same schemaVersion: 1
+  // format importUserClipFile reads (and the MCP ae_motion_import accepts).
+  function exportUserClipDialog(item) {
+    if (!scanner) return;
+    if (!(window.cep && window.cep.fs && window.cep.fs.showSaveDialogEx)) {
+      report("请在 AE 面板中导出 JSON。", true);
+      return;
+    }
+    var base = String(item.name || "动效").replace(/[\\/:*?"<>|\r\n]+/g, "_").replace(/^\s+|\s+$/g, "").slice(0, 80) || "动效";
+    var pick = window.cep.fs.showSaveDialogEx("导出 F2A 动效 JSON（可在其它机器导入）", "", ["json"], base + ".json");
+    if (!pick || pick.err || !pick.data) return;
+    var target = /\.json$/i.test(pick.data) ? pick.data : pick.data + ".json";
+    try {
+      scanner.exportUserClip(item.id, target);
+      log("已导出动效「" + item.name + "」→ " + target, "ok");
+    } catch (e) {
+      report("导出动效失败：" + e.message, true);
+    }
+  }
+
   function addTemplateDir(dirPath) {
     var clean = String(dirPath || "").trim().replace(/^["']|["']$/g, "");
     if (!clean) return;
@@ -868,6 +888,8 @@
       });
     } else if (name === "upload") {
       add("path", { d: "M8 10.8V3.2M5 6l3-3 3 3M3 12.8h10", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round" });
+    } else if (name === "download") {
+      add("path", { d: "M8 3.2v7.6M5 8.2l3 3 3-3M3 12.8h10", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round" });
     } else if (name === "close") {
       add("path", { d: "M4.5 4.5l7 7M11.5 4.5l-7 7", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round" });
     }
@@ -1110,6 +1132,13 @@
           renderGrid();
         };
         actions.appendChild(renameBtn);
+        var exportBtn = iconButton("f2m-del is-export", "download", "", "导出为 JSON（可在其它机器导入）");
+        exportBtn.type = "button";
+        exportBtn.onclick = function (ev) {
+          ev.stopPropagation();
+          exportUserClipDialog(item);
+        };
+        actions.appendChild(exportBtn);
         var delBtn = state.confirmDeleteId === item.id
           ? el("button", "f2m-del is-confirm", "确认")
           : iconButton("f2m-del", "close", "", "删除此动效");
@@ -1370,6 +1399,7 @@
       uRow.appendChild(saveBtn);
 
       var impBtn = iconButton("f2m-chip-act", "upload", "导入 JSON");
+      impBtn.title = "从 JSON 文件导入动效；卡片右侧的下载按钮可把已有动效导出为 JSON";
       impBtn.onclick = importJsonDialog;
       uRow.appendChild(impBtn);
       subbar.appendChild(uRow);

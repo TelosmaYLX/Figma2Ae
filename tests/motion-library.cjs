@@ -484,6 +484,22 @@ async function check() {
     assert.throws(() => scanner.renameUserClip('00000000-0000-0000-0000-000000000000', 'x', userLib), /未找到/, 'a missing clip is reported');
     assert.throws(() => scanner.renameUserClip('../escape', 'x', userLib), /ID 无效/, 'path traversal ids are rejected');
 
+    // Export writes the same schema the importer accepts, so it round-trips across machines.
+    const exportFile = path.join(tmp, 'exported-clip.json');
+    assert.equal(scanner.exportUserClip(saved.id, exportFile, userLib), exportFile);
+    const exported = JSON.parse(fs.readFileSync(exportFile, 'utf8'));
+    assert.equal(exported.schemaVersion, 1);
+    assert.equal(exported.id, saved.id);
+    assert.equal(exported.name, '重命名卡片淡入');
+    assert.equal(exported.contentHash, saved.contentHash);
+    assert.equal(exported.clip.layers.length, saved.clip.layers.length);
+    const importedLib = path.join(tmp, 'imported-lib');
+    const reimported = scanner.importUserClipFile(exportFile, '导入的卡片淡入', importedLib);
+    assert.equal(reimported.name, '导入的卡片淡入');
+    assert.equal(scanner.listUserClips(importedLib).length, 1);
+    assert.throws(() => scanner.exportUserClip(saved.id, '', userLib), /请选择导出位置/, 'a blank destination is rejected');
+    assert.throws(() => scanner.exportUserClip('00000000-0000-0000-0000-000000000000', exportFile, userLib), /未找到/, 'exporting a missing clip is reported');
+
     // 4. Verify live MCP server sees BOTH user clip AND built-in curated clips
     const relay = startRelay({ port: 0, idleTimeout: 60000 });
     let capturedApplyJsx = '';
@@ -574,6 +590,13 @@ async function check() {
   assert.match(panelCss, /\.f2m-rename-input\{/, 'the inline rename field has its own style');
   assert.match(panelCss, /\.f2m-actions\{[^}]*flex-direction:column/, 'saved-clip actions stack vertically');
   assert.ok(panelSrc.indexOf('var renameBtn') < panelSrc.indexOf('var delBtn'), 'rename sits above delete in the stacked pair');
+  assert.match(panelSrc, /function exportUserClipDialog\(item\)/, 'saved clips can be exported from the panel');
+  assert.match(panelSrc, /scanner\.exportUserClip\(item\.id, target\)/, 'export writes through the storage module');
+  assert.match(panelSrc, /name === "download"/, 'the export action has a download glyph');
+  assert.ok(panelSrc.indexOf('var renameBtn') < panelSrc.indexOf('var exportBtn') &&
+    panelSrc.indexOf('var exportBtn') < panelSrc.indexOf('var delBtn'), 'rename, export and delete stack in that order');
+  assert.match(panelCss, /\.f2m-actions \.f2m-del\{[^}]*height:16px/, 'the stacked icons keep a compact row');
+  assert.match(panelCss, /\.f2m-card:hover\{[^}]*border-color:#6e6e6e/, 'the card hover border is brighter');
   assert.doesNotMatch(panelSrc, /选择本地模板目录/, 'the empty template tab keeps only the top add-directory action');
   assert.match(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--surface-hi\)[^}]*color:var\(--text\)/, 'primary chips use a raised graphite fill instead of a blue one');
   assert.doesNotMatch(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent\)/, 'primary chips paint no solid accent fill');

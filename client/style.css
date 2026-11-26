@@ -305,7 +305,7 @@ body{
   user-select:none;
 }
 .f2m-card:hover{
-  border-color:#555;
+  border-color:#6e6e6e;
   box-shadow:0 4px 16px rgba(0,0,0,.4);
 }
 
@@ -418,8 +418,9 @@ body{
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 /* Saved-clip actions stack vertically beside the two-line title block, so the footer stays
-   narrow and the pencil/× pair reads as one column (rename above delete). */
+   narrow and the pencil/download/× reads as one column (rename, export, delete). */
 .f2m-actions{display:flex; flex-direction:column; align-items:center; gap:2px; flex:0 0 auto;}
+.f2m-actions .f2m-del{padding:1px 0; width:20px; height:16px;}
 /* Inline rename on a saved motion card: the title slot becomes a field and the actions become
    check/close, so the card stays in place while the name is edited. */
 .f2m-rename-input{
@@ -430,9 +431,10 @@ body{
 }
 .f2m-rename-input:focus{border-color:var(--accent);}
 .f2m-del.is-ok{color:var(--ok);}
-.f2m-del.is-ok:hover{color:var(--ok); border-color:rgba(63,191,127,.5);}
-.f2m-del.is-rename:hover{color:var(--accent-hi); border-color:rgba(59,142,234,.45);}
-.f2m-del.is-cancel:hover{color:var(--text); border-color:var(--border);}
+.f2m-del.is-ok:hover{color:var(--ok); border-color:rgba(63,191,127,.7);}
+.f2m-del.is-rename:hover{color:var(--accent-hi); border-color:rgba(59,142,234,.7);}
+.f2m-del.is-export:hover{color:var(--text); border-color:#6e6e6e;}
+.f2m-del.is-cancel:hover{color:var(--text); border-color:#6e6e6e;}
 .f2m-del{
   appearance:none; border:1px solid transparent; background:transparent;
   color:var(--text-mute); font:inherit; font-size:10px;
@@ -440,7 +442,7 @@ body{
   display:inline-flex; align-items:center; justify-content:center;
 }
 .f2m-del.is-confirm{color:var(--danger); border-color:rgba(229,83,75,.4); padding:2px 5px;}
-.f2m-del:hover{color:var(--danger); border-color:rgba(229,83,75,.4);}
+.f2m-del:hover{color:var(--danger); border-color:rgba(229,83,75,.65);}
 /* Favourite star floating over the preview's top-right corner: hollow by default, solid amber
    once saved. It has no disc or frame — just the glyph, with a soft drop shadow so it stays
    readable over thumbnails and videos. */
