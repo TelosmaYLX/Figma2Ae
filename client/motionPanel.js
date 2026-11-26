@@ -996,7 +996,7 @@
       mark.setAttribute("aria-hidden", "true");
       var p1 = document.createElementNS(ns, "path");
       p1.setAttribute("d", "M6 5h12v3.6H9.8v3.1h6.4v3.4H9.8V19H6V5z");
-      p1.setAttribute("fill", "#f4f1ff");
+      p1.setAttribute("fill", "#f0f0f0");
       mark.appendChild(p1);
       box.appendChild(mark);
       stage.appendChild(box);
