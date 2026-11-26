@@ -1376,10 +1376,7 @@
       var empty = el("div", "f2m-empty");
       if (state.tab === "templates" && !state.templateDirs.length) {
         empty.appendChild(el("div", "f2m-empty-title", "尚未挂载本地模板目录"));
-        empty.appendChild(el("div", "f2m-empty-desc", "添加本地动效数据包后，可直接预览视频缩略图并一键导入 AEP / MOGRT / FFX。"));
-        var cta = iconButton("f2m-chip-act primary", "plus", "选择本地模板目录");
-        cta.onclick = chooseTemplateDir;
-        empty.appendChild(cta);
+        empty.appendChild(el("div", "f2m-empty-desc", "点击上方「添加模板目录」挂载本地动效数据包，即可预览缩略图并导入 AEP / MOGRT / FFX。"));
       } else if (state.tab === "user" && !state.userClips.length) {
         empty.appendChild(el("div", "f2m-empty-title", "暂无自存动效"));
         empty.appendChild(el("div", "f2m-empty-desc", "在 AE 中选中已调好关键帧的图层，点击上方「保存选中动效」即可复用，并与 MCP 共享。"));

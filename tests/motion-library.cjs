@@ -563,7 +563,7 @@ async function check() {
     assert.deepEqual(privacyIssues(buf, identifiers), [], 'privacy leak in ' + required);
   }
 
-  // 6. The "我的动效" tab drops live recording and edits saved names in place.
+  // 6. Panel UX regressions: recording gone, rename wired, template tab deduped, primary chips tuned.
   const panelSrc = fs.readFileSync(path.join(root, 'client/motionPanel.js'), 'utf8');
   const panelCss = fs.readFileSync(path.join(root, 'client/style.css'), 'utf8');
   assert.doesNotMatch(panelSrc, /startRecording|state\.recording|开始录制|取消录制|停止并保存|录制动效/, 'the panel no longer records manual AE edits');
@@ -571,7 +571,10 @@ async function check() {
   assert.match(panelSrc, /scanner\.renameUserClip\(item\.id, name\)/, 'saved clips are renamed through the storage module');
   assert.match(panelSrc, /state\.renameId === item\.id/, 'the card switches its title into the rename form');
   assert.match(panelCss, /\.f2m-rename-input\{/, 'the inline rename field has its own style');
-  console.log('PASS: all new motion library files included in package-dist and privacy-clean; recording removed, rename wired');
+  assert.doesNotMatch(panelSrc, /选择本地模板目录/, 'the empty template tab keeps only the top add-directory action');
+  assert.match(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent-dim\)/, 'primary chips use the soft accent tint instead of solid blue');
+  assert.doesNotMatch(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent\)\s*;/, 'primary chips no longer paint the full accent fill');
+  console.log('PASS: all new motion library files included in package-dist and privacy-clean; recording removed, rename wired, template tab deduped, primary chips tuned');
 }
 
 check().catch(err => { console.error(err); process.exitCode = 1; });

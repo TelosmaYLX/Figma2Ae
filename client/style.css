@@ -223,9 +223,10 @@ body{
 }
 .f2m-chip-act:hover{background:var(--surface-hi); color:var(--text);}
 .f2m-chip-act.primary{
-  background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600;
+  background:var(--accent-dim); border-color:rgba(59,142,234,.5);
+  color:var(--accent-hi); font-weight:600;
 }
-.f2m-chip-act.primary:hover{background:var(--accent-hi); border-color:var(--accent-hi);}
+.f2m-chip-act.primary:hover{background:rgba(59,142,234,.22); border-color:var(--accent); color:var(--text);}
 .f2m-chip-act.danger{border-color:rgba(229,83,75,.5); color:var(--danger);}
 .f2m-dir-pill{
   display:inline-flex; align-items:center; gap:4px;
