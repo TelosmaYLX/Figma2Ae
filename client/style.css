@@ -417,7 +417,9 @@ body{
   font-size:10px; color:var(--text-mute);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.f2m-actions{display:flex; align-items:center; gap:3px; flex:0 0 auto;}
+/* Saved-clip actions stack vertically beside the two-line title block, so the footer stays
+   narrow and the pencil/× pair reads as one column (rename above delete). */
+.f2m-actions{display:flex; flex-direction:column; align-items:center; gap:2px; flex:0 0 auto;}
 /* Inline rename on a saved motion card: the title slot becomes a field and the actions become
    check/close, so the card stays in place while the name is edited. */
 .f2m-rename-input{

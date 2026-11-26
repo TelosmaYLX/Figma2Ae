@@ -572,6 +572,8 @@ async function check() {
   assert.match(panelSrc, /scanner\.renameUserClip\(item\.id, name\)/, 'saved clips are renamed through the storage module');
   assert.match(panelSrc, /state\.renameId === item\.id/, 'the card switches its title into the rename form');
   assert.match(panelCss, /\.f2m-rename-input\{/, 'the inline rename field has its own style');
+  assert.match(panelCss, /\.f2m-actions\{[^}]*flex-direction:column/, 'saved-clip actions stack vertically');
+  assert.ok(panelSrc.indexOf('var renameBtn') < panelSrc.indexOf('var delBtn'), 'rename sits above delete in the stacked pair');
   assert.doesNotMatch(panelSrc, /选择本地模板目录/, 'the empty template tab keeps only the top add-directory action');
   assert.match(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--surface-hi\)[^}]*color:var\(--text\)/, 'primary chips use a raised graphite fill instead of a blue one');
   assert.doesNotMatch(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent\)/, 'primary chips paint no solid accent fill');
