@@ -496,6 +496,31 @@ function deleteUserClip(id, libDir) {
   return true;
 }
 
+// Renaming only rewrites the record's display name: the id, file name and contentHash stay
+// untouched so MCP references and duplicate detection keep working. The write is atomic.
+function renameUserClip(id, name, libDir) {
+  const root = libDir || getUserLibraryDir();
+  const cleanId = String(id || '');
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRe.test(cleanId)) throw new Error('动效 ID 无效。');
+  const cleanName = String(name || '').trim().slice(0, 120);
+  if (!cleanName) throw new Error('请输入动效名称。');
+  const file = path.join(root, cleanId + '.json');
+  if (!fs.existsSync(file)) throw new Error('未找到该自存动效。');
+  const rec = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
+  if (!rec || rec.schemaVersion !== 1 || rec.id !== cleanId) throw new Error('动效文件格式无效。');
+  if (hashClip(rec.clip) !== rec.contentHash) throw new Error('动效文件校验失败（contentHash 不匹配）。');
+  rec.name = cleanName;
+  const temp = path.join(root, '.' + cleanId + '.tmp');
+  try {
+    fs.writeFileSync(temp, JSON.stringify(rec, null, 2), { encoding: 'utf8', flag: 'wx' });
+    fs.renameSync(temp, file);
+  } finally {
+    try { fs.unlinkSync(temp); } catch (e) {}
+  }
+  return Object.assign({}, rec, { file, source: 'user' });
+}
+
 module.exports = {
   getUserLibraryDir,
   getPackCacheDir,
@@ -510,4 +535,5 @@ module.exports = {
   listUserClips,
   importUserClipFile,
   deleteUserClip,
+  renameUserClip,
 };

@@ -413,6 +413,19 @@ body{
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .f2m-actions{display:flex; align-items:center; gap:3px; flex:0 0 auto;}
+/* Inline rename on a saved motion card: the title slot becomes a field and the actions become
+   check/close, so the card stays in place while the name is edited. */
+.f2m-rename-input{
+  width:100%; min-width:0; box-sizing:border-box;
+  background:var(--bg); color:var(--text);
+  border:1px solid var(--border); border-radius:3px;
+  padding:2px 5px; font:inherit; font-size:11px; outline:none;
+}
+.f2m-rename-input:focus{border-color:var(--accent);}
+.f2m-del.is-ok{color:var(--ok);}
+.f2m-del.is-ok:hover{color:var(--ok); border-color:rgba(63,191,127,.5);}
+.f2m-del.is-rename:hover{color:var(--accent-hi); border-color:rgba(59,142,234,.45);}
+.f2m-del.is-cancel:hover{color:var(--text); border-color:var(--border);}
 .f2m-del{
   appearance:none; border:1px solid transparent; background:transparent;
   color:var(--text-mute); font:inherit; font-size:10px;

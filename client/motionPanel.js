@@ -146,10 +146,10 @@
     templates: [],
     templateDirFilter: null,
     templatePageLimit: 48,
-    recording: null,           // { snapshotFile, snapshot, startedAt }
     saveFormOpen: false,
     dirInputOpen: false,
-    confirmDeleteId: null
+    confirmDeleteId: null,
+    renameId: null
   };
 
   // ---- Load built-in catalog ----
@@ -516,13 +516,13 @@
     }
   }
 
-  // ---- User Clip Save / Record / Import ----
-  function captureFromAE(includeStatic, cb) {
-    if (!CEP) { cb(new Error("请在 AE 中使用捕获/录制功能。")); return; }
+  // ---- User Clip Save / Import ----
+  function captureFromAE(cb) {
+    if (!CEP) { cb(new Error("请在 AE 中使用保存动效功能。")); return; }
     var snapFile = path.join(os.tmpdir(), "f2a_snap_" + Date.now() + "_" + (++tempSerial) + ".json");
     var jobPath = writeJobTemp({
       scope: "all",
-      includeStatic: !!includeStatic,
+      includeStatic: false,
       snapshotFile: snapFile.replace(/\\/g, "/")
     }, "capture");
     evalES("mkMotionCaptureSelected(" + esLiteral(jobPath) + ")", function (raw) {
@@ -538,50 +538,10 @@
     });
   }
 
-  function startRecording() {
-    captureFromAE(true, function (err, snap) {
-      if (err) { report("开始录制失败：" + err.message, true); return; }
-      state.recording = { snapshot: snap, startedAt: Date.now() };
-      log("开始录制「" + snap.name + "」的 " + snap.layers.length + " 层动效，请在 AE 中调整后点击“停止并保存”", "ok");
-      renderPanel();
-    });
-  }
-
   function commitSaveClip(name, tagsText) {
     if (!scanner) { report("本地动效存储模块不可用。", true); return; }
     var tags = String(tagsText || "").split(/[,，\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
-    var rec = state.recording;
-    if (rec) {
-      // Capture "after" for same comp/layers and diff
-      var snapFile = path.join(os.tmpdir(), "f2a_snap_after_" + Date.now() + "_" + (++tempSerial) + ".json");
-      var jobPath = writeJobTemp({
-        comp_id: rec.snapshot.comp,
-        layer_ids: rec.snapshot.layers.map(function (l) { return l.id; }),
-        scope: "all",
-        includeStatic: true,
-        snapshotFile: snapFile.replace(/\\/g, "/")
-      }, "capture");
-      evalES("mkMotionCaptureSelected(" + esLiteral(jobPath) + ")", function (raw) {
-        var res = parseEsJson(raw);
-        if (!res.ok) { report("读取录制结果失败：" + res.error, true); return; }
-        try {
-          var after = JSON.parse(fs.readFileSync(snapFile, "utf8").replace(/^\uFEFF/, ""));
-          try { fs.unlinkSync(snapFile); } catch (eRm) {}
-          var built = scanner.makeClipFromSnapshots(after, rec.snapshot);
-          var saved = scanner.saveUserClip(name, tags, built.clip);
-          state.recording = null;
-          state.saveFormOpen = false;
-          refreshUserClips();
-          log("已保存录制动效「" + saved.name + "」（" + saved.clip.duration.toFixed(2) + "s）", "ok");
-          renderPanel();
-        } catch (eSave) {
-          report("保存录制动效失败：" + eSave.message, true);
-        }
-      });
-      return;
-    }
-
-    captureFromAE(false, function (err, snap) {
+    captureFromAE(function (err, snap) {
       if (err) { report("捕获动效失败：" + err.message, true); return; }
       try {
         var built = scanner.makeClipFromSnapshots(snap);
@@ -594,6 +554,21 @@
         report("保存动效失败：" + eSave.message, true);
       }
     });
+  }
+
+  function renameUserClip(item, name) {
+    if (!scanner) { report("本地动效存储模块不可用。", true); return false; }
+    try {
+      scanner.renameUserClip(item.id, name);
+      state.renameId = null;
+      refreshUserClips();
+      log("已重命名动效「" + item.name + "」→「" + name + "」");
+      renderPanel();
+      return true;
+    } catch (e) {
+      report("重命名动效失败：" + e.message, true);
+      return false;
+    }
   }
 
   function importJsonDialog() {
@@ -855,10 +830,11 @@
       add("path", { d: "M8 3.2v9.6M3.2 8h9.6", fill: "none", stroke: "currentColor", "stroke-width": "1.6", "stroke-linecap": "round" });
     } else if (name === "refresh") {
       add("path", { d: "M13.5 8a5.5 5.5 0 1 1-1.4-3.65M13.5 2.5v2.75h-2.75", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round" });
-    } else if (name === "record") {
-      add("circle", { cx: "8", cy: "8", r: "4.2", fill: "currentColor" });
-    } else if (name === "stop") {
-      add("rect", { x: "4.2", y: "4.2", width: "7.6", height: "7.6", rx: "1.2", fill: "currentColor" });
+    } else if (name === "rename") {
+      add("path", { d: "M3 13h2.3L12.7 5.6a1.6 1.6 0 0 0-2.3-2.3L3 10.7V13Z", fill: "none", stroke: "currentColor", "stroke-width": "1.4", "stroke-linejoin": "round" });
+      add("path", { d: "M9 4.7l2.3 2.3", fill: "none", stroke: "currentColor", "stroke-width": "1.4", "stroke-linecap": "round" });
+    } else if (name === "check") {
+      add("path", { d: "M3.2 8.3l3 3 6.6-6.6", fill: "none", stroke: "currentColor", "stroke-width": "1.6", "stroke-linecap": "round", "stroke-linejoin": "round" });
     } else if (name === "upload") {
       add("path", { d: "M8 10.8V3.2M5 6l3-3 3 3M3 12.8h10", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round" });
     } else if (name === "close") {
@@ -1004,10 +980,23 @@
 
     card.appendChild(stage);
 
-    // Footer metadata (duration & track info live here instead of crowding the stage)
+    // Footer metadata (duration & track info live here instead of crowding the stage).
+    // Saved clips edit their name in place: the title becomes an input and the actions become
+    // save/cancel, so renaming never leaves the card or reloads the panel.
     var foot = el("div", "f2m-foot");
     var info = el("div", "f2m-info");
-    info.appendChild(el("div", "f2m-title", item.name));
+    var renaming = isUser && state.renameId === item.id;
+    var renameInput = null;
+    if (renaming) {
+      renameInput = el("input", "f2m-input f2m-rename-input");
+      renameInput.type = "text";
+      renameInput.value = item.name;
+      renameInput.maxLength = 120;
+      renameInput.setAttribute("aria-label", "动效名称");
+      info.appendChild(renameInput);
+    } else {
+      info.appendChild(el("div", "f2m-title", item.name));
+    }
     var durVal = item.clip ? item.clip.duration : ((item.defaults && item.defaults.duration) || 0.5);
     var durStr = (Math.round(durVal * 100) / 100) + "s";
     var kindText = meta && meta.trackNames.length
@@ -1018,24 +1007,66 @@
 
     if (isUser) {
       var actions = el("div", "f2m-actions");
-      var delBtn = state.confirmDeleteId === item.id
-        ? el("button", "f2m-del is-confirm", "确认")
-        : iconButton("f2m-del", "close", "", "删除此动效");
-      delBtn.type = "button";
-      delBtn.onclick = function (ev) {
-        ev.stopPropagation();
-        if (state.confirmDeleteId !== item.id) {
-          state.confirmDeleteId = item.id;
-          renderGrid();
+      var cancelRename = function () {
+        state.renameId = null;
+        renderGrid();
+      };
+      var saveRename = function () {
+        var next = renameInput ? renameInput.value.trim() : "";
+        if (!next) {
+          report("请输入动效名称。", true);
+          if (renameInput) renameInput.focus();
           return;
         }
-        state.confirmDeleteId = null;
-        if (scanner) scanner.deleteUserClip(item.id);
-        refreshUserClips();
-        log("已删除自存动效「" + item.name + "」");
-        renderPanel();
+        if (next === item.name) { cancelRename(); return; }
+        renameUserClip(item, next);
       };
-      actions.appendChild(delBtn);
+      if (renaming) {
+        if (renameInput) {
+          renameInput.addEventListener("keydown", function (ev) {
+            if (ev.key === "Enter") { ev.preventDefault(); saveRename(); }
+            else if (ev.key === "Escape") { ev.preventDefault(); cancelRename(); }
+          });
+          setTimeout(function () { renameInput.focus(); renameInput.select(); }, 0);
+        }
+        var okBtn = iconButton("f2m-del is-ok", "check", "", "保存名称");
+        okBtn.type = "button";
+        okBtn.onclick = function (ev) { ev.stopPropagation(); saveRename(); };
+        var cancelBtn = iconButton("f2m-del is-cancel", "close", "", "取消重命名");
+        cancelBtn.type = "button";
+        cancelBtn.onclick = function (ev) { ev.stopPropagation(); cancelRename(); };
+        actions.appendChild(okBtn);
+        actions.appendChild(cancelBtn);
+      } else {
+        var renameBtn = iconButton("f2m-del is-rename", "rename", "", "重命名此动效");
+        renameBtn.type = "button";
+        renameBtn.onclick = function (ev) {
+          ev.stopPropagation();
+          state.renameId = item.id;
+          state.confirmDeleteId = null;
+          renderGrid();
+        };
+        actions.appendChild(renameBtn);
+        var delBtn = state.confirmDeleteId === item.id
+          ? el("button", "f2m-del is-confirm", "确认")
+          : iconButton("f2m-del", "close", "", "删除此动效");
+        delBtn.type = "button";
+        delBtn.onclick = function (ev) {
+          ev.stopPropagation();
+          if (state.confirmDeleteId !== item.id) {
+            state.confirmDeleteId = item.id;
+            state.renameId = null;
+            renderGrid();
+            return;
+          }
+          state.confirmDeleteId = null;
+          if (scanner) scanner.deleteUserClip(item.id);
+          refreshUserClips();
+          log("已删除自存动效「" + item.name + "」");
+          renderPanel();
+        };
+        actions.appendChild(delBtn);
+      }
       foot.appendChild(actions);
     }
     card.appendChild(foot);
@@ -1267,32 +1298,12 @@
       subbar.hidden = false;
       var uRow = el("div", "f2m-subrow");
 
-      var saveBtn = iconButton(
-        "f2m-chip-act primary",
-        state.recording ? "stop" : "plus",
-        state.recording ? "停止并保存" : "保存选中动效"
-      );
+      var saveBtn = iconButton("f2m-chip-act primary", "plus", "保存选中动效");
       saveBtn.onclick = function () {
         state.saveFormOpen = !state.saveFormOpen;
         renderSubbar();
       };
       uRow.appendChild(saveBtn);
-
-      if (!state.recording) {
-        var recBtn = iconButton("f2m-chip-act", "record", "开始录制", "记录当前状态，在 AE 中手调动效后再保存增量变更");
-        recBtn.onclick = startRecording;
-        uRow.appendChild(recBtn);
-      } else {
-        var cancelRec = el("button", "f2m-chip-act danger", "取消录制");
-        cancelRec.type = "button";
-        cancelRec.onclick = function () {
-          state.recording = null;
-          state.saveFormOpen = false;
-          log("已取消动效录制");
-          renderPanel();
-        };
-        uRow.appendChild(cancelRec);
-      }
 
       var impBtn = iconButton("f2m-chip-act", "upload", "导入 JSON");
       impBtn.onclick = importJsonDialog;
@@ -1303,7 +1314,7 @@
         var sForm = el("div", "f2m-inline-form");
         var nameInp = el("input", "f2m-input");
         nameInp.type = "text";
-        nameInp.placeholder = state.recording ? "录制动效名称（必填）" : "动效名称（如：卡片弹入）";
+        nameInp.placeholder = "动效名称（如：卡片弹入）";
         var tagInp = el("input", "f2m-input is-tag");
         tagInp.type = "text";
         tagInp.placeholder = "标签（逗号分隔）";
@@ -1351,6 +1362,7 @@
         pill.onclick = function () {
           state.category = cat;
           state.templatePageLimit = 48;
+          state.renameId = null;
           renderGrid();
         };
         catsEl.appendChild(pill);
@@ -1432,6 +1444,7 @@
         state.tab = this.getAttribute("data-tab");
         state.category = "全部";
         state.confirmDeleteId = null;
+        state.renameId = null;
         if (state.tab === "user") refreshUserClips();
         renderPanel();
       };
@@ -1442,6 +1455,7 @@
       search.addEventListener("input", function () {
         state.query = search.value;
         state.templatePageLimit = 48;
+        state.renameId = null;
         renderGrid();
       });
     }

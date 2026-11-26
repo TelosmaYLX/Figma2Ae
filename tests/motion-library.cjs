@@ -471,6 +471,19 @@ async function check() {
     const saved = scanner.saveUserClip('自定义卡片淡入', ['UI', '卡片'], built.clip, userLib);
     assert.equal(scanner.listUserClips(userLib).length, 1);
 
+    // Renaming only rewrites the display name: the id, file and contentHash stay intact.
+    const renamed = scanner.renameUserClip(saved.id, '  重命名卡片淡入  ', userLib);
+    assert.equal(renamed.name, '重命名卡片淡入', 'the new name is trimmed and stored');
+    assert.equal(renamed.id, saved.id);
+    assert.equal(renamed.file, saved.file, 'renaming never moves the record file');
+    const reread = scanner.listUserClips(userLib);
+    assert.equal(reread.length, 1);
+    assert.equal(reread[0].name, '重命名卡片淡入');
+    assert.equal(reread[0].contentHash, saved.contentHash, 'the clip payload hash is untouched');
+    assert.throws(() => scanner.renameUserClip(saved.id, '   ', userLib), /请输入动效名称/, 'a blank new name is rejected');
+    assert.throws(() => scanner.renameUserClip('00000000-0000-0000-0000-000000000000', 'x', userLib), /未找到/, 'a missing clip is reported');
+    assert.throws(() => scanner.renameUserClip('../escape', 'x', userLib), /ID 无效/, 'path traversal ids are rejected');
+
     // 4. Verify live MCP server sees BOTH user clip AND built-in curated clips
     const relay = startRelay({ port: 0, idleTimeout: 60000 });
     let capturedApplyJsx = '';
@@ -508,6 +521,7 @@ async function check() {
 
       const listed = JSON.parse(firstText(await client.callTool({ name: 'ae_motion_list', arguments: {} })));
       assert.equal(listed.clips[0].id, saved.id, 'user clip listed first');
+      assert.equal(listed.clips[0].name, '重命名卡片淡入', 'the panel rename is visible to MCP');
       assert.equal(listed.clips[0].source, 'user');
       const builtinListed = listed.clips.filter(c => c.source === 'builtin');
       assert.equal(builtinListed.length, builtin.clips.length, 'all built-in clips exposed via MCP ae_motion_list');
@@ -548,7 +562,16 @@ async function check() {
     const buf = fs.readFileSync(path.join(root, required));
     assert.deepEqual(privacyIssues(buf, identifiers), [], 'privacy leak in ' + required);
   }
-  console.log('PASS: all new motion library files included in package-dist and privacy-clean');
+
+  // 6. The "我的动效" tab drops live recording and edits saved names in place.
+  const panelSrc = fs.readFileSync(path.join(root, 'client/motionPanel.js'), 'utf8');
+  const panelCss = fs.readFileSync(path.join(root, 'client/style.css'), 'utf8');
+  assert.doesNotMatch(panelSrc, /startRecording|state\.recording|开始录制|取消录制|停止并保存|录制动效/, 'the panel no longer records manual AE edits');
+  assert.doesNotMatch(panelSrc, /name === "record"|name === "stop"/, 'the record/stop glyphs went with the button');
+  assert.match(panelSrc, /scanner\.renameUserClip\(item\.id, name\)/, 'saved clips are renamed through the storage module');
+  assert.match(panelSrc, /state\.renameId === item\.id/, 'the card switches its title into the rename form');
+  assert.match(panelCss, /\.f2m-rename-input\{/, 'the inline rename field has its own style');
+  console.log('PASS: all new motion library files included in package-dist and privacy-clean; recording removed, rename wired');
 }
 
 check().catch(err => { console.error(err); process.exitCode = 1; });
