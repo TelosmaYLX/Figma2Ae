@@ -440,20 +440,20 @@ body{
 .f2m-del.is-confirm{color:var(--danger); border-color:rgba(229,83,75,.4); padding:2px 5px;}
 .f2m-del:hover{color:var(--danger); border-color:rgba(229,83,75,.4);}
 /* Favourite star floating over the preview's top-right corner: hollow by default, solid amber
-   once saved. It is deliberately larger than the footer icons and carries a dark disc so it
-   stays readable over thumbnails and videos. */
+   once saved. It has no disc or frame — just the glyph, with a soft drop shadow so it stays
+   readable over thumbnails and videos. */
 .f2m-fav{
   position:absolute; top:5px; right:5px; z-index:4;
   width:24px; height:24px; padding:0;
-  appearance:none; border:1px solid rgba(255,255,255,.14);
-  border-radius:50%; background:rgba(8,8,8,.55);
+  appearance:none; border:0; background:transparent;
   color:var(--text-dim); cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center;
-  transition:color .12s, border-color .12s, background .12s;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.7));
+  transition:color .12s, transform .12s;
 }
-.f2m-fav .f2m-svg-ico{width:15px; height:15px;}
-.f2m-fav:hover{color:var(--star-hi); border-color:rgba(212,168,67,.5); background:rgba(8,8,8,.72);}
-.f2m-fav.is-on{color:var(--star); border-color:rgba(212,168,67,.55);}
+.f2m-fav .f2m-svg-ico{width:16px; height:16px;}
+.f2m-fav:hover{color:var(--star-hi); transform:scale(1.08);}
+.f2m-fav.is-on{color:var(--star);}
 .f2m-fav.is-on:hover{color:var(--star-hi);}
 .f2m-fav:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 

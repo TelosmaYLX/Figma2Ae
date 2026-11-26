@@ -587,7 +587,9 @@ async function check() {
   assert.equal((panelSrc.match(/stage\.appendChild\(favoriteButton\(item\)\)/g) || []).length, 2, 'the star floats on both motion and template previews');
   assert.match(panelCss, /\.f2m-fav\{[^}]*position:absolute;[^}]*top:5px;[^}]*right:5px/, 'the star sits in the preview top-right corner');
   assert.match(panelCss, /\.f2m-fav\{[^}]*width:24px;[^}]*height:24px/, 'the star is larger than the footer icons');
-  assert.match(panelCss, /\.f2m-fav \.f2m-svg-ico\{width:15px; height:15px;?\}/, 'the star glyph scales with the button');
+  assert.match(panelCss, /\.f2m-fav \.f2m-svg-ico\{width:16px; height:16px;?\}/, 'the star glyph scales with the button');
+  assert.doesNotMatch(panelCss, /\.f2m-fav\{[^}]*border-radius:50%/, 'the star has no circular disc');
+  assert.doesNotMatch(panelCss, /\.f2m-fav\{[^}]*background:rgba\(/, 'the star paints no backing plate');
   assert.match(panelCss, /\.f2m-varbar\{[^}]*right:34px/, 'template variant pills make room for the star');
   assert.match(panelCss, /\.f2m-fav\.is-on\{[^}]*color:var\(--star\)/, 'a saved star paints in the star colour');
   console.log('PASS: all new motion library files included in package-dist and privacy-clean; recording removed, rename wired, template tab deduped, primary chips neutral, favourites wired');
