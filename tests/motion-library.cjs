@@ -572,9 +572,10 @@ async function check() {
   assert.match(panelSrc, /state\.renameId === item\.id/, 'the card switches its title into the rename form');
   assert.match(panelCss, /\.f2m-rename-input\{/, 'the inline rename field has its own style');
   assert.doesNotMatch(panelSrc, /选择本地模板目录/, 'the empty template tab keeps only the top add-directory action');
-  assert.match(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent-dim\)/, 'primary chips use the soft accent tint instead of solid blue');
-  assert.doesNotMatch(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent\)\s*;/, 'primary chips no longer paint the full accent fill');
-  console.log('PASS: all new motion library files included in package-dist and privacy-clean; recording removed, rename wired, template tab deduped, primary chips tuned');
+  assert.match(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--surface-hi\)[^}]*color:var\(--text\)/, 'primary chips use a raised graphite fill instead of a blue one');
+  assert.doesNotMatch(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent\)/, 'primary chips paint no solid accent fill');
+  assert.doesNotMatch(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent-dim\)/, 'primary chips paint no accent tint');
+  console.log('PASS: all new motion library files included in package-dist and privacy-clean; recording removed, rename wired, template tab deduped, primary chips neutral');
 }
 
 check().catch(err => { console.error(err); process.exitCode = 1; });

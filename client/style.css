@@ -1,7 +1,7 @@
 /* ===== f2a — neutral graphite CEP panel =====
    Grays follow After Effects' own dark UI so the panel sits quietly next to native panels.
-   The blue accent is reserved for focus, primary actions and drag affordances; selected
-   chips/tabs use a neutral light fill instead of a tinted one. */
+   The blue accent is reserved for focus rings and drag affordances; primary actions use a
+   raised graphite fill, and selected chips/tabs use a neutral light fill. */
 :root{
   --bg:#1c1c1c;
   --bg-2:#181818;
@@ -223,10 +223,11 @@ body{
 }
 .f2m-chip-act:hover{background:var(--surface-hi); color:var(--text);}
 .f2m-chip-act.primary{
-  background:var(--accent-dim); border-color:rgba(59,142,234,.5);
-  color:var(--accent-hi); font-weight:600;
+  background:var(--surface-hi); border-color:#4b4b4b;
+  color:var(--text); font-weight:600;
 }
-.f2m-chip-act.primary:hover{background:rgba(59,142,234,.22); border-color:var(--accent); color:var(--text);}
+.f2m-chip-act.primary:hover{background:#3f3f3f; border-color:#6f6f6f; color:var(--text);}
+.f2m-chip-act.primary:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 .f2m-chip-act.danger{border-color:rgba(229,83,75,.5); color:var(--danger);}
 .f2m-dir-pill{
   display:inline-flex; align-items:center; gap:4px;
