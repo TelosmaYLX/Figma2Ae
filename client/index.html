@@ -17,23 +17,28 @@
     <button type="button" id="mk-update" class="mk-update" hidden>检查更新</button>
   </header>
 
-  <!-- Figma bridge status (updated by figmaBridge.js) -->
-  <div class="mk-figbar" id="mk-figbar">
-    <span class="mk-fig-dot off" id="mk-fig-dot" aria-hidden="true"></span>
-    <span class="mk-fig-label" id="mk-fig-label">正在启动 SVG 桥接…</span>
-  </div>
-  <!-- Secondary connection status reuses the existing bar, type and dot tokens. -->
-  <div class="mk-figbar" role="status">
-    <span class="mk-fig-dot off" id="mk-mcp-dot" aria-hidden="true"></span>
-    <span class="mk-fig-label" id="mk-mcp-label">MCP 正在启动…</span>
-  </div>
-
   <details id="mk-update-notice" class="mk-figbar mk-update-notice" hidden>
     <summary>
       <span id="mk-update-title" class="mk-update-title" role="status"></span>
     </summary>
     <div id="mk-update-notes" class="mk-update-notes" role="region" aria-label="更新内容" tabindex="0"></div>
   </details>
+
+  <!-- Primary workspace switcher: OpenPencil panel or Motion Library -->
+  <div class="f2o-nav" role="tablist" aria-label="面板工作区">
+    <div class="f2o-nav-tab f2o-nav-tab-op" id="f2o-tab-openpencil" role="tab" tabindex="0" aria-selected="false">
+      <span class="f2o-tab-main">
+        <span class="f2o-dot" id="f2o-dot" aria-hidden="true"></span>
+        <span>OpenPencil</span>
+      </span>
+      <button type="button" class="f2o-popout-ico" id="f2o-popout" title="弹出独立的置顶 OpenPencil 小窗" aria-label="弹出独立的置顶 OpenPencil 小窗">
+        <svg class="f2o-svg-ico" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M9.5 2.5h4v4M13.5 2.5L7.5 8.5M12.5 9.2v3.3a1 1 0 0 1-1 1h-8a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h3.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    <button type="button" class="f2o-nav-tab active" id="f2o-tab-motion" role="tab" aria-selected="true">动效库</button>
+  </div>
 
   <!-- Visual Motion Library workspace (managed by motionPanel.js) -->
   <section class="f2m-shell" aria-label="动画库">
@@ -113,6 +118,15 @@
     <div class="f2m-scroll"><div class="f2m-grid" id="f2m-grid"></div></div>
   </section>
 
+  <!-- Embedded OpenPencil panel workspace (managed by openpencilPanel.js) -->
+  <section class="f2o-shell" id="f2o-shell" aria-label="OpenPencil 面板" hidden>
+    <div class="f2o-notice" id="f2o-notice" hidden>
+      <span class="f2o-notice-text" id="f2o-notice-text"></span>
+      <button type="button" class="f2o-retry" id="f2o-retry">重试</button>
+    </div>
+    <iframe id="f2o-frame" class="f2o-frame" title="F2A OpenPencil 面板"></iframe>
+  </section>
+
   <!-- Live log: every bridge, MCP and import message lands here with a timestamp.
        Its top grip drags the console taller or shorter; double-click restores the default. -->
   <section class="mk-console" aria-label="运行日志">
@@ -134,5 +148,6 @@
   <script src="updatePanel.js"></script>
   <script src="motionPreview.js"></script>
   <script src="motionPanel.js"></script>
+  <script src="openpencilPanel.js"></script>
 </body>
 </html>

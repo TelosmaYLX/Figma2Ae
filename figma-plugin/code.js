@@ -18,6 +18,96 @@ function _isContainer(n) {
   return n.type === 'GROUP' || n.type === 'FRAME' || n.type === 'COMPONENT' ||
          n.type === 'COMPONENT_SET' || n.type === 'INSTANCE';
 }
+function _isRect(n) {
+  return !!n && (n.type === 'RECTANGLE' || n.type === 'ROUNDED_RECTANGLE');
+}
+function _isIdentityMatrix(m) {
+  if (!m || !m[0] || !m[1]) return true;
+  return Math.abs(m[0][0] - 1) < 1e-5 && Math.abs(m[0][1]) < 1e-5 && Math.abs(m[0][2]) < 1e-5 &&
+         Math.abs(m[1][0]) < 1e-5 && Math.abs(m[1][1] - 1) < 1e-5 && Math.abs(m[1][2]) < 1e-5;
+}
+function _rectCornerRadii(n) {
+  var uni = typeof n.cornerRadius === 'number' ? n.cornerRadius : 0;
+  var tl = typeof n.topLeftRadius === 'number' ? n.topLeftRadius : uni;
+  var tr = typeof n.topRightRadius === 'number' ? n.topRightRadius : uni;
+  var br = typeof n.bottomRightRadius === 'number' ? n.bottomRightRadius : uni;
+  var bl = typeof n.bottomLeftRadius === 'number' ? n.bottomLeftRadius : uni;
+  return [Math.max(0, tl), Math.max(0, tr), Math.max(0, br), Math.max(0, bl)];
+}
+function _roundedRectPathData(n) {
+  var w = n.width, h = n.height;
+  if (!(w > 0 && h > 0)) return '';
+  var r = _rectCornerRadii(n), tl = r[0], tr = r[1], br = r[2], bl = r[3];
+  if (!tl && !tr && !br && !bl) return 'M0 0H' + w + 'V' + h + 'H0Z';
+  var s = Math.min(1,
+    tl + tr > 0 ? w / (tl + tr) : 1,
+    bl + br > 0 ? w / (bl + br) : 1,
+    tl + bl > 0 ? h / (tl + bl) : 1,
+    tr + br > 0 ? h / (tr + br) : 1);
+  tl *= s; tr *= s; br *= s; bl *= s;
+  var k = 0.5522847498307936;
+  var d = 'M' + tl + ' 0L' + (w - tr) + ' 0';
+  if (tr > 0) d += 'C' + (w - tr + tr * k) + ' 0 ' + w + ' ' + (tr - tr * k) + ' ' + w + ' ' + tr;
+  d += 'L' + w + ' ' + (h - br);
+  if (br > 0) d += 'C' + w + ' ' + (h - br + br * k) + ' ' + (w - br + br * k) + ' ' + h + ' ' + (w - br) + ' ' + h;
+  d += 'L' + bl + ' ' + h;
+  if (bl > 0) d += 'C' + (bl - bl * k) + ' ' + h + ' 0 ' + (h - bl + bl * k) + ' 0 ' + (h - bl);
+  d += 'L0 ' + tl;
+  if (tl > 0) d += 'C0 ' + (tl - tl * k) + ' ' + (tl - tl * k) + ' 0 ' + tl + ' 0';
+  return d + 'Z';
+}
+function _tempRectProxy(n, root) {
+  var rect = figma.createRectangle();
+  var parent = (root && root.parent && typeof root.parent.appendChild === 'function') ? root.parent : figma.currentPage;
+  if (parent && typeof parent.appendChild === 'function') parent.appendChild(rect);
+  if (typeof rect.resizeWithoutConstraints === 'function') rect.resizeWithoutConstraints(n.width, n.height);
+  else if (typeof rect.resize === 'function') rect.resize(n.width, n.height);
+  var keys = ['cornerRadius', 'topLeftRadius', 'topRightRadius', 'bottomRightRadius', 'bottomLeftRadius', 'cornerSmoothing',
+    'strokeWeight', 'strokeAlign', 'strokeCap', 'strokeJoin', 'strokeMiterLimit',
+    'strokeTopWeight', 'strokeRightWeight', 'strokeBottomWeight', 'strokeLeftWeight'];
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    if (typeof n[key] === 'number' || typeof n[key] === 'string') {
+      try { rect[key] = n[key]; } catch (e) {}
+    }
+  }
+  try { if (n.dashPattern && n.dashPattern.length) rect.dashPattern = n.dashPattern.slice(); } catch (e2) {}
+  try { if (n.fills && n.fills !== figma.mixed) rect.fills = n.fills; } catch (e3) {}
+  try { if (n.strokes && n.strokes !== figma.mixed) rect.strokes = n.strokes; } catch (e4) {}
+  try {
+    if (n.absoluteTransform) rect.relativeTransform = _relativeTransformForParent(parent, n.absoluteTransform);
+    else if (n.relativeTransform) rect.relativeTransform = n.relativeTransform;
+  } catch (e5) {}
+  return rect;
+}
+function _nodeFillGeometry(n, root) {
+  if (!n) return null;
+  if (typeof n.fillGeometry !== 'undefined') return n.fillGeometry;
+  if (n.type !== 'ROUNDED_RECTANGLE') return null;
+  if (n.cornerSmoothing > 0 && typeof figma.createRectangle === 'function') {
+    var tmp = null;
+    try {
+      tmp = _tempRectProxy(n, root);
+      if (tmp.fillGeometry && tmp.fillGeometry.length) return tmp.fillGeometry;
+    } catch (e) {}
+    finally { if (tmp && !tmp.removed) try { tmp.remove(); } catch (er) {} }
+  }
+  var data = _roundedRectPathData(n);
+  return data ? [{ windingRule: 'NONZERO', data: data }] : [];
+}
+function _nodeStrokeGeometry(n, root) {
+  if (!n) return [];
+  if (typeof n.strokeGeometry !== 'undefined') return n.strokeGeometry || [];
+  if (n.type === 'ROUNDED_RECTANGLE' && typeof figma.createRectangle === 'function') {
+    var tmp = null;
+    try {
+      tmp = _tempRectProxy(n, root);
+      return tmp.strokeGeometry || [];
+    } catch (e) { return []; }
+    finally { if (tmp && !tmp.removed) try { tmp.remove(); } catch (er) {} }
+  }
+  return [];
+}
 // Ancestor container ids, outermost first. Organize mode includes the root so its clip is kept.
 function _pathOf(n, rootId) {
   if (n.id === rootId) return [];
@@ -345,9 +435,9 @@ function _maskRuns(n) {
   return runs;
 }
 function _nativeMaskGeometrySupported(mask) {
-  var fills = mask.fills;
+  var fills = mask.fills, fg = _nodeFillGeometry(mask);
   if (_rasterWhole(mask) || (mask.children && mask.type !== 'BOOLEAN_OPERATION') ||
-      !mask.fillGeometry || !mask.fillGeometry.length || !fills || fills === figma.mixed ||
+      !fg || !fg.length || !fills || fills === figma.mixed ||
       (mask.strokes || []).some(function (p) { return p.visible !== false; }) ||
       (mask.effects || []).some(function (e) { return e.visible !== false; })) return false;
   var visible = fills.filter(function (p) { return p.visible !== false; });
@@ -452,7 +542,7 @@ function _imageCropPlacement(n, paint) {
 }
 function _canPlaceGradedOriginal(n, paint) {
   var corners = [n.topLeftRadius, n.topRightRadius, n.bottomLeftRadius, n.bottomRightRadius];
-  if (['RECTANGLE', 'ELLIPSE', 'FRAME', 'COMPONENT', 'INSTANCE'].indexOf(n.type) < 0 ||
+  if (['RECTANGLE', 'ROUNDED_RECTANGLE', 'ELLIPSE', 'FRAME', 'COMPONENT', 'INSTANCE'].indexOf(n.type) < 0 ||
       paint.scaleMode === 'TILE' || paint.rotation ||
       n.cornerRadius === figma.mixed || corners.some(function (r) { return r !== corners[0]; }) ||
       (n.cornerSmoothing && (n.cornerRadius || corners[0])) ||
@@ -488,7 +578,7 @@ function _backgroundBlurs(n, effects, organize, rootId) {
   if (_maskByNode[n.id] || _maskSourceByNode[n.id] || n.type === 'TEXT') return null;
   var fills = n.fills;
   if (!fills || fills === figma.mixed || !fills.some(function (p) { return p.visible !== false && p.opacity !== 0; })) return null;
-  var geometry = n.fillGeometry || [];
+  var geometry = _nodeFillGeometry(n) || [];
   if (geometry.length !== 1 || (geometry[0].data.match(/[Mm]/g) || []).length !== 1 || !/[Zz]\s*$/.test(geometry[0].data)) return null;
   var m = n.absoluteTransform, a = m[0][0], b = m[1][0], c = m[0][1], d = m[1][1];
   var sx = Math.sqrt(a * a + b * b), sy = (a * d - b * c) / sx;
@@ -520,7 +610,7 @@ function _singleImageNeedsRaster(n, effects) {
       // AE's centred cover-fit is NOT Figma CROP: imageTransform carries the user's crop/zoom.
       // Export just this leaf as rendered by Figma, retaining its own layer and full-resolution
       // appearance instead of silently discarding that transform.
-      if (p.scaleMode === 'CROP' || p.imageTransform) crop = true;
+      if (p.scaleMode === 'CROP' || (p.imageTransform && !_isIdentityMatrix(p.imageTransform))) crop = true;
     }
   } catch (e) { return false; }
   if (_maskByNode[n.id] || _usesIndependentMask(n)) return false;
@@ -816,7 +906,7 @@ async function _bakeBlendStacks(root, organize) {
       var segments = nodes[i].getStyledTextSegments(['fontName']);
       for (var j = 0; j < segments.length; j++) {
         var f = segments[j].fontName, key = JSON.stringify(f);
-        if (!loaded[key]) { await figma.loadFontAsync(f); loaded[key] = true; }
+        if (!loaded[key]) { await figma.loadFontAsync(f).catch(function () {}); loaded[key] = true; }
       }
     }
   }
@@ -938,7 +1028,7 @@ async function _bakeNodeShadow(n, root, organize) {
   var effects = n.effects || [], preserve = !!_editableBackdrops[n.id];
   if (n.type === 'TEXT') {
     var segments = n.getStyledTextSegments(['fontName']);
-    for (var f = 0; f < segments.length; f++) await figma.loadFontAsync(segments[f].fontName);
+    for (var f = 0; f < segments.length; f++) await figma.loadFontAsync(segments[f].fontName).catch(function () {});
   }
   var withoutShadow = effects.filter(function (e) { return e.type !== 'DROP_SHADOW' || e.visible === false; });
   function isNotBackdrop(e) { return e.type !== 'BACKGROUND_BLUR'; }
@@ -1036,7 +1126,7 @@ function _collectFillImages(candidate, root, organize) {
 // A solid backdrop closes the blend stack inside this raster group. Keep that stack in
 // Figma: exporting every burn/soft-light layer and blending again in AE changes its colour.
 function _rasterOpaqueBackdrop(n, bounds, maskBounds) {
-  if (!n || !bounds || (n.type !== 'RECTANGLE' && n.type !== 'FRAME')) return false;
+  if (!n || !bounds || (!_isRect(n) && n.type !== 'FRAME')) return false;
   if (maskBounds && n.maskType === 'LUMINANCE') return false;
   if (typeof n.opacity === 'number' && n.opacity !== 1) return false;
   var fills = n.fills, opaque = false;
@@ -1177,7 +1267,7 @@ async function _exportRasterPng(im) {
 }
 
 async function _exportRasterFill(im) {
-  var n = im.rasterNode, isFrame = _isContainer(n) || n.type === 'RECTANGLE';
+  var n = im.rasterNode, isFrame = _isContainer(n) || _isRect(n);
   var paint = isFrame ? figma.createRectangle() : n.clone();
   try {
     // A rectangle with the frame's exact geometry renders the fill without copying its subtree
@@ -1737,6 +1827,13 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _precompLayers = options.precompLayers === true;
   _includeRootContainer = !!organize && !!useNodes;
   var sel = figma.currentPage.selection;
+  if (options.selectionIds && options.selectionIds.length) {
+    sel = [];
+    for (var si0 = 0; si0 < options.selectionIds.length; si0++) {
+      var resolvedNode = await figma.getNodeByIdAsync(options.selectionIds[si0]);
+      if (resolvedNode && !resolvedNode.removed) sel.push(resolvedNode);
+    }
+  }
   if (!sel || sel.length === 0) return failure(new Error('请至少选择一个图层或画框。'));
   _exporting = true;
   _exportSourceIds = {};
@@ -1786,14 +1883,16 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     }
     // Capture the untouched copies on the same pixel grid and in the same
     // standalone scope as the artwork, before detaching instances or changing clips.
-    for (var ri = 0; ri < copies.length; ri++) {
-      var original = originals[ri], reference = _rasterMeta(copies[ri], copies[ri], false);
-      try { reference.rasterBytes = await _exportRasterPng(reference); }
-      catch (referenceError) { throw _layerError(original, '图层「' + original.name + '」原图导出失败：' + referenceError.message); }
-      delete reference.rasterNode; delete reference.rasterBounds;
-      reference.name += '_原图对照'; reference.reference = true; reference.hidden = true;
-      reference.opacity = 1; reference.blend = 'NORMAL'; reference.path = [];
-      references.push(reference);
+    if (!options.skipReferences) {
+      for (var ri = 0; ri < copies.length; ri++) {
+        var original = originals[ri], reference = _rasterMeta(copies[ri], copies[ri], false);
+        try { reference.rasterBytes = await _exportRasterPng(reference); }
+        catch (referenceError) { throw _layerError(original, '图层「' + original.name + '」原图导出失败：' + referenceError.message); }
+        delete reference.rasterNode; delete reference.rasterBounds;
+        reference.name += '_原图对照'; reference.reference = true; reference.hidden = true;
+        reference.opacity = 1; reference.blend = 'NORMAL'; reference.path = [];
+        references.push(reference);
+      }
     }
     for (var ci0 = 0; ci0 < copies.length; ci0++)
       copies[ci0] = _detachExportInstances(originals[ci0], copies[ci0], options.enableClip === false);
@@ -2076,16 +2175,21 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     if (_preserveBackgroundBlur) _bindBackgroundBlurs(containers || [], nodeShapes, images, origin);
     _stripOwnerTags(nodeShapes); _stripOwnerTags(texts); _stripOwnerTags(images);
     var frame = rootBounds || bbox;
-    figma.ui.postMessage({ type: 'ship', name: rootName || name,
-                           exportCommandId: commandId,
-                           svg: svg, texts: texts, effects: effects, frame: { width: frame.width, height: frame.height },
-                           newComp: options.target === 'ae' && (!!rootFrame || (originals.length === 1 && originals[0].type === 'FRAME')),
-                           shift: svgShift, nodes: nodeShapes, nodeOrigin: origin, bytes: svg.length,
-                           containers: containers, organize: !!(organize || (containers && containers.length)), preserveImageFilters: _preserveImageFilters,
-                           preserveBackgroundBlur: _preserveBackgroundBlur,
-                           imageCount: images.length, imageBatch: true,
-                           vnStats: _vnStats, blendStats: blendBake.stats });
-    await shipImages(images, commandId);      // sequential, chunked — see shipImages for why
+    var shipMsg = { type: 'ship', name: rootName || name,
+                    exportCommandId: commandId,
+                    svg: svg, texts: texts, effects: effects, frame: { width: frame.width, height: frame.height },
+                    newComp: options.target === 'ae' && (!!rootFrame || (originals.length === 1 && originals[0].type === 'FRAME')),
+                    shift: svgShift, nodes: nodeShapes, nodeOrigin: origin, bytes: svg.length,
+                    containers: containers, organize: !!(organize || (containers && containers.length)), preserveImageFilters: _preserveImageFilters,
+                    preserveBackgroundBlur: _preserveBackgroundBlur,
+                    imageCount: images.length, imageBatch: true,
+                    vnStats: _vnStats, blendStats: blendBake.stats };
+    if (options.skipReferences) {
+      shipMsg.referenceIds = originals.map(function (o) { return o.id; });
+      shipMsg.rasterOrigin = { x: _rasterOrigin.x, y: _rasterOrigin.y };
+    }
+    figma.ui.postMessage(shipMsg);
+    await shipImages(images, commandId, options.deferHashImages === true);      // sequential, chunked — see shipImages for why
     if (images.length) figma.ui.postMessage({ type: 'images-done', exportCommandId: commandId });
   } catch (e) {
     var error = new Error('导出失败：' + (e && e.message ? e.message : e));
@@ -2098,7 +2202,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     if (clipWasOn) { try { node.clipsContent = true; } catch (erc) {} }   // put the frame back
     for (var dc = disabledClips.length - 1; dc >= 0; dc--) { try { disabledClips[dc].clipsContent = true; } catch (edc) {} }
     if (workspace) workspace.remove();
-    figma.currentPage.selection = originals;
+    if (!options.selectionIds) figma.currentPage.selection = originals;
     _temporaryExportRoot = null;
     _subtreeFlagsByNode = null;
     _contentBoundsByNode = null;
@@ -2113,6 +2217,60 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     _editableBackdrops = {};
     _exporting = false;
     figma.ui.postMessage({ type: 'export-state', busy: false });
+  }
+}
+
+async function _exportReferenceNode(nodeId, origin, rasterOrigin, rasterScale, bicubicExport) {
+  var original = await figma.getNodeByIdAsync(nodeId);
+  if (!original || original.removed) throw new Error('图层已删除或不存在。');
+  var prevOrigin = _rasterOrigin, prevScale = _rasterScale, prevBicubic = _bicubicExport, prevRenderScale = _rasterRenderScale;
+  var prevSourceIds = _exportSourceIds;
+  var workspace = null;
+  try {
+    _rasterOrigin = rasterOrigin || { x: 0, y: 0 };
+    _rasterScale = rasterScale == null ? 1 : Number(rasterScale);
+    _bicubicExport = bicubicExport === true;
+    _rasterRenderScale = _rasterScale * (_bicubicExport ? 2 : 1);
+    _exportSourceIds = {};
+    var transform = original.absoluteTransform.map(function (row) { return row.slice(); });
+    var size = { width: original.width, height: original.height };
+    workspace = figma.createFrame();
+    workspace.name = 'F2A 临时导出'; workspace.fills = []; workspace.clipsContent = false;
+    workspace.x = 0; workspace.y = 0;
+    var copy = original.clone();
+    try {
+      workspace.appendChild(copy);
+      _rememberExportSource(original, copy);
+      if ((copy.width !== size.width || copy.height !== size.height) && typeof copy.resizeWithoutConstraints === 'function')
+        copy.resizeWithoutConstraints(size.width, size.height);
+      copy.relativeTransform = _matrixProduct(_inverseMatrix(workspace.absoluteTransform), transform);
+    } catch (cloneError) { if (!copy.removed) copy.remove(); throw cloneError; }
+    var reference = _rasterMeta(copy, copy, false);
+    var bytes;
+    try { bytes = await _exportRasterPng(reference); }
+    catch (referenceError) { throw _layerError(original, '图层「' + original.name + '」原图导出失败：' + referenceError.message); }
+    var ps = _pngSize(bytes);
+    var natW = ps ? ps.width : reference.natW;
+    var natH = ps ? ps.height : reference.natH;
+    var b64 = figma.base64Encode(bytes);
+    var ox = origin ? origin.x : 0, oy = origin ? origin.y : 0;
+    var meta = {
+      name: reference.name + '_原图对照', sourceId: original.id, ext: 'png',
+      x: reference.x - ox, y: reference.y - oy, w: reference.w, h: reference.h,
+      cx: reference.cx - ox, cy: reference.cy - oy, cw: reference.cw, ch: reference.ch,
+      natW: natW, natH: natH, scaleMode: reference.scaleMode, rasterScale: _rasterScale, imageMatrix: null,
+      maskSource: null, maskType: null, opacity: 1, rotation: 0, matte: null,
+      blend: 'NORMAL', path: [], z: reference.z || 0, maskId: null,
+      hidden: true, reference: true, shadow: false, shadowBase: null, mergedBlend: false, external: false
+    };
+    if (_bicubicExport) {
+      meta.bicubic = { width: Math.max(1, Math.ceil(natW * 0.5)), height: Math.max(1, Math.ceil(natH * 0.5)) };
+    }
+    return { meta: meta, data: b64 };
+  } finally {
+    if (workspace && !workspace.removed) workspace.remove();
+    _rasterOrigin = prevOrigin; _rasterScale = prevScale; _bicubicExport = prevBicubic; _rasterRenderScale = prevRenderScale;
+    _exportSourceIds = prevSourceIds;
   }
 }
 
@@ -2244,11 +2402,29 @@ function _vectorPaintParts(vector) {
   var regions = vector.vectorNetwork && vector.vectorNetwork.regions, parts = [];
   if (regions && regions.length === geo.length && regions.some(function (r) { return JSON.stringify(r.fills) !== JSON.stringify(regions[0].fills); })) {
     for (var i = 0; i < geo.length; i++) parts.push({ geometry: [geo[i]], fills: _paints(regions[i].fills && regions[i].fills.length ? regions[i].fills : vector.fills, vector), matrix: matrix });
-  } else parts.push({ geometry: geo, fills: paints, matrix: matrix });
+  } else {
+    if (!paints.length && regions && regions.length) {
+      for (var ri = 0; ri < regions.length && !paints.length; ri++) {
+        if (regions[ri].fills && regions[ri].fills.length) paints = _paints(regions[ri].fills, vector);
+      }
+    }
+    parts.push({ geometry: geo, fills: paints, matrix: matrix });
+  }
   return parts.filter(function (part) { return part.geometry.length && part.fills.length; }).map(function (part) {
     part.paths = part.geometry.map(function (p) { return { d: p.data, evenOdd: p.windingRule === 'EVENODD' }; });
     return part;
   });
+}
+
+function _outlinePaintParts(node) {
+  if (!node) return [];
+  if (node.fillGeometry && node.fillGeometry.length) return _vectorPaintParts(node);
+  if (node.children && node.children.length) {
+    var parts = [];
+    for (var i = 0; i < node.children.length; i++) parts = parts.concat(_outlinePaintParts(node.children[i]));
+    return parts;
+  }
+  return [];
 }
 
 function _vectorTextFills(n, root) {
@@ -2258,7 +2434,19 @@ function _vectorTextFills(n, root) {
     copy.strokes = [];
     vector = figma.flatten([copy], root.parent);
     return _vectorPaintParts(vector);
-  } catch (error) { throw _layerError(n, '文字「' + n.name + '」转矢量失败：' + (error.message || error)); }
+  } catch (error) {
+    var msg = (error && error.message) ? error.message : String(error);
+    if (/Cannot flatten unsupported node type/i.test(msg)) {
+      var fontLabel = '';
+      try {
+        if (n.fontName && n.fontName !== figma.mixed && n.fontName.family) {
+          fontLabel = '「' + n.fontName.family + (n.fontName.style ? ' ' + n.fontName.style : '') + '」';
+        }
+      } catch (ef) {}
+      throw _layerError(n, '文字「' + n.name + '」转矢量失败：缺少字体' + fontLabel + '（请安装该字体，或切换文字模式为「可编辑文字」/「PNG 图片」）');
+    }
+    throw _layerError(n, '文字「' + n.name + '」转矢量失败：' + msg);
+  }
   finally {
     if (vector && !vector.removed) vector.remove();
     if (copy && !copy.removed) copy.remove();
@@ -2270,10 +2458,12 @@ function _outlineExportStroke(n, root, force) {
   var copy = null, outline = null;
   try {
     // Outline an isolated copy: adding the new vector must not reflow an auto-layout parent.
-    copy = _isolatedExportCopy(n, root);
+    copy = (n.type === 'ROUNDED_RECTANGLE' && typeof n.outlineStroke !== 'function' && typeof figma.createRectangle === 'function')
+      ? _tempRectProxy(n, root) : _isolatedExportCopy(n, root);
+    if (typeof copy.outlineStroke !== 'function') throw new Error('当前节点不支持描边轮廓化');
     outline = copy.outlineStroke();
-    if (!outline || !(outline.fillGeometry || []).length) throw new Error('未生成描边轮廓');
-    var parts = _vectorPaintParts(outline);
+    var parts = _outlinePaintParts(outline);
+    if (!parts.length) throw new Error('未生成描边轮廓');
     for (var k = 0; k < parts.length; k++) {
       if (parts[k].fills.some(function (p) { return p.kind === 'image'; })) throw new Error('图片描边需要标记为图片');
     }
@@ -2323,8 +2513,8 @@ function collectShapes(root, organize, rasterFillByNode) {
       }
     } catch (egb) {}
     try {
-      if ((n.type !== 'TEXT' || _vectorText(n)) && n.absoluteBoundingBox && typeof n.fillGeometry !== 'undefined') {
-        var geo = n.fillGeometry || [];
+      if ((n.type !== 'TEXT' || _vectorText(n)) && n.absoluteBoundingBox && (typeof n.fillGeometry !== 'undefined' || n.type === 'ROUNDED_RECTANGLE' || _vectorText(n))) {
+        var geo = _nodeFillGeometry(n, root) || [];
         var fills = rasterFillByNode && rasterFillByNode[n.id] ? [] : _paints(n.fills, n);
         var strokes = _paints(n.strokes, n);
         var strokeAsFill = false;
@@ -2352,7 +2542,7 @@ function collectShapes(root, organize, rasterFillByNode) {
         if (!geo.length && strokes.length) {
           try { if (n.vectorPaths && n.vectorPaths.length) geo = n.vectorPaths; } catch (evp) {}
           if (!geo.length) {
-            try { geo = n.strokeGeometry || []; strokeAsFill = geo.length > 0; } catch (esg) {}
+            try { geo = _nodeStrokeGeometry(n, root); strokeAsFill = geo.length > 0; } catch (esg) {}
           }
         }
         var hasImage = false;
@@ -2365,7 +2555,7 @@ function collectShapes(root, organize, rasterFillByNode) {
         var prim = null;
         try {
           if (!strokeAsFill && !outlineBase) {
-            if (n.type === 'RECTANGLE' || n.type === 'FRAME' || n.type === 'COMPONENT' || n.type === 'INSTANCE') {
+            if (_isRect(n) || n.type === 'FRAME' || n.type === 'COMPONENT' || n.type === 'INSTANCE') {
               if (typeof n.cornerRadius === 'number') prim = { k: 'rect', w: n.width, h: n.height, r: n.cornerRadius || 0 };
             } else if (n.type === 'ELLIPSE') {
               var full = true;
@@ -2654,7 +2844,7 @@ function _pngSize(bytes) {
   return null;
 }
 
-async function shipImages(images, commandId) {
+async function shipImages(images, commandId, deferHashImages) {
   if (!images.length) return;
   if (typeof figma.base64Encode !== 'function') {
     throw new Error('当前 Figma 版本不支持图片导出');
@@ -2662,6 +2852,27 @@ async function shipImages(images, commandId) {
   var CHUNK = 1024 * 1024;
   for (var q = 0; q < images.length; q++) {
     var im = images[q], b64 = '', ext = 'png', natW = 0, natH = 0;
+    if (deferHashImages && !im.rasterBytes && !im.rasterNode) {
+      var deferredMeta = { name: im.name, sourceId: im.sourceId || null, ext: 'png', x: im.x, y: im.y, w: im.w, h: im.h,
+        cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch,
+        natW: 0, natH: 0, scaleMode: im.scaleMode, rasterScale: im.rasterScale || null, imageMatrix: im.imageMatrix || null,
+        maskSource: im.maskSource || null, maskType: im.maskType || null,
+        opacity: im.opacity, rotation: im.rotation, matte: im.matte,
+        blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0), maskId: im.maskId || null,
+        hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, shadowBase: im.shadowBase || null, mergedBlend: !!im.mergedBlend, external: !!im.external };
+      if (im.backgroundBlur) deferredMeta.backgroundBlur = im.backgroundBlur;
+      if (im.imageFilters) {
+        deferredMeta.imageFilters = {};
+        _imageAdjustmentNames.forEach(function (key) { deferredMeta.imageFilters[key] = im.imageFilters[key] || 0; });
+      }
+      figma.ui.postMessage({
+        type: 'image-deferred', index: q, total: images.length, exportCommandId: commandId,
+        meta: deferredMeta, hash: im.hash, preserveSource: !!im.preserveSource,
+        bicubicExport: _bicubicExport, exportRasterScale: _rasterScale
+      });
+      if (commandId) figma.ui.postMessage({type:'command_progress', commandId:commandId});
+      continue;
+    }
     try {
       var bytes;
       if (im.rasterBytes) {

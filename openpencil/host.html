@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__F2A_WINDOW_TITLE__</title>
+<link rel="icon" type="image/png" sizes="256x256" href="/icon-256.png?v=21">
+<link rel="icon" type="image/svg+xml" href="/icon.svg?v=21">
+<link rel="shortcut icon" href="/favicon.ico?v=21" sizes="16x16 20x20 24x24 32x32 36x36 40x40 48x48 64x64 128x128 256x256">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #1e1e1e;
+    color: #e5e5e5;
+    font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+  }
+  .shell {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background: #1e1e1e;
+  }
+  body.embed-ae,
+  body.embed-ae .shell {
+    background: #1c1c1c;
+  }
+  body.embed-ae .op-bar {
+    background: #242424;
+    border-bottom-color: #2f2f2f;
+    padding: 7px 9px;
+  }
+  body.embed-ae #op-pin {
+    display: none;
+  }
+  .op-bar {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    background: #242424;
+    border-bottom: 1px solid #323232;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .op-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .op-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    color: #f2f2f2;
+    white-space: nowrap;
+  }
+  .op-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #666;
+    flex: 0 0 auto;
+  }
+  .op-dot.on { background: #1bc47d; box-shadow: 0 0 6px rgba(27, 196, 125, .6); }
+  .op-dot.warn { background: #f59e0b; box-shadow: 0 0 6px rgba(245, 158, 11, .5); }
+  .op-dot.off { background: #f24822; }
+  .op-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #a3a3a3;
+    font-size: 11px;
+  }
+  .op-btn {
+    flex: 0 0 auto;
+    padding: 3px 7px;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #969696;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .op-btn:hover {
+    background: #303030;
+    border-color: #3d3d3d;
+    color: #e5e5e5;
+  }
+  .op-btn.active {
+    background: #363636;
+    border-color: #525252;
+    color: #f5f5f5;
+  }
+  .op-btn.active:hover {
+    background: #404040;
+    border-color: #626262;
+    color: #ffffff;
+  }
+  .op-btn.is-icon {
+    width: 24px;
+    height: 22px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .op-pin-ico {
+    width: 13px;
+    height: 13px;
+    display: block;
+    transform: rotate(35deg);
+    transition: transform .15s ease;
+  }
+  .op-btn.active .op-pin-ico {
+    transform: rotate(0deg);
+  }
+  .op-btn.active .op-pin-head {
+    fill: currentColor;
+  }
+  .op-btn[hidden] { display: none; }
+  .op-alert {
+    padding: 7px 10px;
+    border-radius: 5px;
+    background: rgba(242, 72, 34, .12);
+    border: 1px solid rgba(242, 72, 34, .45);
+    color: #ffb8a8;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .op-alert[hidden] { display: none; }
+  .frame-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+  }
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: #1e1e1e;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="op-bar">
+    <div class="op-row">
+      <span class="op-badge"><span class="op-dot" id="op-dot"></span>OpenPencil</span>
+      <span class="op-meta" id="op-status">正在连接…</span>
+      <button class="op-btn is-icon" id="op-pin" type="button" title="置顶窗口" aria-label="置顶窗口" aria-pressed="false" hidden>
+        <svg class="op-pin-ico" viewBox="0 0 16 16" aria-hidden="true">
+          <path class="op-pin-head" d="M5.2 2.4h5.6l-.8 3.6 2 1.8v1.4H4V7.8l2-1.8-.8-3.6z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/>
+          <path d="M8 9.2v4.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="op-alert" id="op-alert" hidden></div>
+  </div>
+  <div class="frame-wrap">
+    <iframe id="f2a-ui" sandbox="allow-scripts" title="F2A 面板"></iframe>
+  </div>
+</div>
+<script id="f2a-ui-html" type="application/json">__F2A_UI_HTML__</script>
+<script>
+(function () {
+  var frame = document.getElementById('f2a-ui');
+  var dot = document.getElementById('op-dot');
+  var statusEl = document.getElementById('op-status');
+  var alertEl = document.getElementById('op-alert');
+  var pinBtn = document.getElementById('op-pin');
+  var ws = null;
+  var retryTimer = null;
+  var pendingToBridge = [];
+  var pendingToFrame = [];
+  var frameReady = false;
+  var pinned = false;
+  var isEmbeddedAe = /[?&]embed=ae(?:&|$)/.test(location.search);
+  if (isEmbeddedAe) document.body.classList.add('embed-ae');
+
+  var rawUi = JSON.parse(document.getElementById('f2a-ui-html').textContent);
+  frame.addEventListener('load', function () {
+    frameReady = true;
+    while (pendingToFrame.length) {
+      var item = pendingToFrame.shift();
+      frame.contentWindow.postMessage({ pluginMessage: item }, '*');
+    }
+  });
+  frame.srcdoc = rawUi;
+
+  function postToFrame(pluginMessage) {
+    if (!frameReady || !frame.contentWindow) {
+      pendingToFrame.push(pluginMessage);
+      return;
+    }
+    frame.contentWindow.postMessage({ pluginMessage: pluginMessage }, '*');
+  }
+
+  function sendToBridge(payload) {
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify(payload));
+    } else {
+      pendingToBridge.push(payload);
+    }
+  }
+
+  function renderWindowState(win) {
+    if (!win) return;
+    if (isEmbeddedAe || !win.supported) {
+      pinBtn.hidden = true;
+      return;
+    }
+    pinBtn.hidden = false;
+    pinned = !!win.topmost;
+    pinBtn.className = 'op-btn is-icon' + (pinned ? ' active' : '');
+    var pinTitle = pinned ? '已置顶（点击取消置顶）' : '置顶窗口（贴在 OpenPencil 上方）';
+    pinBtn.title = pinTitle;
+    pinBtn.setAttribute('aria-label', pinTitle);
+    pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+  }
+
+  function renderStatus(state) {
+    if (!state) return;
+    if (!state.connected) {
+      dot.className = 'op-dot off';
+      statusEl.textContent = '未连接';
+      statusEl.title = '';
+      alertEl.hidden = false;
+      alertEl.textContent = state.error || '请打开 OpenPencil 桌面端并启用本地服务。';
+      return;
+    }
+    if (state.selectionOnly) {
+      dot.className = 'op-dot warn';
+      statusEl.textContent = '仅选区模式';
+      statusEl.title = '';
+      alertEl.hidden = false;
+      alertEl.textContent = state.error || '请在 OpenPencil 设置 → MCP → Local server 关闭“仅共享选区”。';
+    } else {
+      dot.className = 'op-dot on';
+      var label = state.documentName
+        ? (state.documentName + (state.pageName ? ' · ' + state.pageName : ''))
+        : (state.version ? 'v' + state.version : '已连接');
+      statusEl.textContent = label;
+      statusEl.title = label;
+      alertEl.hidden = true;
+      alertEl.textContent = '';
+    }
+  }
+
+  function connect() {
+    var proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+    ws = new WebSocket(proto + location.host + '/ws' + (isEmbeddedAe ? '?embed=ae' : ''));
+    ws.onopen = function () {
+      while (pendingToBridge.length) {
+        ws.send(JSON.stringify(pendingToBridge.shift()));
+      }
+    };
+    ws.onmessage = function (event) {
+      try {
+        var msg = JSON.parse(event.data);
+        if (msg.type === 'openpencil-status') {
+          renderStatus(msg.state);
+        } else if (msg.type === 'window-state') {
+          renderWindowState(msg);
+        } else if (msg.type === 'plugin-message' && msg.pluginMessage) {
+          postToFrame(msg.pluginMessage);
+        }
+      } catch (e) {}
+    };
+    ws.onclose = function () {
+      dot.className = 'op-dot off';
+      statusEl.textContent = '';
+      statusEl.title = '';
+      if (!retryTimer) {
+        retryTimer = setTimeout(function () { retryTimer = null; connect(); }, 1500);
+      }
+    };
+    ws.onerror = function () {};
+  }
+
+  window.addEventListener('message', function (event) {
+    if (event.source !== frame.contentWindow) return;
+    if (!event.data || !event.data.pluginMessage) return;
+    sendToBridge({ type: 'plugin-message', pluginMessage: event.data.pluginMessage });
+  });
+
+  pinBtn.addEventListener('click', function () {
+    var next = !pinned;
+    // Optimistic UI update so the pushpin rotation animates immediately (0ms)
+    // while the OS topmost call completes asynchronously in the background.
+    renderWindowState({ supported: true, topmost: next });
+    sendToBridge({ type: 'set-topmost', topmost: next });
+  });
+
+  connect();
+})();
+</script>
+</body>
+</html>

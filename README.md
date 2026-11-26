@@ -2,7 +2,7 @@
 
 **把 Figma 设计变成可以继续做动效的 AE 图层。** 从一个画框生成独立的 `.aep`，也可以只发送选中的几个图层，直接接到正在制作的合成里。
 
-[**下载 Windows 版**](https://github.com/TelosmaYLX/Figma2Ae/releases/latest) · [快速开始](#快速开始) · [工作原理](#工作原理) · [图层转换](#图层转换) · [MCP](#用-mcp-操作-figma-和-ae)
+[**下载 Windows 版**](https://github.com/TelosmaYLX/Figma2Ae/releases/latest) · [快速开始](#快速开始) · [在 OpenPencil 中使用](#在-openpencil-中使用) · [工作原理](#工作原理) · [图层转换](#图层转换) · [MCP](#用-mcp-操作-figma-和-ae)
 
 | 你想做什么 | 在 Figma 中选择 | 得到的结果 |
 | --- | --- | --- |
@@ -26,6 +26,33 @@
 ```powershell
 .\install.cmd -InstallDirectory "C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\F2A"
 ```
+
+## 在 OpenPencil 中使用
+
+F2A 现已原生适配开源设计工具 **OpenPencil** 桌面端（无需修改或重编 OpenPencil），复用 OpenPencil 内置的本地自动化 RPC（自动读取系统目录中的 `OpenPencil/mcp.json`）与 F2A 完整转换管线：
+
+- **前提**：在 OpenPencil 桌面端打开设计稿，并确认 **Settings → MCP → Local server** 已开启，且**关闭**了“Share only the selection（仅共享选区）”选项。
+- **文字模式提示**：OpenPencil 的文字转矢量依赖本机已安装对应字体；若导入的 `.fig` 包含未安装字体，可在面板中切换为 **可编辑文字** 或 **PNG 图片** 模式（或安装对应字体后再转矢量）。
+- **方式一：直接在 AE 的 F2A 面板中使用（最省心，零手动跑脚本）**
+  - 打开 After Effects 的「窗口 → 扩展 → F2A」后，面板会自动在后台拉起 OpenPencil 桥接服务。
+  - 点击面板顶部的 **OpenPencil** 标签页，即可在 AE 面板内部直接使用完整 F2A 导出功能（支持切换文档、发送到当前合成、导出 AEP/HTML、图层工具、错误定位图层）；单屏场景下也可以直接点右侧 **弹出小窗**，分离出独立置顶浮窗贴在 OpenPencil 旁边操作。
+- **方式二：独立小浮窗面板（不开 AE 时也能单独导出 AEP / HTML，不进入默认浏览器）**
+  - 双击 `openpencil/start-panel.cmd`（无黑框后台启动，关闭小窗后自动退出），或运行 `node scripts/openpencil-panel.cjs`。
+  - 会通过本机 Edge/Chrome 的 `--app=` 应用模式 + 独立 profile 弹出约 `360×840` 的**无地址栏独立小窗**，不打扰你日常使用的默认浏览器；Windows 下默认自动**置顶**（顶部可一键切换「置顶 / 已置顶」），方便贴在 OpenPencil 旁边并排选图层操作。
+  - 可选参数：`--no-topmost`（默认不置顶）、`--browser`（改在默认浏览器标签页打开）、`--workspace`（优先连接 `17366` 端口开发导出服务）、`--headless`（无窗口后台接入 F2A MCP）。
+- **方式三：命令行直接导出（适合批处理与脚本集成）**
+  ```bash
+  # 查看 OpenPencil 连接状态、已打开文档和当前选区
+  node scripts/openpencil-export.cjs --list-documents
+
+  # 将当前选区导出为独立 AEP 工程（默认）或 HTML 网页
+  node scripts/openpencil-export.cjs --format aep --output ./out-aep
+  node scripts/openpencil-export.cjs --format web --output ./out-web
+
+  # 按图层 ID 指定导出目标，或直接发送到已打开的 After Effects
+  node scripts/openpencil-export.cjs --format ae --node 1:1549
+  node scripts/openpencil-export.cjs --format web --node 1:1549 --text-mode vector -o ./out-web
+  ```
 
 ## 工作原理
 

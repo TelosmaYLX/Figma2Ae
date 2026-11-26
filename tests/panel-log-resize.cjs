@@ -49,9 +49,15 @@ function panel(options) {
         node.children.splice(at, 1); return child;
       },
       addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
-      dispatch(type, ev) { (listeners[type] || []).forEach(fn => fn(ev || {})); },
+      removeEventListener(type, fn) {
+        const list = listeners[type] || [];
+        const at = list.indexOf(fn);
+        if (at >= 0) list.splice(at, 1);
+      },
+      dispatch(type, ev) { (listeners[type] || []).slice().forEach(fn => fn(ev || {})); },
       setAttribute(name, value) { node[name] = value; },
       setPointerCapture() {},
+      releasePointerCapture() {},
       getBoundingClientRect() {
         const height = parseFloat(vars['--log-height']) || 72;
         const bottom = state.innerHeight - 12;
@@ -83,7 +89,9 @@ function panel(options) {
     },
     dispatch(type, ev) { (winListeners[type] || []).slice().forEach(fn => fn(ev || {})); }
   };
+  const bodyEl = el('body');
   const document = {
+    body: bodyEl,
     getElementById(id) { return nodes[id] || (nodes[id] = el('div')); },
     createElement(tag) { return el(tag); },
     addEventListener() {},
@@ -94,7 +102,7 @@ function panel(options) {
     Date, navigator: { platform: 'win32' }
   }));
   return {
-    consoleEl, nodes, store, state, window,
+    consoleEl, bodyEl, nodes, store, state, window,
     height: () => parseFloat(consoleEl.style.getPropertyValue('--log-height')) || null,
     grip: nodes['mk-log-resize']
   };
@@ -194,6 +202,34 @@ function panel(options) {
   p.window.dispatch('pointermove', { clientY: 200 });
   p.window.dispatch('pointerup', {});
   assert.equal(p.height(), 72, 'a move without a pending drag is ignored');
+}
+
+// Sticky-drag safeguards: moving with buttons === 0, window blur, mouseup fallback, and iframe suppression.
+{
+  const p = panel();
+  assert.match(css, /body\.mk-log-dragging iframe\{pointer-events:none !important;?\}/, 'iframe must not swallow pointerup while dragging');
+  p.grip.dispatch('pointerdown', { button: 0, clientY: 300, pointerId: 1 });
+  assert.ok(p.bodyEl.classList.contains('mk-log-dragging'), 'dragging marks body so embedded iframes ignore pointer events');
+  p.window.dispatch('pointermove', { clientY: 250, buttons: 1 });
+  assert.equal(p.height(), 122);
+  // Simulate pointerup swallowed outside/over host: next pointermove arrives with buttons === 0
+  p.window.dispatch('pointermove', { clientY: 190, buttons: 0 });
+  assert.equal(p.height(), 122, 'releasing the button outside the panel stops the drag immediately');
+  assert.equal(p.consoleEl.classList.contains('is-resizing'), false);
+  assert.equal(p.bodyEl.classList.contains('mk-log-dragging'), false);
+
+  // Blur (focus switch to AE) and lostpointercapture / mouseup also cleanly end drag
+  p.grip.dispatch('pointerdown', { button: 0, clientY: 300, pointerId: 2 });
+  p.window.dispatch('pointermove', { clientY: 260, buttons: 1 });
+  assert.equal(p.height(), 162);
+  p.window.dispatch('blur', {});
+  p.window.dispatch('pointermove', { clientY: 200, buttons: 1 });
+  assert.equal(p.height(), 162, 'window blur terminates active drag');
+
+  p.grip.dispatch('pointerdown', { button: 0, clientY: 300, pointerId: 3 });
+  p.window.dispatch('mouseup', {});
+  p.window.dispatch('pointermove', { clientY: 200, buttons: 1 });
+  assert.equal(p.height(), 162, 'mouseup fallback terminates active drag');
 }
 
 console.log('PASS: resizable log console — default height, drag/store, min/max clamps, collapse, restore, keyboard, double-click and panel-resize re-clamp');

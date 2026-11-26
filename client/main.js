@@ -73,31 +73,67 @@
 
   if (logConsoleEl && logResize && typeof logResize.addEventListener === "function" && typeof window.addEventListener === "function") {
     var logDrag = null;
+    function setDraggingClass(on) {
+      if (logConsoleEl.classList) logConsoleEl.classList.toggle("is-resizing", !!on);
+      if (document.body && document.body.classList) document.body.classList.toggle("mk-log-dragging", !!on);
+    }
     function moveLogDrag(ev) {
       if (!logDrag) return;
+      // Fail-safe: if pointerup was swallowed by an iframe or host edge outside the panel,
+      // stop dragging the moment a move event reports that the primary mouse button is no longer held.
+      if (typeof ev.buttons === "number" && (ev.buttons & 1) === 0) {
+        endLogDrag();
+        return;
+      }
       paintLogHeight(logDrag.height + (logDrag.y - ev.clientY));
       if (ev.preventDefault) ev.preventDefault();
     }
     function endLogDrag() {
       if (!logDrag) return;
+      var activeDrag = logDrag;
       logDrag = null;
-      if (logConsoleEl.classList) logConsoleEl.classList.remove("is-resizing");
+      setDraggingClass(false);
+      if (activeDrag.pointerId != null && typeof logResize.releasePointerCapture === "function") {
+        try {
+          if (typeof logResize.hasPointerCapture !== "function" || logResize.hasPointerCapture(activeDrag.pointerId)) {
+            logResize.releasePointerCapture(activeDrag.pointerId);
+          }
+        } catch (e) {}
+      }
       storeLogHeight();
-      window.removeEventListener("pointermove", moveLogDrag, false);
-      window.removeEventListener("pointerup", endLogDrag, false);
-      window.removeEventListener("pointercancel", endLogDrag, false);
+      window.removeEventListener("pointermove", moveLogDrag, true);
+      window.removeEventListener("pointerup", endLogDrag, true);
+      window.removeEventListener("pointercancel", endLogDrag, true);
+      window.removeEventListener("mouseup", endLogDrag, true);
+      window.removeEventListener("blur", endLogDrag, false);
+      window.removeEventListener("contextmenu", endLogDrag, true);
+      if (typeof logResize.removeEventListener === "function") {
+        logResize.removeEventListener("lostpointercapture", endLogDrag, false);
+      }
     }
-    // Drag tracking lives on the window, so the pointer keeps resizing the log even when it
-    // leaves the 8px grip or the pointer id cannot be captured in the CEP host.
+    // Drag tracking uses capture-phase window listeners + pointer capture + iframe pointer suppression
+    // so releasing over the embedded OpenPencil iframe or outside the AE CEP pane never leaves a stuck drag.
     logResize.addEventListener("pointerdown", function (ev) {
       if ((ev.button != null && ev.button !== 0) ||
           (logConsoleEl.classList && logConsoleEl.classList.contains("is-collapsed"))) return;
+      if (logDrag) endLogDrag();
       var rect = logConsoleEl.getBoundingClientRect();
-      logDrag = { y: ev.clientY, height: rect && isFinite(rect.height) ? rect.height : logHeight };
-      if (logConsoleEl.classList) logConsoleEl.classList.add("is-resizing");
-      window.addEventListener("pointermove", moveLogDrag, false);
-      window.addEventListener("pointerup", endLogDrag, false);
-      window.addEventListener("pointercancel", endLogDrag, false);
+      logDrag = {
+        y: ev.clientY,
+        height: rect && isFinite(rect.height) ? rect.height : logHeight,
+        pointerId: ev.pointerId != null ? ev.pointerId : null
+      };
+      setDraggingClass(true);
+      if (logDrag.pointerId != null && typeof logResize.setPointerCapture === "function") {
+        try { logResize.setPointerCapture(logDrag.pointerId); } catch (e) {}
+      }
+      window.addEventListener("pointermove", moveLogDrag, true);
+      window.addEventListener("pointerup", endLogDrag, true);
+      window.addEventListener("pointercancel", endLogDrag, true);
+      window.addEventListener("mouseup", endLogDrag, true);
+      window.addEventListener("blur", endLogDrag, false);
+      window.addEventListener("contextmenu", endLogDrag, true);
+      logResize.addEventListener("lostpointercapture", endLogDrag, false);
       if (ev.preventDefault) ev.preventDefault();
     });
     logResize.addEventListener("dblclick", function () {

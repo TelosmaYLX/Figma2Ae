@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="16" y1="12" x2="240" y2="244" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F1F3FA"/>
+    </linearGradient>
+    <linearGradient id="stem" x1="74" y1="48" x2="112" y2="208" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="48%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="wing" x1="74" y1="50" x2="188" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="52%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+    <linearGradient id="midBar" x1="114" y1="118" x2="180" y2="152" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EC4899"/>
+      <stop offset="52%" stop-color="#F43F5E"/>
+      <stop offset="100%" stop-color="#FB923C"/>
+    </linearGradient>
+    <filter id="brandShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#4F46E5" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <!-- Clean borderless white rounded square -->
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#bg)"/>
+
+  <!-- Abstract brand "F" composed of layered motion elements -->
+  <g filter="url(#brandShadow)">
+    <!-- Vertical indigo-violet pillar with rounded bottom cap -->
+    <path d="M74 100 C74 68, 94 50, 126 50 H130 C116 56, 110 70, 110 92 V190 A18 18 0 0 1 74 190 Z" fill="url(#stem)"/>
+
+    <!-- Sweeping cyan-indigo top wing wrapping smoothly over the pillar -->
+    <path d="M74 100 C74 64, 96 50, 132 50 H172 A18 18 0 0 1 172 86 H126 C104 86, 86 98, 74 120 Z" fill="url(#wing)" fill-opacity="0.95"/>
+
+    <!-- Floating rose-coral gradient pill forming the middle crossbar -->
+    <rect x="116" y="118" width="62" height="34" rx="17" fill="url(#midBar)"/>
+  </g>
+</svg>
