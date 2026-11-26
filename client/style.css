@@ -480,7 +480,10 @@ body{
    to one fixed height, which left no way to read more lines on a tall panel. */
 .mk-console{
   display:flex; flex-direction:column; flex:0 0 var(--log-height,72px); min-height:22px;
-  margin:0 14px 2px; position:relative;
+  /* margin-top:auto keeps the console docked to the panel bottom: when the motion library is
+     collapsed its freed space must sit above the log, otherwise a drag grew the console
+     downward and the resize clamp collapsed it to its minimum height. */
+  margin:auto 14px 2px; position:relative;
 }
 .mk-console.is-collapsed{flex:0 0 auto;}
 .mk-console.is-collapsed .mk-console-list{display:none;}

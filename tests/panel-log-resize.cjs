@@ -11,6 +11,9 @@ const source = fs.readFileSync(path.join(root, 'client/main.js'), 'utf8');
 assert.match(html, /<div class="mk-console-resize" id="mk-log-resize" role="separator" aria-orientation="horizontal" aria-label="调整日志高度" tabindex="0"/, 'the console carries a top-edge resize grip');
 // Style: the height is a variable instead of a hard flex basis, and the grip hides when collapsed.
 assert.match(css, /\.mk-console\{[^}]*flex:0 0 var\(--log-height,72px\)/, 'the console height comes from a variable, not one fixed basis');
+// margin-top:auto keeps the console docked to the panel bottom when the collapsed motion library
+// leaves free space above it; without it a drag grew downward and clamped itself to the minimum.
+assert.match(css, /\.mk-console\{[^}]*margin:auto 14px 2px/, 'the console stays docked to the panel bottom');
 assert.match(css, /\.mk-console-resize\{[^}]*cursor:ns-resize/, 'the grip shows a vertical resize cursor');
 assert.match(css, /\.mk-console\.is-collapsed \.mk-console-resize\{display:none;?\}/, 'the grip disappears while the console is collapsed');
 
