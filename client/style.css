@@ -386,9 +386,10 @@ body{
   color:var(--text-mute);
 }
 
-/* Variant buttons (only on multi-variant templates) */
+/* Variant buttons (only on multi-variant templates). They sit left of the favourite star that
+   floats in the same top-right corner. */
 .f2m-varbar{
-  position:absolute; right:4px; top:4px; z-index:3;
+  position:absolute; right:34px; top:5px; z-index:3;
   display:flex; gap:2px; opacity:.75; transition:opacity .12s;
 }
 .f2m-card:hover .f2m-varbar{opacity:1;}
@@ -438,15 +439,21 @@ body{
 }
 .f2m-del.is-confirm{color:var(--danger); border-color:rgba(229,83,75,.4); padding:2px 5px;}
 .f2m-del:hover{color:var(--danger); border-color:rgba(229,83,75,.4);}
-/* Favourite star on a motion card: hollow by default, solid amber once saved. */
+/* Favourite star floating over the preview's top-right corner: hollow by default, solid amber
+   once saved. It is deliberately larger than the footer icons and carries a dark disc so it
+   stays readable over thumbnails and videos. */
 .f2m-fav{
-  appearance:none; border:1px solid transparent; background:transparent;
-  color:var(--text-mute); font:inherit; line-height:1;
-  padding:3px 4px; border-radius:3px; cursor:pointer;
+  position:absolute; top:5px; right:5px; z-index:4;
+  width:24px; height:24px; padding:0;
+  appearance:none; border:1px solid rgba(255,255,255,.14);
+  border-radius:50%; background:rgba(8,8,8,.55);
+  color:var(--text-dim); cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center;
+  transition:color .12s, border-color .12s, background .12s;
 }
-.f2m-fav:hover{color:var(--star-hi); border-color:rgba(212,168,67,.4);}
-.f2m-fav.is-on{color:var(--star);}
+.f2m-fav .f2m-svg-ico{width:15px; height:15px;}
+.f2m-fav:hover{color:var(--star-hi); border-color:rgba(212,168,67,.5); background:rgba(8,8,8,.72);}
+.f2m-fav.is-on{color:var(--star); border-color:rgba(212,168,67,.55);}
 .f2m-fav.is-on:hover{color:var(--star-hi);}
 .f2m-fav:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 

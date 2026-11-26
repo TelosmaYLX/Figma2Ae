@@ -1042,10 +1042,10 @@
     }
 
     card.appendChild(stage);
-
-    // Footer metadata (duration & track info live here instead of crowding the stage).
-    // Saved clips edit their name in place: the title becomes an input and the actions become
-    // save/cancel, so renaming never leaves the card or reloads the panel.
+    // The favourite star floats on the preview's top-right corner; the footer keeps name actions.
+    stage.appendChild(favoriteButton(item));
+    // Footer: duration/track metadata, plus rename/delete for saved clips (rename swaps the
+    // title for an inline input instead of leaving the card).
     var foot = el("div", "f2m-foot");
     var info = el("div", "f2m-info");
     var renaming = isUser && state.renameId === item.id;
@@ -1068,9 +1068,8 @@
     info.appendChild(el("div", "f2m-sub", durStr + " · " + kindText));
     foot.appendChild(info);
 
-    var actions = el("div", "f2m-actions");
-    actions.appendChild(favoriteButton(item));
     if (isUser) {
+      var actions = el("div", "f2m-actions");
       var cancelRename = function () {
         state.renameId = null;
         renderGrid();
@@ -1131,8 +1130,8 @@
         };
         actions.appendChild(delBtn);
       }
+      foot.appendChild(actions);
     }
-    foot.appendChild(actions);
     card.appendChild(foot);
 
     // Clicking the preview applies the motion; hover only previews (auto-loop is off by default).
@@ -1257,15 +1256,13 @@
     }
 
     card.appendChild(stage);
+    stage.appendChild(favoriteButton(item));
 
     var foot = el("div", "f2m-foot");
     var info = el("div", "f2m-info");
     info.appendChild(el("div", "f2m-title", item.name));
     info.appendChild(el("div", "f2m-sub", item.kind.toUpperCase() + " · " + item.category));
     foot.appendChild(info);
-    var actions = el("div", "f2m-actions");
-    actions.appendChild(favoriteButton(item));
-    foot.appendChild(actions);
     card.appendChild(foot);
 
     stage.onclick = function (ev) {
@@ -1449,7 +1446,7 @@
         empty.appendChild(el("div", "f2m-empty-desc", "在 AE 中选中已调好关键帧的图层，点击上方「保存选中动效」即可复用，并与 MCP 共享。"));
       } else if (state.category === "收藏") {
         empty.appendChild(el("div", "f2m-empty-title", "还没有收藏的动效"));
-        empty.appendChild(el("div", "f2m-empty-desc", "点击动效卡片右下角的星标，即可把常用动效收进这里。"));
+        empty.appendChild(el("div", "f2m-empty-desc", "点击动效预览图右上角的星标，即可把常用动效收进这里。"));
       } else {
         empty.appendChild(el("div", "f2m-empty-title", "没有匹配的动效"));
         empty.appendChild(el("div", "f2m-empty-desc", "试试清空搜索关键词或切换分类。"));
