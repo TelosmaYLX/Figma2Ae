@@ -588,13 +588,15 @@ async function check() {
   assert.match(panelSrc, /scanner\.renameUserClip\(item\.id, name\)/, 'saved clips are renamed through the storage module');
   assert.match(panelSrc, /state\.renameId === item\.id/, 'the card switches its title into the rename form');
   assert.match(panelCss, /\.f2m-rename-input\{/, 'the inline rename field has its own style');
+  assert.match(panelSrc, /f2m-title is-editable/, 'a saved clip name is the rename affordance');
+  assert.match(panelSrc, /titleEl\.onclick = beginRename/, 'clicking the saved clip name starts renaming');
+  assert.doesNotMatch(panelSrc, /is-rename/, 'the pencil rename icon is gone');
+  assert.match(panelCss, /\.f2m-title\.is-editable:hover\{[^}]*color:var\(--accent-hi\)/, 'the editable name highlights on hover');
   assert.match(panelCss, /\.f2m-actions\{[^}]*flex-direction:column/, 'saved-clip actions stack vertically');
-  assert.ok(panelSrc.indexOf('var renameBtn') < panelSrc.indexOf('var delBtn'), 'rename sits above delete in the stacked pair');
   assert.match(panelSrc, /function exportUserClipDialog\(item\)/, 'saved clips can be exported from the panel');
   assert.match(panelSrc, /scanner\.exportUserClip\(item\.id, target\)/, 'export writes through the storage module');
   assert.match(panelSrc, /name === "download"/, 'the export action has a download glyph');
-  assert.ok(panelSrc.indexOf('var renameBtn') < panelSrc.indexOf('var exportBtn') &&
-    panelSrc.indexOf('var exportBtn') < panelSrc.indexOf('var delBtn'), 'rename, export and delete stack in that order');
+  assert.ok(panelSrc.indexOf('var exportBtn') < panelSrc.indexOf('var delBtn'), 'export sits above delete in the stacked pair');
   assert.match(panelCss, /\.f2m-actions \.f2m-del\{[^}]*height:16px/, 'the stacked icons keep a compact row');
   assert.match(panelCss, /\.f2m-card:hover\{[^}]*border-color:#6e6e6e/, 'the card hover border is brighter');
   assert.doesNotMatch(panelSrc, /选择本地模板目录/, 'the empty template tab keeps only the top add-directory action');

@@ -873,9 +873,6 @@
       add("path", { d: "M8 3.2v9.6M3.2 8h9.6", fill: "none", stroke: "currentColor", "stroke-width": "1.6", "stroke-linecap": "round" });
     } else if (name === "refresh") {
       add("path", { d: "M13.5 8a5.5 5.5 0 1 1-1.4-3.65M13.5 2.5v2.75h-2.75", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round" });
-    } else if (name === "rename") {
-      add("path", { d: "M3 13h2.3L12.7 5.6a1.6 1.6 0 0 0-2.3-2.3L3 10.7V13Z", fill: "none", stroke: "currentColor", "stroke-width": "1.4", "stroke-linejoin": "round" });
-      add("path", { d: "M9 4.7l2.3 2.3", fill: "none", stroke: "currentColor", "stroke-width": "1.4", "stroke-linecap": "round" });
     } else if (name === "check") {
       add("path", { d: "M3.2 8.3l3 3 6.6-6.6", fill: "none", stroke: "currentColor", "stroke-width": "1.6", "stroke-linecap": "round", "stroke-linejoin": "round" });
     } else if (name === "star" || name === "star-filled") {
@@ -1066,8 +1063,8 @@
     card.appendChild(stage);
     // The favourite star floats on the preview's top-right corner; the footer keeps name actions.
     stage.appendChild(favoriteButton(item));
-    // Footer: duration/track metadata, plus rename/delete for saved clips (rename swaps the
-    // title for an inline input instead of leaving the card).
+    // Footer: duration/track metadata, plus rename/export/delete for saved clips. Clicking a
+    // saved clip's name swaps the title for the inline input, so no separate rename icon is needed.
     var foot = el("div", "f2m-foot");
     var info = el("div", "f2m-info");
     var renaming = isUser && state.renameId === item.id;
@@ -1079,6 +1076,22 @@
       renameInput.maxLength = 120;
       renameInput.setAttribute("aria-label", "动效名称");
       info.appendChild(renameInput);
+    } else if (isUser) {
+      var titleEl = el("div", "f2m-title is-editable", item.name);
+      titleEl.title = "点击重命名此动效";
+      titleEl.setAttribute("role", "button");
+      titleEl.tabIndex = 0;
+      var beginRename = function (ev) {
+        if (ev) ev.stopPropagation();
+        state.renameId = item.id;
+        state.confirmDeleteId = null;
+        renderGrid();
+      };
+      titleEl.onclick = beginRename;
+      titleEl.onkeydown = function (ev) {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); beginRename(ev); }
+      };
+      info.appendChild(titleEl);
     } else {
       info.appendChild(el("div", "f2m-title", item.name));
     }
@@ -1123,15 +1136,6 @@
         actions.appendChild(okBtn);
         actions.appendChild(cancelBtn);
       } else {
-        var renameBtn = iconButton("f2m-del is-rename", "rename", "", "重命名此动效");
-        renameBtn.type = "button";
-        renameBtn.onclick = function (ev) {
-          ev.stopPropagation();
-          state.renameId = item.id;
-          state.confirmDeleteId = null;
-          renderGrid();
-        };
-        actions.appendChild(renameBtn);
         var exportBtn = iconButton("f2m-del is-export", "download", "", "导出为 JSON（可在其它机器导入）");
         exportBtn.type = "button";
         exportBtn.onclick = function (ev) {
