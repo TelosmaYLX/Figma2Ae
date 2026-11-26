@@ -20,6 +20,8 @@
   --text-mute:#767676;
   --ok:#3fbf7f;
   --danger:#e5534b;
+  --star:#d4a843;
+  --star-hi:#eecb6f;
   --radius:6px;
   --radius-sm:4px;
   --shadow:0 10px 30px rgba(0,0,0,.5);
@@ -436,6 +438,17 @@ body{
 }
 .f2m-del.is-confirm{color:var(--danger); border-color:rgba(229,83,75,.4); padding:2px 5px;}
 .f2m-del:hover{color:var(--danger); border-color:rgba(229,83,75,.4);}
+/* Favourite star on a motion card: hollow by default, solid amber once saved. */
+.f2m-fav{
+  appearance:none; border:1px solid transparent; background:transparent;
+  color:var(--text-mute); font:inherit; line-height:1;
+  padding:3px 4px; border-radius:3px; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.f2m-fav:hover{color:var(--star-hi); border-color:rgba(212,168,67,.4);}
+.f2m-fav.is-on{color:var(--star);}
+.f2m-fav.is-on:hover{color:var(--star-hi);}
+.f2m-fav:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 
 .f2m-empty{
   grid-column:1 / -1;

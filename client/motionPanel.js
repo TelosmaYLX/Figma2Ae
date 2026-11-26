@@ -102,6 +102,7 @@
   var LS_DIRS = "f2a.motionTemplateDirs";
   var LS_PARAMS = "f2a.motionParams";
   var LS_COLLAPSED = "f2a.motionCollapsed";
+  var LS_FAVORITES = "f2a.motionFavorites";
 
   function loadStoredCollapsed() {
     try { return localStorage.getItem(LS_COLLAPSED) === "1"; } catch (e) { return false; }
@@ -130,6 +131,27 @@
   function saveStoredParams(p) {
     try { localStorage.setItem(LS_PARAMS, JSON.stringify(p)); } catch (e) {}
   }
+  // Favourites survive restarts as a plain key list. Keys are namespaced per source so a
+  // built-in clip, a saved clip and a template can never collide.
+  function loadStoredFavorites() {
+    try {
+      var raw = localStorage.getItem(LS_FAVORITES);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.filter(function (s) { return typeof s === "string" && s; }) : [];
+    } catch (e) { return []; }
+  }
+  function saveStoredFavorites(list) {
+    try { localStorage.setItem(LS_FAVORITES, JSON.stringify(list)); } catch (e) {}
+  }
+  function favoriteKey(item) {
+    if (!item) return "";
+    if (item.source === "user") return "user:" + item.id;
+    if (item.file) return "template:" + item.file;
+    return "motion:" + (item.id || item.name || "");
+  }
+  function isFavorite(item) {
+    return state.favorites.indexOf(favoriteKey(item)) >= 0;
+  }
 
   var state = {
     tab: "builtin",            // "builtin" | "templates" | "user"
@@ -149,7 +171,8 @@
     saveFormOpen: false,
     dirInputOpen: false,
     confirmDeleteId: null,
-    renameId: null
+    renameId: null,
+    favorites: loadStoredFavorites()
   };
 
   // ---- Load built-in catalog ----
@@ -835,6 +858,14 @@
       add("path", { d: "M9 4.7l2.3 2.3", fill: "none", stroke: "currentColor", "stroke-width": "1.4", "stroke-linecap": "round" });
     } else if (name === "check") {
       add("path", { d: "M3.2 8.3l3 3 6.6-6.6", fill: "none", stroke: "currentColor", "stroke-width": "1.6", "stroke-linecap": "round", "stroke-linejoin": "round" });
+    } else if (name === "star" || name === "star-filled") {
+      var filled = name === "star-filled";
+      add("path", {
+        d: "M8 2.2l1.66 3.36 3.71.54-2.68 2.62.63 3.69L8 10.67l-3.32 1.74.63-3.69-2.68-2.62 3.71-.54L8 2.2z",
+        fill: filled ? "currentColor" : "none",
+        stroke: "currentColor", "stroke-width": filled ? "1" : "1.2",
+        "stroke-linejoin": "round"
+      });
     } else if (name === "upload") {
       add("path", { d: "M8 10.8V3.2M5 6l3-3 3 3M3 12.8h10", fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round" });
     } else if (name === "close") {
@@ -849,6 +880,35 @@
     if (title) btn.title = title;
     if (iconName) btn.appendChild(svgIcon(iconName));
     if (labelText) btn.appendChild(el("span", "", labelText));
+    return btn;
+  }
+
+  // ---- Favourites ----
+  // A hollow star on every motion card becomes solid once saved; the 收藏 pill in the
+  // category strip filters the current tab down to those cards.
+  function toggleFavorite(item) {
+    var key = favoriteKey(item);
+    if (!key) return;
+    var at = state.favorites.indexOf(key);
+    if (at >= 0) {
+      state.favorites.splice(at, 1);
+      log("已取消收藏「" + item.name + "」");
+    } else {
+      state.favorites.push(key);
+      log("已收藏「" + item.name + "」");
+    }
+    saveStoredFavorites(state.favorites);
+    renderGrid();
+  }
+
+  function favoriteButton(item) {
+    var on = isFavorite(item);
+    var btn = iconButton("f2m-fav" + (on ? " is-on" : ""), on ? "star-filled" : "star", "", (on ? "取消收藏" : "收藏") + "「" + item.name + "」");
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.onclick = function (ev) {
+      ev.stopPropagation();
+      toggleFavorite(item);
+    };
     return btn;
   }
 
@@ -912,8 +972,11 @@
       all = state.userClips;
     }
 
+    var favoritesOnly = state.category === "收藏";
     var filtered = all.filter(function (item) {
-      if (state.category !== "全部" && item.category !== state.category) return false;
+      if (favoritesOnly) {
+        if (!isFavorite(item)) return false;
+      } else if (state.category !== "全部" && item.category !== state.category) return false;
       if (!q) return true;
       var hay = [
         item.name || "",
@@ -924,7 +987,7 @@
       ].join(" ").toLowerCase();
       return hay.indexOf(q) >= 0;
     });
-    return { items: orderDirectionItems(filtered), categories: ["全部"].concat(catSet), total: all.length };
+    return { items: orderDirectionItems(filtered), categories: ["全部", "收藏"].concat(catSet), total: all.length };
   }
 
   function buildMotionCard(item, isUser) {
@@ -1005,8 +1068,9 @@
     info.appendChild(el("div", "f2m-sub", durStr + " · " + kindText));
     foot.appendChild(info);
 
+    var actions = el("div", "f2m-actions");
+    actions.appendChild(favoriteButton(item));
     if (isUser) {
-      var actions = el("div", "f2m-actions");
       var cancelRename = function () {
         state.renameId = null;
         renderGrid();
@@ -1067,8 +1131,8 @@
         };
         actions.appendChild(delBtn);
       }
-      foot.appendChild(actions);
     }
+    foot.appendChild(actions);
     card.appendChild(foot);
 
     // Clicking the preview applies the motion; hover only previews (auto-loop is off by default).
@@ -1199,6 +1263,9 @@
     info.appendChild(el("div", "f2m-title", item.name));
     info.appendChild(el("div", "f2m-sub", item.kind.toUpperCase() + " · " + item.category));
     foot.appendChild(info);
+    var actions = el("div", "f2m-actions");
+    actions.appendChild(favoriteButton(item));
+    foot.appendChild(actions);
     card.appendChild(foot);
 
     stage.onclick = function (ev) {
@@ -1380,6 +1447,9 @@
       } else if (state.tab === "user" && !state.userClips.length) {
         empty.appendChild(el("div", "f2m-empty-title", "暂无自存动效"));
         empty.appendChild(el("div", "f2m-empty-desc", "在 AE 中选中已调好关键帧的图层，点击上方「保存选中动效」即可复用，并与 MCP 共享。"));
+      } else if (state.category === "收藏") {
+        empty.appendChild(el("div", "f2m-empty-title", "还没有收藏的动效"));
+        empty.appendChild(el("div", "f2m-empty-desc", "点击动效卡片右下角的星标，即可把常用动效收进这里。"));
       } else {
         empty.appendChild(el("div", "f2m-empty-title", "没有匹配的动效"));
         empty.appendChild(el("div", "f2m-empty-desc", "试试清空搜索关键词或切换分类。"));

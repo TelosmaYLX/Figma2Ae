@@ -563,7 +563,8 @@ async function check() {
     assert.deepEqual(privacyIssues(buf, identifiers), [], 'privacy leak in ' + required);
   }
 
-  // 6. Panel UX regressions: recording gone, rename wired, template tab deduped, primary chips tuned.
+  // 6. Panel UX regressions: recording gone, rename wired, template tab deduped, primary chips
+  // neutral, favourites (star + 收藏 filter) wired.
   const panelSrc = fs.readFileSync(path.join(root, 'client/motionPanel.js'), 'utf8');
   const panelCss = fs.readFileSync(path.join(root, 'client/style.css'), 'utf8');
   assert.doesNotMatch(panelSrc, /startRecording|state\.recording|开始录制|取消录制|停止并保存|录制动效/, 'the panel no longer records manual AE edits');
@@ -575,7 +576,16 @@ async function check() {
   assert.match(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--surface-hi\)[^}]*color:var\(--text\)/, 'primary chips use a raised graphite fill instead of a blue one');
   assert.doesNotMatch(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent\)/, 'primary chips paint no solid accent fill');
   assert.doesNotMatch(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent-dim\)/, 'primary chips paint no accent tint');
-  console.log('PASS: all new motion library files included in package-dist and privacy-clean; recording removed, rename wired, template tab deduped, primary chips neutral');
+  // Favourites: a hollow star on every motion card turns solid when saved, and the 收藏 pill
+  // in the category strip filters the current tab down to those keys.
+  assert.match(panelSrc, /f2a\.motionFavorites/, 'favourites persist under their own storage key');
+  assert.match(panelSrc, /function favoriteButton\(item\)/, 'motion cards render a favourite star');
+  assert.match(panelSrc, /function toggleFavorite\(item\)/, 'one helper toggles a favourite');
+  assert.match(panelSrc, /name === "star" \|\| name === "star-filled"/, 'the star has hollow and filled glyphs');
+  assert.match(panelSrc, /categories: \["全部", "收藏"\]/, 'the category strip includes the 收藏 filter');
+  assert.match(panelSrc, /favoritesOnly/, 'the 收藏 filter checks the saved keys');
+  assert.match(panelCss, /\.f2m-fav\.is-on\{[^}]*color:var\(--star\)/, 'a saved star paints in the star colour');
+  console.log('PASS: all new motion library files included in package-dist and privacy-clean; recording removed, rename wired, template tab deduped, primary chips neutral, favourites wired');
 }
 
 check().catch(err => { console.error(err); process.exitCode = 1; });
