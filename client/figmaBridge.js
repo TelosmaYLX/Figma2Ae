@@ -365,7 +365,13 @@
     var file = saveJsonTemp(data, 'batch').replace(/\\/g, '/');
     flash('正在导入 AE…');
     evalES('runImportBatch(' + esLiteral(file) + ')', function (res) {
-      finishImport('AE: ' + res, /error/i.test(res));
+      var raw = String(res == null ? '' : res);
+      var isErr = /error/i.test(raw);
+      if (isErr) {
+        finishImport(raw.replace(/^ERROR:\s*/i, '导入失败：'), 'err');
+      } else {
+        finishImport(raw, /\n注意：/.test(raw) ? 'warn' : 'ok');
+      }
     });
   }
   function reserveImageFilename(base, extension, used, suffix) {
@@ -398,7 +404,8 @@
       try { submitImport(job); } catch (e) { finishImport('导入失败：' + e.message, true); }
       return;
     }
-    flash(lastImageFolder ? '正在保存图片…' : '请选择图片保存文件夹…');
+    if (!lastImageFolder) flash('请选择图片保存文件夹…');
+    else paint('正在保存图片…');
     chooseImageFolder(function (error, folder) {
       if (error) { finishImport('选择图片保存位置失败：' + error.message, true); return; }
       try {
@@ -467,8 +474,6 @@
         }
         var p = bridge.saveTemp(svg, meta.name);
         var arg = p.replace(/\\/g, "/");
-        log("收到「" + (meta.name || "未命名") + "」：" + (meta.imageCount || 0) + " 张图片待导出");
-        flash("已接收 Figma 数据，正在构建…" + (swept ? "（已清理 " + swept.mb + " MB，共 " + swept.files + " 个临时文件）" : ""));
         // Gradient TEXT fill -> bake a Gradient Overlay layer-style .ffx per text node.
         // (Gradient Ramp paints the whole layer rect; the layer style respects glyph alpha.)
         try {
@@ -503,15 +508,21 @@
           var gm = (meta.nodes && meta.nodes.length) ? buildGradientMapFromNodes(meta.nodes) : buildGradientMap(svg);
           if (gm) { gp = gm.jsonPath; gc = gm.count; }
         } catch (eg2) { if (window.console) console.log(eg2); }
-        flash("正在构建…（" + gc + " 个渐变 .ffx）");
         // one entry point handles shapes + text + gradient presets + effects
         var np = (meta.nodes ? saveJsonTemp(meta.nodes, 'nodes').replace(/\\/g, '/') : "");
-        if (np) flash("可编辑模式：从 Figma 图层树导入 " + meta.nodes.length + " 个图层");
         var shx = (meta.shift && meta.shift.x) ? meta.shift.x : 0;
         var shy = (meta.shift && meta.shift.y) ? meta.shift.y : 0;
         var cp = (meta.organize && meta.containers && meta.containers.length)
                    ? saveJsonTemp(meta.containers, 'containers').replace(/\\/g, '/') : "";
-        if (cp) flash("分组预合成：" + meta.containers.length + " 个组");
+        var recvParts = [];
+        if (meta.nodes && meta.nodes.length) recvParts.push(meta.nodes.length + " 个图层");
+        if (meta.texts && meta.texts.length) recvParts.push(meta.texts.length + " 个文本");
+        if (meta.imageCount) recvParts.push(meta.imageCount + " 张图片");
+        if (cp) recvParts.push(meta.containers.length + " 个分组");
+        if (gc) recvParts.push(gc + " 个渐变");
+        var recvLine = "收到「" + (meta.name || "未命名") + "」" + (recvParts.length ? "：" + recvParts.join(" · ") : "");
+        if (swept) recvLine += "（已清理 " + swept.mb + " MB 缓存）";
+        flash(recvLine);
         var job = { data: {name: meta.name || '', svgPath: arg, textsPath: tp, gradMapPath: gp, effectsPath: ep,
                            shiftX: shx, shiftY: shy, nodesPath: np, containersPath: cp,
                            backgroundBlur: (meta.nodes || []).concat(meta.containers || []).some(function (row) { return !!row.backgroundBlur; })},
@@ -528,7 +539,7 @@
           }
           job.targetReady = true; pumpImport();
         });
-        if (meta.imageCount) flash('等待图片导出完成…');
+        if (meta.imageCount) paint('等待图片导出完成…');
         pumpImport();
         return { ok: true, queued: true, name: meta.name };
       },

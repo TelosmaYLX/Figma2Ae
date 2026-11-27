@@ -132,7 +132,10 @@
   <section class="mk-console" aria-label="运行日志">
     <div class="mk-console-resize" id="mk-log-resize" role="separator" aria-orientation="horizontal" aria-label="调整日志高度" tabindex="0" title="拖动调整日志高度，双击恢复默认"></div>
     <div class="mk-console-head">
-      <span>运行日志</span>
+      <div class="mk-console-title-wrap">
+        <span class="mk-console-title">运行日志</span>
+        <span class="mk-console-count" id="mk-log-count" hidden>0</span>
+      </div>
       <div class="f2m-console-acts">
         <button type="button" class="mk-console-clear" id="f2m-log-toggle" title="折叠或展开日志">收起</button>
         <button type="button" class="mk-console-clear" id="mk-log-clear" title="清空日志" aria-label="清空日志">清空</button>

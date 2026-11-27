@@ -1315,7 +1315,7 @@ var AEShapeBuilder = (function () {
     if (!comp || !(comp instanceof CompItem)) throw new Error("No active comp. Open/select a comp first.");
     var baseName = opts.name || "UI Shapes";
     var shapes = model.shapes, N = shapes.length, i;
-    _diag = []; _fontMiss = {}; _fontMissList = []; _imgSlots = []; _layerPaths = []; _mattePairs = []; _referenceLayers = [];
+    _diag = []; _txtOk = 0; _txtNo = 0; _fontMiss = {}; _fontMissList = []; _imgSlots = []; _layerPaths = []; _mattePairs = []; _referenceLayers = [];
     _containerLayers = {}; _gradeRequests = []; _blurRequests = [];
     _maskDefs = {};
     _imageMaskDefs = {}; _imageMaskFolder = '';
@@ -2282,11 +2282,60 @@ var AEShapeBuilder = (function () {
     return made;
   }
 
+  function formatUserWarning(item) {
+    var s = String(item == null ? "" : item);
+    if (!s) return "";
+    // Hide internal success telemetry and lists of successfully created/precomposed layers.
+    if (/^swallowed:/i.test(s)) return "";
+    if (/^top>bottom:/i.test(s)) return "";
+    if (/^stack already ordered\b/i.test(s)) return "";
+    if (/^stack: moved\b/i.test(s)) return "";
+    if (/^order ok\b/i.test(s)) return "";
+    if (/^mattes \d+\/\d+$/.test(s)) return "";
+    if (/^image grades \d+$/.test(s)) return "";
+    if (/^IS 7\/7$/.test(s)) return "";
+    if (/^orphan path refs dropped:/i.test(s)) return "";
+    if (/^organize: no containers$/i.test(s)) return "";
+
+    var m;
+    m = s.match(/^EMPTY GROUPS (\d+\/\d+):\s*(.+)$/);
+    if (m) return "空组 " + m[1] + "（" + m[2].replace(/,\s*/g, "、") + "）";
+    m = s.match(/^mattes (\d+\/\d+)\s*\((\d+ lost)\)$/);
+    if (m) return "蒙版失效 " + m[1] + " (" + m[2] + ")";
+    m = s.match(/^ORDER BAD (\d+\/\d+):\s*(.+)$/);
+    if (m) return "层级顺序异常 " + m[1] + "（" + m[2] + "）";
+    m = s.match(/^FX unmatched (\d+)\b/);
+    if (m) return "未匹配效果 " + m[1] + " 项";
+    m = s.match(/^shapes failed (\d+\/\d+)\s*(.*)$/);
+    if (m) return "形状失败 " + m[1] + (m[2] ? " " + m[2] : "");
+    m = s.match(/^TXT skipped (\d+\/\d+)\s*(.*)$/);
+    if (m) return "文字跳过 " + m[1] + (m[2] ? " " + m[2] : "");
+    return s;
+  }
+
+  function getUserWarnings() {
+    var out = [], seen = {}, i, w;
+    for (i = 0; i < _diag.length; i++) {
+      w = formatUserWarning(_diag[i]);
+      if (w && !seen[w]) { seen[w] = 1; out.push(w); }
+    }
+    if (_txtNo > 0) {
+      w = "文字定位降级 " + _txtNo + "/" + (_txtOk + _txtNo);
+      if (!seen[w]) { seen[w] = 1; out.push(w); }
+    }
+    if (_fontMissList.length) {
+      w = "缺失字体已替换：" + _fontMissList.join("、");
+      if (!seen[w]) { seen[w] = 1; out.push(w); }
+    }
+    return out;
+  }
+
   return { withUndo: withUndo, build: build, buildText: createTextLayers, buildImages: buildImages, organize: organize,
     applyImageGrades: applyImageGrades,
     applyBackgroundBlurs: applyBackgroundBlurs,
     // Flat imports need the same z correction as precomposed ones, but without building groups.
     restack: function (comp) { restackByZ(); relinkMattes(); refreshTextSkewPivots(comp); verifyStack(comp); placeReferences(comp); },
+    getUserWarnings: getUserWarnings,
     getDiag: function () {
     var d = _diag.slice(0);
     if (_txtOk + _txtNo > 0) d.push("TXT measured " + _txtOk + "/" + (_txtOk + _txtNo));

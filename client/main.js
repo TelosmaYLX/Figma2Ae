@@ -6,12 +6,20 @@
   // One timestamped line per event. The bridge modules report through MKReport, so the console
   // shows what they are doing from the first tick, including updater progress.
   var logList = document.getElementById("mk-log");
+  var logCount = document.getElementById("mk-log-count");
   var logCap = 200;
   function stamp(now) {
     return ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2) + ":" + ("0" + now.getSeconds()).slice(-2);
   }
+  function syncLogCount() {
+    if (!logCount || !logList) return;
+    var n = logList.children.length;
+    logCount.textContent = String(n);
+    logCount.hidden = n === 0;
+  }
   function logLine(text, tone) {
     if (!logList) return;
+    var str = String(text == null ? "" : text);
     var line = document.createElement("div");
     line.className = "mk-log-line" + (tone ? " " + tone : "");
     var time = document.createElement("span");
@@ -19,16 +27,32 @@
     time.textContent = stamp(new Date());
     var body = document.createElement("span");
     body.className = "mk-log-text";
-    body.textContent = String(text == null ? "" : text);   // AE and Figma text stays literal
+    if (str.indexOf("\n") !== -1) {
+      var parts = str.split("\n");
+      var main = document.createElement("span");
+      main.className = "mk-log-main";
+      main.textContent = parts[0];
+      body.appendChild(main);
+      for (var i = 1; i < parts.length; i++) {
+        if (!parts[i]) continue;
+        var sub = document.createElement("span");
+        sub.className = "mk-log-sub" + (/^注意：/.test(parts[i]) ? " is-warn" : "");
+        sub.textContent = parts[i];
+        body.appendChild(sub);
+      }
+    } else {
+      body.textContent = str;   // AE and Figma text stays literal
+    }
     line.appendChild(time); line.appendChild(body);
     logList.appendChild(line);
     while (logList.children.length > logCap) logList.removeChild(logList.firstChild);
+    syncLogCount();
     logList.scrollTop = logList.scrollHeight;
   }
   window.MKLog = logLine;
 
   var clearLog = document.getElementById("mk-log-clear");
-  if (clearLog && logList) clearLog.onclick = function () { logList.innerHTML = ""; };
+  if (clearLog && logList) clearLog.onclick = function () { logList.innerHTML = ""; syncLogCount(); };
 
   // ---- Resizable console ---------------------------------------------------
   // The log used to be pinned to a single 72px row, so a tall AE panel could never show more
@@ -161,7 +185,10 @@
 
   // figmaBridge loads after this file but may report before the log exists, so it calls this
   // guarded hook instead of the widget directly.
-  window.MKReport = function (text, isErr) { logLine(text, isErr ? "err" : ""); };
+  window.MKReport = function (text, isErr) {
+    var tone = typeof isErr === "string" ? isErr : (isErr ? "err" : "");
+    logLine(text, tone);
+  };
 
   logLine("F2A 面板已加载", "ok");
 })();

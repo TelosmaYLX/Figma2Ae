@@ -80,30 +80,44 @@ function _mkReadJson(pathStr) {
 
 var _mkContainers = null;    // organize mode: collapsed only after text AND images are in
 
+function _mkCollectWarnings() {
+  try {
+    if (typeof AEShapeBuilder !== "undefined" && typeof AEShapeBuilder.getUserWarnings === "function")
+      return AEShapeBuilder.getUserWarnings();
+  } catch (e) {}
+  return [];
+}
+
 // Collapse every Figma container into its own precomp. Runs LAST, from the panel, because
 // pictures arrive in a separate message — precomposing before them would leave the footage
 // outside the group it belongs to.
-function runOrganize(comp) {
+function runOrganize(comp, omitWarnings) {
   try {
     comp = comp || (app.project ? app.project.activeItem : null);
     if (!comp || !(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
     return AEShapeBuilder.withUndo("Figma -> Organize", function () {
     // No containers (or the user disabled precomps): still reconcile the late text/image passes.
     // The optimized restack is a no-op when the comp is already ordered.
+    var parts = [];
     if (!_mkContainers || !_mkContainers.length) {
       AEShapeBuilder.restack(comp);
       AEShapeBuilder.applyBackgroundBlurs();
       var graded = 0; try { graded = AEShapeBuilder.applyImageGrades(); } catch (egrade) {}
-      var fd = ""; try { fd = AEShapeBuilder.getDiag(); } catch (ef) {}
-      return "no groups" + (graded ? " | 调色 " + graded : "") + (fd ? " | " + fd : "");
+      if (graded) parts.push("调色 " + graded);
+    } else {
+      var n = AEShapeBuilder.organize(comp, _mkContainers);
+      _mkContainers = null;
+      AEShapeBuilder.applyBackgroundBlurs();
+      var graded2 = 0; try { graded2 = AEShapeBuilder.applyImageGrades(); } catch (egrade2) {}
+      if (n > 0) parts.push(n + " 个预合成");
+      if (graded2) parts.push("调色 " + graded2);
     }
-    var n = 0;
-    n = AEShapeBuilder.organize(comp, _mkContainers);
-    _mkContainers = null;
-    AEShapeBuilder.applyBackgroundBlurs();
-    var graded = 0; try { graded = AEShapeBuilder.applyImageGrades(); } catch (egrade2) {}
-    var d = ""; try { d = AEShapeBuilder.getDiag(); } catch (ed) {}
-    return n + " 个预合成" + (graded ? " | 调色 " + graded : "") + (d ? " | " + d : "");
+    var summary = parts.join(" · ");
+    if (!omitWarnings) {
+      var warns = _mkCollectWarnings();
+      if (warns.length) summary = (summary ? summary + "\n" : "") + "注意：" + warns.join("；");
+    }
+    return summary;
     });
   } catch (e) { _mkContainers = null; try { AEShapeBuilder.applyImageGrades(); } catch (egrade3) {} return "organize error: " + e.toString(); }
 }
@@ -201,18 +215,31 @@ function runImportBatch(jobPath) {
         }
         var status = runImport(job.svgPath, job.textsPath, job.gradMapPath, job.effectsPath,
                                job.shiftX || 0, job.shiftY || 0, job.nodesPath, job.containersPath,
-                               job.imagesPath ? _mkReadJson(job.imagesPath) : null, job.imageFolder, comp);
+                               job.imagesPath ? _mkReadJson(job.imagesPath) : null, job.imageFolder, comp, true);
         if (/^(ERROR|node error)/i.test(status)) return status;
+        var images = "";
         if (job.imagesPath && job.imageFolder) {
-          var images = runImportImages(job.imagesPath, job.imageFolder, comp);
-          if (/^(ERROR|image error)/i.test(images)) return status + " | " + images;
+          images = runImportImages(job.imagesPath, job.imageFolder, comp, true);
+          if (/^(ERROR|image error)/i.test(images)) return (status ? status + " · " : "") + images;
         }
-        var result = status + (images ? " | " + images.split(" | ")[0] : "") + " | " + runOrganize(comp);
+        var organized = runOrganize(comp, true);
+        if (/^(ERROR|organize error)/i.test(organized)) return organized;
+
+        var summaryParts = [];
+        if (status) summaryParts.push(status);
+        if (images && images !== "no images") summaryParts.push(images);
+        if (organized) summaryParts.push(organized);
+
+        var extraWarnings = [];
         // Organize AFTER the precomps exist, so newly created compositions land in Precomps too.
         try {
           var placed = _mkOrganizeImport(before, job.name, created);
-          if (placed && placed.moved > 0) result = result + " | " + placed.moved + " 项已整理到「" + placed.name + "」";
-        } catch (eOrg) { result = result + " | 整理失败：" + eOrg; }
+          if (placed && placed.moved > 0) summaryParts.push("已整理 " + placed.moved + " 项到「" + placed.name + "」");
+        } catch (eOrg) { extraWarnings.push("整理失败：" + eOrg); }
+
+        var warnings = _mkCollectWarnings().concat(extraWarnings);
+        var result = "导入完成：" + (summaryParts.length ? summaryParts.join(" · ") : "0 个图层");
+        if (warnings.length) result = result + "\n注意：" + warnings.join("；");
         complete = true;
         return result;
       } finally {
@@ -226,7 +253,7 @@ function runImportBatch(jobPath) {
   } catch (e) { return "batch error: " + e.toString(); }
 }
 
-function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY, nodesPath, containersPath, imageMasks, imageFolder, comp) {
+function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY, nodesPath, containersPath, imageMasks, imageFolder, comp, omitWarnings) {
   comp = comp || (app.project ? app.project.activeItem : null);
   var gradPresets = null, effects = null;
   try { gradPresets = _mkReadJson(gradMapPath); } catch (eg) {}
@@ -234,7 +261,7 @@ function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY,
   _mkContainers = null;
   try { if (containersPath && containersPath.length) _mkContainers = _mkReadJson(containersPath); } catch (ec) {}
 
-  var status;
+  var parts = [];
   var nodes = null;
   try { nodes = _mkReadJson(nodesPath); } catch (en) {}
   if (nodes) {
@@ -242,24 +269,24 @@ function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY,
     // An EMPTY array still means node mode: complex groups may have been routed to Figma PNGs,
     // so falling back to the SVG here would import their shapes a second time.
     try {
-      if (!(comp instanceof CompItem)) status = "ERROR: open a composition first.";
-      else {
-        var modelN = SVGParser.fromNodes(nodes, comp.width, comp.height, { x: 0, y: 0 });   // already frame-relative
-        // Leaf shadows ride on the node itself; only the GROUP-level ones are left to the
-        // bounding-box matcher, otherwise a leaf would get its shadow applied twice.
-        var effN = null;
-        if (effects && effects.length) {
-          effN = [];
-          for (var q = 0; q < effects.length; q++) if (!effects[q].leaf) effN.push(effects[q]);
-          if (!effN.length) effN = null;
-        }
-        var lyrsN = AEShapeBuilder.build(modelN, { comp: comp, oneLayer: false, name: "Figma UI",
-                                                   gradientPresets: gradPresets || null, effects: effN, imageMasks: imageMasks, imageFolder: imageFolder });
-        status = "可编辑模式：已从 " + nodes.length + " 个 Figma 图层创建 " + lyrsN.length + " 个图层。";
+      if (!(comp instanceof CompItem)) return "ERROR: 请先打开一个合成。";
+      var modelN = SVGParser.fromNodes(nodes, comp.width, comp.height, { x: 0, y: 0 });   // already frame-relative
+      // Leaf shadows ride on the node itself; only the GROUP-level ones are left to the
+      // bounding-box matcher, otherwise a leaf would get its shadow applied twice.
+      var effN = null;
+      if (effects && effects.length) {
+        effN = [];
+        for (var q = 0; q < effects.length; q++) if (!effects[q].leaf) effN.push(effects[q]);
+        if (!effN.length) effN = null;
       }
-    } catch (eN) { status = "node error: " + eN.toString(); }
+      var lyrsN = AEShapeBuilder.build(modelN, { comp: comp, oneLayer: false, name: "Figma UI",
+                                                 gradientPresets: gradPresets || null, effects: effN, imageMasks: imageMasks, imageFolder: imageFolder });
+      if (lyrsN.length > 0) parts.push(lyrsN.length + " 个形状");
+    } catch (eN) { return "node error: " + eN.toString(); }
   } else {
-    status = runSvgToShapes(svgPath, gradPresets, effects, shiftX, shiftY, imageMasks, imageFolder, comp);
+    var svgStatus = runSvgToShapes(svgPath, gradPresets, effects, shiftX, shiftY, imageMasks, imageFolder, comp);
+    if (/^ERROR/i.test(svgStatus)) return svgStatus;
+    if (svgStatus) parts.push(svgStatus.replace(/^OK:\s*/i, ""));
   }
 
   try {
@@ -267,13 +294,17 @@ function runImport(svgPath, textsPath, gradMapPath, effectsPath, shiftX, shiftY,
       var texts = _mkReadJson(textsPath);
       if (texts && texts.length) {
         var n = AEShapeBuilder.buildText(comp, texts);
-        status = status + "，以及 " + n + " 个文本图层";
+        parts.push(n === texts.length ? (n + " 个文本") : ("文本 " + n + "/" + texts.length));
       }
     }
   } catch (e) {
-    status = status + " | text error: " + e.toString();
+    parts.push("text error: " + e.toString());
   }
-  try { var d = AEShapeBuilder.getDiag(); if (d) status = status + " | GRAD " + d; } catch (ed) {}
+  var status = parts.join(" · ");
+  if (!omitWarnings) {
+    var warns = _mkCollectWarnings();
+    if (warns.length) status = (status ? status + "\n" : "") + "注意：" + warns.join("；");
+  }
   return status;
 }
 
@@ -287,7 +318,7 @@ function mkChooseImageFolder(hint) {
 }
 
 // Import the saved pictures as footage (+ track mattes for cropped ones).
-function runImportImages(imagesJsonPath, folder, comp) {
+function runImportImages(imagesJsonPath, folder, comp, omitWarnings) {
   try {
     if (!folder || !imagesJsonPath) return "no images";
     comp = comp || (app.project ? app.project.activeItem : null);
@@ -295,7 +326,11 @@ function runImportImages(imagesJsonPath, folder, comp) {
     var images = _mkReadJson(imagesJsonPath);
     if (!images || !images.length) return "no images";
     var n = AEShapeBuilder.buildImages(comp, images, folder, _mkContainers);
-    var d = ""; try { d = AEShapeBuilder.getDiag(); } catch (ed) {}
-    return "已导入 " + n + "/" + images.length + " 张图片" + (d ? " | " + d : "");
+    var summary = (n === images.length) ? (n + " 张图片") : ("图片 " + n + "/" + images.length);
+    if (!omitWarnings) {
+      var warns = _mkCollectWarnings();
+      if (warns.length) summary = summary + "\n注意：" + warns.join("；");
+    }
+    return summary;
   } catch (e) { return "image error: " + e.toString(); }
 }
