@@ -660,17 +660,15 @@ body.mk-log-dragging iframe{pointer-events:none !important;}
 .mk-log-main{ display:block; }
 .mk-log-sub{
   display:block; margin-top:3px;
-  padding:3px 7px; border-radius:var(--radius-sm);
-  background:rgba(255,255,255,.035);
+  padding:2px 0 2px 8px;
   border-left:2px solid var(--border);
-  font-size:10.5px; line-height:1.45; color:var(--text-dim);
+  font-size:11px; line-height:1.45; color:var(--text-dim);
 }
 .mk-log-sub.is-warn{
-  background:rgba(255,255,255,.04);
-  border-left-color:#5a5a5a;
-  color:var(--text-dim);
+  border-left-color:rgba(212,168,67,.55);
+  color:#dfb65a;
 }
-.mk-log-line.ok .mk-log-text{ color:var(--text); }
-.mk-log-line.warn .mk-log-text{ color:var(--text); }
-.mk-log-line.err .mk-log-text{ color:#d98480; }
-.mk-log-line.err .mk-log-time{ color:#9c6a68; }
+.mk-log-line.ok .mk-log-text{ color:#5cc98f; }
+.mk-log-line.warn .mk-log-text{ color:#e0b85c; }
+.mk-log-line.err .mk-log-text{ color:#eb736d; }
+.mk-log-line.err .mk-log-time{ color:#b05f5b; }
