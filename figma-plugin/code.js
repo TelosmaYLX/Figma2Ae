@@ -2175,10 +2175,17 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
     if (_preserveBackgroundBlur) _bindBackgroundBlurs(containers || [], nodeShapes, images, origin);
     _stripOwnerTags(nodeShapes); _stripOwnerTags(texts); _stripOwnerTags(images);
     var frame = rootBounds || bbox;
+    var newComp = options.target === 'ae';
+    var frameSize = { width: frame.width, height: frame.height };
+    if (newComp && !rootBounds && (originals.length !== 1 || originals[0].type !== 'FRAME')) {
+      // A horizontal or vertical line can have a zero-sized axis in its geometry bounds.
+      frameSize.width = Math.max(1, frameSize.width);
+      frameSize.height = Math.max(1, frameSize.height);
+    }
     var shipMsg = { type: 'ship', name: rootName || name,
                     exportCommandId: commandId,
-                    svg: svg, texts: texts, effects: effects, frame: { width: frame.width, height: frame.height },
-                    newComp: options.target === 'ae' && (!!rootFrame || (originals.length === 1 && originals[0].type === 'FRAME')),
+                    svg: svg, texts: texts, effects: effects, frame: frameSize,
+                    newComp: newComp,
                     shift: svgShift, nodes: nodeShapes, nodeOrigin: origin, bytes: svg.length,
                     containers: containers, organize: !!(organize || (containers && containers.length)), preserveImageFilters: _preserveImageFilters,
                     preserveBackgroundBlur: _preserveBackgroundBlur,

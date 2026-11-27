@@ -78,7 +78,21 @@ function mockFigma(root) {
       frame.exportAsync=function(options){return this.children[0].exportAsync.call(this,options);};
       return frame;
     },
-    group(nodes,parent) {const g=group('temporary selection',nodes);g.exportAsync=root.exportAsync;g.clone=function(){return mockClone(this);};g.remove=function(){this.removed=true;this.children.slice().forEach(c=>c.remove());};parent.appendChild(g);return g;},
+    group(nodes,parent) {
+      const bounds = nodes.map(n => n.absoluteBoundingBox);
+      const x = Math.min(...bounds.map(b => b.x)), y = Math.min(...bounds.map(b => b.y));
+      const width = Math.max(...bounds.map(b => b.x + b.width)) - x;
+      const height = Math.max(...bounds.map(b => b.y + b.height)) - y;
+      const g = group('temporary selection', nodes, {width, height, absoluteBoundingBox: {x, y, width, height}});
+      g.exportAsync = root.exportAsync;
+      g.clone = function () { return mockClone(this); };
+      g.remove = function () {
+        this.removed = true;
+        this.children.slice().forEach(c => c.remove());
+      };
+      parent.appendChild(g);
+      return g;
+    },
     // Vector text is flattened to glyph outlines in the real plugin API; the exporter now takes
     // that path for text nodes that carry no fillGeometry (OpenPencil compatibility), so the mock
     // must provide it instead of failing every vector-mode export.

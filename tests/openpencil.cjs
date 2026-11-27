@@ -706,7 +706,12 @@ async function testClientAndRunnerAndExport() {
       const aeRes = await runExport(parseExportArgs(['--format', 'ae', '--ae-port', String(aeServer.address().port), '--node', '1:1']), { client, quiet: true });
       assert.equal(aeRes.format, 'ae');
       assert.equal(aeMsgs[0].type, 'svg');
+      assert.deepEqual(aeMsgs[0].compSize, { width: 200, height: 200 });
       assert.equal(aeMsgs[aeMsgs.length - 1].type, 'images-complete');
+
+      aeMsgs.length = 0;
+      await runExport(parseExportArgs(['--format', 'ae', '--ae-port', String(aeServer.address().port), '--node', '1:11']), { client, quiet: true });
+      assert.deepEqual(aeMsgs[0].compSize, { width: 40, height: 20 }, 'An ordinary OpenPencil layer can create an AE comp');
     } finally {
       await new Promise(r => aeServer.close(r));
     }

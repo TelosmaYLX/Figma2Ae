@@ -81,7 +81,14 @@ function uiHarness(bridge, main) {
   assert.equal(connected.batches.length, 1); assert.equal(connected.batches[0].length, 2);
   assert.equal(connected.batches[0].filter(im=>im.reference&&im.hidden).length,1);
   assert.equal(ui.elements.ship.disabled, false); assert.equal(ui.elements['mark-raster'].disabled, false);
-  const textBridge = bridgeHarness(), textMain = harness(group('文字画框', [node('TEXT', '文字 A'), node('TEXT', '文字 B')]));
+  const at = (layer, x, y) => Object.assign(layer, {
+    absoluteBoundingBox: {x,y,width:layer.width,height:layer.height},
+    absoluteRenderBounds: {x,y,width:layer.width,height:layer.height}, absoluteTransform: [[1,0,x],[0,1,y]]
+  });
+  const textA = at(node('TEXT', '文字 A'), -24, 150);
+  const textB = at(node('TEXT', '文字 B'), 124, 119);
+  const textBridge = bridgeHarness(), textMain = harness(group('文字画框', [textA, textB]));
+  textMain.figma.currentPage.selection = [textA, textB];
   const textUi = uiHarness(textBridge, textMain);
   assert.equal(textUi.elements['text-mode'].value, 'vector');
   textUi.elements['text-mode'].value = 'png';
@@ -91,8 +98,11 @@ function uiHarness(bridge, main) {
   });
   textUi.elements.ship.onclick(); await finished;
   assert.equal(textBridge.imports[0].meta.texts.length, 0);
-  assert.equal(textBridge.imports[0].meta.compSize, null);
-  assert.equal(textBridge.batches.length, 1); assert.equal(textBridge.batches[0].filter(im=>!im.reference).length, 2, 'The text mode reaches the exporter through the actual UI message handler');
+  const textCompSize = textBridge.imports[0].meta.compSize;
+  assert.deepEqual([textCompSize?.width, textCompSize?.height], [248, 91], 'The new comp fits the combined bounds of the selected layers');
+  assert.equal(textBridge.batches.length, 1);
+  assert.deepEqual(Array.from(textBridge.batches[0].filter(im => !im.reference), im => [im.sourceId, im.x, im.y]),
+    [[textA.id, 0, 31], [textB.id, 148, 0]], 'PNG text reaches the bridge at its original relative position');
   const policyBridge = bridgeHarness(), policyMain = harness(node('FRAME', '选项画框', {clipsContent: true, fills: [{type: 'SOLID'}],
     width: 810.25, height: 432, absoluteBoundingBox: {x: 20, y: 30, width: 810.25, height: 432},
     children: [group('Group', [node('TEXT', '组文字')]), node('INSTANCE', 'Instance', {children: [node('TEXT', '实例文字')]})]}));
@@ -110,10 +120,6 @@ function uiHarness(bridge, main) {
   const policyGroupContainers = policyBridge.imports[0].meta.containers.filter(c => !c.singleLayer);
   assert.equal(policyGroupContainers.length, 1); assert.equal(policyGroupContainers[0].clip, false);
   assert.deepEqual(Array.from(policyBridge.imports[0].meta.containers.filter(c => c.singleLayer), c => c.name).sort(), ['Group', 'Instance']);
-  const at = (layer, x, y) => Object.assign(layer, {
-    absoluteBoundingBox: {x,y,width:layer.width,height:layer.height},
-    absoluteRenderBounds: {x,y,width:layer.width,height:layer.height}, absoluteTransform: [[1,0,x],[0,1,y]]
-  });
   const artwork = at(node('RECTANGLE', 'Selected shape', {cornerRadius:0,
     fillGeometry:[{data:'M0 0H100V60H0Z',windingRule:'NONZERO'}],
     fills:[{type:'SOLID',color:{r:1,g:0,b:0}}]}), 1120.25, 580.5);

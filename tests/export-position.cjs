@@ -69,6 +69,7 @@ async function check(name, fn) {
     const direct=await exportTo(true,'aep');
     assert.deepEqual(direct.nodes[0].matrix.slice(4),[0,0]);
     assert.deepEqual(direct.frame,{width:20,height:10});
+    assert.equal(direct.newComp,false);
     h.figma.currentPage.selection=[frame];
     h.figma.ui.onmessage({type:'unmark-root'});
     h.figma.currentPage.selection=[selected];
@@ -80,7 +81,17 @@ async function check(name, fn) {
     h.figma.currentPage.selection=[selected];
     const unmarked=await exportTo(true,'ae');
     assert.deepEqual(unmarked.nodes[0].matrix.slice(4),[0,0]);
-    assert.equal(unmarked.newComp,false);
+    assert.deepEqual(unmarked.frame,{width:20,height:10});
+    assert.equal(unmarked.newComp,true);
+  });
+
+  await check('a horizontal line can create an AE comp with a positive height', async () => {
+    const bounds = rect(20, 30, 100, 0);
+    const line = node('LINE', 'Line', {height:0, absoluteBoundingBox:bounds, absoluteRenderBounds:rect(20,29,100,2)});
+    const h = harness(line);
+    const {ship} = await h.run(true,false,false,false,{target:'ae'});
+    assert.equal(ship.newComp,true);
+    assert.deepEqual(ship.frame,{width:100,height:1});
   });
 
   await check('crop-bound changes preserve the scene origin across repeated measurements', async () => {
