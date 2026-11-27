@@ -50,6 +50,11 @@ function rotatedBounds(cx, cy, w, h, rotDeg) {
   return {minX: cx - ex, minY: cy - ey, maxX: cx + ex, maxY: cy + ey};
 }
 
+function imageOrientation(cx, cy, rotation, flipY) {
+  if (flipY) return `translate(${num(cx)} ${num(cy)}) rotate(${num(rotation)}) scale(1 -1) translate(${num(-cx)} ${num(-cy)})`;
+  return rotation ? `rotate(${num(rotation)} ${num(cx)} ${num(cy)})` : '';
+}
+
 function roundedRectSvgGeom(x, y, w, h, radii, r, extraAttrs = '') {
   const maxR = Math.max(0, Math.min(w / 2, h / 2));
   if (Array.isArray(radii) && radii.length === 4) {
@@ -798,17 +803,16 @@ function buildWebModel(packet) {
       } else {
         const scale = image.rasterScale ? (1 / image.rasterScale) : (image.scaleMode === 'FIT' ? Math.min(w / nw, h / nh) : Math.max(w / nw, h / nh));
         const dw = nw * scale, dh = nh * scale;
-        const tf = rot
-          ? ` transform="translate(${num(cx)} ${num(cy)}) rotate(${num(rot)}) translate(${num(-dw / 2)} ${num(-dh / 2)})"`
-          : ` x="${num(cx - dw / 2)}" y="${num(cy - dh / 2)}"`;
-        imgTag = `<image href="${maskHref}" preserveAspectRatio="none" width="${num(dw)}" height="${num(dh)}" opacity="${num(opacity)}"${tf}/>`;
+        const orientation = imageOrientation(cx, cy, rot, image.flipY);
+        const tf = orientation ? ` transform="${orientation}"` : '';
+        imgTag = `<image href="${maskHref}" preserveAspectRatio="none" x="${num(cx - dw / 2)}" y="${num(cy - dh / 2)}" width="${num(dw)}" height="${num(dh)}" opacity="${num(opacity)}"${tf}/>`;
       }
       if (image.matte) {
         const clipId = nextDef('f2a-mclip-');
         const mattePrim = image.matte.kind === 'ellipse'
           ? {k: 'ellipse', cx: 0, cy: 0, rx: w / 2, ry: h / 2}
           : {k: 'rect', cx: 0, cy: 0, w, h, r: image.matte.r || 0};
-        const matteTf = rot ? `translate(${num(cx)} ${num(cy)}) rotate(${num(rot)})` : `translate(${num(cx)} ${num(cy)})`;
+        const matteTf = `translate(${num(cx)} ${num(cy)}) rotate(${num(rot)})${image.flipY ? ' scale(1 -1)' : ''}`;
         rootDefs.push(`<clipPath id="${clipId}">${geometryTag({prim: mattePrim}, ` transform="${matteTf}"`)}</clipPath>`);
         imgTag = `<g clip-path="url(#${clipId})">${imgTag}</g>`;
       }
@@ -1262,7 +1266,8 @@ function buildWebModel(packet) {
     const scale = item.rasterScale ? (1 / item.rasterScale) : (item.scaleMode === 'FIT' ? Math.min(width / nw, height / nh) : Math.max(width / nw, height / nh));
     const dw = nw * scale, dh = nh * scale;
     const imgLeft = cx - dw / 2, imgTop = cy - dh / 2;
-    const plainGridImg = !item.matte && !item.imageMatrix && !rot && !needsSvgEffectFilter(item) &&
+    const orientation = imageOrientation(cx, cy, rot, item.flipY);
+    const plainGridImg = !item.matte && !item.imageMatrix && !orientation && !needsSvgEffectFilter(item) &&
       [imgLeft, imgTop, imgLeft + dw, imgTop + dh].every(isGridAligned);
 
     let html;
@@ -1303,14 +1308,14 @@ function buildWebModel(packet) {
         const a = m[0] / nw, b1 = m[1] / nw, c = m[2] / nh, d = m[3] / nh;
         imgTag = `<image href="${escapeHtml(asset.file)}" width="${num(nw)}" height="${num(nh)}" preserveAspectRatio="none" transform="matrix(${num(a)} ${num(b1)} ${num(c)} ${num(d)} ${num(m[4])} ${num(m[5])})"${gradeAttrs}/>`;
       } else {
-        const rotAttr = rot ? ` transform="rotate(${num(rot)} ${num(cx)} ${num(cy)})"` : '';
-        imgTag = `<image href="${escapeHtml(asset.file)}" x="${num(imgLeft)}" y="${num(imgTop)}" width="${num(dw)}" height="${num(dh)}" preserveAspectRatio="none"${rotAttr}${gradeAttrs}/>`;
+        const tf = orientation ? ` transform="${orientation}"` : '';
+        imgTag = `<image href="${escapeHtml(asset.file)}" x="${num(imgLeft)}" y="${num(imgTop)}" width="${num(dw)}" height="${num(dh)}" preserveAspectRatio="none"${tf}${gradeAttrs}/>`;
       }
 
       let body = imgTag;
       if (item.matte) {
         const clipId = nextDef('f2a-iclip-');
-        const rotAttr = rot ? ` transform="rotate(${num(rot)} ${num(cx)} ${num(cy)})"` : '';
+        const rotAttr = orientation ? ` transform="${orientation}"` : '';
         const matteGeom = item.matte.kind === 'ellipse'
           ? `<ellipse cx="${num(cx)}" cy="${num(cy)}" rx="${num(width / 2)}" ry="${num(height / 2)}"${rotAttr}/>`
           : roundedRectSvgGeom(cx - width / 2, cy - height / 2, width, height, item.matte.radii, item.matte.r, rotAttr);

@@ -1775,9 +1775,34 @@ function _markBlendPassThrough(containers, channels) {
     for (var p = path.length - 1; p >= 0; p--) {
       var c = byId[path[p]];
       if (!c) continue;
-      if (c.blend !== 'PASS_THROUGH' || c.clip || c.maskScope || c.maskId || c.blur || (c.fx && c.fx.length) || c.opacity < 1) break;
+      if (c.blend !== 'PASS_THROUGH' || c.clip || c.maskScope || c.maskId || c.blur || (c.fx && c.fx.length) ||
+          c.opacity === 0 || (_webTarget && c.opacity < 1)) break;
       c.collapseForBlends = true;
     }
+  }
+
+  // AE cannot interpolate the group result against its backdrop after collapsing.
+  // Preserve the backdrop and approximate the group fade on each drawing result.
+  var fades = {};
+  for (i = 0; i < containers.length; i++) {
+    var group = containers[i];
+    if (group.collapseForBlends && group.opacity < 1) {
+      fades[group.id] = group.opacity;
+      group.opacity = 1;
+    }
+  }
+  if (!Object.keys(fades).length) return;
+  for (i = 0; i < rows.length; i++) {
+    var result = rows[i];
+    if (result.reference || result.maskSource || result.collapseForBlends) continue;
+    var opacity = 1, ancestors = result.path || [];
+    for (var at = ancestors.length - 1; at >= 0; at--) {
+      var parent = byId[ancestors[at]];
+      if (!parent) continue;
+      if (!parent.collapseForBlends) break;
+      if (fades[parent.id] != null) opacity *= fades[parent.id];
+    }
+    if (opacity < 1) result.opacity = (result.opacity == null ? 1 : result.opacity) * opacity;
   }
 }
 
@@ -2783,11 +2808,13 @@ function _imagePaintMeta(n, f, rootId, organize, editable) {
   // absoluteBoundingBox is AXIS-ALIGNED, so for a rotated picture it is bigger than
   // the frame itself. Send the node's OWN size plus its true centre (from
   // absoluteTransform) so AE can place and crop it correctly at any angle.
-  var lw = n.width, lh = n.height, ccx = b.x + b.width / 2, ccy = b.y + b.height / 2;
+  var lw = n.width, lh = n.height, ccx = b.x + b.width / 2, ccy = b.y + b.height / 2, flipY = false;
   try {
     var mt = n.absoluteTransform;
     ccx = mt[0][0] * (lw / 2) + mt[0][1] * (lh / 2) + mt[0][2];
     ccy = mt[1][0] * (lw / 2) + mt[1][1] * (lh / 2) + mt[1][2];
+    // Rotation uses the first axis, so a negative determinant reflects the local Y axis.
+    flipY = mt[0][0] * mt[1][1] - mt[0][1] * mt[1][0] < 0;
   } catch (etm) {}
   return {
     _ownerId: n.id,
@@ -2807,7 +2834,7 @@ function _imagePaintMeta(n, f, rootId, organize, editable) {
     maskId: organize && _isContainer(n) ? null : (_maskByNode[n.id] || null),
     blend: organize && _isContainer(n) ? 'NORMAL' : (n.blendMode || 'NORMAL'),
     path: organize && _isContainer(n) ? _pathOf(n, rootId).concat([n.id]) : _pathOf(n, rootId), z: _zOf(n),
-    rotation: _rotOf(n), matte: needsMatte ? m : null
+    rotation: _rotOf(n), flipY: flipY, matte: needsMatte ? m : null
   };
 }
 async function collectImages(root, rootId, organize, rasterFillByNode) {
@@ -2864,7 +2891,7 @@ async function shipImages(images, commandId, deferHashImages) {
         cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch,
         natW: 0, natH: 0, scaleMode: im.scaleMode, rasterScale: im.rasterScale || null, imageMatrix: im.imageMatrix || null,
         maskSource: im.maskSource || null, maskType: im.maskType || null,
-        opacity: im.opacity, rotation: im.rotation, matte: im.matte,
+        opacity: im.opacity, rotation: im.rotation, flipY: im.flipY === true, matte: im.matte,
         blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0), maskId: im.maskId || null,
         hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, shadowBase: im.shadowBase || null, mergedBlend: !!im.mergedBlend, external: !!im.external };
       if (im.backgroundBlur) deferredMeta.backgroundBlur = im.backgroundBlur;
@@ -2909,7 +2936,7 @@ async function shipImages(images, commandId, deferHashImages) {
                  cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch,
                  natW: natW, natH: natH, scaleMode: im.scaleMode, rasterScale: im.rasterScale || null, imageMatrix: im.imageMatrix || null,
                  maskSource: im.maskSource || null, maskType: im.maskType || null,
-                 opacity: im.opacity, rotation: im.rotation, matte: im.matte,
+                 opacity: im.opacity, rotation: im.rotation, flipY: im.flipY === true, matte: im.matte,
                  blend: im.blend || 'NORMAL', path: im.path || null, z: (im.z || 0), maskId: im.maskId || null,
                  hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, shadowBase: im.shadowBase || null, mergedBlend: !!im.mergedBlend, external: !!im.external };
     if (im.backgroundBlur) meta.backgroundBlur = im.backgroundBlur;

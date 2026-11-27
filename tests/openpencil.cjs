@@ -237,7 +237,7 @@ function createMockOpenPencilScene() {
   const rrPhoto2 = makeNode('ROUNDED_RECTANGLE', 'Hero Photo 2', {
     id: '1:12', x: 60, y: 100, width: 40, height: 20, cornerRadius: 0,
     fills: [{ type: 'IMAGE', imageHash: 'hash-banner', scaleMode: 'FILL', imageTransform: [[1, 0, 0], [0, 1, 0]], opacity: 1, visible: true }],
-    absoluteTransform: [[1, 0, 60], [0, 1, 100]],
+    absoluteTransform: [[1, 0, 60], [0, -1, 120]],
     absoluteBoundingBox: { x: 60, y: 100, width: 40, height: 20 },
     absoluteRenderBounds: { x: 60, y: 100, width: 40, height: 20 },
   });
@@ -645,6 +645,8 @@ async function testClientAndRunnerAndExport() {
     assert.equal(exported.packet.images.length, 4, '2 deferred photo fills + 1 shadow + 1 reference');
     assert.ok(exported.packet.images.every(im => !im.shadowBase), 'Headless shadow extraction must clear shadowBase');
     assert.ok(exported.packet.images.some(im => im.reference), 'Reference image must be appended');
+    assert.equal(exported.packet.images.find(im => im.sourceId === '1:12').flipY, true, 'Deferred OpenPencil images preserve mirrored transforms');
+    assert.equal(exported.packet.images.find(im => im.sourceId === '1:11').flipY, false);
 
     // Feed packet into F2A AEP packet normalizer AND Web bundle writer!
     exported.packet.aeVersion = '26.0';

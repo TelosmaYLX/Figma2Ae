@@ -426,7 +426,7 @@
                       natW: im.natW, natH: im.natH, scaleMode: im.scaleMode, rasterScale: im.rasterScale || null,
                       imageMatrix: im.imageMatrix || null, maskSource: im.maskSource || null, maskType: im.maskType || null,
                       imageFilters: im.imageFilters || null,
-                      opacity: im.opacity, rotation: im.rotation, matte: im.matte, blend: im.blend,
+                      opacity: im.opacity, rotation: im.rotation, flipY: im.flipY === true, matte: im.matte, blend: im.blend,
                       path: im.path, z: im.z, maskId: im.maskId || null,
                       cx: im.cx, cy: im.cy, cw: im.cw, ch: im.ch, hidden: !!im.hidden, reference: !!im.reference, shadow: !!im.shadow, mergedBlend: !!im.mergedBlend, external: !!im.external });
         }

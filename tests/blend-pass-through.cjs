@@ -15,6 +15,36 @@ async function fixture(){
  assert.deepEqual(flags,{'Scene':false,'Pass wrapper':true,'Mask group':true,'Plain group':false,'Normal boundary':false,'Inner pass':true});
  const overlay=packet.nodes.find(n=>n.name==='Overlay');
  assert.ok(overlay.maskId&&packet.nodes.some(n=>n.maskSource===overlay.maskId),'The retained blend still has its independent matte');
+ const fade = group('Faded pass-through', [
+   group('Secondary fade', [
+     rect('Independent mask', {isMask:true, maskType:'ALPHA'}),
+     rect('Faded color blend', {blendMode:'COLOR', opacity:.5}),
+   ], {opacity:.75}),
+   group('Local composite', [rect('Local fill')], {blendMode:'NORMAL', opacity:.8}),
+ ], {opacity:.6});
+ const fadedScene = group('Faded scene', [rect('Color backdrop'), fade], {blendMode:'NORMAL'});
+ for (const target of ['ae', 'aep', 'web']) {
+   const {ship} = await harness(fadedScene).run(true,false,true,false,{target,mergeBlends:false});
+   const containers = Object.fromEntries(ship.containers.map(c => [c.name, c]));
+   const blend = ship.nodes.find(n => n.name === 'Faded color blend');
+   const matte = ship.nodes.find(n => n.maskSource === blend.maskId);
+   if (target === 'web') {
+     assert.equal(containers['Faded pass-through'].opacity, .6);
+     assert.equal(containers['Faded pass-through'].collapseForBlends, false);
+     assert.equal(blend.opacity, .5);
+     continue;
+   }
+   assert.equal(containers['Faded pass-through'].collapseForBlends, true);
+   assert.equal(containers['Secondary fade'].collapseForBlends, true);
+   assert.equal(containers['Secondary fade'].opacity, 1);
+   assert.equal(containers['Faded pass-through'].opacity, 1);
+   assert.ok(Math.abs(blend.opacity - .225) < 1e-9);
+   assert.equal(blend.blend, 'COLOR');
+   assert.equal(matte.opacity, 1);
+   assert.equal(containers['Local composite'].collapseForBlends, false);
+   assert.equal(containers['Local composite'].opacity, .48);
+   assert.equal(ship.nodes.find(n => n.name === 'Local fill').opacity, 1);
+ }
  const text=await harness(group('Text scene',[rect('Text backdrop'),group('Normal text wrapper',[node('TEXT','Mixed text',{blendMode:'MULTIPLY'})],{blendMode:'NORMAL'})])).run(true,false,true,false,{target:'aep',mergeBlends:false});
  const textBoundary=text.ship.containers.find(c=>c.name==='Normal text wrapper');
  assert.ok(textBoundary&&!textBoundary.collapseForBlends,'A text-only normal wrapper must remain an isolation boundary');

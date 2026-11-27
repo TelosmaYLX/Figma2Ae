@@ -638,7 +638,7 @@ class Writer:
         cx, cy = item.get('cx', item['x'] + item['w'] / 2), item.get('cy', item['y'] + item['h'] / 2)
         layer.transform.anchor_point.value = [source.width / 2, source.height / 2, 0]
         layer.transform.position.value = [cx - context['x'], cy - context['y'], 0]
-        layer.transform.scale.value = [scale * 100, scale * 100, 100]
+        layer.transform.scale.value = [scale * 100, (-scale if item.get('flipY') else scale) * 100, 100]
         layer.transform.rotation.value = item.get('rotation', 0)
         if item.get('imageMatrix'):
             m = item['imageMatrix']
@@ -663,6 +663,8 @@ class Writer:
             mask = self.shape(context, {'name': layer.name + ' matte', 'prim': primitive, 'subpaths': []}, white=True)
             mask.transform.position.value = [cx - context['x'], cy - context['y'], 0]
             mask.transform.rotation.value = item.get('rotation', 0)
+            if item.get('flipY'):
+                mask.transform.scale.value = [100, -100, 100]
             layer.set_track_matte(mask, TrackMatteType.ALPHA)
             self.counts['mattes'] += 1
         if grade and self.grade_effect and not item.get('reference'):

@@ -133,7 +133,7 @@ node scripts/ae-eval.mjs tests/ae-aep-layout.jsx artifacts/aep-layout-pixels-ae-
 
 AEP 的形状按路径边界、文字按字形边界、图片及预合成按素材尺寸居中锚点，并补偿位置保持画面不动。文字补齐原生连续栅格化标志，避免 AE 把字形内容边界读成整张合成。切图倍率默认 1×，可选 1×/2×/3×/4×；栅格 PNG 携带 `rasterScale`，AE/AEP 按倍率倒数缩放；普通图片保留原始像素与 FIT/FILL，不按栅格规则处理。
 
-预合成默认关闭塌陷变换。导出后仍保留叠加等混合层时，仅为其穿透祖先链标记 `collapseForBlends`；普通组、已合并内容保持关闭。正常混合模式、整体裁剪/蒙版、整体效果或透明度构成合成边界，不继续向上传递。直接创建和 AEP 写入使用同一标记，质量/采样不变。`node tests/blend-pass-through.cjs` 验证导出标记、保留蒙版和已合并内容；在独立空白 AE 会话运行 `tests/ae-blend-pass-through.jsx`（设置 `F2A_ROOT`、`F2A_BLEND_FIXTURE`）检查两个后端实际读入的塌陷状态。
+预合成默认关闭塌陷变换。导出后仍保留叠加等混合层时，仅为其穿透祖先链标记 `collapseForBlends`。Normal、整体裁剪或蒙版、整体效果仍作为合成边界。含混合层的半透明穿透组保留底图依赖，把组透明度传给该链实际绘制的图层或预合成。`node tests/blend-pass-through.cjs` 验证导出标记、透明度、保留蒙版和已合并内容。在独立空白 AE 会话运行 `tests/ae-blend-pass-through.jsx`（设置 `F2A_ROOT`、`F2A_BLEND_FIXTURE`）检查两个后端的塌陷状态。
 
 共享独立蒙版内的图层需要与外部底图混合时，按绘制层分配蒙版，移除隔离这些混合层的共享 `maskScope`。每个绘制层的蒙版结果使用独立预合成，内部 Normal，原混合模式和透明度放在外层；穿透祖先连续开启塌陷。嵌套蒙版按层级保留，明确 Normal 的组仍保持隔离。原图图片的填充透明度直接传递，图片字节保留。`node tests/masked-blend-layers.cjs` 覆盖双层共享蒙版、加深模式、80% 图片填充、坐标及实际 AEP 写入；现有独立/嵌套图片蒙版检查覆盖不需要外部混合的范围。
 

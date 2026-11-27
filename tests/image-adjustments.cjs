@@ -219,6 +219,16 @@ async function check() {
   assert.equal(crop.matte.kind, 'rect');
   assert.deepEqual(crop.imageMatrix.map(v => Math.round(v)), [200, 0, 0, 80, -50, -8]);
 
+  const reflected = photo('Reflected image', zero, {absoluteTransform: [[0, 1, 20], [1, 0, 30]]});
+  const mirror = harness(group('Reflected fill scene', [reflected]));
+  mirror.figma.getImageByHash = keep.h.figma.getImageByHash;
+  const mirrored = (await mirror.run(true,true,true,false,{target:'ae'})).images[0];
+  assert.equal(mirrored.rotation, 90);
+  assert.equal(mirrored.flipY, true);
+  assert.equal(mirrored.imageMatrix, null);
+  assert.equal(mirrored.rasterScale, null, 'Mirroring keeps the original image editable');
+  assert.equal(fullWidth.flipY, false);
+
   const forced = photo('*固定图片', {contrast:.3}), stacked = frameFixture({contrast:.3});
   const fixed = (await harness(group('Marked', [forced])).run(true,true,true,false,{preserveImageFilters:true})).images[0];
   assert.equal(fixed.rasterScale, 1);

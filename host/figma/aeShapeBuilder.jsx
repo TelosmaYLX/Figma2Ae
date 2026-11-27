@@ -2026,7 +2026,7 @@ var AEShapeBuilder = (function () {
     var tg = lyr.property("ADBE Transform Group");
     tg.property("ADBE Anchor Point").setValue([gradeSource ? item.width / 2 : nw / 2, gradeSource ? item.height / 2 : nh / 2, 0]);
     tg.property("ADBE Position").setValue([fx0, fy0, 0]);
-    tg.property("ADBE Scale").setValue([sc * 100, sc * 100, 100]);
+    tg.property("ADBE Scale").setValue([sc * 100, (im.flipY ? -sc : sc) * 100, 100]);
     if (im.rotation) { try { tg.property("ADBE Rotate Z").setValue(im.rotation); } catch (er) {} }
     if (im.imageMatrix) {
       var m = im.imageMatrix, a = m[0] / nw, b = m[1] / nw, c = m[2] / nh, d = m[3] / nh;
@@ -2065,6 +2065,7 @@ var AEShapeBuilder = (function () {
       mtg.property("ADBE Anchor Point").setValue([0, 0, 0]);
       mtg.property("ADBE Position").setValue([fx0, fy0, 0]);
       if (im.rotation) { try { mtg.property("ADBE Rotate Z").setValue(im.rotation); } catch (er2) {} }
+      if (im.flipY) mtg.property("ADBE Scale").setValue([100, -100, 100]);
       mt.moveBefore(lyr);                       // a matte must sit directly above
       try { lyr.setTrackMatte(mt, TrackMatteType.ALPHA); }   // AE 23+
       catch (e1) { try { lyr.trackMatteType = TrackMatteType.ALPHA; } catch (e2) {} }
