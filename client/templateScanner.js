@@ -428,7 +428,6 @@ function scanTemplateDirectory(rootDir) {
 }
 
 // Group a flat scanned list into immediate child subfolders + direct files at `subDir`.
-// Each folder carries up to 4 preview thumbnails (preferring still images, falling back to playable videos).
 function listFolderLevel(items, subDir) {
   const cur = String(subDir || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
   const prefix = cur ? (cur + '/') : '';
@@ -447,26 +446,13 @@ function listFolderLevel(items, subDir) {
     const childRel = cur ? (cur + '/' + seg) : seg;
     let entry = folderMap.get(childRel);
     if (!entry) {
-      entry = { name: seg, relDir: childRel, count: 0, _thumbs: [], _videos: [], _seen: new Set() };
+      entry = { name: seg, relDir: childRel, count: 0 };
       folderMap.set(childRel, entry);
     }
     entry.count++;
-    if (item.thumb && entry._thumbs.length < 4 && !entry._seen.has(item.thumb)) {
-      entry._seen.add(item.thumb);
-      entry._thumbs.push({ kind: 'image', src: item.thumb, transparent: !!item.transparent });
-    } else if (item.video && entry._videos.length < 4 && !entry._seen.has(item.video)) {
-      entry._seen.add(item.video);
-      entry._videos.push({ kind: 'video', src: item.video });
-    }
   }
   const folders = Array.from(folderMap.values())
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-    .map(e => ({
-      name: e.name,
-      relDir: e.relDir,
-      count: e.count,
-      previews: e._thumbs.concat(e._videos).slice(0, 4),
-    }));
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   return { folders, files };
 }
 
