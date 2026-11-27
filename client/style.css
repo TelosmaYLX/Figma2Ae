@@ -505,6 +505,40 @@ body{
   width:0%; height:100%; background:var(--text);
 }
 
+/* Folder cards & breadcrumb bar in 本地文件 */
+.f2m-crumbs{
+  display:flex; align-items:center; gap:3px; flex-wrap:wrap;
+  padding:3px 6px;
+  background:var(--bg-2); border:1px solid var(--border-soft); border-radius:var(--radius-sm);
+  font-size:11px; color:var(--text-mute);
+}
+.f2m-crumb-back{
+  appearance:none; border:1px solid var(--border-soft); background:var(--surface);
+  color:var(--text-dim); font:inherit; font-size:10.5px;
+  padding:1px 6px; border-radius:3px; cursor:pointer; margin-right:3px;
+  display:inline-flex; align-items:center; gap:3px;
+}
+.f2m-crumb-back:hover{ background:var(--surface-hi); color:var(--text); border-color:var(--border); }
+.f2m-crumb-btn{
+  appearance:none; border:0; background:transparent; padding:1px 4px; border-radius:3px;
+  color:var(--text-dim); font:inherit; font-size:11px; cursor:pointer;
+  max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.f2m-crumb-btn:hover{ background:var(--surface-hi); color:var(--text); }
+.f2m-crumb-cur{
+  color:var(--text); font-weight:600; padding:1px 4px;
+  max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.f2m-crumb-sep{ color:var(--text-mute); user-select:none; }
+.f2m-stage.is-folder{
+  background:linear-gradient(180deg, #1b1b1b 0%, #161616 100%);
+}
+.f2m-folder-ico{
+  width:34px; height:28px; display:block; color:#8f8f8f;
+  transition:color .14s, transform .14s;
+}
+.f2m-card.is-folder:hover .f2m-folder-ico{ color:var(--text); transform:translateY(-1px); }
+
 /* Variant buttons (only on multi-variant templates). They sit left of the favourite star that
    floats in the same top-right corner. */
 .f2m-varbar{

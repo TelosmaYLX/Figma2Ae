@@ -129,12 +129,14 @@ function findBasePreviewVideo(dir, base) {
   return null;
 }
 
-function scanTitlesFactoryPack(projectDir, packLabel) {
+function scanTitlesFactoryPack(projectDir, packLabel, relBase) {
   const pkgDir = path.join(projectDir, 'Package');
   const imgDir = path.join(projectDir, 'Images');
   const vidDir = path.join(projectDir, 'Videos');
   const ffxDir = path.join(projectDir, 'ffx');
   const items = [];
+  const basePrefix = relBase ? String(relBase).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '') : '';
+  function joinRel(seg) { return basePrefix ? (basePrefix + '/' + seg) : seg; }
 
   if (fs.existsSync(pkgDir)) {
     const cats = fs.readdirSync(pkgDir, { withFileTypes: true })
@@ -176,8 +178,10 @@ function scanTitlesFactoryPack(projectDir, packLabel) {
         items.push({
           id: 'tpl-' + createHash('sha1').update(aepPath).digest('hex').slice(0, 12),
           kind: 'aep',
+          ext: 'AEP',
           pack: packLabel,
           category: cat.name,
+          relDir: joinRel(cat.name),
           name: base,
           file: aepPath,
           thumb: hasPng ? pngPath : catFallbackThumb,
@@ -196,8 +200,10 @@ function scanTitlesFactoryPack(projectDir, packLabel) {
       items.push({
         id: 'ffx-' + createHash('sha1').update(ffxPath).digest('hex').slice(0, 12),
         kind: 'ffx',
+        ext: 'FFX',
         pack: packLabel,
         category: 'FFX 特效',
+        relDir: joinRel('ffx'),
         name: f.replace(/\.ffx$/i, ''),
         file: ffxPath,
         thumb: null,
@@ -216,21 +222,26 @@ function scanTemplateDirectory(rootDir) {
   const consumedDirs = new Set();
 
   function walk(dir, depth, topPack) {
-    if (depth > 4) return;
+    if (depth > 6) return;
     if (consumedDirs.has(dir)) return;
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
     catch (e) { return; }
 
     const packName = topPack || path.basename(dir);
+    const relDir = dir === resolved ? '' : path.relative(resolved, dir).replace(/\\/g, '/');
 
     // 1) Detect Titles Factory pack structure (contains Package/ + Images/ or Videos/)
     const hasPackage = entries.some(e => e.isDirectory() && e.name === 'Package');
     const hasImages = entries.some(e => e.isDirectory() && e.name === 'Images');
     const hasVideos = entries.some(e => e.isDirectory() && e.name === 'Videos');
     if (hasPackage && (hasImages || hasVideos)) {
-      const label = path.basename(dir) === 'project' ? path.basename(path.dirname(dir)) : path.basename(dir);
-      items.push(...scanTitlesFactoryPack(dir, label));
+      const isProjectWrapper = path.basename(dir) === 'project';
+      const label = isProjectWrapper ? path.basename(path.dirname(dir)) : path.basename(dir);
+      const packRelBase = isProjectWrapper
+        ? path.relative(resolved, path.dirname(dir)).replace(/\\/g, '/')
+        : relDir;
+      items.push(...scanTitlesFactoryPack(dir, label, packRelBase === '.' ? '' : packRelBase));
       consumedDirs.add(dir);
       return;
     }
@@ -268,6 +279,7 @@ function scanTemplateDirectory(rootDir) {
         ext: ext,
         pack: packName,
         category: 'AEP 模板',
+        relDir: relDir,
         name: base,
         file: aepPath,
         thumb: thumbPath,
@@ -289,6 +301,7 @@ function scanTemplateDirectory(rootDir) {
         ext: 'MOGRT',
         pack: packName,
         category: catName === packName ? 'MOGRT' : catName,
+        relDir: relDir,
         name: base,
         file: mPath,
         thumb: thumbPath,
@@ -310,6 +323,7 @@ function scanTemplateDirectory(rootDir) {
         ext: 'FFX',
         pack: packName,
         category: 'FFX 特效',
+        relDir: relDir,
         name: base,
         file: fPath,
         thumb: thumbPath,
@@ -341,6 +355,7 @@ function scanTemplateDirectory(rootDir) {
           playable: playable,
           pack: packName,
           category: '视频',
+          relDir: relDir,
           name: base,
           file: fullPath,
           thumb: null,
@@ -357,6 +372,7 @@ function scanTemplateDirectory(rootDir) {
           transparent: TRANSPARENT_IMAGE_EXTS.has(extLower),
           pack: packName,
           category: '图片',
+          relDir: relDir,
           name: base,
           file: fullPath,
           thumb: renderable ? fullPath : null,
@@ -371,6 +387,7 @@ function scanTemplateDirectory(rootDir) {
           playable: false,
           pack: packName,
           category: '设计稿',
+          relDir: relDir,
           name: base,
           file: fullPath,
           thumb: null,
@@ -386,6 +403,7 @@ function scanTemplateDirectory(rootDir) {
           playable: playable,
           pack: packName,
           category: '音频',
+          relDir: relDir,
           name: base,
           file: fullPath,
           thumb: null,
@@ -407,6 +425,35 @@ function scanTemplateDirectory(rootDir) {
 
   walk(resolved, 0, '');
   return items;
+}
+
+// Group a flat scanned list into immediate child subfolders + direct files at `subDir`.
+function listFolderLevel(items, subDir) {
+  const cur = String(subDir || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  const prefix = cur ? (cur + '/') : '';
+  const folderMap = new Map();
+  const files = [];
+  for (const item of items || []) {
+    const rel = String(item.relDir || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    if (rel === cur) {
+      files.push(item);
+      continue;
+    }
+    if (cur && !rel.startsWith(prefix)) continue;
+    const rest = cur ? rel.slice(prefix.length) : rel;
+    if (!rest) continue;
+    const seg = rest.split('/')[0];
+    const childRel = cur ? (cur + '/' + seg) : seg;
+    let entry = folderMap.get(childRel);
+    if (!entry) {
+      entry = { name: seg, relDir: childRel, count: 0 };
+      folderMap.set(childRel, entry);
+    }
+    entry.count++;
+  }
+  const folders = Array.from(folderMap.values())
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  return { folders, files };
 }
 
 // Lazily extract thumb.png / thumb.mp4 from a .mogrt ZIP into pack-cache
@@ -669,6 +716,7 @@ module.exports = {
   readZipEntries,
   extractZipEntry,
   scanTemplateDirectory,
+  listFolderLevel,
   ensureMogrtPreview,
   extractMogrtAep,
   hashClip,

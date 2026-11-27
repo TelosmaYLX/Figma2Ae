@@ -439,24 +439,25 @@ async function check() {
     assert.ok(stItem && stItem.video && stItem.video.endsWith('preview.mp4'));
     assert.ok(stItem.thumb && stItem.thumb.endsWith('cover.png'), 'generic cover.png is used as the AEP thumbnail');
 
-    // Scan a dedicated local media folder (videos, images, design files, audio)
+    // Scan a dedicated local media folder with nested subfolders (videos, images, design files, audio)
     const mediaDir = path.join(tmp, 'MediaPack');
-    await fsp.mkdir(mediaDir, { recursive: true });
-    await fsp.writeFile(path.join(mediaDir, 'intro.mp4'), 'MP4');
-    await fsp.writeFile(path.join(mediaDir, 'clip.mkv'), 'MKV');
+    await fsp.mkdir(path.join(mediaDir, '视频素材', '转场'), { recursive: true });
+    await fsp.mkdir(path.join(mediaDir, '音效'), { recursive: true });
+    await fsp.writeFile(path.join(mediaDir, '视频素材', 'intro.mp4'), 'MP4');
+    await fsp.writeFile(path.join(mediaDir, '视频素材', '转场', 'clip.mkv'), 'MKV');
     await fsp.writeFile(path.join(mediaDir, 'logo.png'), 'PNG');
     await fsp.writeFile(path.join(mediaDir, 'photo.jpg'), 'JPG');
     await fsp.writeFile(path.join(mediaDir, 'render.exr'), 'EXR');
     await fsp.writeFile(path.join(mediaDir, 'hero.psd'), 'PSD');
-    await fsp.writeFile(path.join(mediaDir, 'sfx.wav'), 'WAV');
+    await fsp.writeFile(path.join(mediaDir, '音效', 'sfx.wav'), 'WAV');
     const mediaItems = scanner.scanTemplateDirectory(mediaDir);
     assert.equal(mediaItems.length, 7, 'video, image, design and audio files are all scanned');
     const mp4 = mediaItems.find(x => x.name === 'intro');
-    assert.equal(mp4.kind, 'video'); assert.equal(mp4.category, '视频'); assert.equal(mp4.ext, 'MP4'); assert.equal(mp4.playable, true); assert.ok(mp4.video);
+    assert.equal(mp4.kind, 'video'); assert.equal(mp4.category, '视频'); assert.equal(mp4.ext, 'MP4'); assert.equal(mp4.playable, true); assert.ok(mp4.video); assert.equal(mp4.relDir, '视频素材');
     const mkv = mediaItems.find(x => x.name === 'clip');
-    assert.equal(mkv.kind, 'video'); assert.equal(mkv.playable, false); assert.equal(mkv.video, null);
+    assert.equal(mkv.kind, 'video'); assert.equal(mkv.playable, false); assert.equal(mkv.video, null); assert.equal(mkv.relDir, '视频素材/转场');
     const png = mediaItems.find(x => x.name === 'logo');
-    assert.equal(png.kind, 'image'); assert.equal(png.category, '图片'); assert.equal(png.transparent, true); assert.ok(png.thumb);
+    assert.equal(png.kind, 'image'); assert.equal(png.category, '图片'); assert.equal(png.transparent, true); assert.ok(png.thumb); assert.equal(png.relDir, '');
     const jpg = mediaItems.find(x => x.name === 'photo');
     assert.equal(jpg.kind, 'image'); assert.equal(jpg.transparent, false); assert.ok(jpg.thumb);
     const exr = mediaItems.find(x => x.name === 'render');
@@ -464,7 +465,18 @@ async function check() {
     const psd = mediaItems.find(x => x.name === 'hero');
     assert.equal(psd.kind, 'design'); assert.equal(psd.category, '设计稿'); assert.equal(psd.ext, 'PSD');
     const wav = mediaItems.find(x => x.name === 'sfx');
-    assert.equal(wav.kind, 'audio'); assert.equal(wav.category, '音频'); assert.equal(wav.playable, true); assert.ok(wav.audio);
+    assert.equal(wav.kind, 'audio'); assert.equal(wav.category, '音频'); assert.equal(wav.playable, true); assert.ok(wav.audio); assert.equal(wav.relDir, '音效');
+
+    // Verify hierarchical subfolder grouping at each level
+    const rootLevel = scanner.listFolderLevel(mediaItems, '');
+    assert.deepEqual(rootLevel.folders.map(f => [f.name, f.count]), [['视频素材', 2], ['音效', 1]]);
+    assert.equal(rootLevel.files.length, 4, 'only root-level direct files appear alongside top-level subfolders');
+    const videoLevel = scanner.listFolderLevel(mediaItems, '视频素材');
+    assert.deepEqual(videoLevel.folders.map(f => [f.name, f.relDir, f.count]), [['转场', '视频素材/转场', 1]]);
+    assert.deepEqual(videoLevel.files.map(f => f.name), ['intro']);
+    const nestedLevel = scanner.listFolderLevel(mediaItems, '视频素材/转场');
+    assert.equal(nestedLevel.folders.length, 0);
+    assert.deepEqual(nestedLevel.files.map(f => f.name), ['clip']);
 
     // Verify motionEngine.jsx imports local media assets cleanly (reuse footage, fit oversized down, keep small at 100%, PSD layered comp)
     {

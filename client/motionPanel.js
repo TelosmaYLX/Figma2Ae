@@ -186,6 +186,7 @@
     templateDirs: loadStoredDirs(),
     templates: [],
     templateDirFilter: null,
+    currentSubDir: "",
     templatePageLimit: 48,
     saveFormOpen: false,
     dirInputOpen: false,
@@ -252,6 +253,15 @@
     state.templates = all;
     if (state.templateDirFilter && state.templateDirs.indexOf(state.templateDirFilter) < 0) {
       state.templateDirFilter = null;
+      state.currentSubDir = "";
+    }
+    if (state.currentSubDir) {
+      var cur = state.currentSubDir, pref = cur + "/";
+      var stillExists = folderFilteredTemplates().some(function (it) {
+        var r = String(it.relDir || "");
+        return r === cur || r.indexOf(pref) === 0;
+      });
+      if (!stillExists) state.currentSubDir = "";
     }
     state.templatePageLimit = 48;
   }
@@ -668,6 +678,9 @@
       saveStoredDirs(state.templateDirs);
     }
     state.dirInputOpen = false;
+    state.templateDirFilter = state.templateDirs.length > 1 ? norm : null;
+    state.currentSubDir = "";
+    state.category = "全部";
     rescanTemplates();
     log("已挂载本地目录（共发现 " + state.templates.length + " 个文件）", "ok");
     renderPanel();
@@ -1002,6 +1015,46 @@
     return state.templates.filter(function (item) { return item.rootDir === state.templateDirFilter; });
   }
 
+  function activeBrowseRoot() {
+    if (state.templateDirFilter) return state.templateDirFilter;
+    if (state.templateDirs.length === 1) return state.templateDirs[0];
+    return null;
+  }
+
+  function listLevelLocal(items, subDir) {
+    if (scanner && typeof scanner.listFolderLevel === "function") {
+      return scanner.listFolderLevel(items, subDir);
+    }
+    var cur = String(subDir || "").replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+    var pref = cur ? (cur + "/") : "";
+    var map = {}, order = [], files = [];
+    for (var i = 0; i < items.length; i++) {
+      var rel = String(items[i].relDir || "").replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+      if (rel === cur) { files.push(items[i]); continue; }
+      if (cur && rel.indexOf(pref) !== 0) continue;
+      var rest = cur ? rel.slice(pref.length) : rel;
+      if (!rest) continue;
+      var seg = rest.split("/")[0];
+      var childRel = cur ? (cur + "/" + seg) : seg;
+      if (!map[childRel]) { map[childRel] = { name: seg, relDir: childRel, count: 0 }; order.push(childRel); }
+      map[childRel].count++;
+    }
+    var folders = order.map(function (k) { return map[k]; })
+      .sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { numeric: true }); });
+    return { folders: folders, files: files };
+  }
+
+  function subDirScopedTemplates() {
+    var list = folderFilteredTemplates();
+    var sub = state.currentSubDir;
+    if (!sub || !activeBrowseRoot()) return list;
+    var pref = sub + "/";
+    return list.filter(function (item) {
+      var r = String(item.relDir || "");
+      return r === sub || r.indexOf(pref) === 0;
+    });
+  }
+
   function currentItemsAndCategories() {
     var q = state.query.trim().toLowerCase();
     var all = [];
@@ -1017,7 +1070,7 @@
       for (var j = 0; j < state.builtinPresets.length; j++) merged.push(state.builtinPresets[j]);
       all = merged;
     } else if (state.tab === "templates") {
-      all = folderFilteredTemplates();
+      all = subDirScopedTemplates();
       var preferredCats = ["视频", "图片", "音频", "设计稿", "AEP 模板", "MOGRT", "FFX 特效"];
       var present = {};
       for (var t = 0; t < all.length; t++) if (all[t].category) present[all[t].category] = true;
@@ -1037,6 +1090,7 @@
         item.name || "",
         item.ext || "",
         item.category || "",
+        item.relDir || "",
         item.pack || "",
         item.description || "",
         Array.isArray(item.tags) ? item.tags.join(" ") : ""
@@ -1234,6 +1288,54 @@
     if (obs) obs.observe(stage);
     else if (state.autoPlayAll) startStageLoop(stage, item, meta);
 
+    return card;
+  }
+
+  function buildFolderSvg() {
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("class", "f2m-folder-ico");
+    svg.setAttribute("viewBox", "0 0 34 28");
+    svg.setAttribute("aria-hidden", "true");
+    var p = document.createElementNS(ns, "path");
+    p.setAttribute("d", "M3.5 5.5A2.5 2.5 0 0 1 6 3h6.4a2.5 2.5 0 0 1 1.9.87l1.55 1.83c.38.45.94.7 1.53.7H28a2.5 2.5 0 0 1 2.5 2.5v13.6A2.5 2.5 0 0 1 28 25H6a2.5 2.5 0 0 1-2.5-2.5V5.5Z");
+    p.setAttribute("fill", "currentColor");
+    p.setAttribute("fill-opacity", "0.22");
+    p.setAttribute("stroke", "currentColor");
+    p.setAttribute("stroke-width", "1.6");
+    p.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(p);
+    return svg;
+  }
+
+  function buildFolderCard(folder) {
+    var card = el("div", "f2m-card is-folder");
+    card.title = "打开文件夹「" + folder.name + "」（" + folder.count + " 项）";
+    var stage = el("div", "f2m-stage is-media is-folder is-applyable");
+    stage.appendChild(buildFolderSvg());
+    stage.appendChild(el("span", "f2m-media-badge", folder.count + " 项"));
+    card.appendChild(stage);
+
+    var foot = el("div", "f2m-foot");
+    var info = el("div", "f2m-info");
+    info.appendChild(el("div", "f2m-title", folder.name));
+    info.appendChild(el("div", "f2m-sub", "文件夹 · " + folder.count + " 项"));
+    foot.appendChild(info);
+    card.appendChild(foot);
+
+    card.onclick = function () {
+      if (folder.rootDir) {
+        state.templateDirFilter = folder.rootDir;
+        state.currentSubDir = "";
+      } else {
+        state.currentSubDir = folder.relDir || "";
+      }
+      state.category = "全部";
+      state.templatePageLimit = 48;
+      renderPanel();
+      var sc = document.querySelector(".f2m-scroll");
+      if (sc) sc.scrollTop = 0;
+    };
     return card;
   }
 
@@ -1502,6 +1604,7 @@
         allPill.title = "显示所有导入目录";
         allPill.onclick = function () {
           state.templateDirFilter = null;
+          state.currentSubDir = "";
           state.category = "全部";
           state.templatePageLimit = 48;
           renderPanel();
@@ -1519,6 +1622,7 @@
           function toggleFilter(ev) {
             if (ev) ev.stopPropagation();
             state.templateDirFilter = active ? null : dir;
+            state.currentSubDir = "";
             state.category = "全部";
             state.templatePageLimit = 48;
             renderPanel();
@@ -1532,7 +1636,10 @@
           rmBtn.onclick = function (ev) {
             ev.stopPropagation();
             state.templateDirs = state.templateDirs.filter(function (d) { return d !== dir; });
-            if (state.templateDirFilter === dir) state.templateDirFilter = null;
+            if (state.templateDirFilter === dir) {
+              state.templateDirFilter = null;
+              state.currentSubDir = "";
+            }
             saveStoredDirs(state.templateDirs);
             rescanTemplates();
             renderPanel();
@@ -1542,6 +1649,78 @@
         });
       }
       subbar.appendChild(row);
+
+      // Breadcrumb navigation when browsing inside a subfolder (or into one of multiple mounted roots).
+      var browseRoot = activeBrowseRoot();
+      var showCrumbs = !!state.currentSubDir || (state.templateDirs.length > 1 && !!state.templateDirFilter);
+      if (showCrumbs && browseRoot) {
+        var crumbs = el("div", "f2m-crumbs");
+        var backBtn = el("button", "f2m-crumb-back", "← 返回");
+        backBtn.type = "button";
+        backBtn.title = "返回上一级文件夹";
+        backBtn.onclick = function () {
+          if (state.currentSubDir) {
+            var parts = state.currentSubDir.split("/");
+            parts.pop();
+            state.currentSubDir = parts.join("/");
+          } else if (state.templateDirs.length > 1) {
+            state.templateDirFilter = null;
+          }
+          state.category = "全部";
+          state.templatePageLimit = 48;
+          renderPanel();
+        };
+        crumbs.appendChild(backBtn);
+
+        if (state.templateDirs.length > 1) {
+          var allCrumb = el("button", "f2m-crumb-btn", "全部");
+          allCrumb.type = "button";
+          allCrumb.onclick = function () {
+            state.templateDirFilter = null;
+            state.currentSubDir = "";
+            state.category = "全部";
+            state.templatePageLimit = 48;
+            renderPanel();
+          };
+          crumbs.appendChild(allCrumb);
+          crumbs.appendChild(el("span", "f2m-crumb-sep", "/"));
+        }
+
+        var rootLabel = path ? path.basename(browseRoot) : browseRoot;
+        var segs = state.currentSubDir ? state.currentSubDir.split("/") : [];
+        if (segs.length === 0) {
+          crumbs.appendChild(el("span", "f2m-crumb-cur", rootLabel));
+        } else {
+          var rootCrumb = el("button", "f2m-crumb-btn", rootLabel);
+          rootCrumb.type = "button";
+          rootCrumb.onclick = function () {
+            state.currentSubDir = "";
+            state.category = "全部";
+            state.templatePageLimit = 48;
+            renderPanel();
+          };
+          crumbs.appendChild(rootCrumb);
+          for (var ci = 0; ci < segs.length; ci++) {
+            crumbs.appendChild(el("span", "f2m-crumb-sep", "/"));
+            if (ci === segs.length - 1) {
+              crumbs.appendChild(el("span", "f2m-crumb-cur", segs[ci]));
+            } else {
+              (function (targetRel) {
+                var sb = el("button", "f2m-crumb-btn", segs[ci]);
+                sb.type = "button";
+                sb.onclick = function () {
+                  state.currentSubDir = targetRel;
+                  state.category = "全部";
+                  state.templatePageLimit = 48;
+                  renderPanel();
+                };
+                crumbs.appendChild(sb);
+              })(segs.slice(0, ci + 1).join("/"));
+            }
+          }
+        }
+        subbar.appendChild(crumbs);
+      }
 
       if (state.dirInputOpen) {
         var form = el("div", "f2m-inline-form");
@@ -1660,6 +1839,50 @@
 
     var isTpl = state.tab === "templates";
     var isUser = state.tab === "user";
+    var useFolderHierarchy = isTpl && state.category === "全部" && !state.query.trim();
+
+    if (useFolderHierarchy) {
+      var fragHier = document.createDocumentFragment();
+      var browseRoot = activeBrowseRoot();
+      if (!browseRoot) {
+        // Multiple mounted folders on "全部": present each mounted folder as a top-level folder card.
+        var counts = {};
+        for (var k = 0; k < state.templates.length; k++) {
+          var rd = state.templates[k].rootDir;
+          counts[rd] = (counts[rd] || 0) + 1;
+        }
+        state.templateDirs.forEach(function (dir) {
+          var label = path ? path.basename(dir) : dir;
+          fragHier.appendChild(buildFolderCard({ name: label, rootDir: dir, relDir: "", count: counts[dir] || 0 }));
+        });
+        grid.appendChild(fragHier);
+        return;
+      }
+
+      var level = listLevelLocal(folderFilteredTemplates(), state.currentSubDir);
+      for (var fi = 0; fi < level.folders.length; fi++) {
+        fragHier.appendChild(buildFolderCard(level.folders[fi]));
+      }
+      var fileSlice = level.files.slice(0, state.templatePageLimit);
+      for (var fl = 0; fl < fileSlice.length; fl++) {
+        fragHier.appendChild(buildTemplateCard(fileSlice[fl]));
+      }
+      grid.appendChild(fragHier);
+
+      if (level.files.length > state.templatePageLimit) {
+        var moreHier = el("div", "f2m-more-wrap");
+        var moreHierBtn = el("button", "f2m-chip-act", "加载更多（剩余 " + (level.files.length - state.templatePageLimit) + " 项）");
+        moreHierBtn.type = "button";
+        moreHierBtn.onclick = function () {
+          state.templatePageLimit += 60;
+          renderGrid();
+        };
+        moreHier.appendChild(moreHierBtn);
+        grid.appendChild(moreHier);
+      }
+      return;
+    }
+
     var limit = isTpl ? state.templatePageLimit : data.items.length;
     var slice = data.items.slice(0, limit);
 
