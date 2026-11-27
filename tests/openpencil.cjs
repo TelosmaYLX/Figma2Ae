@@ -794,6 +794,7 @@ async function testClientAndRunnerAndExport() {
       assert.ok(!html.includes('id="op-sel"'), 'Selection count badge must be removed');
       assert.ok(!html.includes('id="op-refresh"'), 'Manual refresh button must be removed');
       assert.ok(!html.includes('连接已断开，重连中'), 'Disconnect reconnect banner text must be removed');
+      assert.ok(!html.includes('请打开 OpenPencil 桌面端并启用本地服务'), 'Missing-app nag banner must be removed from the host UI');
       assert.ok(html.includes('href="/icon-256.png'), 'High-DPI PNG app icon must be linked');
       assert.ok(html.includes('.wrap > .status { display: none; }'), 'Redundant AE/MCP status rows inside embedded ui.html must be hidden');
       assert.ok(html.includes('.send-settings { margin-top: 0 !important; }'), 'Top gap above image folder settings must be tightened');
@@ -859,6 +860,39 @@ async function testClientAndRunnerAndExport() {
       assert.equal(iconKeeperStopped, true, 'Bridge close must clean up window icon keeper');
       relay.server.closeAllConnections();
       await new Promise(r => relay.server.close(r));
+    }
+
+    // Missing OpenPencil must be a quiet idle state instead of a red nag banner: the bridge
+    // reports errorCode 'no_app' so host.html suppresses the "please open OpenPencil" alert.
+    const idleBridge = startBridge({
+      port: 0,
+      client: createClient({ discoveryPath: path.join(tmpDir, 'missing-openpencil', 'mcp.json'), timeoutMs: 1500 }),
+      settingsPath: path.join(tmpDir, 'settings-idle.json'),
+      autoStartAep: false,
+      pollIntervalMs: 5000,
+      topmostSupported: false,
+      quiet: true,
+    });
+    await once(idleBridge.server, 'listening');
+    try {
+      const idlePort = idleBridge.server.address().port;
+      const idleState = await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Missing-app status timeout')), 8000);
+        const ws = connectRawWebSocket('ws://127.0.0.1:' + idlePort + '/ws', {
+          onMessage(text) {
+            const msg = JSON.parse(text);
+            if (msg.type !== 'openpencil-status') return;
+            clearTimeout(timer);
+            ws.close();
+            resolve(msg.state);
+          },
+        });
+      });
+      assert.equal(idleState.connected, false);
+      assert.equal(idleState.errorCode, 'no_app', 'Bridge must tag a missing OpenPencil as no_app so the panel stays quiet');
+      assert.match(idleState.error, /未检测到正在运行的 OpenPencil/, 'Detailed error stays available for logs and the CLI');
+    } finally {
+      await idleBridge.close();
     }
 
     // Window helper & panel arg parsing checks
@@ -986,6 +1020,57 @@ async function testClientAndRunnerAndExport() {
     assert.equal(opPanelSrc.includes('window.open'), false, 'AE CEP panel must never call window.open');
 
     assert.ok(renderHostHtml().includes('f2a-ui'));
+
+    // Host status bar: a missing OpenPencil stays quiet, real connection errors still alert.
+    const hostPage = renderHostHtml();
+    const hostScriptOf = page => {
+      const marker = '</script>\n<script>\n';
+      const start = page.indexOf(marker);
+      assert.ok(start >= 0, 'Host runtime script must be present');
+      const begin = start + marker.length;
+      const end = page.indexOf('\n</script>', begin);
+      assert.ok(end > begin, 'Host runtime script must be terminated');
+      return page.slice(begin, end);
+    };
+    const hostDom = {
+      'f2a-ui': { srcdoc: '', addEventListener() {}, contentWindow: { postMessage() {} } },
+      'op-dot': { className: '' },
+      'op-status': { textContent: '', title: '' },
+      'op-alert': { hidden: true, textContent: '' },
+      'op-pin': { hidden: true, className: '', title: '', setAttribute() {}, addEventListener() {} },
+      'f2a-ui-html': { textContent: JSON.stringify('<div id="f2a-ui"></div>') },
+    };
+    const hostSockets = [];
+    class FakeHostWebSocket {
+      constructor(url) { this.url = url; this.readyState = 1; hostSockets.push(this); }
+      send() {}
+      close() {}
+    }
+    const hostCtx = vm.createContext({
+      document: { getElementById: id => hostDom[id] || null },
+      location: { protocol: 'http:', host: '127.0.0.1:7399', search: '' },
+      window: { addEventListener() {} },
+      WebSocket: FakeHostWebSocket,
+    });
+    vm.runInContext(hostScriptOf(hostPage), hostCtx);
+    assert.equal(hostSockets.length, 1, 'Host UI must open one bridge WebSocket');
+    const hostWs = hostSockets[0];
+    hostWs.onopen();
+    const pushStatus = state => hostWs.onmessage({ data: JSON.stringify({ type: 'openpencil-status', state }) });
+    pushStatus({ connected: false, errorCode: 'no_app', error: '未检测到正在运行的 OpenPencil，请先打开 OpenPencil 桌面端并启用本地服务。' });
+    assert.equal(hostDom['op-alert'].hidden, true, 'Missing OpenPencil must stay quiet instead of raising the red banner');
+    assert.equal(hostDom['op-alert'].textContent, '');
+    assert.equal(hostDom['op-status'].textContent, '未连接');
+    pushStatus({ connected: false, errorCode: 'auth_failed', error: 'OpenPencil 认证令牌已过期' });
+    assert.equal(hostDom['op-alert'].hidden, false, 'Real connection errors still surface');
+    assert.equal(hostDom['op-alert'].textContent, 'OpenPencil 认证令牌已过期');
+    pushStatus({ connected: true, selectionOnly: true, error: null, documentName: 'Banner.fig' });
+    assert.equal(hostDom['op-alert'].hidden, false);
+    assert.match(hostDom['op-alert'].textContent, /仅共享选区/);
+    pushStatus({ connected: true, selectionOnly: false, documentName: 'Banner.fig', pageName: 'Page 1' });
+    assert.equal(hostDom['op-alert'].hidden, true);
+    assert.match(hostDom['op-status'].textContent, /Banner\.fig/);
+
     console.log('PASS: OpenPencil client, 3-stage runner, Web/AEP packet, CLI, bridge panel, AE CEP integration, headless MCP relay, and privacy checks');
   } finally {
     await mock.close();

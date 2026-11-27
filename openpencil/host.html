@@ -238,8 +238,11 @@
       dot.className = 'op-dot off';
       statusEl.textContent = '未连接';
       statusEl.title = '';
-      alertEl.hidden = false;
-      alertEl.textContent = state.error || '请打开 OpenPencil 桌面端并启用本地服务。';
+      // OpenPencil not running is a normal idle state, so keep the bar quiet:
+      // only a real connection error (expired token / RPC failure) shows the alert.
+      var errText = state.errorCode && state.errorCode !== 'no_app' ? (state.error || '') : '';
+      alertEl.hidden = !errText;
+      alertEl.textContent = errText;
       return;
     }
     if (state.selectionOnly) {
