@@ -15,6 +15,7 @@
      Image and coordinate markers use paired secondary buttons with the existing --surface fill and --line edge.
      Colour preservation and background blur are secondary export effects, so they share the
      效果 group instead of the layer and image fieldsets; both start unchecked.
+     Vector rasterization uses the existing unchecked controls under 强制转为图片.
      Node export and mask conversion are standard behavior, not redundant visible switches. -->
 <style>
   :root { --bg:#1e1e1e; --panel:#2a2a2a; --surface:#383838; --surface-hover:#464646; --surface-active:#303030; --line:#4b4b4b; --line-hover:#5a5a5a; --accent:#a78bfa; --text:#e8e8e8; --muted:#a3a3a3; --ok:#22c55e; --err:#ef4444; }
@@ -241,6 +242,7 @@
     </div>
     <div class="advanced-group">
       <div class="advanced-label">强制转为图片</div>
+      <label class="option" title="矩形、圆形、路径等按切图倍率导出为 PNG。"><input type="checkbox" id="raster-vector-shapes"> 矢量图形</label>
       <label class="option"><input type="checkbox" id="rasterallgroups"> Group 分组</label>
       <label class="option"><input type="checkbox" id="rasterinstances"> 组件实例</label>
       <div class="hint">转为图片后，内部内容不可单独编辑。</div>
@@ -289,7 +291,7 @@
   var CHECKBOX_SETTINGS = [
     'organize', 'precomp-layers', 'enableclip', 'ignorehidden', 'preserve-image-filters', 'preserve-background-blur',
     'raster-effects', 'raster-paints', 'raster-image-crops', 'raster-masks', 'raster-booleans',
-    'mergeblends', 'rasterallgroups', 'rasterinstances'
+    'mergeblends', 'raster-vector-shapes', 'rasterallgroups', 'rasterinstances'
   ];
   var SELECT_SETTINGS = [
     'aep-version', 'aep-duration', 'aep-fps', 'text-mode', 'native-image-masks', 'raster-scale'
@@ -467,6 +469,7 @@
       rasterize: {effects: $('raster-effects').checked, paints: $('raster-paints').checked, imageCrops: $('raster-image-crops').checked,
         masks: $('raster-masks').checked, booleans: $('raster-booleans').checked},
       mergeBlends: $('mergeblends').checked, outlineTexts: textMode === 'vector', rasterTexts: textMode === 'png',
+      rasterVectorShapes: $('raster-vector-shapes').checked,
       rasterAllGroups: $('rasterallgroups').checked, rasterInstances: $('rasterinstances').checked, enableClip: $('enableclip').checked };
   }
   function beginAgentAep(message) {

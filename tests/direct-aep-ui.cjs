@@ -108,7 +108,7 @@ function ui(packet, behavior='success') {
       assert.equal(elements['export-aep'].disabled,true,'Button stays locked while the server writes');
       assert.equal(elements['raster-scale'].disabled,true,'Keep the selected scale fixed until export completes');
       assert.equal(elements['native-image-masks'].disabled,true);
-      for(const id of ['aep-version','aep-duration','aep-fps','organize','precomp-layers','enableclip','ignorehidden','text-mode',...Object.values(rasterControls),'mergeblends','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
+      for(const id of ['aep-version','aep-duration','aep-fps','organize','precomp-layers','enableclip','ignorehidden','text-mode',...Object.values(rasterControls),'mergeblends','raster-vector-shapes','rasterallgroups','rasterinstances'])assert.equal(elements[id].disabled,true,id+' stays locked during export');
       assert.equal(posts.filter(m=>m.type==='ship-selection').length,1,'Collect and check Figma content before the server can choose a folder');
       assert.equal(elements['open-aep-folder'].hidden,true);
       if(behavior==='layer-error')return {ok:false,json:async()=>({error:'图层「shadow」无法导出：暂不支持该模糊或图层效果，请标记该层栅格化',nodeId:'original-shadow-id'})};
@@ -348,7 +348,7 @@ assert.match(pluginCode, /figma\.showUI\(__html__, \{ width: 320, height: 800, t
   for (const id of ['organize','precomp-layers','enableclip','ignorehidden','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends']) {
     firstOpen.elements[id].checked = false; firstOpen.elements[id].onchange();
   }
-  for (const id of ['rasterallgroups','rasterinstances']) {
+  for (const id of ['raster-vector-shapes','rasterallgroups','rasterinstances']) {
     firstOpen.elements[id].checked = true; firstOpen.elements[id].onchange();
   }
   await flush();
@@ -364,7 +364,7 @@ assert.match(pluginCode, /figma\.showUI\(__html__, \{ width: 320, height: 800, t
   for (const id of ['organize','precomp-layers','enableclip','ignorehidden','raster-effects','raster-paints','raster-image-crops','raster-masks','raster-booleans','mergeblends']) {
     assert.equal(secondOpen.elements[id].checked, false, id + ' must restore false');
   }
-  for (const id of ['rasterallgroups','rasterinstances']) {
+  for (const id of ['raster-vector-shapes','rasterallgroups','rasterinstances']) {
     assert.equal(secondOpen.elements[id].checked, true, id + ' must restore true');
   }
   // Invalid saved options or pre-load user edits must not corrupt controls

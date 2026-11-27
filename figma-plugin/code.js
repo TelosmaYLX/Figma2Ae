@@ -151,6 +151,7 @@ var _bicubicExport = false;
 var _rasterOrigin = { x: 0, y: 0 };
 var _rasterAllGroups = false;
 var _rasterInstances = false;
+var _rasterVectorShapes = false;
 var _precompLayers = false;
 var _temporaryExportRoot = null;
 var _rasterByNode = {};         // rasterised group + descendants: collected by the image route
@@ -618,6 +619,18 @@ function _singleImageNeedsRaster(n, effects) {
   var effect = _rasterOptions.effects && effects.length;
   return image && (crop || effect);
 }
+function _shouldRasterVectorShape(n) {
+  if (!_rasterVectorShapes || n.isMask || _maskSourceByNode[n.id] ||
+      !/^(BOOLEAN_OPERATION|ELLIPSE|LINE|POLYGON|RECTANGLE|ROUNDED_RECTANGLE|STAR|VECTOR)$/.test(n.type)) return false;
+  var fills = n.fills, strokes = n.strokes;
+  var paints = [].concat(fills === figma.mixed ? [] : (fills || []),
+                         strokes === figma.mixed ? [] : (strokes || [])).filter(function (p) {
+    return p.visible !== false && p.opacity !== 0;
+  });
+  return (paints.length > 0 || fills === figma.mixed || strokes === figma.mixed) &&
+    !paints.some(function (paint) { return paint.type === 'IMAGE'; });
+}
+
 function _collectRasterCandidates(root, organize) {
   var out = [];
   _rasterByNode = {};
@@ -630,7 +643,7 @@ function _collectRasterCandidates(root, organize) {
     if (_ignoreHidden && _isHidden(n)) return;
     if (_rasterByNode[n.id]) return;
     if (_independentMasks[n.id]) return;
-    if (_rasterWhole(n)) {
+    if (_rasterWhole(n) || _shouldRasterVectorShape(n)) {
       add(n); return;
     }
     if (_rasterTexts && n.type === 'TEXT') { add(n); return; }
@@ -1237,8 +1250,12 @@ async function _exportRasterPng(im) {
   var top = _rasterOrigin.y + Math.floor((b.y - _rasterOrigin.y) * _rasterScale + 0.000001) / _rasterScale;
   var width = Math.max(1, Math.ceil((b.x + b.width - left) * _rasterScale - 0.000001)) / _rasterScale;
   var height = Math.max(1, Math.ceil((b.y + b.height - top) * _rasterScale - 0.000001)) / _rasterScale;
+  // An extent just above a whole pixel can round up in exportAsync even though it
+  // matches the grid within tolerance. Use the sized canvas to fix its pixel count.
   if (Math.abs(left - b.x) < 0.000001 && Math.abs(top - b.y) < 0.000001 &&
-      Math.abs(width - b.width) < 0.000001 && Math.abs(height - b.height) < 0.000001)
+      Math.abs(width - b.width) < 0.000001 && Math.abs(height - b.height) < 0.000001 &&
+      Math.ceil(b.width * _rasterRenderScale) === Math.round(width * _rasterRenderScale) &&
+      Math.ceil(b.height * _rasterRenderScale) === Math.round(height * _rasterRenderScale))
     return n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: _rasterRenderScale } });
   var frame = figma.createFrame();
   try {
@@ -1849,6 +1866,7 @@ async function exportSelectionSVG(useNodes, organize, ignoreHidden, convertMasks
   _blendPaintMerged = {};
   _rasterAllGroups = options.rasterAllGroups === true;
   _rasterInstances = options.rasterInstances === true;
+  _rasterVectorShapes = options.rasterVectorShapes === true;
   _precompLayers = options.precompLayers === true;
   _includeRootContainer = !!organize && !!useNodes;
   var sel = figma.currentPage.selection;

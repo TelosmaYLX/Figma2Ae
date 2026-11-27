@@ -39,6 +39,21 @@ async function check(){
   await h.context.exportSelectionSVG(true,false,true,false,false,false,{rasterScale:2});
   assert.match(h.messages.find(m=>m.type==='error').message,/raster failed/);
   assert.ok(frames.every(frame=>frame.removed),'Clean up the padded canvas after a renderer failure');
-  console.log('PASS: fractional raster retains geometry and subpixel offset inside pixel-aligned padding at 1/2/3/4×; exact 2× bicubic source; original nodes and failure cleanup');
+
+  const width = 17 + 1e-12;
+  const bounds = {x:20,y:30,width,height:227};
+  const roundoff = node('VECTOR','Subpixel width rounding',{
+    width,height:227,absoluteBoundingBox:bounds,absoluteRenderBounds:bounds,
+    fills:[{type:'SOLID',color:{r:1,g:1,b:1}}],
+  });
+  const exact = harness(roundoff);
+  roundoff.exportAsync = async function (options) {
+    const s = options.constraint.value;
+    return png(Math.ceil(this.width*s),Math.ceil(this.height*s));
+  };
+  const rounded = await exact.run(true,false,false,false,{target:'ae',rasterVectorShapes:true});
+  assert.deepEqual(rounded.images.map(im=>[im.x,im.y,im.cw,im.ch,im.natW,im.natH]), [[0,0,17,227,17,227]],
+    'Floating-point noise must not add a pixel to the PNG and shift its anchor');
+  console.log('PASS: fractional raster retains geometry and subpixel offset inside pixel-aligned padding at 1/2/3/4×; exact 2× bicubic source; rounding, original nodes and failure cleanup');
 }
 check().catch(error=>{console.error(error);process.exitCode=1;});

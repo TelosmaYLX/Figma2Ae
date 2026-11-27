@@ -648,6 +648,14 @@ async function testClientAndRunnerAndExport() {
     assert.equal(exported.packet.images.find(im => im.sourceId === '1:12').flipY, true, 'Deferred OpenPencil images preserve mirrored transforms');
     assert.equal(exported.packet.images.find(im => im.sourceId === '1:11').flipY, false);
 
+    const rasterShapes = await runner.exportSelection({
+      target:'ae', selectionIds:['1:10','1:11'], rasterVectorShapes:true, rasterScale:2,
+      skipReferences:true, rasterize:{imageCrops:false},
+    }, {documentId:'tab-1'}, {throwOnError:true});
+    assert.equal(rasterShapes.packet.images.find(im => im.sourceId === '1:10').rasterScale, 2);
+    assert.equal(rasterShapes.packet.images.find(im => im.sourceId === '1:11').rasterScale, null);
+    assert.equal(rasterShapes.packet.nodes.some(n => n.sourceId === '1:10'), false);
+
     // Feed packet into F2A AEP packet normalizer AND Web bundle writer!
     exported.packet.aeVersion = '26.0';
     exported.packet.duration = 10;

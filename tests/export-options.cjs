@@ -198,6 +198,36 @@ async function check() {
   assert.equal(instancesOnly.images[0].name, '实例');
   const both = await policy.run(true, false, true, false, {rasterAllGroups: true, rasterInstances: true});
   assert.equal(both.images.length, 2); assert.equal(both.ship.texts.length, 1);
+  const shape = (type, name, extra = {}) => node(type, name, {
+    fills: [{type:'SOLID',color:{r:1,g:0,b:0}}], fillGeometry: [{data:'M0 0H100V60H0Z',windingRule:'NONZERO'}], ...extra
+  });
+  const mask = shape('RECTANGLE', 'Shape mask', {isMask:true});
+  const vector = shape('VECTOR', 'Masked vector', {blendMode:'MULTIPLY'});
+  const ellipse = shape('ELLIPSE', 'Ellipse');
+  const boolean = shape('BOOLEAN_OPERATION', 'Boolean result', {children:[shape('RECTANGLE','Boolean operand')]});
+  const photo = shape('RECTANGLE', 'Existing image', {fills:[{type:'IMAGE',imageHash:'photo',scaleMode:'FIT'}]});
+  const empty = shape('VECTOR', 'Empty vector', {fills:[]});
+  const caption = node('TEXT','Caption');
+  const shapeScene = node('FRAME','Shape scene',{children:[group('Masked shape group',[mask,vector]),ellipse,boolean,photo,empty,caption]});
+  const shapeExport = harness(shapeScene);
+  shapeExport.figma.getImageByHash = () => ({
+    getBytesAsync: async () => Buffer.from([0x89,0x50,0x4e,0x47]), getSizeAsync: async () => ({width:100,height:60})
+  });
+  const shapeOptions = {target:'ae',nativeImageMasks:true,rasterScale:2};
+  const rasters = await shapeExport.run(true,false,true,false,{...shapeOptions,rasterVectorShapes:true});
+  assert.deepEqual(rasters.images.filter(im => im.rasterScale === 2).map(im => im.sourceId).sort(), [vector.id,ellipse.id,boolean.id].sort());
+  assert.equal(rasters.images.find(im => im.sourceId === photo.id).rasterScale, null);
+  assert.deepEqual(rasters.ship.texts.map(t => t.sourceId), [caption.id]);
+  const maskedPng = rasters.images.find(im => im.sourceId === vector.id);
+  assert.equal(maskedPng.blend, 'MULTIPLY');
+  const retainedMask = rasters.ship.nodes.find(n => n.sourceId === mask.id);
+  assert.equal(maskedPng.maskId, retainedMask.maskSource);
+  assert.ok(maskedPng.maskId);
+  assert.ok(rasters.ship.containers.some(c => c.name === 'Masked shape group'));
+  const vectors = await shapeExport.run(true,false,true,false,shapeOptions);
+  assert.ok(vectors.ship.nodes.some(n => n.sourceId === vector.id));
+  assert.ok(vectors.ship.nodes.some(n => n.sourceId === boolean.id));
+  assert.equal(vectors.images.length, 1, 'Disabling the policy restores editable shapes for the next export');
   const nestedClip = node('FRAME', '内裁剪', {clipsContent: true, children: [node('TEXT', '文字')]});
   const clipScene = node('FRAME', '根裁剪', {clipsContent: true, children: [nestedClip]});
   const outsideClip = node('FRAME', '祖先裁剪', {clipsContent: true, children: [clipScene]});

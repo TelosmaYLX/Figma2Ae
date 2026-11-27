@@ -105,9 +105,12 @@ function uiHarness(bridge, main) {
     [[textA.id, 0, 31], [textB.id, 148, 0]], 'PNG text reaches the bridge at its original relative position');
   const policyBridge = bridgeHarness(), policyMain = harness(node('FRAME', '选项画框', {clipsContent: true, fills: [{type: 'SOLID'}],
     width: 810.25, height: 432, absoluteBoundingBox: {x: 20, y: 30, width: 810.25, height: 432},
-    children: [group('Group', [node('TEXT', '组文字')]), node('INSTANCE', 'Instance', {children: [node('TEXT', '实例文字')]})]}));
+    children: [group('Group', [node('TEXT', '组文字')]), node('INSTANCE', 'Instance', {children: [node('TEXT', '实例文字')]}),
+      node('VECTOR', '矢量边框', {fills: [{type:'SOLID',color:{r:1,g:0,b:0}}], fillGeometry: [{data:'M0 0H100V60H0Z',windingRule:'NONZERO'}]})]}));
   const policyUi = uiHarness(policyBridge, policyMain);
   assert.equal(policyUi.elements.rasterallgroups.checked, false); assert.equal(policyUi.elements.rasterinstances.checked, false); assert.equal(policyUi.elements.enableclip.checked, true);
+  assert.equal(policyUi.elements['raster-vector-shapes'].checked, false);
+  policyUi.elements['raster-vector-shapes'].checked = true;
   policyUi.elements.rasterallgroups.checked = true; policyUi.elements.rasterinstances.checked = true; policyUi.elements.enableclip.checked = false;
   const policyPost = policyMain.figma.ui.postMessage;
   const policyDone = new Promise(resolve => {
@@ -116,10 +119,12 @@ function uiHarness(bridge, main) {
   policyUi.elements.ship.onclick(); await policyDone;
   const compSize = policyBridge.imports[0].meta.compSize;
   assert.deepEqual([compSize.width, compSize.height], [810.25, 432], 'The live import uses frame bounds through the actual UI and bridge');
-  assert.equal(policyBridge.batches[0].filter(im=>!im.reference).length, 2); assert.equal(policyBridge.imports[0].meta.texts.length, 0);
+  assert.equal(policyBridge.batches[0].filter(im=>!im.reference).length, 3); assert.equal(policyBridge.imports[0].meta.texts.length, 0);
+  assert.ok(policyBridge.batches[0].some(im => im.name === '矢量边框' && im.rasterScale === 1));
+  assert.equal(policyBridge.imports[0].meta.nodes.some(n => n.name === '矢量边框'), false);
   const policyGroupContainers = policyBridge.imports[0].meta.containers.filter(c => !c.singleLayer);
   assert.equal(policyGroupContainers.length, 1); assert.equal(policyGroupContainers[0].clip, false);
-  assert.deepEqual(Array.from(policyBridge.imports[0].meta.containers.filter(c => c.singleLayer), c => c.name).sort(), ['Group', 'Instance']);
+  assert.deepEqual(Array.from(policyBridge.imports[0].meta.containers.filter(c => c.singleLayer), c => c.name).sort(), ['Group', 'Instance', '矢量边框']);
   const artwork = at(node('RECTANGLE', 'Selected shape', {cornerRadius:0,
     fillGeometry:[{data:'M0 0H100V60H0Z',windingRule:'NONZERO'}],
     fills:[{type:'SOLID',color:{r:1,g:0,b:0}}]}), 1120.25, 580.5);
