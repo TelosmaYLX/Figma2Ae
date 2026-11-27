@@ -622,11 +622,11 @@ body.mk-log-dragging iframe{pointer-events:none !important;}
 /* Recessed log well: system UI sans for Chinese readability, tabular monospace reserved for timestamps. */
 .mk-console-list{
   flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden;
-  padding:3px 0; background:var(--bg-2);
+  padding:4px 0; background:var(--bg-2);
   border:1px solid var(--border-soft);
   border-radius:var(--radius);
   box-shadow:inset 0 1px 3px rgba(0,0,0,.22);
-  font:11.5px/1.5 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+  font:11.5px/1.4 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
   color:var(--text-dim); overflow-wrap:anywhere;
 }
 .mk-console-list:empty::after{
@@ -637,14 +637,14 @@ body.mk-log-dragging iframe{pointer-events:none !important;}
 }
 .mk-log-line{
   display:flex; align-items:flex-start; gap:8px;
-  padding:5px 10px;
+  padding:2.5px 9px;
   transition:background .1s;
 }
-.mk-log-line + .mk-log-line{ border-top:1px solid rgba(255,255,255,.045); }
+.mk-log-line + .mk-log-line{ border-top:1px solid rgba(255,255,255,.035); }
 .mk-log-line:hover{ background:rgba(255,255,255,.025); }
 .mk-log-time{
   flex:0 0 auto;
-  font:10px/1.75 ui-monospace,"Cascadia Mono",Consolas,monospace;
+  font:10px/1.6 ui-monospace,"Cascadia Mono",Consolas,monospace;
   font-variant-numeric:tabular-nums;
   color:var(--text-mute); user-select:none;
 }
@@ -654,10 +654,10 @@ body.mk-log-dragging iframe{pointer-events:none !important;}
 }
 .mk-log-main{ display:block; }
 .mk-log-sub{
-  display:block; margin-top:3px;
-  padding:2px 0 2px 8px;
+  display:block; margin-top:2px;
+  padding:1px 0 1px 7px;
   border-left:2px solid var(--border);
-  font-size:11px; line-height:1.45; color:var(--text-dim);
+  font-size:11px; line-height:1.38; color:var(--text-dim);
 }
 .mk-log-sub.is-warn{
   border-left-color:rgba(212,168,67,.55);
