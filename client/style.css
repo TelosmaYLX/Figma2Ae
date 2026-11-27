@@ -568,37 +568,32 @@ body{
   margin:auto 14px 2px; position:relative;
 }
 .mk-console.is-collapsed{flex:0 0 auto;}
-.mk-console.is-collapsed .mk-console-head{border-radius:var(--radius);}
 .mk-console.is-collapsed .mk-console-list{display:none;}
 .mk-console.is-collapsed .mk-console-resize{display:none;}
 .mk-console.is-resizing{user-select:none;}
 /* The grip lives in the gap above the console, so it costs the list no height; the bar it draws
-   brightens on hover/focus/drag to stay out of the way. */
+   stays hidden until hover/focus/drag so nothing clutters the top edge. */
 .mk-console-resize{
   position:absolute; top:-7px; left:0; right:0; height:8px; z-index:4;
   cursor:ns-resize; touch-action:none;
 }
 .mk-console-resize::before{
-  content:""; position:absolute; top:50%; left:50%; width:32px; height:3px;
-  margin:-1.5px 0 0 -16px; border-radius:99px; background:var(--border); opacity:.65;
-  transition:background .12s, opacity .12s, width .12s, margin-left .12s;
+  content:""; position:absolute; top:50%; left:50%; width:36px; height:3px;
+  margin:-1.5px 0 0 -18px; border-radius:99px; background:var(--accent); opacity:0;
+  transition:opacity .12s, width .12s, margin-left .12s;
 }
 .mk-console-resize:hover::before,
 .mk-console-resize:focus-visible::before,
 .mk-console.is-resizing .mk-console-resize::before{
-  width:44px; margin-left:-22px; background:var(--accent); opacity:1;
+  width:44px; margin-left:-22px; opacity:1;
 }
 .mk-console-resize:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 body.mk-log-dragging{user-select:none; cursor:ns-resize;}
 body.mk-log-dragging iframe{pointer-events:none !important;}
-/* Integrated card header matching .f2m-ctx so the log sits naturally in the panel hierarchy. */
 .mk-console-head{
   flex:0 0 auto;
   display:flex; align-items:center; justify-content:space-between; gap:6px;
-  padding:4px 6px 4px 10px;
-  background:var(--surface-2);
-  border:1px solid var(--border-soft);
-  border-radius:var(--radius) var(--radius) 0 0;
+  padding:0 2px; margin:0 0 4px;
 }
 .mk-console-title-wrap{
   display:flex; align-items:center; gap:6px; min-width:0;
@@ -616,8 +611,8 @@ body.mk-log-dragging iframe{pointer-events:none !important;}
 .f2m-console-acts{display:flex; align-items:center; gap:3px; flex:0 0 auto;}
 .mk-console-clear{
   appearance:none; border:1px solid transparent; background:transparent; cursor:pointer;
-  padding:2px 6px; border-radius:var(--radius-sm); color:var(--text-mute);
-  font:inherit; font-size:10.5px; font-weight:500; line-height:1.3;
+  padding:1px 6px; border-radius:var(--radius-sm); color:var(--text-mute);
+  font:inherit; font-size:10.5px; font-weight:500; line-height:1.35;
   transition:background .12s, color .12s, border-color .12s;
 }
 .mk-console-clear:hover{
@@ -628,8 +623,8 @@ body.mk-log-dragging iframe{pointer-events:none !important;}
 .mk-console-list{
   flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden;
   padding:3px 0; background:var(--bg-2);
-  border:1px solid var(--border-soft); border-top:0;
-  border-radius:0 0 var(--radius) var(--radius);
+  border:1px solid var(--border-soft);
+  border-radius:var(--radius);
   box-shadow:inset 0 1px 3px rgba(0,0,0,.22);
   font:11.5px/1.5 -apple-system,"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
   color:var(--text-dim); overflow-wrap:anywhere;
