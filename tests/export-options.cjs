@@ -78,7 +78,21 @@ function mockFigma(root) {
       frame.exportAsync=function(options){return this.children[0].exportAsync.call(this,options);};
       return frame;
     },
-    group(nodes,parent) {const g=group('temporary selection',nodes);g.exportAsync=root.exportAsync;g.clone=function(){return mockClone(this);};g.remove=function(){this.removed=true;this.children.slice().forEach(c=>c.remove());};parent.appendChild(g);return g;}
+    group(nodes,parent) {const g=group('temporary selection',nodes);g.exportAsync=root.exportAsync;g.clone=function(){return mockClone(this);};g.remove=function(){this.removed=true;this.children.slice().forEach(c=>c.remove());};parent.appendChild(g);return g;},
+    // Vector text is flattened to glyph outlines in the real plugin API; the exporter now takes
+    // that path for text nodes that carry no fillGeometry (OpenPencil compatibility), so the mock
+    // must provide it instead of failing every vector-mode export.
+    flatten(nodes, parent) {
+      const text = nodes[0];
+      const vector = node('VECTOR', 'glyph vector', {
+        fillGeometry: [{data: 'M0 0H10V10H0Z', windingRule: 'NONZERO'}],
+        fills: text.fills, strokes: [], absoluteTransform: text.absoluteTransform
+      });
+      vector.remove = function () { this.removed = true; };
+      if (parent && typeof parent.appendChild === 'function') parent.appendChild(vector);
+      if (text.parent && text.parent.children) text.parent.children = text.parent.children.filter(c => c !== text);
+      return vector;
+    }
   };
   return {figma, messages, calls};
 }
