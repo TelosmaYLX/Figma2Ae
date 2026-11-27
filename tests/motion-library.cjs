@@ -467,9 +467,12 @@ async function check() {
     const wav = mediaItems.find(x => x.name === 'sfx');
     assert.equal(wav.kind, 'audio'); assert.equal(wav.category, '音频'); assert.equal(wav.playable, true); assert.ok(wav.audio); assert.equal(wav.relDir, '音效');
 
-    // Verify hierarchical subfolder grouping at each level
+    // Verify hierarchical subfolder grouping at each level (including preview thumbnails)
     const rootLevel = scanner.listFolderLevel(mediaItems, '');
     assert.deepEqual(rootLevel.folders.map(f => [f.name, f.count]), [['视频素材', 2], ['音效', 1]]);
+    assert.equal(rootLevel.folders[0].previews.length, 1, 'video subfolder carries playable video preview');
+    assert.equal(rootLevel.folders[0].previews[0].kind, 'video');
+    assert.equal(rootLevel.folders[1].previews.length, 0, 'audio-only subfolder falls back cleanly to folder icon');
     assert.equal(rootLevel.files.length, 4, 'only root-level direct files appear alongside top-level subfolders');
     const videoLevel = scanner.listFolderLevel(mediaItems, '视频素材');
     assert.deepEqual(videoLevel.folders.map(f => [f.name, f.relDir, f.count]), [['转场', '视频素材/转场', 1]]);

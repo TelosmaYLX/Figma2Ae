@@ -745,6 +745,8 @@
           });
           var ph = stage.querySelector(".f2m-media-placeholder");
           if (ph) ph.remove();
+        } else if (item.kind === "folder-video" && item.src && !stage.querySelector("video")) {
+          addVideoThumbnail(stage, fileUrl(item.src));
         }
       }
     }, { rootMargin: "120px" });
@@ -1029,18 +1031,29 @@
     var pref = cur ? (cur + "/") : "";
     var map = {}, order = [], files = [];
     for (var i = 0; i < items.length; i++) {
-      var rel = String(items[i].relDir || "").replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
-      if (rel === cur) { files.push(items[i]); continue; }
+      var it = items[i];
+      var rel = String(it.relDir || "").replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+      if (rel === cur) { files.push(it); continue; }
       if (cur && rel.indexOf(pref) !== 0) continue;
       var rest = cur ? rel.slice(pref.length) : rel;
       if (!rest) continue;
       var seg = rest.split("/")[0];
       var childRel = cur ? (cur + "/" + seg) : seg;
-      if (!map[childRel]) { map[childRel] = { name: seg, relDir: childRel, count: 0 }; order.push(childRel); }
-      map[childRel].count++;
+      if (!map[childRel]) { map[childRel] = { name: seg, relDir: childRel, count: 0, _thumbs: [], _videos: [], _seen: {} }; order.push(childRel); }
+      var ent = map[childRel];
+      ent.count++;
+      if (it.thumb && ent._thumbs.length < 4 && !ent._seen[it.thumb]) {
+        ent._seen[it.thumb] = 1;
+        ent._thumbs.push({ kind: "image", src: it.thumb, transparent: !!it.transparent });
+      } else if (it.video && ent._videos.length < 4 && !ent._seen[it.video]) {
+        ent._seen[it.video] = 1;
+        ent._videos.push({ kind: "video", src: it.video });
+      }
     }
-    var folders = order.map(function (k) { return map[k]; })
-      .sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { numeric: true }); });
+    var folders = order.map(function (k) {
+      var e = map[k];
+      return { name: e.name, relDir: e.relDir, count: e.count, previews: e._thumbs.concat(e._videos).slice(0, 4) };
+    }).sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { numeric: true }); });
     return { folders: folders, files: files };
   }
 
@@ -1312,7 +1325,33 @@
     var card = el("div", "f2m-card is-folder");
     card.title = "打开文件夹「" + folder.name + "」（" + folder.count + " 项）";
     var stage = el("div", "f2m-stage is-media is-folder is-applyable");
-    stage.appendChild(buildFolderSvg());
+    var previews = Array.isArray(folder.previews) ? folder.previews.slice(0, 4) : [];
+    if (previews.length) {
+      var mosaic = el("div", "f2m-folder-mosaic n-" + previews.length);
+      var obs = getMogrtObserver();
+      for (var i = 0; i < previews.length; i++) {
+        var pv = previews[i];
+        var cell = el("div", "f2m-folder-cell" + (pv.transparent ? " is-transparent" : ""));
+        if (pv.kind === "image") {
+          var img = document.createElement("img");
+          img.alt = "";
+          img.loading = "lazy";
+          img.src = fileUrl(pv.src);
+          cell.appendChild(img);
+        } else if (pv.kind === "video") {
+          cell._f2mTemplate = { kind: "folder-video", src: pv.src };
+          if (obs) obs.observe(cell);
+          else addVideoThumbnail(cell, fileUrl(pv.src));
+        }
+        mosaic.appendChild(cell);
+      }
+      stage.appendChild(mosaic);
+      var chip = el("span", "f2m-folder-chip");
+      chip.appendChild(buildFolderSvg());
+      stage.appendChild(chip);
+    } else {
+      stage.appendChild(buildFolderSvg());
+    }
     stage.appendChild(el("span", "f2m-media-badge", folder.count + " 项"));
     card.appendChild(stage);
 
@@ -1846,14 +1885,26 @@
       var browseRoot = activeBrowseRoot();
       if (!browseRoot) {
         // Multiple mounted folders on "全部": present each mounted folder as a top-level folder card.
-        var counts = {};
+        var rootStats = {};
         for (var k = 0; k < state.templates.length; k++) {
-          var rd = state.templates[k].rootDir;
-          counts[rd] = (counts[rd] || 0) + 1;
+          var it = state.templates[k];
+          var rd = it.rootDir;
+          if (!rootStats[rd]) rootStats[rd] = { count: 0, thumbs: [], videos: [], seen: {} };
+          var st = rootStats[rd];
+          st.count++;
+          if (it.thumb && st.thumbs.length < 4 && !st.seen[it.thumb]) {
+            st.seen[it.thumb] = 1;
+            st.thumbs.push({ kind: "image", src: it.thumb, transparent: !!it.transparent });
+          } else if (it.video && st.videos.length < 4 && !st.seen[it.video]) {
+            st.seen[it.video] = 1;
+            st.videos.push({ kind: "video", src: it.video });
+          }
         }
         state.templateDirs.forEach(function (dir) {
           var label = path ? path.basename(dir) : dir;
-          fragHier.appendChild(buildFolderCard({ name: label, rootDir: dir, relDir: "", count: counts[dir] || 0 }));
+          var st = rootStats[dir];
+          var previews = st ? st.thumbs.concat(st.videos).slice(0, 4) : [];
+          fragHier.appendChild(buildFolderCard({ name: label, rootDir: dir, relDir: "", count: st ? st.count : 0, previews: previews }));
         });
         grid.appendChild(fragHier);
         return;
