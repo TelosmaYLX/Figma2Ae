@@ -810,17 +810,93 @@ function _mkMotionCollectCompsInItem(item, list) {
   }
 }
 
+function _mkMotionFindFootageByFile(file) {
+  var target = "";
+  try { target = String(file.fsName || "").toLowerCase(); } catch (e0) { return null; }
+  if (!target) return null;
+  for (var i = 1; i <= app.project.numItems; i++) {
+    var it = app.project.item(i);
+    try {
+      if (it instanceof FootageItem && it.mainSource && it.mainSource.file &&
+          String(it.mainSource.file.fsName || "").toLowerCase() === target) {
+        return it;
+      }
+    } catch (e1) {}
+  }
+  return null;
+}
+
 function mkMotionImportTemplate(jobPath) {
   try {
     var job = _mkMotionReadJson(jobPath);
-    var comp = _mkMotionFindComp(job.comp_id);
     var filePath = job.file;
-    if (!filePath) throw new Error("缺少模板文件路径。");
+    if (!filePath) throw new Error("缺少文件路径。");
     var file = new File(File.encode(filePath));
     if (!file.exists) file = new File(filePath);
     if (!file.exists) throw new Error("找不到文件：" + filePath);
 
-    if (job.kind === "ffx") {
+    var kind = String(job.kind || "aep");
+    if (kind === "video" || kind === "image" || kind === "audio" || kind === "design") {
+      if (!app.project) throw new Error("请先在 After Effects 中打开工程。");
+      var activeComp = null;
+      if (job.comp_id) {
+        var cidItem = app.project.itemByID(job.comp_id);
+        if (cidItem && cidItem instanceof CompItem) activeComp = cidItem;
+      } else if (app.project.activeItem && app.project.activeItem instanceof CompItem) {
+        activeComp = app.project.activeItem;
+      }
+
+      var mediaItem = (kind !== "design") ? _mkMotionFindFootageByFile(file) : null;
+      var freshlyImported = false;
+      if (!mediaItem) {
+        // IMPORTANT: app.project.importFile() flushes AE's undo stack, so call before beginUndoGroup.
+        var mio = new ImportOptions(file);
+        var isLayeredPsd = kind === "design" && /\.(psd|psb)$/i.test(file.name);
+        if (isLayeredPsd && mio.canImportAs(ImportAsType.COMP_CROPPED_LAYERS)) {
+          mio.importAs = ImportAsType.COMP_CROPPED_LAYERS;
+        } else if (mio.canImportAs(ImportAsType.FOOTAGE)) {
+          mio.importAs = ImportAsType.FOOTAGE;
+        }
+        mediaItem = app.project.importFile(mio);
+        freshlyImported = true;
+      }
+      if (!mediaItem) throw new Error("无法导入该素材文件。");
+
+      var mediaLayer = null;
+      _mkBeginUndo("F2A 素材：" + (job.name || file.name));
+      try {
+        if (freshlyImported) {
+          var mediaFolder = _mkMotionFindOrCreateFolder("F2A 本地素材");
+          if (mediaItem.parentFolder !== mediaFolder) {
+            try { mediaItem.parentFolder = mediaFolder; } catch (eMF) {}
+          }
+        }
+        if (activeComp) {
+          mediaLayer = activeComp.layers.add(mediaItem);
+          mediaLayer.startTime = activeComp.time;
+          // Fit oversized visual media down to comp bounds; keep small icons/assets at 100%.
+          if (kind !== "audio" && job.fitToComp !== false && mediaItem.width > 0 && mediaItem.height > 0 &&
+              (mediaItem.width > activeComp.width || mediaItem.height > activeComp.height)) {
+            var downScale = Math.min(activeComp.width / mediaItem.width, activeComp.height / mediaItem.height) * 100;
+            mediaLayer.property("ADBE Transform Group").property("ADBE Scale").setValue([downScale, downScale, 100]);
+          }
+        }
+      } finally {
+        _mkEndUndo();
+      }
+
+      return _mkMotionOk({
+        kind: kind,
+        itemName: mediaItem.name || file.name,
+        layerName: mediaLayer ? mediaLayer.name : "",
+        layerIndex: mediaLayer ? mediaLayer.index : 0,
+        addedToTimeline: !!mediaLayer,
+        asComp: mediaItem instanceof CompItem
+      });
+    }
+
+    var comp = _mkMotionFindComp(job.comp_id);
+    if (kind === "ffx") {
       var sel = comp.selectedLayers.slice(0);
       if (!sel.length) throw new Error("请先选中至少一个图层以应用 FFX 预设。");
       var i;

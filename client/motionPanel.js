@@ -75,19 +75,38 @@
     return "file:///" + encodeURI(normalized).replace(/#/g, "%23").replace(/\?/g, "%3F");
   }
 
-  // A pack without a still image can still preview its first video frame as the card thumbnail.
-  function addVideoThumbnail(stageEl, url) {
+  function formatMediaDuration(sec) {
+    if (!isFinite(sec) || sec <= 0) return "";
+    var total = Math.round(sec);
+    var m = Math.floor(total / 60);
+    var s = total % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  // A pack or video asset without a still image previews its first video frame as the card thumbnail.
+  function addVideoThumbnail(stageEl, url, onDuration) {
     var vid = document.createElement("video");
     vid.className = "f2m-thumb-video";
     vid.muted = true;
     vid.playsInline = true;
-    vid.preload = "auto";
+    vid.preload = "metadata";
     vid.src = url;
     vid.addEventListener("loadedmetadata", function () {
-      try { if (!vid.currentTime) vid.currentTime = 0.04; } catch (e) {}
+      if (onDuration && isFinite(vid.duration) && vid.duration > 0) onDuration(vid.duration);
+      try { if (!vid.currentTime) vid.currentTime = Math.min(0.04, vid.duration ? vid.duration * 0.05 : 0.04); } catch (e) {}
     });
-    stageEl.appendChild(vid);
+    stageEl.insertBefore(vid, stageEl.firstChild);
     return vid;
+  }
+
+  // Only one audio card auditions at a time.
+  var activeAudioPreview = null;
+  function stopActiveAudioPreview() {
+    if (!activeAudioPreview) return;
+    try { activeAudioPreview.audio.pause(); } catch (e) {}
+    if (activeAudioPreview.stage) activeAudioPreview.stage.classList.remove("is-playing");
+    if (activeAudioPreview.fill) activeAudioPreview.fill.style.width = "0%";
+    activeAudioPreview = null;
   }
 
   // ---- Load standalone ExtendScript motion engine into AE ----
@@ -227,7 +246,7 @@
           all.push(list[j]);
         }
       } catch (e) {
-        log("扫描模板目录失败：" + e.message, "err");
+        log("扫描本地目录失败：" + e.message, "err");
       }
     }
     state.templates = all;
@@ -499,7 +518,7 @@
 
   function applyTemplateItem(item, chosenVariant) {
     if (!CEP) {
-      log("预览模式：已模拟导入模板「" + item.name + "」", "ok");
+      log("预览模式：已模拟导入「" + item.name + "」", "ok");
       return;
     }
     try {
@@ -527,15 +546,19 @@
         if (res.ok) {
           if (res.kind === "ffx") {
             log("已应用 FFX「" + item.name + "」→ " + res.layers + " 层", "ok");
+          } else if (res.kind === "aep") {
+            log("已导入合成「" + (res.compName || item.name) + "」到当前时间轴", "ok");
+          } else if (res.addedToTimeline) {
+            log("已导入" + (res.asComp ? "分层合成" : "素材") + "「" + (res.itemName || item.name) + "」到当前时间轴", "ok");
           } else {
-            log("已导入模板合成「" + (res.compName || item.name) + "」到当前时间轴", "ok");
+            log("已导入素材「" + (res.itemName || item.name) + "」到项目面板", "ok");
           }
-            } else {
+        } else {
           report("导入「" + item.name + "」失败：" + res.error, true);
         }
       });
     } catch (e) {
-      report("模板处理失败：" + e.message, true);
+      report("文件处理失败：" + e.message, true);
     }
   }
 
@@ -646,13 +669,13 @@
     }
     state.dirInputOpen = false;
     rescanTemplates();
-    log("已挂载本地模板目录（共发现 " + state.templates.length + " 个模板/预设）", "ok");
+    log("已挂载本地目录（共发现 " + state.templates.length + " 个文件）", "ok");
     renderPanel();
   }
 
   function chooseTemplateDir() {
     if (window.cep && window.cep.fs && window.cep.fs.showOpenDialogEx) {
-      var pick = window.cep.fs.showOpenDialogEx(false, true, "选择本地动效模板目录（支持 AEP / MOGRT / FFX）", "", []);
+      var pick = window.cep.fs.showOpenDialogEx(false, true, "选择本地文件夹（支持视频、图片、音频、AEP / MOGRT / FFX）", "", []);
       if (pick.err) { report("打开目录窗口失败（" + pick.err + "）", true); return; }
       if (pick.data && pick.data[0]) addTemplateDir(pick.data[0]);
     } else {
@@ -700,6 +723,15 @@
         } else if (item.kind === "aep" && !item.thumb && !item.video) {
           item._probed = true;
           enqueueAepPreview(item, stage);
+        } else if (item.kind === "video" && item.video && !stage.querySelector(".f2m-thumb-video")) {
+          var vUrl = fileUrl(item.video);
+          addVideoThumbnail(stage, vUrl, function (dur) {
+            item._duration = dur;
+            var badge = stage.querySelector(".f2m-media-badge");
+            if (badge) badge.textContent = formatMediaDuration(dur);
+          });
+          var ph = stage.querySelector(".f2m-media-placeholder");
+          if (ph) ph.remove();
         }
       }
     }, { rootMargin: "120px" });
@@ -986,7 +1018,11 @@
       all = merged;
     } else if (state.tab === "templates") {
       all = folderFilteredTemplates();
-      for (var t = 0; t < all.length; t++) addCat(all[t].category);
+      var preferredCats = ["视频", "图片", "音频", "设计稿", "AEP 模板", "MOGRT", "FFX 特效"];
+      var present = {};
+      for (var t = 0; t < all.length; t++) if (all[t].category) present[all[t].category] = true;
+      preferredCats.forEach(function (c) { if (present[c]) addCat(c); });
+      for (var t2 = 0; t2 < all.length; t2++) addCat(all[t2].category);
     } else {
       all = state.userClips;
     }
@@ -999,6 +1035,7 @@
       if (!q) return true;
       var hay = [
         item.name || "",
+        item.ext || "",
         item.category || "",
         item.pack || "",
         item.description || "",
@@ -1200,12 +1237,35 @@
     return card;
   }
 
+  function buildAudioWaveSvg() {
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("class", "f2m-audio-wave");
+    svg.setAttribute("viewBox", "0 0 46 24");
+    svg.setAttribute("aria-hidden", "true");
+    var bars = [
+      [3, 9, 6], [9, 6, 12], [15, 3, 18], [21, 7, 10],
+      [27, 4, 16], [33, 8, 8], [39, 6, 12]
+    ];
+    for (var i = 0; i < bars.length; i++) {
+      var r = document.createElementNS(ns, "rect");
+      r.setAttribute("x", String(bars[i][0]));
+      r.setAttribute("y", String(bars[i][1]));
+      r.setAttribute("width", "3");
+      r.setAttribute("height", String(bars[i][2]));
+      r.setAttribute("rx", "1.5");
+      r.setAttribute("fill", "currentColor");
+      svg.appendChild(r);
+    }
+    return svg;
+  }
+
   function buildTemplateCard(item) {
     var card = el("div", "f2m-card is-tpl");
     card.title = item.pack + " / " + item.category + " / " + item.name;
 
     var selectedVarIdx = 0;
-    var stage = el("div", "f2m-stage is-media is-applyable");
+    var stage = el("div", "f2m-stage is-media is-applyable" + (item.transparent ? " is-transparent" : ""));
     stage._f2mTemplate = item;
     item._stage = stage;
     stage.title = "点击" + (item.kind === "ffx" ? "应用" : "导入") + "「" + item.name + "」";
@@ -1219,22 +1279,55 @@
     }
     var thumbUrl = item.thumb ? fileUrl(item.thumb) : "";
     var activeVideoUrl = item.video ? fileUrl(item.video) : "";
+    var badgeLabel = (item.ext || item.kind || "").toUpperCase();
+
     if (thumbUrl) {
-      var img = el("img", "f2m-thumb");
+      var img = el("img", "f2m-thumb" + (item.transparent ? " is-contain" : ""));
       img.alt = item.name;
+      img.loading = "lazy";
       img.src = thumbUrl;
       stage.appendChild(img);
     }
 
-    if (!thumbUrl && activeVideoUrl) addVideoThumbnail(stage, activeVideoUrl);
-    if (!thumbUrl && !activeVideoUrl) {
-      var phText = item.kind === "ffx" ? "FX" : (item.kind === "mogrt" ? "MOGRT" : "AEP");
+    if (item.kind === "audio") {
+      stage.appendChild(buildAudioWaveSvg());
+      var audBadge = el("span", "f2m-media-badge", item._duration ? formatMediaDuration(item._duration) : badgeLabel);
+      stage.appendChild(audBadge);
+    } else if (!thumbUrl && activeVideoUrl) {
+      if (item.kind === "video") {
+        // Lazy-load video thumbnails via IntersectionObserver so large media folders stay responsive.
+        stage.appendChild(el("div", "f2m-media-placeholder", badgeLabel));
+        stage.appendChild(el("span", "f2m-media-badge", item._duration ? formatMediaDuration(item._duration) : badgeLabel));
+        var vidObs = getMogrtObserver();
+        if (vidObs) vidObs.observe(stage);
+        else {
+          addVideoThumbnail(stage, activeVideoUrl, function (dur) {
+            item._duration = dur;
+            var b = stage.querySelector(".f2m-media-badge");
+            if (b) b.textContent = formatMediaDuration(dur);
+          });
+          var ph0 = stage.querySelector(".f2m-media-placeholder");
+          if (ph0) ph0.remove();
+        }
+      } else {
+        addVideoThumbnail(stage, activeVideoUrl);
+      }
+    } else if (!thumbUrl && !activeVideoUrl) {
+      var phText = item.kind === "ffx" ? "FX" : (badgeLabel || (item.kind === "mogrt" ? "MOGRT" : "AEP"));
       if (item.kind === "aep" && item._previewQueued) phText = "生成预览…";
       var ph = el("div", "f2m-media-placeholder", phText);
       stage.appendChild(ph);
     }
 
     if (activeVideoUrl) stage.setAttribute("data-video", activeVideoUrl);
+
+    var scrubBar = null, scrubFill = null;
+    if (activeVideoUrl || (item.kind === "audio" && item.audio)) {
+      scrubBar = el("div", "f2m-scrub-bar");
+      scrubFill = el("div", "f2m-scrub-fill");
+      scrubBar.appendChild(scrubFill);
+      stage.appendChild(scrubBar);
+    }
 
     // Variant switcher for Titles Factory (A1 / A2 / A3) — subtle pill on top-right
     if (item.variants && item.variants.length > 1) {
@@ -1260,30 +1353,92 @@
       stage.appendChild(varBar);
     }
 
-    // Hover plays real MP4 preview video!
-    card.addEventListener("mouseenter", function () {
-      var vUrl = stage.getAttribute("data-video");
-      if (!vUrl) return;
-      var vid = stage.querySelector("video.f2m-vid");
-      if (!vid) {
-        vid = document.createElement("video");
-        vid.className = "f2m-vid";
-        vid.muted = true;
-        vid.loop = true;
-        vid.playsInline = true;
-        vid.autoplay = true;
-        vid.src = vUrl;
-        stage.appendChild(vid);
-      }
-      vid.play().catch(function () {});
-    });
-    card.addEventListener("mouseleave", function () {
-      var vid = stage.querySelector("video.f2m-vid");
-      if (vid) {
-        try { vid.pause(); } catch (e) {}
-        vid.remove();
-      }
-    });
+    // Hover plays real video preview + horizontal scrub (Aeviewer-style), or auditions audio.
+    if (item.kind === "audio" && item.audio) {
+      var audUrl = fileUrl(item.audio);
+      var audEl = null;
+      card.addEventListener("mouseenter", function () {
+        stopActiveAudioPreview();
+        if (!audEl) {
+          audEl = document.createElement("audio");
+          audEl.preload = "metadata";
+          audEl.src = audUrl;
+          audEl.addEventListener("loadedmetadata", function () {
+            if (isFinite(audEl.duration) && audEl.duration > 0) {
+              item._duration = audEl.duration;
+              var b = stage.querySelector(".f2m-media-badge");
+              if (b) b.textContent = formatMediaDuration(audEl.duration);
+            }
+          });
+          audEl.addEventListener("timeupdate", function () {
+            if (scrubFill && audEl.duration > 0) {
+              scrubFill.style.width = Math.min(100, (audEl.currentTime / audEl.duration) * 100).toFixed(1) + "%";
+            }
+          });
+          audEl.addEventListener("ended", function () {
+            stage.classList.remove("is-playing");
+            if (scrubFill) scrubFill.style.width = "0%";
+          });
+        }
+        try { audEl.currentTime = 0; } catch (e) {}
+        stage.classList.add("is-playing");
+        activeAudioPreview = { audio: audEl, stage: stage, fill: scrubFill };
+        audEl.play().catch(function () {});
+      });
+      card.addEventListener("mouseleave", function () {
+        if (activeAudioPreview && activeAudioPreview.stage === stage) stopActiveAudioPreview();
+      });
+    } else {
+      card.addEventListener("mouseenter", function () {
+        var vUrl = stage.getAttribute("data-video");
+        if (!vUrl) return;
+        var vid = stage.querySelector("video.f2m-vid");
+        if (!vid) {
+          vid = document.createElement("video");
+          vid.className = "f2m-vid";
+          vid.muted = true;
+          vid.loop = true;
+          vid.playsInline = true;
+          vid.autoplay = true;
+          vid.src = vUrl;
+          vid.addEventListener("timeupdate", function () {
+            if (scrubFill && vid.duration > 0) {
+              scrubFill.style.width = Math.min(100, (vid.currentTime / vid.duration) * 100).toFixed(1) + "%";
+            }
+          });
+          vid.addEventListener("loadedmetadata", function () {
+            if (scrubBar) scrubBar.classList.add("is-ready");
+            if (isFinite(vid.duration) && vid.duration > 0) {
+              item._duration = vid.duration;
+              var b = stage.querySelector(".f2m-media-badge");
+              if (b) b.textContent = formatMediaDuration(vid.duration);
+            }
+          });
+          stage.appendChild(vid);
+        }
+        stage.classList.add("is-playing");
+        vid.play().catch(function () {});
+      });
+      stage.addEventListener("mousemove", function (ev) {
+        if (item.kind !== "video") return;
+        var vid = stage.querySelector("video.f2m-vid");
+        if (!vid || !isFinite(vid.duration) || vid.duration <= 0) return;
+        var rect = stage.getBoundingClientRect();
+        if (!rect || rect.width <= 0) return;
+        var ratio = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+        try { vid.currentTime = ratio * vid.duration; } catch (e) {}
+        if (scrubFill) scrubFill.style.width = (ratio * 100).toFixed(1) + "%";
+      });
+      card.addEventListener("mouseleave", function () {
+        stage.classList.remove("is-playing");
+        if (scrubFill) scrubFill.style.width = "0%";
+        var vid = stage.querySelector("video.f2m-vid");
+        if (vid) {
+          try { vid.pause(); } catch (e) {}
+          vid.remove();
+        }
+      });
+    }
 
     if (item.kind === "mogrt" && !item._probed) {
       var obs = getMogrtObserver();
@@ -1306,12 +1461,13 @@
     var foot = el("div", "f2m-foot");
     var info = el("div", "f2m-info");
     info.appendChild(el("div", "f2m-title", item.name));
-    info.appendChild(el("div", "f2m-sub", item.kind.toUpperCase() + " · " + item.category));
+    info.appendChild(el("div", "f2m-sub", badgeLabel + " · " + item.category));
     foot.appendChild(info);
     card.appendChild(foot);
 
     stage.onclick = function (ev) {
       ev.stopPropagation();
+      stopActiveAudioPreview();
       var chosen = (item.variants && item.variants[selectedVarIdx]) || null;
       applyTemplateItem(item, chosen);
     };
@@ -1328,7 +1484,7 @@
     if (state.tab === "templates") {
       subbar.hidden = false;
       var row = el("div", "f2m-subrow");
-      var addBtn = iconButton("f2m-chip-act primary", "plus", "添加模板目录");
+      var addBtn = iconButton("f2m-chip-act primary", "plus", "添加文件夹");
       addBtn.onclick = chooseTemplateDir;
       row.appendChild(addBtn);
 
@@ -1336,7 +1492,7 @@
         var rescanBtn = iconButton("f2m-chip-act", "refresh", "刷新");
         rescanBtn.onclick = function () {
           rescanTemplates();
-          log("已刷新本地模板目录（" + state.templates.length + " 项）", "ok");
+          log("已刷新本地目录（" + state.templates.length + " 项）", "ok");
           renderPanel();
         };
         row.appendChild(rescanBtn);
@@ -1391,7 +1547,7 @@
         var form = el("div", "f2m-inline-form");
         var inp = el("input", "f2m-input");
         inp.type = "text";
-        inp.placeholder = "粘贴本地模板目录路径，回车确认…";
+        inp.placeholder = "粘贴本地文件夹路径，回车确认…";
         var ok = el("button", "f2m-chip-act primary", "确定");
         ok.type = "button";
         ok.onclick = function () { addTemplateDir(inp.value); };
@@ -1450,7 +1606,8 @@
     var catsEl = document.getElementById("f2m-cats");
     if (!grid || !catsEl) return;
 
-    // Clear active RAF loops and visibility tracking for old DOM nodes
+    // Clear active RAF loops, audio audition and visibility tracking for old DOM nodes
+    stopActiveAudioPreview();
     activeLoops.clear();
     visibleStages.clear();
     if (stageObserver) stageObserver.disconnect();
@@ -1485,16 +1642,16 @@
     if (!data.items.length) {
       var empty = el("div", "f2m-empty");
       if (state.tab === "templates" && !state.templateDirs.length) {
-        empty.appendChild(el("div", "f2m-empty-title", "尚未挂载本地模板目录"));
-        empty.appendChild(el("div", "f2m-empty-desc", "点击上方「添加模板目录」挂载本地动效数据包，即可预览缩略图并导入 AEP / MOGRT / FFX。"));
+        empty.appendChild(el("div", "f2m-empty-title", "尚未挂载本地文件夹"));
+        empty.appendChild(el("div", "f2m-empty-desc", "点击上方「添加文件夹」挂载本地目录，即可预览并导入视频、图片、音频、设计稿及 AEP / MOGRT / FFX。"));
       } else if (state.tab === "user" && !state.userClips.length) {
         empty.appendChild(el("div", "f2m-empty-title", "暂无自存动效"));
         empty.appendChild(el("div", "f2m-empty-desc", "在 AE 中选中已调好关键帧的图层，点击上方「保存选中动效」即可复用，并与 MCP 共享。"));
       } else if (state.category === "收藏") {
-        empty.appendChild(el("div", "f2m-empty-title", "还没有收藏的动效"));
-        empty.appendChild(el("div", "f2m-empty-desc", "点击动效预览图右上角的星标，即可把常用动效收进这里。"));
+        empty.appendChild(el("div", "f2m-empty-title", "还没有收藏的项目"));
+        empty.appendChild(el("div", "f2m-empty-desc", "点击预览图右上角的星标，即可把常用动效或素材收进这里。"));
       } else {
-        empty.appendChild(el("div", "f2m-empty-title", "没有匹配的动效"));
+        empty.appendChild(el("div", "f2m-empty-title", state.tab === "templates" ? "没有匹配的本地文件" : "没有匹配的动效"));
         empty.appendChild(el("div", "f2m-empty-desc", "试试清空搜索关键词或切换分类。"));
       }
       grid.appendChild(empty);
@@ -1529,7 +1686,7 @@
     var builtinCount = state.builtinClips.length + state.builtinPresets.length;
     var map = {
       builtin: "内置动效 (" + builtinCount + ")",
-      templates: "本地模板 (" + folderFilteredTemplates().length + ")",
+      templates: "本地文件 (" + folderFilteredTemplates().length + ")",
       user: "我的动效 (" + state.userClips.length + ")"
     };
     var btns = document.querySelectorAll(".f2m-tab");
@@ -1667,7 +1824,7 @@
     if (state.templateDirs.length) rescanTemplates();
     loadBuiltinCatalog(function () {
       var total = state.builtinClips.length + state.builtinPresets.length;
-      if (total) log("动效库已就绪：" + total + " 个内置动效" + (state.templates.length ? " · " + state.templates.length + " 个本地模板" : ""), "ok");
+      if (total) log("动效库已就绪：" + total + " 个内置动效" + (state.templates.length ? " · " + state.templates.length + " 个本地文件" : ""), "ok");
       renderPanel();
     });
   }

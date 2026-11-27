@@ -73,7 +73,25 @@ function extractZipEntry(buffer, entry) {
   throw new Error('Unsupported ZIP compression method: ' + entry.method);
 }
 
-// ---- Template Pack Scanner ----
+// ---- Template Pack & Local Media Scanner ----
+const VIDEO_PLAYABLE_EXTS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.ogv']);
+const VIDEO_EXTS = new Set([
+  '.mp4', '.webm', '.mov', '.m4v', '.ogv', '.mkv', '.avi', '.mxf',
+  '.mpg', '.mpeg', '.mts', '.m2ts', '.ts', '.wmv', '.flv', '.3gp', '.f4v', '.asf', '.dv', '.vob',
+]);
+const IMAGE_RENDERABLE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.bmp', '.ico', '.avif', '.jfif']);
+const IMAGE_EXTS = new Set([
+  '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.bmp', '.ico', '.avif', '.jfif',
+  '.tif', '.tiff', '.tga', '.exr', '.hdr', '.dpx', '.cin', '.sgi', '.rla', '.raw', '.dng',
+]);
+const DESIGN_EXTS = new Set(['.psd', '.psb', '.ai', '.eps', '.pdf']);
+const AUDIO_PLAYABLE_EXTS = new Set(['.mp3', '.wav', '.m4a', '.ogg', '.oga', '.flac', '.aac']);
+const AUDIO_EXTS = new Set([
+  '.mp3', '.wav', '.m4a', '.ogg', '.oga', '.flac', '.aac',
+  '.aif', '.aiff', '.wma', '.ac3', '.mp2', '.mpa',
+]);
+const TRANSPARENT_IMAGE_EXTS = new Set(['.png', '.webp', '.gif', '.svg', '.avif', '.ico']);
+
 function findSiblingPreviewVideo(dir) {
   try {
     const names = fs.readdirSync(dir);
@@ -100,6 +118,13 @@ function findGenericPreviewImage(dir) {
       const file = path.join(dir, stem + ext);
       if (fs.existsSync(file)) return file;
     }
+  }
+  return null;
+}
+function findBasePreviewVideo(dir, base) {
+  for (const ext of ['.mp4', '.webm', '.mov']) {
+    const file = path.join(dir, base + ext);
+    if (fs.existsSync(file)) return file;
   }
   return null;
 }
@@ -211,12 +236,16 @@ function scanTemplateDirectory(rootDir) {
     }
 
     // 2) Scan files in current folder
-    const aeps = entries.filter(e => e.isFile() && /\.aep$/i.test(e.name)).map(e => e.name).sort();
+    const aeps = entries.filter(e => e.isFile() && /\.(aep|aet|aepx)$/i.test(e.name)).map(e => e.name).sort();
     const mogrts = entries.filter(e => e.isFile() && /\.mogrt$/i.test(e.name)).map(e => e.name)
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     const ffxs = entries.filter(e => e.isFile() && /\.ffx$/i.test(e.name)).map(e => e.name).sort();
-    const siblingVideo = findSiblingPreviewVideo(dir);
+    const hasTemplates = aeps.length > 0 || mogrts.length > 0 || ffxs.length > 0;
+    const siblingVideo = aeps.length > 0 ? findSiblingPreviewVideo(dir) : null;
     const catName = path.basename(dir);
+    // Media files already bound as previews for AEP/MOGRT/FFX in this folder are not duplicated
+    // as standalone assets, keeping template packs clean while normal media folders show everything.
+    const usedPreviews = new Set();
 
     // Filter out legacy duplicate copies (e.g. "Foo copy 17.x.aep" / "Foo CS6.aep") when a main .aep exists
     const filteredAeps = aeps.length > 1
@@ -227,49 +256,144 @@ function scanTemplateDirectory(rootDir) {
 
     for (const aepName of finalAeps) {
       const aepPath = path.join(dir, aepName);
-      const base = aepName.replace(/\.aep$/i, '');
+      const ext = path.extname(aepName).slice(1).toUpperCase();
+      const base = aepName.replace(/\.(aep|aet|aepx)$/i, '');
       const thumbPath = findBasePreviewImage(dir, base) || dirFallbackThumb;
+      const vidPath = findBasePreviewVideo(dir, base) || siblingVideo;
+      if (thumbPath) usedPreviews.add(thumbPath.toLowerCase());
+      if (vidPath) usedPreviews.add(vidPath.toLowerCase());
       items.push({
         id: 'aep-' + createHash('sha1').update(aepPath).digest('hex').slice(0, 12),
         kind: 'aep',
+        ext: ext,
         pack: packName,
         category: 'AEP 模板',
         name: base,
         file: aepPath,
         thumb: thumbPath,
-        video: siblingVideo,
+        video: vidPath,
         variants: [],
       });
     }
 
     for (const mName of mogrts) {
       const mPath = path.join(dir, mName);
+      const base = mName.replace(/\.mogrt$/i, '');
+      const thumbPath = findBasePreviewImage(dir, base);
+      const vidPath = findBasePreviewVideo(dir, base);
+      if (thumbPath) usedPreviews.add(thumbPath.toLowerCase());
+      if (vidPath) usedPreviews.add(vidPath.toLowerCase());
       items.push({
         id: 'mogrt-' + createHash('sha1').update(mPath).digest('hex').slice(0, 12),
         kind: 'mogrt',
+        ext: 'MOGRT',
         pack: packName,
         category: catName === packName ? 'MOGRT' : catName,
-        name: mName.replace(/\.mogrt$/i, ''),
+        name: base,
         file: mPath,
-        thumb: null,
-        video: null,
+        thumb: thumbPath,
+        video: vidPath,
         variants: [],
       });
     }
 
     for (const fName of ffxs) {
       const fPath = path.join(dir, fName);
+      const base = fName.replace(/\.ffx$/i, '');
+      const thumbPath = findBasePreviewImage(dir, base);
+      const vidPath = findBasePreviewVideo(dir, base);
+      if (thumbPath) usedPreviews.add(thumbPath.toLowerCase());
+      if (vidPath) usedPreviews.add(vidPath.toLowerCase());
       items.push({
         id: 'ffx-' + createHash('sha1').update(fPath).digest('hex').slice(0, 12),
         kind: 'ffx',
+        ext: 'FFX',
         pack: packName,
         category: 'FFX 特效',
-        name: fName.replace(/\.ffx$/i, ''),
+        name: base,
         file: fPath,
-        thumb: null,
-        video: null,
+        thumb: thumbPath,
+        video: vidPath,
         variants: [],
       });
+    }
+
+    // 2b) Scan standalone local media assets (video, image, design, audio)
+    const mediaFiles = entries
+      .filter(e => e.isFile() && !e.name.startsWith('.'))
+      .map(e => e.name)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+    for (const fileName of mediaFiles) {
+      const extLower = path.extname(fileName).toLowerCase();
+      if (!extLower) continue;
+      const fullPath = path.join(dir, fileName);
+      if (hasTemplates && usedPreviews.has(fullPath.toLowerCase())) continue;
+
+      const extUpper = extLower.slice(1).toUpperCase();
+      const base = fileName.slice(0, -extLower.length);
+      if (VIDEO_EXTS.has(extLower)) {
+        const playable = VIDEO_PLAYABLE_EXTS.has(extLower);
+        items.push({
+          id: 'vid-' + createHash('sha1').update(fullPath).digest('hex').slice(0, 12),
+          kind: 'video',
+          ext: extUpper,
+          playable: playable,
+          pack: packName,
+          category: '视频',
+          name: base,
+          file: fullPath,
+          thumb: null,
+          video: playable ? fullPath : null,
+          variants: [],
+        });
+      } else if (IMAGE_EXTS.has(extLower)) {
+        const renderable = IMAGE_RENDERABLE_EXTS.has(extLower);
+        items.push({
+          id: 'img-' + createHash('sha1').update(fullPath).digest('hex').slice(0, 12),
+          kind: 'image',
+          ext: extUpper,
+          playable: renderable,
+          transparent: TRANSPARENT_IMAGE_EXTS.has(extLower),
+          pack: packName,
+          category: '图片',
+          name: base,
+          file: fullPath,
+          thumb: renderable ? fullPath : null,
+          video: null,
+          variants: [],
+        });
+      } else if (DESIGN_EXTS.has(extLower)) {
+        items.push({
+          id: 'dsn-' + createHash('sha1').update(fullPath).digest('hex').slice(0, 12),
+          kind: 'design',
+          ext: extUpper,
+          playable: false,
+          pack: packName,
+          category: '设计稿',
+          name: base,
+          file: fullPath,
+          thumb: null,
+          video: null,
+          variants: [],
+        });
+      } else if (AUDIO_EXTS.has(extLower)) {
+        const playable = AUDIO_PLAYABLE_EXTS.has(extLower);
+        items.push({
+          id: 'aud-' + createHash('sha1').update(fullPath).digest('hex').slice(0, 12),
+          kind: 'audio',
+          ext: extUpper,
+          playable: playable,
+          pack: packName,
+          category: '音频',
+          name: base,
+          file: fullPath,
+          thumb: null,
+          video: null,
+          audio: playable ? fullPath : null,
+          variants: [],
+        });
+      }
     }
 
     // 3) Recurse into subdirectories

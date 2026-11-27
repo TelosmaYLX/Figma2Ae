@@ -430,7 +430,7 @@ async function check() {
     await fsp.writeFile(path.join(stDir, 'cover.png'), 'PNGcover');
 
     const scanned = scanner.scanTemplateDirectory(tmp);
-    assert.equal(scanned.length, 4, 'Titles Factory aep + ffx + mogrt + main standalone aep (legacy copy skipped)');
+    assert.equal(scanned.length, 4, 'Titles Factory aep + ffx + mogrt + main standalone aep (legacy copy skipped, companion previews deduped)');
     const tfItem = scanned.find(x => x.name === 'Demo-01');
     assert.ok(tfItem && tfItem.thumb && tfItem.variants.length === 2);
     const ffxItem = scanned.find(x => x.kind === 'ffx');
@@ -438,6 +438,98 @@ async function check() {
     const stItem = scanned.find(x => x.name === 'Special Titles');
     assert.ok(stItem && stItem.video && stItem.video.endsWith('preview.mp4'));
     assert.ok(stItem.thumb && stItem.thumb.endsWith('cover.png'), 'generic cover.png is used as the AEP thumbnail');
+
+    // Scan a dedicated local media folder (videos, images, design files, audio)
+    const mediaDir = path.join(tmp, 'MediaPack');
+    await fsp.mkdir(mediaDir, { recursive: true });
+    await fsp.writeFile(path.join(mediaDir, 'intro.mp4'), 'MP4');
+    await fsp.writeFile(path.join(mediaDir, 'clip.mkv'), 'MKV');
+    await fsp.writeFile(path.join(mediaDir, 'logo.png'), 'PNG');
+    await fsp.writeFile(path.join(mediaDir, 'photo.jpg'), 'JPG');
+    await fsp.writeFile(path.join(mediaDir, 'render.exr'), 'EXR');
+    await fsp.writeFile(path.join(mediaDir, 'hero.psd'), 'PSD');
+    await fsp.writeFile(path.join(mediaDir, 'sfx.wav'), 'WAV');
+    const mediaItems = scanner.scanTemplateDirectory(mediaDir);
+    assert.equal(mediaItems.length, 7, 'video, image, design and audio files are all scanned');
+    const mp4 = mediaItems.find(x => x.name === 'intro');
+    assert.equal(mp4.kind, 'video'); assert.equal(mp4.category, '视频'); assert.equal(mp4.ext, 'MP4'); assert.equal(mp4.playable, true); assert.ok(mp4.video);
+    const mkv = mediaItems.find(x => x.name === 'clip');
+    assert.equal(mkv.kind, 'video'); assert.equal(mkv.playable, false); assert.equal(mkv.video, null);
+    const png = mediaItems.find(x => x.name === 'logo');
+    assert.equal(png.kind, 'image'); assert.equal(png.category, '图片'); assert.equal(png.transparent, true); assert.ok(png.thumb);
+    const jpg = mediaItems.find(x => x.name === 'photo');
+    assert.equal(jpg.kind, 'image'); assert.equal(jpg.transparent, false); assert.ok(jpg.thumb);
+    const exr = mediaItems.find(x => x.name === 'render');
+    assert.equal(exr.kind, 'image'); assert.equal(exr.playable, false); assert.equal(exr.thumb, null);
+    const psd = mediaItems.find(x => x.name === 'hero');
+    assert.equal(psd.kind, 'design'); assert.equal(psd.category, '设计稿'); assert.equal(psd.ext, 'PSD');
+    const wav = mediaItems.find(x => x.name === 'sfx');
+    assert.equal(wav.kind, 'audio'); assert.equal(wav.category, '音频'); assert.equal(wav.playable, true); assert.ok(wav.audio);
+
+    // Verify motionEngine.jsx imports local media assets cleanly (reuse footage, fit oversized down, keep small at 100%, PSD layered comp)
+    {
+      class FolderItem { constructor(name, parent) { this.name = name; this.parentFolder = parent; } }
+      class FootageItem { constructor(file, w, h) { this.name = path.basename(file.fsName); this.mainSource = { file }; this.width = w; this.height = h; this.parentFolder = null; } }
+      class CompItem {
+        constructor(name, w, h) {
+          this.name = name; this.width = w; this.height = h; this.time = 1.25; this.added = [];
+          this.layers = { add: item => { const l = { name: item.name, index: 1, startTime: 0, scale: [100, 100, 100], property: () => ({ property: () => ({ setValue(v) { l.scale = v; } }) }) }; this.added.push(l); return l; } };
+        }
+      }
+      const rootFolder = new FolderItem('Root', null);
+      const projItems = [];
+      let imports = 0, undoDepth = 0;
+      const activeComp = new CompItem('Main', 1920, 1080);
+      const mockApp = {
+        beginUndoGroup() { undoDepth++; },
+        endUndoGroup() { undoDepth--; },
+        project: {
+          rootFolder, activeItem: activeComp,
+          get numItems() { return projItems.length; },
+          item: i => projItems[i - 1],
+          items: { addFolder(name) { const f = new FolderItem(name, rootFolder); projItems.push(f); return f; } },
+          importFile(io) {
+            assert.equal(undoDepth, 0, 'importFile must run outside beginUndoGroup');
+            imports++;
+            const item = io.importAs === 'COMP_CROPPED_LAYERS'
+              ? new CompItem(path.basename(io.file.fsName), 800, 600)
+              : new FootageItem(io.file, /big/i.test(io.file.fsName) ? 3840 : 200, /big/i.test(io.file.fsName) ? 2160 : 200);
+            projItems.push(item);
+            return item;
+          }
+        }
+      };
+      const jobFiles = {
+        bigJob: JSON.stringify({ kind: 'video', name: 'big', file: '/media/big.mp4', fitToComp: true }),
+        smallJob: JSON.stringify({ kind: 'image', name: 'icon', file: '/media/icon.png', fitToComp: true }),
+        psdJob: JSON.stringify({ kind: 'design', name: 'hero', file: '/media/hero.psd', fitToComp: true }),
+      };
+      function MockFile(p) { this.fsName = p; this.name = path.basename(p); this.exists = true; this.open = () => true; this.close = () => {}; this.read = () => jobFiles[p] || '{}'; }
+      MockFile.encode = s => s;
+      function ImportOptions(file) { this.file = file; this.canImportAs = () => true; }
+      const ImportAsType = { FOOTAGE: 'FOOTAGE', PROJECT: 'PROJECT', COMP_CROPPED_LAYERS: 'COMP_CROPPED_LAYERS' };
+      const ctx = vm.createContext({ app: mockApp, File: MockFile, FolderItem, FootageItem, CompItem, ImportOptions, ImportAsType, Array, Object, String, Number, Math, RegExp, isFinite, Error });
+      vm.runInContext(engineSrc, ctx);
+
+      const rBig = JSON.parse(ctx.mkMotionImportTemplate('bigJob'));
+      assert.equal(rBig.ok, true); assert.equal(rBig.addedToTimeline, true);
+      assert.deepEqual(Array.from(activeComp.added[0].scale), [50, 50, 100], '4K video fits down to 1080p comp');
+      // Importing the exact same file again reuses existing FootageItem instead of duplicating it
+      const rBig2 = JSON.parse(ctx.mkMotionImportTemplate('bigJob'));
+      assert.equal(rBig2.ok, true); assert.equal(imports, 1, 'duplicate footage import is reused');
+
+      const rSmall = JSON.parse(ctx.mkMotionImportTemplate('smallJob'));
+      assert.equal(rSmall.ok, true);
+      assert.deepEqual(Array.from(activeComp.added[2].scale), [100, 100, 100], 'small images stay at 100% instead of upscaling');
+
+      const rPsd = JSON.parse(ctx.mkMotionImportTemplate('psdJob'));
+      assert.equal(rPsd.ok, true); assert.equal(rPsd.asComp, true, 'PSD imports as layered cropped comp when supported');
+
+      // Without an active comp, media still imports cleanly into the Project panel
+      mockApp.project.activeItem = null;
+      const rProjOnly = JSON.parse(ctx.mkMotionImportTemplate('smallJob'));
+      assert.equal(rProjOnly.ok, true); assert.equal(rProjOnly.addedToTimeline, false);
+    }
 
     const cacheDir = path.join(tmp, 'cache');
     const mPrev = scanner.ensureMogrtPreview(mogrtFile, cacheDir);
@@ -599,7 +691,10 @@ async function check() {
   assert.ok(panelSrc.indexOf('var exportBtn') < panelSrc.indexOf('var delBtn'), 'export sits above delete in the stacked pair');
   assert.match(panelCss, /\.f2m-actions \.f2m-del\{[^}]*height:16px/, 'the stacked icons keep a compact row');
   assert.match(panelCss, /\.f2m-card:hover\{[^}]*border-color:#6e6e6e/, 'the card hover border is brighter');
-  assert.doesNotMatch(panelSrc, /选择本地模板目录/, 'the empty template tab keeps only the top add-directory action');
+  assert.doesNotMatch(panelSrc, /选择本地模板目录/, 'the empty local-files tab keeps only the top add-directory action');
+  const panelHtml = fs.readFileSync(path.join(root, 'client/index.html'), 'utf8');
+  assert.match(panelHtml, /data-tab="templates"[^>]*>本地文件</, 'tab is labeled 本地文件');
+  assert.match(panelSrc, /templates:\s*"本地文件 \(/, 'runtime tab counter uses 本地文件');
   assert.match(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--surface-hi\)[^}]*color:var\(--text\)/, 'primary chips use a raised graphite fill instead of a blue one');
   assert.doesNotMatch(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent\)/, 'primary chips paint no solid accent fill');
   assert.doesNotMatch(panelCss, /\.f2m-chip-act\.primary\{[^}]*background:var\(--accent-dim\)/, 'primary chips paint no accent tint');
